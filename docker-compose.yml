@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: studio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: studio
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - studio-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  studio-postgres-data:

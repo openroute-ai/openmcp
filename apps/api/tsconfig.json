@@ -1,0 +1,4 @@
+{
+  "extends": "@workspace/typescript-config/node.json",
+  "include": ["src", "tsdown.config.ts"]
+}

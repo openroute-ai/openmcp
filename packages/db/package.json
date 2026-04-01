@@ -1,0 +1,41 @@
+{
+  "name": "@workspace/db",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsdown",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:push": "drizzle-kit push --config drizzle.config.ts",
+    "db:check": "drizzle-kit check --config drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config drizzle.config.ts",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.7",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.1",
+    "tsdown": "^0.21.6",
+    "typescript": "^5.9.3"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "default": "./src/index.ts"
+    },
+    "./schema": {
+      "import": "./dist/schema.mjs",
+      "default": "./src/schema.ts"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+import { IconMessageCircle } from "@tabler/icons-react"
+import { cn } from "@workspace/ui/lib/utils"
+import { buttonVariants } from "fumadocs-ui/components/ui/button"
+import { DocsLayout } from "fumadocs-ui/layouts/docs"
+import {
+  AISearch,
+  AISearchPanel,
+  AISearchTrigger,
+} from "@/components/ai/search"
+import { baseOptions } from "@/lib/layout.shared"
+import { source } from "@/lib/source"
+
+export default function Layout({ children }: LayoutProps<"/docs">) {
+  return (
+    <DocsLayout tree={source.getPageTree()} {...baseOptions()}>
+      <AISearch>
+        <AISearchPanel />
+        <AISearchTrigger
+          position="float"
+          className={cn(
+            buttonVariants({
+              variant: "secondary",
+              className: "text-fd-muted-foreground rounded-2xl",
+            })
+          )}
+        >
+          <IconMessageCircle className="size-4.5" />
+          Ask AI
+        </AISearchTrigger>
+      </AISearch>
+
+      {children}
+    </DocsLayout>
+  )
+}
