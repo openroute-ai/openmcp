@@ -5,9 +5,13 @@
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_TRUSTED_ORIGINS",
     "BETTER_AUTH_URL",
+    "CONSOLE_BETTER_AUTH_URL",
+    "CONSOLE_DATABASE_URL",
     "DATABASE_URL",
     "MISTRAL_API_KEY",
-    "PORT"
+    "NODE_ENV",
+    "PORT",
+    "VERCEL_URL"
   ],
   "tasks": {
     "build": {
