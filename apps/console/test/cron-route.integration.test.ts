@@ -141,9 +141,9 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
       await call(route.GET, "Bearer s3cret")
 
       const after = await listTaskDefinitions(db)
-      expect(
-        after.find((d) => d.id === definition!.id)?.cronExpression
-      ).toBe("0 5 * * *")
+      expect(after.find((d) => d.id === definition!.id)?.cronExpression).toBe(
+        "0 5 * * *"
+      )
     })
   })
 
@@ -205,16 +205,29 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
     // `trigger-monthly-finished` ("0 4 1 * *") is due.
     const FIRST_OF_MARCH_0400_SHANGHAI = new Date("2026-02-28T20:00:00Z")
 
-    it("does not let the same-minute guard hide a known gap", async () => {
-      // The trigger task never runs, so it leaves no execution row. If the
-      // guard were consulted first it would still report "already ran this
-      // minute" on the second tick and a known gap would read as done work.
+    it("deduplicates completed work and retries failed work", async () => {
+      // A completed run is work that happened, so a second tick in the same
+      // minute is deduplicated rather than repeated.
+      const done = await (
+        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+      ).json()
+      expect(done.results["build-monthly-rankings"]).toBe("completed")
+      const repeated = await (
+        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+      ).json()
+      expect(repeated.results["build-monthly-rankings"]).toBe(
+        "already ran this minute"
+      )
+
+      // A failed run is retried on the next tick, not hidden behind the
+      // guard: `trigger-monthly-finished` fails because no webhook URL is
+      // configured, and the guard excludes failed runs precisely so that a
+      // misconfiguration does not read as done work, a day or an hour later.
       await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
-      const body = await (
+      const retried = await (
         await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
       ).json()
-
-      expect(body.results["trigger-monthly-finished"]).toBe("unimplemented")
+      expect(retried.results["trigger-monthly-finished"]).toBe("failed")
     })
 
     it("keeps the disabled flag across later ticks", async () => {

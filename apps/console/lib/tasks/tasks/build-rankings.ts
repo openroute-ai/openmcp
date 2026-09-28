@@ -17,7 +17,10 @@
  * that did all the real work.
  */
 
-import { buildRankingsForMonth, buildRankingsForWeek } from "@/lib/github/service/rankings"
+import {
+  buildRankingsForMonth,
+  buildRankingsForWeek,
+} from "@/lib/github/service/rankings"
 import {
   getIsoWeekNumber,
   monthOf,
@@ -43,12 +46,16 @@ export function createBuildRankingsTask(
 
     async run({ db, logger }) {
       // A week that has not finished is partial, and a month that has not
-      // finished likewise, so both default to the last complete period.
-      const target = lastCompletePeriod(period, new Date())
-      const rankings =
+      // finished likewise, so both default to the last complete period. Split
+      // on the period so the call narrows to the matching shape.
+      const target =
         period === "week"
-          ? await buildRankingsForWeek(db, target as YearWeek)
-          : await buildRankingsForMonth(db, target as YearMonth)
+          ? lastCompletePeriod("week", new Date())
+          : lastCompletePeriod("month", new Date())
+      const rankings =
+        "week" in target
+          ? await buildRankingsForWeek(db, target)
+          : await buildRankingsForMonth(db, target)
 
       if (rankings.trending.length === 0) {
         // Publishing an empty ranking would overwrite a good one with a file
@@ -70,7 +77,9 @@ export function createBuildRankingsTask(
 
       if (!url) {
         // No bucket configured. The build succeeded; only publication did not.
-        logger.warn(`OSS is not configured; built ${fileName} without publishing`)
+        logger.warn(
+          `OSS is not configured; built ${fileName} without publishing`
+        )
       } else {
         logger.info(
           `published ${fileName}: ${rankings.trending.length} trending, ` +
@@ -105,9 +114,10 @@ function formatPeriod(period: YearWeek | YearMonth): string {
  * month's file will not retry and find this one under a different name.
  */
 export function periodFileName(target: YearWeek | YearMonth): string {
-  const name = "week" in target
-    ? `${target.year}-W${String(target.week).padStart(2, "0")}`
-    : `${target.year}-${String(target.month).padStart(2, "0")}`
+  const name =
+    "week" in target
+      ? `${target.year}-W${String(target.week).padStart(2, "0")}`
+      : `${target.year}-${String(target.month).padStart(2, "0")}`
   const directory = "week" in target ? "weekly" : "monthly"
   return `${directory}/${target.year}/${name}.json`
 }
@@ -125,6 +135,8 @@ export function periodFileName(target: YearWeek | YearMonth): string {
  * rule has no boundary case where a half-completed period is published a day
  * early.
  */
+export function lastCompletePeriod(period: "week", now: Date): YearWeek
+export function lastCompletePeriod(period: "month", now: Date): YearMonth
 export function lastCompletePeriod(
   period: "week" | "month",
   now: Date

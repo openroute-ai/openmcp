@@ -6,10 +6,13 @@
  * page that only wants to read task history.
  */
 
+import { createBuildDailyDataTask } from "@/lib/tasks/tasks/build-daily-data"
 import { createBuildRankingsTask } from "@/lib/tasks/tasks/build-rankings"
 import { createDiscoverSkillReposTask } from "@/lib/tasks/tasks/discover-skill-repos"
+import { createNotifyDailyTask } from "@/lib/tasks/tasks/notify-daily"
 import { createSnapshotStarsTask } from "@/lib/tasks/tasks/snapshot-stars"
 import { createSyncSkillReposTask } from "@/lib/tasks/tasks/sync-skill-repos"
+import { createTriggerRankingsFinishedTask } from "@/lib/tasks/tasks/trigger-ranking-finished"
 import { createUpdateGitHubDataTask } from "@/lib/tasks/tasks/update-github-data"
 import { createUpdateBundleSizeTask } from "@/lib/tasks/tasks/update-bundle-size"
 import { createUpdatePackageDataTask } from "@/lib/tasks/tasks/update-package-data"
@@ -18,17 +21,12 @@ import { getTaskRegistry, setTaskRegistry, type Task } from "@/lib/tasks/runner"
 /**
  * Task names that are defined and scheduled but have no implementation yet.
  *
- * The notification and build-trigger tasks post to services that are not part
- * of this migration. Naming them explicitly means the scheduler reports "not
- * implemented" rather than raising, so a due task shows up as a known gap
- * instead of an error that looks like a bug.
+ * Every seeded task is implemented; the set is kept because the scheduler,
+ * CLI and tests read it, and it is now empty. The next scheduled task that
+ * cannot yet be built in this repository goes in here instead of shipping as
+ * code that fails at runtime.
  */
-export const UNIMPLEMENTED_TASKS = new Set([
-  "build-daily-data",
-  "notify-daily",
-  "trigger-weekly-finished",
-  "trigger-monthly-finished",
-])
+export const UNIMPLEMENTED_TASKS = new Set<string>([])
 
 let installed = false
 
@@ -47,8 +45,12 @@ export function installTaskRegistry(): Map<string, Task> {
     createUpdatePackageDataTask(),
     createUpdateBundleSizeTask(),
     createSnapshotStarsTask(),
+    createBuildDailyDataTask(),
     createBuildRankingsTask("week"),
     createBuildRankingsTask("month"),
+    createNotifyDailyTask(),
+    createTriggerRankingsFinishedTask("week"),
+    createTriggerRankingsFinishedTask("month"),
     createSyncSkillReposTask(),
     createDiscoverSkillReposTask(),
   ]
