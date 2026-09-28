@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useSession } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
@@ -153,7 +153,7 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
 
   const user = {
     name: session?.user?.name ?? "Signed out",

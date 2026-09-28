@@ -19,6 +19,7 @@
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "eslint": "^9.39.2",
+    "ioredis": "^5.11.1",
     "prettier": "^3.9.9",
     "tsdown": "^0.23.0",
     "typescript": "~6.0.3"

@@ -4,7 +4,8 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { signUp } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
+import { AuthDivider, GitHubButton } from "@/components/github-button"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -23,7 +24,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-export function SignUpForm() {
+export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -36,7 +37,7 @@ export function SignUpForm() {
     setError(null)
     setLoading(true)
 
-    await signUp.email(
+    await authClient.signUp.email(
       { name, email, password },
       {
         onSuccess: () => {
@@ -62,7 +63,13 @@ export function SignUpForm() {
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="pb-6">
+        <CardContent className="space-y-4 pb-6">
+          {githubEnabled && (
+            <>
+              <GitHubButton />
+              <AuthDivider />
+            </>
+          )}
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="name">Name</FieldLabel>

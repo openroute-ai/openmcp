@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { GITHUB_CONFIGURED } from "@/lib/auth"
 import { SignInForm } from "./sign-in-form"
 
 export const metadata: Metadata = {
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function SignInPage() {
-  return <SignInForm />
+  return <SignInForm githubEnabled={GITHUB_CONFIGURED} />
 }

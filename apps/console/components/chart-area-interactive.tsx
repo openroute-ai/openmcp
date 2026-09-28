@@ -188,10 +188,16 @@ export function ChartAreaInteractive() {
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
+                    const date =
+                      typeof value === "string" || typeof value === "number"
+                        ? new Date(value)
+                        : null
+                    return date
+                      ? date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : value
                   }}
                   indicator="dot"
                 />

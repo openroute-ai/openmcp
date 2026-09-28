@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar"
 import { useRouter } from "next/navigation"
-import { signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import {
   IconDotsVertical,
   IconUserCircle,
@@ -51,7 +51,7 @@ export function NavUser({
     .toUpperCase()
 
   async function handleSignOut() {
-    await signOut({
+    await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           router.push("/sign-in")

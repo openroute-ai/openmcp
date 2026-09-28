@@ -13,17 +13,42 @@ A standalone shadcn dashboard app.
 
 ## Routes
 
-| Route            | Description                                       |
-| ---------------- | ------------------------------------------------- |
-| `/dashboard`     | `dashboard-01` block, requires a session           |
-| `/sign-in`       | Email + password sign in                           |
-| `/sign-up`       | Create an account (also creates the auth session)  |
-| `/api/auth/*`    | better-auth handler                                |
-| `/api/trpc/*`    | tRPC fetch handler (batched, superjson)            |
+| Route         | Description                                       |
+| ------------- | ------------------------------------------------- |
+| `/dashboard`  | `dashboard-01` block, requires a session          |
+| `/sign-in`    | Email + password sign in                          |
+| `/sign-up`    | Create an account (also creates the auth session) |
+| `/api/auth/*` | better-auth handler                               |
+| `/api/trpc/*` | tRPC fetch handler (batched, superjson)           |
+
+## Authentication
+
+Email + password sign-in and sign-up run through Better Auth
+(`@workspace/auth`), the same package `apps/web` and `apps/api` use. Sessions
+are created by Better Auth and served by the route handlers under `/api/auth`.
 
 `proxy.ts` redirects unauthenticated visitors to `/sign-in`; the tRPC routers
 additionally guard every procedure with `protectedProcedure`, so an
 unauthenticated call returns HTTP 401 even if it bypasses the proxy.
+
+### Redis rate limiting
+
+When `REDIS_URL` (or `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`) is set, the
+auth instance enables Better Auth's rate limiter backed by Redis
+(`createRedisRateLimitStorage` from `@workspace/auth`, keys
+`openmcp:console:auth:rate-limit:*`):
+
+- `/sign-in*` and `/sign-up*` are capped at **3 requests / 10 s per IP**
+  (Better Auth's stricter built-in rules); password-reset and verification
+  paths at 3 / 60 s.
+- All other auth calls share a default bucket of **100 / 60 s per IP**.
+- Counters live in Redis, so the limits hold across replicas and restart;
+  the increment is an atomic Lua script.
+- If Redis is unreachable the limiter fails open (logins unaffected) and logs
+  a single warning.
+
+Without Redis env vars this app behaves exactly as before (no rate limiting),
+so local development that skips Redis is safe by default.
 
 ## Data model
 
@@ -47,12 +72,13 @@ tRPC routers live in `lib/trpc/routers`:
 
 Copy `apps/console/.env.example` (or set these in your shell):
 
-| Variable                      | Purpose                                            |
-| ----------------------------- | -------------------------------------------------- |
-| `CONSOLE_DATABASE_URL`        | This app's own Postgres database                    |
-| `CONSOLE_BETTER_AUTH_URL`     | Public base URL, defaults to `http://localhost:3001`|
-| `BETTER_AUTH_SECRET`          | Shared with the other apps                          |
-| `BETTER_AUTH_TRUSTED_ORIGINS` | Comma-separated list of allowed origins            |
+| Variable                      | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `CONSOLE_DATABASE_URL`        | This app's own Postgres database                     |
+| `CONSOLE_BETTER_AUTH_URL`     | Public base URL, defaults to `http://localhost:3001` |
+| `BETTER_AUTH_SECRET`          | Shared with the other apps                           |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Comma-separated list of allowed origins              |
+| `REDIS_URL`                   | Redis URL for the auth rate limiter                  |
 
 The app expects to run on port **3001** so it does not collide with `apps/web`.
 

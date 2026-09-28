@@ -1,0 +1,50 @@
+{
+  "name": "@workspace/sms-captcha",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/ui": "workspace:*",
+    "ioredis": "^5.11.1",
+    "rc-slider-captcha": "^1.9.0",
+    "sharp": "^0.35.3"
+  },
+  "optionalDependencies": {
+    "@img/sharp-libvips-linuxmusl-x64": "1.3.2",
+    "@img/sharp-linuxmusl-x64": "0.35.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.39.2",
+    "next": "16.3.6",
+    "prettier": "^3.9.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "~6.0.3"
+  },
+  "peerDependencies": {
+    "next": ">=16",
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "default": "./src/client/index.ts"
+    },
+    "./server": {
+      "default": "./src/server/index.ts"
+    }
+  }
+}
