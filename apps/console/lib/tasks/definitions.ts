@@ -114,6 +114,15 @@ export const TASK_SEEDS: TaskSeed[] = [
     taskType: "daily",
     isDaily: true,
   },
+  {
+    name: "build-rising-stars",
+    description: "Build the Rising Stars report for the previous year",
+    // A yearly report: midday on the first day of the year, when the twelve
+    // months before it are all on record. The task also runs manually with an
+    // explicit year.
+    cronExpression: "0 12 1 1 *",
+    taskType: "yearly",
+  },
 ]
 
 /**
@@ -149,11 +158,7 @@ interface CronFields {
   dayOfWeek: Set<number>
 }
 
-function parseField(
-  field: string,
-  min: number,
-  max: number
-): Set<number> {
+function parseField(field: string, min: number, max: number): Set<number> {
   const values = new Set<number>()
 
   for (const part of field.split(",")) {

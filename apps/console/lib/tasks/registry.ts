@@ -8,6 +8,7 @@
 
 import { createBuildDailyDataTask } from "@/lib/tasks/tasks/build-daily-data"
 import { createBuildRankingsTask } from "@/lib/tasks/tasks/build-rankings"
+import { createBuildRisingStarsTask } from "@/lib/tasks/tasks/build-rising-stars"
 import { createDiscoverSkillReposTask } from "@/lib/tasks/tasks/discover-skill-repos"
 import { createNotifyDailyTask } from "@/lib/tasks/tasks/notify-daily"
 import { createSnapshotStarsTask } from "@/lib/tasks/tasks/snapshot-stars"
@@ -53,6 +54,7 @@ export function installTaskRegistry(): Map<string, Task> {
     createTriggerRankingsFinishedTask("month"),
     createSyncSkillReposTask(),
     createDiscoverSkillReposTask(),
+    createBuildRisingStarsTask(),
   ]
 
   const registry = new Map(tasks.map((task) => [task.name, task]))
