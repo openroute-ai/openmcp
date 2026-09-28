@@ -48,6 +48,11 @@ const data = {
       icon: <IconDashboard />,
     },
     {
+      title: "Rankings",
+      url: "/dashboard/rankings",
+      icon: <IconChartBar />,
+    },
+    {
       title: "Lifecycle",
       url: "#",
       icon: <IconListDetails />,
