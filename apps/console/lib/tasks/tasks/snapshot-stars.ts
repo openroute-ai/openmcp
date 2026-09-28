@@ -21,6 +21,7 @@ import {
   accumulateStarsByMonth,
   listSnapshottedRepoIds,
   recordMonth,
+  recordWeeklyStarsFromStargazers,
   type StargazerStamp,
 } from "@/lib/github/service/snapshot"
 import { processItems } from "@/lib/tasks/iterate"
@@ -134,8 +135,17 @@ export function createSnapshotStarsTask(
             await recordMonth(db, repo.id, yearMonth, { stars })
           }
 
+          // The same sweep is the only moment the weekly split is knowable:
+          // the raw timestamps are about to be discarded, and the monthly rows
+          // cannot recover a week that straddles the 1st.
+          const weeks = await recordWeeklyStarsFromStargazers(
+            db,
+            repo.id,
+            stamps
+          )
+
           return {
-            meta: { swept: 1, months: byMonth.length, stars: stamps.length },
+            meta: { swept: 1, months: byMonth.length, weeks, stars: stamps.length },
             data: null,
           }
         },
@@ -151,6 +161,7 @@ export function createSnapshotStarsTask(
         considered: repos.length,
         swept: result.meta.swept ?? 0,
         months: result.meta.months ?? 0,
+        weeks: result.meta.weeks ?? 0,
         stars: result.meta.stars ?? 0,
         empty: result.meta.empty ?? 0,
         skippedLarge: tooLarge.length,

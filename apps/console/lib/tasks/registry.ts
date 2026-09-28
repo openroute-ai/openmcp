@@ -6,6 +6,7 @@
  * page that only wants to read task history.
  */
 
+import { createBuildRankingsTask } from "@/lib/tasks/tasks/build-rankings"
 import { createDiscoverSkillReposTask } from "@/lib/tasks/tasks/discover-skill-repos"
 import { createSnapshotStarsTask } from "@/lib/tasks/tasks/snapshot-stars"
 import { createSyncSkillReposTask } from "@/lib/tasks/tasks/sync-skill-repos"
@@ -17,17 +18,15 @@ import { getTaskRegistry, setTaskRegistry, type Task } from "@/lib/tasks/runner"
 /**
  * Task names that are defined and scheduled but have no implementation yet.
  *
- * The ranking and notification tasks build and publish artefacts for frontends
- * that are not part of this migration. Naming them explicitly means the
- * scheduler reports "not implemented" rather than raising, so a due task shows
- * up as a known gap instead of an error that looks like a bug.
+ * The notification and build-trigger tasks post to services that are not part
+ * of this migration. Naming them explicitly means the scheduler reports "not
+ * implemented" rather than raising, so a due task shows up as a known gap
+ * instead of an error that looks like a bug.
  */
 export const UNIMPLEMENTED_TASKS = new Set([
   "build-daily-data",
   "notify-daily",
-  "build-weekly-rankings",
   "trigger-weekly-finished",
-  "build-monthly-rankings",
   "trigger-monthly-finished",
 ])
 
@@ -48,6 +47,8 @@ export function installTaskRegistry(): Map<string, Task> {
     createUpdatePackageDataTask(),
     createUpdateBundleSizeTask(),
     createSnapshotStarsTask(),
+    createBuildRankingsTask("week"),
+    createBuildRankingsTask("month"),
     createSyncSkillReposTask(),
     createDiscoverSkillReposTask(),
   ]

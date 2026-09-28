@@ -158,9 +158,10 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
       ).json()
 
       expect(Object.keys(body.results)).toEqual(["build-monthly-rankings"])
-      // The monthly build has no implementation in this migration, and saying
-      // so is what distinguishes a known gap from a broken task.
-      expect(body.results["build-monthly-rankings"]).toBe("unimplemented")
+      // The monthly build is implemented and ran: with no snapshots recorded
+      // it completes having published nothing, which is a normal empty build
+      // rather than a gap. The gap reporting is exercised by other tests.
+      expect(body.results["build-monthly-rankings"]).toBe("completed")
     })
 
     it("evaluates the schedule in Asia/Shanghai, not UTC", async () => {
@@ -200,16 +201,20 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
       expect(body.results).toEqual({})
     })
 
+    // 04:00 on 1 March in Asia/Shanghai is 20:00 UTC on 28 February, where
+    // `trigger-monthly-finished` ("0 4 1 * *") is due.
+    const FIRST_OF_MARCH_0400_SHANGHAI = new Date("2026-02-28T20:00:00Z")
+
     it("does not let the same-minute guard hide a known gap", async () => {
-      // The monthly task never runs, so it leaves no execution row. If the
+      // The trigger task never runs, so it leaves no execution row. If the
       // guard were consulted first it would still report "already ran this
       // minute" on the second tick and a known gap would read as done work.
-      await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+      await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
       const body = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+        await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
       ).json()
 
-      expect(body.results["build-monthly-rankings"]).toBe("unimplemented")
+      expect(body.results["trigger-monthly-finished"]).toBe("unimplemented")
     })
 
     it("keeps the disabled flag across later ticks", async () => {

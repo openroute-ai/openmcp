@@ -1,13 +1,14 @@
 /**
  * Tag persistence and project-to-tag assignment.
  *
- * Ranking depends on this data, so the exclusion rule in
- * `TAGS_EXCLUDED_FROM_RANKINGS` is enforced here rather than left to each
- * caller: a tag that must not influence a score is filtered at the query,
- * where a forgotten `where` clause cannot drop it.
+ * The exclusion rule lives on the tag row (`excludeFromRankings`) rather than
+ * in each caller, so anything that reads a project's ranking tags gets the
+ * stored answer. `TAGS_EXCLUDED_FROM_RANKINGS` only sets the default for a
+ * newly created tag, carrying the source app's hardcoded list forward without
+ * any comparison remaining at ranking time.
  */
 
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import {
   projectsToTags,
@@ -23,6 +24,14 @@ export interface UpsertTagInput {
   name: string
   description?: string | null
   aliases?: string[]
+  /**
+   * Whether projects carrying the tag are left out of the rankings.
+   *
+   * Defaults to membership in `TAGS_EXCLUDED_FROM_RANKINGS` for a new tag and
+   * to the row's current value for an existing one, so editing a tag's display
+   * name does not silently change whether it lands on the list.
+   */
+  excludeFromRankings?: boolean | null
 }
 
 /**
@@ -32,6 +41,13 @@ export interface UpsertTagInput {
  * for display cannot break the assignments that reference it.
  */
 export async function upsertTag(db: Db, input: UpsertTagInput): Promise<TagRow> {
+  const existing = await getTagByCode(db, input.code)
+  const excludeFromRankings =
+    input.excludeFromRankings ??
+    (existing
+      ? existing.excludeFromRankings
+      : TAGS_EXCLUDED_FROM_RANKINGS.includes(input.code))
+
   const [row] = await db
     .insert(tags)
     .values({
@@ -40,6 +56,7 @@ export async function upsertTag(db: Db, input: UpsertTagInput): Promise<TagRow> 
       name: input.name,
       description: input.description ?? null,
       aliases: input.aliases ?? [],
+      excludeFromRankings,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -48,6 +65,7 @@ export async function upsertTag(db: Db, input: UpsertTagInput): Promise<TagRow> 
         name: input.name,
         description: input.description ?? null,
         aliases: input.aliases ?? [],
+        excludeFromRankings,
         updatedAt: new Date(),
       },
     })
@@ -171,20 +189,20 @@ export async function listRankingTags(
   db: Db,
   projectId: string
 ): Promise<TagRow[]> {
-  const rows = await db
+  return db
     .select({ tag: tags })
     .from(projectsToTags)
     .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
     .where(
       and(
         eq(projectsToTags.projectId, projectId),
-        // Written as NOT IN rather than "<> ALL(...)": the latter needs the
-        // exclusions to arrive as a real Postgres array parameter, which the
-        // driver does not send for a plain JS array.
-        notInArray(tags.code, [...TAGS_EXCLUDED_FROM_RANKINGS])
+        // Reads the column, not the default list: the list only decided the
+        // value when the tag was created, and an editor may have since changed
+        // it. The exclusion is whatever the tag row currently says.
+        eq(tags.excludeFromRankings, false)
       )
     )
-  return rows.map(({ tag }) => tag)
+    .then((rows) => rows.map(({ tag }) => tag))
 }
 
 /** Every tag in use, with the number of projects carrying it. */
@@ -211,11 +229,6 @@ export async function tagUsage(
 
 export async function deleteTag(db: Db, id: string): Promise<void> {
   await db.delete(tags).where(eq(tags.id, id))
-}
-
-/** True when the tag must not influence a ranking. */
-export function isRankingExcluded(code: string): boolean {
-  return TAGS_EXCLUDED_FROM_RANKINGS.includes(code)
 }
 
 export type { TagRow }

@@ -1,15 +1,23 @@
 /**
- * Monthly ranking history.
+ * Star history.
  *
- * A snapshot row holds one year, with the months stored as a JSONB array,
- * so a year is read and written as a single row instead of a row per month.
- * Writes therefore merge rather than replace: two different collectors
- * (stargazers and npm downloads) contribute different fields to the same
- * month, and neither may erase the other's contribution.
+ * Two shapes, because two questions get asked of it. A snapshot row holds one
+ * year with the months stored as a JSONB array, so a year is read and written
+ * as a single row instead of a row per month. Writes therefore merge rather
+ * than replace: two different collectors (stargazers and npm downloads)
+ * contribute different fields to the same month, and neither may erase the
+ * other's contribution.
+ *
+ * The monthly rows cannot answer a weekly question, so the per-ISO-week split
+ * lives in its own table. See `repoWeeklyStars` in the schema.
  */
 
 import { and, eq, sql } from "drizzle-orm"
-import { snapshots, type SnapshotMonth } from "@/db/schema"
+import {
+  repoWeeklyStars,
+  snapshots,
+  type SnapshotMonth,
+} from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 import {
   getIsoWeekNumber,
@@ -237,6 +245,80 @@ export function flattenMonths(rows: SnapshotRow[]): SnapshotMonth[] {
   return rows
     .flatMap((row) => row.months ?? [])
     .sort((a, b) => a.year - b.year || a.month - b.month)
+}
+
+/**
+ * Records the stargazers gained in each ISO week covered by a sweep.
+ *
+ * Written from the same sweep that fills the monthly rows, because the monthly
+ * rows cannot answer a weekly question: a week that straddles the 1st is split
+ * across two months and no combination of them recovers the week's real gain.
+ * The raw timestamps are gone once the sweep finishes, so this is the only
+ * point at which the split is knowable.
+ *
+ * Only weeks within the sweep's own range are written, and a week the sweep
+ * covered with zero stargazers is recorded as zero rather than skipped, so a
+ * flat week reads as flat instead of as missing data.
+ *
+ * Replaces rather than appends, so a repository renamed or re-swept converges
+ * instead of keeping a stale count.
+ */
+export async function recordWeeklyStarsFromStargazers(
+  db: Db,
+  repoId: string,
+  stamps: StargazerStamp[]
+): Promise<number> {
+  const weeks = computeWeeklyTrend(stamps)
+  if (weeks.length === 0) return 0
+
+  const first = weeks[0]!.yearWeek
+  const last = weeks[weeks.length - 1]!.yearWeek
+
+  // Every week the sweep spanned, including the empty ones between the first
+  // and last stargazer. Skipping them would make a repository that gained
+  // nothing for a month look as though it had no data for it.
+  const covered: { year: number; week: number }[] = []
+  for (let year = first.year; year <= last.year; year++) {
+    const fromWeek = year === first.year ? first.week : 1
+    const toWeek = year === last.year ? last.week : weeksInYear(year)
+    for (let week = fromWeek; week <= toWeek; week++) {
+      covered.push({ year, week })
+    }
+  }
+
+  const counts = new Map(weeks.map((week) => [weekKey(week.yearWeek), week.total]))
+
+  // Replaced wholesale rather than range-deleted. A sweep always covers a
+  // repository's whole stargazer history, so every row this repository owns is
+  // in scope, and a range predicate would have to compare (year, week) tuples
+  // against a table that stores no date. This also drops weeks a re-sweep no
+  // longer spans, which a range delete would leave behind as stale zeros.
+  await db.delete(repoWeeklyStars).where(eq(repoWeeklyStars.repoId, repoId))
+
+  for (const { year, week } of covered) {
+    await db.insert(repoWeeklyStars).values({
+      repoId,
+      year,
+      week,
+      stars: counts.get(year * 100 + week) ?? 0,
+    })
+  }
+
+  return covered.length
+}
+
+function weekKey({ year, week }: YearWeek): number {
+  return year * 100 + week
+}
+
+function weeksInYear(year: number): number {
+  // An ISO year has 53 weeks when the year is short a day for the last week
+  // to close, which happens when 1 January is a Thursday or when it is a
+  // Wednesday leap year. December 28 is always in the last ISO week of its
+  // year, so asking the ISO arithmetic directly is exact where a weekday
+  // heuristic has to remember both rules.
+  const december28 = new Date(Date.UTC(year, 11, 28))
+  return getIsoWeekNumber(december28).week === 53 ? 53 : 52
 }
 
 export interface Trend {

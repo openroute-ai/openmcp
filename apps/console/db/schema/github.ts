@@ -47,7 +47,14 @@ export const PROJECT_TYPES = [
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectType = (typeof PROJECT_TYPES)[number]
 
-/** Tags that must never influence a ranking. */
+/**
+ * The tags the source app excluded from every ranking.
+ *
+ * Created tags default their `excludeFromRankings` column to membership in
+ * this list, so the behavior survives the move from a hardcoded comparison to
+ * per-tag configuration. Once a tag row exists the column is authoritative,
+ * and an editor can clear it; the list is only a default for new tags.
+ */
 export const TAGS_EXCLUDED_FROM_RANKINGS = ["meta", "learning", "wildcard"]
 
 export const repos = pgTable(
@@ -153,6 +160,19 @@ export const tags = pgTable("tags", {
   name: text("name").notNull(),
   description: text("description"),
   aliases: jsonb("aliases").$type<string[]>(),
+  /**
+   * Whether projects carrying this tag are left out of the rankings.
+   *
+   * The source app compared every project's tags against a constant and left a
+   * TODO to move it here. The column is that move: it is the source of truth
+   * at ranking time, migration `0003` sets it for the three codes the source
+   * excluded, and tag creation applies `TAGS_EXCLUDED_FROM_RANKINGS` as the
+   * default so a fresh install behaves like the source did without the
+   * comparison happening anywhere at ranking time.
+   */
+  excludeFromRankings: boolean("exclude_from_rankings")
+    .notNull()
+    .default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 })
@@ -201,6 +221,37 @@ export type SnapshotMonth = {
   totalPullRequests?: number
   totalReleases?: number
 }
+
+/**
+ * Stargazers gained per ISO week, written by the stargazer sweep.
+ *
+ * The monthly rows above cannot answer a weekly question. A month is a
+ * calendar bucket, so a week that straddles the 1st is split across two rows
+ * and no combination of them recovers the week's real gain. The sweep already
+ * reads every stargazer timestamp, so it records the weekly split at the same
+ * time; storing the aggregate rather than the raw stamps keeps the table at
+ * roughly one row per repository per week of history.
+ *
+ * `stars` is the number of stargazers *during* that week, not a running total.
+ * The weekly ranking compares consecutive weeks, and a running total would
+ * make every project look like it was losing momentum.
+ */
+export const repoWeeklyStars = pgTable(
+  "repo_weekly_stars",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    week: integer("week").notNull(),
+    stars: integer("stars").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.repoId, table.year, table.week] }),
+    // The ranking task reads one week across every repository.
+    index("repo_weekly_stars_week_idx").on(table.year, table.week),
+  ]
+)
 
 export const packages = pgTable(
   "packages",
@@ -508,6 +559,7 @@ export const risingStarProjects = pgTable(
 export const reposRelations = relations(repos, ({ many }) => ({
   projects: many(projects),
   snapshots: many(snapshots),
+  weeklyStars: many(repoWeeklyStars),
 }))
 
 export const projectsRelations = relations(projects, ({ many, one }) => ({
@@ -535,6 +587,16 @@ export const projectsToTagsRelations = relations(
 export const snapshotsRelations = relations(snapshots, ({ one }) => ({
   repo: one(repos, { fields: [snapshots.repoId], references: [repos.id] }),
 }))
+
+export const repoWeeklyStarsRelations = relations(
+  repoWeeklyStars,
+  ({ one }) => ({
+    repo: one(repos, {
+      fields: [repoWeeklyStars.repoId],
+      references: [repos.id],
+    }),
+  })
+)
 
 export const packagesRelations = relations(packages, ({ one }) => ({
   project: one(projects, {

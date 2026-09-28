@@ -21,7 +21,7 @@ import {
 } from "@/lib/github/service/project"
 import {
   addProjectTag,
-  isRankingExcluded,
+  getTagByCode,
   listProjectTags,
   listRankingTags,
   setProjectTags,
@@ -391,8 +391,12 @@ describe.skipIf(!hasDatabase)("project and tag services (integration)", () => {
 
     it("keeps ranking-excluded tags off a ranking", async () => {
       for (const code of ["meta", "learning", "wildcard"]) {
-        await upsertTag(db, { code, name: code })
+        await upsertTag(db, { code, name: code, excludeFromRankings: true })
       }
+      const { eq } = await import("drizzle-orm")
+      const { tags: tagsTable } = await import("@/db/schema")
+      const mcp = await getTagByCode(db, "mcp")
+      if (mcp) await db.delete(tagsTable).where(eq(tagsTable.id, mcp.id))
       await upsertTag(db, { code: "mcp", name: "MCP" })
       const { project } = await seedProject("acme", "ranked")
 
@@ -410,10 +414,37 @@ describe.skipIf(!hasDatabase)("project and tag services (integration)", () => {
       expect(ranking.map((t) => t.code)).toEqual(["mcp"])
     })
 
-    it("knows which codes are excluded", () => {
-      expect(isRankingExcluded("meta")).toBe(true)
-      expect(isRankingExcluded("learning")).toBe(true)
-      expect(isRankingExcluded("mcp")).toBe(false)
+    it("defaults new tags to the old hardcoded exclusions", async () => {
+      const { inArray } = await import("drizzle-orm")
+      const { tags: tagsTable } = await import("@/db/schema")
+      await db.delete(tagsTable).where(inArray(tagsTable.code, ["meta", "mcp"]))
+
+      // A legacy code created with no flag is excluded, exactly as the source
+      // app excluded it by comparing codes to a constant...
+      await upsertTag(db, { code: "meta", name: "meta" })
+      expect((await getTagByCode(db, "meta"))?.excludeFromRankings).toBe(true)
+
+      // ...an editor clearing it sticks, because the column is now the source
+      // of truth and the list is only a default for new tags...
+      await upsertTag(db, {
+        code: "meta",
+        name: "meta",
+        excludeFromRankings: false,
+      })
+      expect((await getTagByCode(db, "meta"))?.excludeFromRankings).toBe(false)
+
+      // ...ordinary codes are never excluded by default...
+      await upsertTag(db, { code: "mcp", name: "MCP" })
+      expect((await getTagByCode(db, "mcp"))?.excludeFromRankings).toBe(false)
+
+      // ...and re-upserting a tag for its display name keeps whatever it had.
+      await upsertTag(db, {
+        code: "mcp",
+        name: "MCP",
+        excludeFromRankings: true,
+      })
+      await upsertTag(db, { code: "mcp", name: "The MCPs" })
+      expect((await getTagByCode(db, "mcp"))?.excludeFromRankings).toBe(true)
     })
 
     it("counts tag usage including unused tags", async () => {

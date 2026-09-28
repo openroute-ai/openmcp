@@ -89,6 +89,21 @@ export function getYearMonth(date: Date): YearMonth {
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 }
 }
 
+/**
+ * The ISO week immediately before the given one.
+ *
+ * Needed by the weekly ranking, which compares a week against the one before
+ * it. Derived by asking the calendar rather than by subtracting from the week
+ * number, because week 1 of a year is preceded by the last week of the year
+ * before, and that year may have had 52 or 53 weeks.
+ */
+export function previousIsoWeek(yearWeek: YearWeek): YearWeek {
+  // The Sunday before this week's Monday is inside the previous ISO week, so
+  // `getIsoWeekNumber` reads the right answer off it, whatever the year does.
+  const monday = getIsoWeekStart(yearWeek)
+  return getIsoWeekNumber(new Date(monday.getTime() - MS_PER_DAY))
+}
+
 /** Clamps a month to 1-12, so a bad input cannot produce a phantom month. */
 function assertMonth(month: number): void {
   if (!Number.isInteger(month) || month < 1 || month > 12) {

@@ -5,9 +5,10 @@
  * the read-modify-write of a year row: two collectors must be able to add
  * different fields to the same month without either losing its data.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { eq } from "drizzle-orm"
 import { db, pool } from "@/db/client"
-import { repos } from "@/db/schema"
+import { repoWeeklyStars, repos } from "@/db/schema"
 import { upsertRepo } from "@/lib/github/service/repo"
 import {
   computeMonthlyTrend,
@@ -19,6 +20,7 @@ import {
   monthAt,
   recordMonth,
   recordStarsFromStargazers,
+  recordWeeklyStarsFromStargazers,
 } from "@/lib/github/service/snapshot"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 
@@ -208,5 +210,80 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
     await db.delete(reposTable).where(eq(reposTable.id, repo.id))
 
     expect(await listSnapshots(db, repo.id)).toHaveLength(0)
+  })
+
+  describe("weekly stargazer rows", () => {
+    beforeEach(async () => {
+      await db.delete(repoWeeklyStars)
+    })
+
+    it("fills the empty weeks between the first and last stargazer with zeros", async () => {
+      const repo = await seedRepo("snap", "weekly-gap")
+      const weeks = await recordWeeklyStarsFromStargazers(db, repo.id, [
+        { starredAt: "2026-01-05T00:00:00Z" },
+        { starredAt: "2026-03-02T00:00:00Z" },
+      ])
+
+      const rows = await db
+        .select()
+        .from(repoWeeklyStars)
+        .where(eq(repoWeeklyStars.repoId, repo.id))
+
+      const gap = rows.find((row) => row.year === 2026 && row.week === 8)
+      expect(gap?.stars).toBe(0)
+      // 2026-01-05 falls in ISO week 2 and 2026-03-02 in week 10, so the
+      // stargazers straddle the empty weeks rather than sharing one.
+      expect(rows.find((row) => row.year === 2026 && row.week === 2)?.stars).toBe(1)
+      expect(rows.find((row) => row.year === 2026 && row.week === 10)?.stars).toBe(1)
+      // More weeks than stargazers, because the empty ones are materialized.
+      expect(rows).toHaveLength(weeks)
+      expect(rows.length).toBeGreaterThan(2)
+    })
+
+    it("counts a 53-week ISO year across its full span", async () => {
+      // 2020 has 53 ISO weeks: 1 January is a Wednesday leap year. A sweep
+      // from early 2019 to late 2021 passes through it as an intermediate
+      // year, which is exactly the case a weekday heuristic can get wrong.
+      const repo = await seedRepo("snap", "leap")
+      const weeks = await recordWeeklyStarsFromStargazers(db, repo.id, [
+        { starredAt: "2019-01-02T00:00:00Z" },
+        { starredAt: "2021-12-30T00:00:00Z" },
+      ])
+
+      const rows = await db
+        .select()
+        .from(repoWeeklyStars)
+        .where(eq(repoWeeklyStars.repoId, repo.id))
+
+      const in2020 = rows.filter((row) => row.year === 2020)
+      expect(in2020).toHaveLength(53)
+      expect(in2020.some((row) => row.week === 53)).toBe(true)
+      expect(rows).toHaveLength(weeks)
+      expect(rows.map((row) => `${row.year}-${row.week}`)).toContain("2020-53")
+    })
+
+    it("replaces the repository's rows rather than appending", async () => {
+      const repo = await seedRepo("snap", "weekly-replace")
+      await db.insert(repoWeeklyStars).values({
+        repoId: repo.id,
+        year: 2015,
+        week: 1,
+        stars: 999,
+      })
+
+      const weeks = await recordWeeklyStarsFromStargazers(db, repo.id, [
+        { starredAt: "2026-01-05T00:00:00Z" },
+      ])
+
+      const rows = await db
+        .select()
+        .from(repoWeeklyStars)
+        .where(eq(repoWeeklyStars.repoId, repo.id))
+
+      // The stale 2015 row predates the sweep and must not survive it.
+      expect(rows.every((row) => row.year === 2026)).toBe(true)
+      expect(rows).toHaveLength(weeks)
+      expect(rows.some((row) => row.year === 2015)).toBe(false)
+    })
   })
 })

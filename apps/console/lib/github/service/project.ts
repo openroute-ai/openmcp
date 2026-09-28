@@ -15,6 +15,19 @@ type ProjectRow = typeof projects.$inferSelect
 
 export type ProjectWithRepo = ProjectRow & { repo: typeof repos.$inferSelect }
 
+/**
+ * Stand-in for a project that has no description of its own.
+ *
+ * Stored rather than left empty, because a project is listed even when nothing
+ * is known about it and an empty cell reads as a bug.
+ *
+ * Named because it is stored in the data, which means it is indistinguishable
+ * from a real description once written. Consumers that want to fall back to
+ * something else - the ranking falls back to the repository description -
+ * must compare against this rather than against an empty string.
+ */
+export const NO_DESCRIPTION = "(No description)"
+
 export interface CreateProjectInput {
   repoId: string
   name: string
@@ -86,7 +99,7 @@ export async function createProject(
       slug: input.slug,
       // A project with no description is still listed, so it gets a
       // placeholder rather than an empty cell.
-      description: input.description || "(No description)",
+      description: input.description || NO_DESCRIPTION,
       url: input.url ?? null,
       status: input.status ?? "active",
       type: input.type ?? "application",
