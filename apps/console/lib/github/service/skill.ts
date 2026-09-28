@@ -78,20 +78,18 @@ export async function syncProjectSkills(
     if (dirs.length > 0) {
       // Only directories that are absent from the new set are removed, so an
       // unchanged skill is never briefly missing.
-      await tx
-        .delete(projectSkills)
-        .where(
-          and(
-            eq(projectSkills.projectId, projectId),
-            // NOT IN built by joining the values as literals, because an
-            // empty array cannot be bound to an IN clause. The `dirs.length`
-            // guard above is what keeps this list non-empty.
-            sql`${projectSkills.skillDir} NOT IN (${sql.join(
-              dirs.map((dir) => sql`${dir}`),
-              sql`, `
-            )})`
-          )
+      await tx.delete(projectSkills).where(
+        and(
+          eq(projectSkills.projectId, projectId),
+          // NOT IN built by joining the values as literals, because an
+          // empty array cannot be bound to an IN clause. The `dirs.length`
+          // guard above is what keeps this list non-empty.
+          sql`${projectSkills.skillDir} NOT IN (${sql.join(
+            dirs.map((dir) => sql`${dir}`),
+            sql`, `
+          )})`
         )
+      )
     } else {
       // An empty discovery is ambiguous: either the repository has no skills
       // or the listing failed. Deleting everything on a transient failure
@@ -232,6 +230,34 @@ export async function listSkillsNeedingPush(db: Db): Promise<SkillRow[]> {
     .orderBy(asc(projectSkills.skillDir))
 }
 
+export interface SkillNeedingPush {
+  skill: SkillRow
+  project: typeof projects.$inferSelect
+  repo: typeof repos.$inferSelect
+}
+
+/**
+ * Skills needing a push, with the project and repository the payload is
+ * built from. The webhook identifies its subject by repository, so a skill
+ * row alone cannot be sent.
+ */
+export async function listSkillsNeedingPushJoined(
+  db: Db
+): Promise<SkillNeedingPush[]> {
+  return db
+    .select({ skill: projectSkills, project: projects, repo: repos })
+    .from(projectSkills)
+    .innerJoin(projects, eq(projectSkills.projectId, projects.id))
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .where(
+      or(
+        isNull(projectSkills.syncedToWebAt),
+        sql`${projectSkills.lastSyncError} IS NOT NULL`
+      )
+    )
+    .orderBy(asc(projectSkills.skillDir))
+}
+
 export interface SkillProject {
   project: typeof projects.$inferSelect
   repo: typeof repos.$inferSelect
@@ -282,7 +308,8 @@ export async function listProjectsNeedingPush(
   )
 
   return rows.filter(
-    (row) => !attempts.some((a) => a.projectId === row.project.id) ||
+    (row) =>
+      !attempts.some((a) => a.projectId === row.project.id) ||
       stale.has(row.project.id)
   )
 }

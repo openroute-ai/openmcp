@@ -115,6 +115,15 @@ export const TASK_SEEDS: TaskSeed[] = [
     isDaily: true,
   },
   {
+    name: "push-skills",
+    description:
+      "Push skills that have never been pushed, or whose last push failed",
+    // Thirty minutes after the morning skill sync, on a minute Vercel wakes.
+    cronExpression: "30 10 * * *",
+    taskType: "daily",
+    isDaily: true,
+  },
+  {
     name: "build-rising-stars",
     description: "Build the Rising Stars report for the previous year",
     // A yearly report: midday on the first day of the year, when the twelve
