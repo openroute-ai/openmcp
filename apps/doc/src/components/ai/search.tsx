@@ -11,7 +11,7 @@ import {
 } from "@tabler/icons-react"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
-import { DefaultChatTransport, type Tool, type UIToolInvocation } from "ai"
+import { DefaultChatTransport, type UIToolInvocation } from "ai"
 import {
   type ComponentProps,
   createContext,
@@ -289,7 +289,7 @@ function Message({
 
     if (part.type.startsWith("tool-")) {
       const toolName = part.type.slice("tool-".length)
-      const p = part as UIToolInvocation<Tool>
+      const p = part as UIToolInvocation<SearchTool>
 
       if (toolName !== "search" || !p.toolCallId) continue
       searchCalls.push(p)

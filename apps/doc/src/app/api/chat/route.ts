@@ -1,12 +1,17 @@
 import { createMistral } from "@ai-sdk/mistral"
 import {
   convertToModelMessages,
-  stepCountIs,
+  isStepCount,
   streamText,
   tool,
+  type Tool,
   type UIMessage,
 } from "ai"
-import { Document, type DocumentData } from "flexsearch"
+import {
+  Document,
+  type DocumentData,
+  type MergedDocumentSearchResults,
+} from "flexsearch"
 import { z } from "zod"
 import { source } from "@/lib/source"
 
@@ -83,13 +88,14 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: mistral("mistral-large-latest"),
-    stopWhen: stepCountIs(5),
+    instructions: systemPrompt,
+    stopWhen: isStepCount(5),
     tools: {
       search: searchTool,
     },
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...(await convertToModelMessages<ChatUIMessage>(reqJson.messages ?? [], {
+    messages: await convertToModelMessages<ChatUIMessage>(
+      reqJson.messages ?? [],
+      {
         convertDataPart(part) {
           if (part.type === "data-client")
             return {
@@ -97,23 +103,28 @@ export async function POST(req: Request) {
               text: `[Client Context: ${JSON.stringify(part.data)}]`,
             }
         },
-      })),
-    ],
+      }
+    ),
     toolChoice: "auto",
   })
 
   return result.toUIMessageStreamResponse()
 }
 
-export type SearchTool = typeof searchTool
+type SearchToolInput = {
+  query: string
+  limit: number
+}
 
-const searchTool = tool({
+type SearchToolOutput = MergedDocumentSearchResults<CustomDocument>
+
+const searchTool: Tool<SearchToolInput, SearchToolOutput> = tool({
   description: "Search the docs content and return raw JSON results.",
   inputSchema: z.object({
     query: z.string(),
     limit: z.number().int().min(1).max(100).default(10),
   }),
-  async execute({ query, limit }) {
+  async execute({ query, limit }): Promise<SearchToolOutput> {
     const search = await searchServer
     return await search.searchAsync(query, {
       limit,
@@ -122,3 +133,5 @@ const searchTool = tool({
     })
   },
 })
+
+export type SearchTool = typeof searchTool
