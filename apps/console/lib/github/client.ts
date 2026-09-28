@@ -1,0 +1,727 @@
+import { requireGitHubToken } from "@/lib/env"
+import { processReadMeHtml } from "./process-readme-html"
+import { processReadMeMd } from "./process-readme-md"
+import {
+  buildBatchRepoInfoQuery,
+  extractRepoInfo,
+  MAX_BATCH_SIZE,
+  queryRepoInfo,
+  queryRepoInfoBasic,
+  type BatchVariables,
+  type RepoInfo,
+} from "./repo-info-query"
+import { extractUserInfo, queryUserInfo } from "./user-info-query"
+import {
+  type GraphQLErrorDetail,
+  GitHubForbiddenError,
+  GitHubGraphQLError,
+  GitHubNotFoundError,
+  GitHubRateLimitError,
+  GitHubTransportError,
+  graphqlErrorMessage,
+  graphqlErrorType,
+  toGitHubError,
+} from "./errors"
+
+const GITHUB_API = "https://api.github.com"
+const GITHUB_GRAPHQL = "https://api.github.com/graphql"
+
+/** Warn below this many remaining requests, then again at these levels. */
+const RATE_LIMIT_WARN_THRESHOLDS = [1000, 500, 100, 10, 0]
+
+type ReposBatchResult = {
+  /** Keyed by the input `owner/name`, so callers need not track indices. */
+  results: Map<string, RepoInfo>
+  /** Repositories GitHub could not resolve, keyed the same way. */
+  missing: string[]
+}
+
+/**
+ * REST + GraphQL client for GitHub.
+ *
+ * The three-tier fallback on `fetchRepoInfo` is the load-bearing part, and
+ * is carried over from the source app:
+ *
+ * 1. the full GraphQL query, which returns every count in one request;
+ * 2. on `NOT_FOUND`, a REST lookup to resolve the repository's current
+ *    name (projects get renamed and moved) and a retry against that;
+ * 3. on `FORBIDDEN`, a reduced query without the connections a fine-grained
+ *    token may not read, with the omitted counts backfilled from REST.
+ *
+ * What changed:
+ *
+ * - Every failure is a typed error instead of a string match, and a rate
+ *   limit is always rethrown rather than absorbed, so a throttled run backs
+ *   off instead of retrying until the budget is gone.
+ * - GraphQL goes over plain `fetch` so the real status and rate-limit
+ *   headers survive; `graphql-request` discards them.
+ * - Rate-limit budget is tracked and reported at thresholds.
+ * - Contributor counts come from the REST API instead of a CSS-selector
+ *   HTML scrape, which broke whenever GitHub changed its markup.
+ * - `fetchRepos` batches up to 100 repositories per GraphQL request instead
+ *   of issuing one request per repository.
+ */
+export function createGitHubClient() {
+  const accessToken = requireGitHubToken()
+
+  // --- rate limit bookkeeping ---------------------------------------------
+
+  let lastReportedRemaining: number | undefined
+
+  function trackRateLimit(headers: Headers) {
+    const remaining = headers.get("x-ratelimit-remaining")
+    if (remaining === null) return
+    const value = Number(remaining)
+    if (!Number.isFinite(value)) return
+
+    if (
+      lastReportedRemaining === undefined ||
+      RATE_LIMIT_WARN_THRESHOLDS.some(
+        (threshold) =>
+          value <= threshold && threshold <= (lastReportedRemaining ?? Infinity)
+      )
+    ) {
+      const reset = headers.get("x-ratelimit-reset")
+      console.warn(
+        `[github] rate limit: ${value} requests remaining` +
+          (reset ? `, resets at ${new Date(Number(reset) * 1000).toISOString()}` : "")
+      )
+      lastReportedRemaining = value
+    }
+  }
+
+  // --- REST ----------------------------------------------------------------
+
+  async function makeRestApiRequest(
+    endpoint: string,
+    accept = "application/vnd.github.v3+json"
+  ): Promise<Response> {
+    const response = await fetch(`${GITHUB_API}/${endpoint}`, {
+      headers: { accept, authorization: `token ${accessToken}` },
+    })
+    trackRateLimit(response.headers)
+    return response
+  }
+
+  async function makeRestApiRequestJson(endpoint: string): Promise<unknown> {
+    const response = await makeRestApiRequest(endpoint)
+    if (!response.ok) {
+      throw toGitHubError(
+        new Error(`GitHub REST ${endpoint} failed: ${response.statusText}`),
+        { status: response.status, headers: response.headers }
+      )
+    }
+    return response.json()
+  }
+
+  // --- GraphQL -------------------------------------------------------------
+
+  /**
+   * Issues a GraphQL request over plain `fetch` rather than through
+   * `graphql-request`.
+   *
+   * That library was the source app's choice, but it hides the two things
+   * this client needs: it parses the body into `error.response` and drops
+   * the HTTP headers, so a primary rate limit (HTTP 403 with
+   * `x-ratelimit-remaining: 0`) becomes indistinguishable from a genuine
+   * `FORBIDDEN` and the fallback chain responds by issuing *more* requests
+   * while already throttled. Raw `fetch` keeps the real status, the real
+   * rate-limit headers, and the `errors[].type` discriminator.
+   */
+  async function requestGraphQL<T>(
+    query: string,
+    variables: Record<string, unknown>
+  ): Promise<T> {
+    let response: Response
+    try {
+      response = await fetch(GITHUB_GRAPHQL, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: `bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ query, variables }),
+      })
+    } catch (error) {
+      throw new GitHubTransportError("GitHub GraphQL request failed", {
+        cause: error,
+      })
+    }
+
+    trackRateLimit(response.headers)
+
+    if (!response.ok) {
+      throw toGitHubError(
+        new Error(`GitHub GraphQL returned ${response.status}`),
+        { status: response.status, headers: response.headers }
+      )
+    }
+
+    const body = (await response.json()) as {
+      data?: T
+      errors?: GraphQLErrorDetail[]
+    }
+
+    // GitHub answers 200 with an `errors` array when a field failed but the
+    // rest of the selection resolved. This is the NOT_FOUND / FORBIDDEN case
+    // the fallback chain routes on, so it must not be flattened into a
+    // generic transport failure.
+    if (body.errors && body.errors.length > 0) {
+      throw new GitHubGraphQLError(body.errors)
+    }
+
+    if (body.data === undefined || body.data === null) {
+      throw new GitHubTransportError(
+        "GitHub GraphQL response contained no data"
+      )
+    }
+
+    return body.data
+  }
+
+  // --- repository info -----------------------------------------------------
+
+  async function fetchRepoInfoMain(
+    fullName: string,
+    query = queryRepoInfo
+  ): Promise<RepoInfo> {
+    const [owner, name] = fullName.split("/")
+    if (!owner || !name) {
+      throw new GitHubNotFoundError(`malformed repository name: ${fullName}`)
+    }
+
+    const response = await requestGraphQL<unknown>(query, { owner, name })
+    return extractRepoInfo(response)
+  }
+
+  /**
+   * Backfills the counts the reduced query omits. REST serves repository
+   * metadata to any valid token, so this recovers stars, watchers, forks
+   * and topics even when GraphQL connections are out of reach.
+   */
+  async function backfillRepoStats(
+    repoInfo: RepoInfo,
+    fullName: string
+  ): Promise<RepoInfo> {
+    const backfilled: RepoInfo = { ...repoInfo }
+
+    try {
+      const rest = (await makeRestApiRequestJson(
+        `repos/${fullName}`
+      )) as Record<string, unknown>
+      if (Number.isInteger(rest.stargazers_count)) {
+        backfilled.stars = rest.stargazers_count as number
+      }
+      if (Number.isInteger(rest.subscribers_count)) {
+        backfilled.watchersCount = rest.subscribers_count as number
+      }
+      if (Number.isInteger(rest.forks_count)) {
+        backfilled.forks = rest.forks_count as number
+      }
+    } catch (error) {
+      // Topics are a separate endpoint, so a failure here must not discard
+      // the counts already recovered above.
+      if (error instanceof GitHubRateLimitError) throw error
+      console.warn(`[github] could not backfill counts for ${fullName}`, error)
+    }
+
+    try {
+      const topics = (await makeRestApiRequestJson(
+        `repos/${fullName}/topics`
+      )) as { names?: unknown }
+      if (Array.isArray(topics?.names)) {
+        backfilled.topics = topics.names.filter(
+          (name): name is string => typeof name === "string"
+        )
+      }
+    } catch (error) {
+      if (error instanceof GitHubRateLimitError) throw error
+      console.warn(`[github] could not backfill topics for ${fullName}`, error)
+    }
+
+    return backfilled
+  }
+
+  /**
+   * Resolves a repository that GraphQL could not find to its current
+   * `owner/name`. GitHub redirects renamed and transferred repositories on
+   * REST, so the response is followed to its final URL.
+   */
+  async function fetchRepoInfoFallback(fullName: string): Promise<RepoInfo> {
+    const response = await makeRestApiRequest(`repos/${fullName}`)
+
+    if (response.status === 404) {
+      throw new GitHubNotFoundError(fullName)
+    }
+    if (!response.ok) {
+      throw toGitHubError(
+        new Error(`GitHub REST lookup failed: ${response.statusText}`),
+        { status: response.status, headers: response.headers }
+      )
+    }
+
+    const finalUrl = new URL(response.url)
+    const segments = finalUrl.pathname.replace(/^\//, "").split("/")
+    const [owner, name] = segments
+    if (!owner || !name) {
+      throw new GitHubTransportError(
+        `Could not determine current location of ${fullName}`
+      )
+    }
+
+    return {
+      name,
+      fullName: `${owner}/${name}`,
+      owner,
+      ownerId: 0,
+      description: "",
+      homepage: "",
+      createdAt: new Date(0),
+      pushedAt: new Date(0),
+      defaultBranch: "main",
+      stars: 0,
+      topics: [],
+      archived: false,
+      commitCount: 0,
+      lastCommit: new Date(0),
+      mentionableUsersCount: 0,
+      watchersCount: 0,
+      licenseSpdxId: "",
+      pullRequestsCount: 0,
+      releasesCount: 0,
+      languages: [],
+      forks: 0,
+      openGraphImageUrl: "",
+      usesCustomOpenGraphImage: false,
+      latestReleaseName: "",
+      latestReleaseTagName: "",
+      latestReleasePublishedAt: undefined,
+      latestReleaseUrl: "",
+      latestReleaseDescription: "",
+    }
+  }
+
+  /**
+   * Fetches one repository, degrading the query rather than the result.
+   *
+   * 1. the full GraphQL query, which returns every count in one request;
+   * 2. on `NOT_FOUND`, resolve the repository's current name over REST
+   *    (projects get renamed and transferred) and retry against that;
+   * 3. on `FORBIDDEN`, retry with a query that omits the connections a
+   *    fine-grained token may not read, then backfill the counts from REST.
+   *
+   * A rate limit is never absorbed here: it is rethrown so the caller backs
+   * off instead of spending the rest of its budget on retries.
+   */
+  async function fetchRepoInfoSafe(fullName: string): Promise<RepoInfo> {
+    try {
+      return await fetchRepoInfoMain(fullName)
+    } catch (error) {
+      if (error instanceof GitHubRateLimitError) throw error
+
+      const graphqlType = graphqlErrorType(error)
+
+      if (graphqlType === "NOT_FOUND") {
+        const relocated = await fetchRepoInfoFallback(fullName)
+        if (relocated.fullName === fullName) {
+          // REST redirected to the name we already asked for, so the
+          // repository was not renamed: it is gone or invisible to this
+          // token. Retrying GraphQL would fail the same way.
+          throw new GitHubNotFoundError(fullName, { cause: error })
+        }
+        return fetchRepoInfoMain(relocated.fullName)
+      }
+
+      if (graphqlType === "FORBIDDEN" || error instanceof GitHubForbiddenError) {
+        const reduced = await fetchRepoInfoMain(fullName, queryRepoInfoBasic)
+        return backfillRepoStats(reduced, fullName)
+      }
+
+      if (error instanceof GitHubGraphQLError) {
+        throw new GitHubTransportError(
+          `GraphQL error "${graphqlErrorMessage(error) ?? graphqlType}" ` +
+            `for ${fullName}`,
+          { cause: error }
+        )
+      }
+
+      throw error
+    }
+  }
+
+  // --- public API ----------------------------------------------------------
+
+  /**
+   * Per-repository fallback used when a batched request fails for a reason
+   * specific to one entry. Reuses the full fallback chain, so it is slower
+   * but at least as accurate as a single fetch.
+   */
+  async function fetchReposIndividually(
+    fullNames: string[],
+    results: Map<string, RepoInfo>,
+    missing: string[]
+  ): Promise<void> {
+    for (const fullName of fullNames) {
+      try {
+        results.set(fullName, await fetchRepoInfoSafe(fullName))
+      } catch (error) {
+        if (error instanceof GitHubRateLimitError) throw error
+        missing.push(fullName)
+      }
+    }
+  }
+
+  /**
+   * Fetches many repositories, batched into a single GraphQL request per
+   * group of {@link MAX_BATCH_SIZE}.
+   *
+   * Repositories GitHub cannot resolve are reported in `missing` rather
+   * than failing the batch: a single deleted repository should not abort a
+   * refresh of the other 499.
+   */
+  async function fetchRepos(fullNames: string[]): Promise<ReposBatchResult> {
+    const results = new Map<string, RepoInfo>()
+    const missing: string[] = []
+    if (fullNames.length === 0) return { results, missing }
+
+    for (let i = 0; i < fullNames.length; i += MAX_BATCH_SIZE) {
+      const batch = fullNames.slice(i, i + MAX_BATCH_SIZE)
+      const variables: BatchVariables = {}
+      batch.forEach((fullName, index) => {
+        const [owner, name] = fullName.split("/")
+        if (!owner || !name) {
+          missing.push(fullName)
+          return
+        }
+        variables[`owner${index}`] = owner
+        variables[`name${index}`] = name
+      })
+
+      let response: Record<string, unknown>
+      try {
+        response = await requestGraphQL<Record<string, unknown>>(
+          buildBatchRepoInfoQuery(batch.length),
+          variables
+        )
+      } catch (error) {
+        // A batch-wide failure is almost always an auth or rate-limit
+        // problem, which per-repository calls would hit too, so surface it
+        // instead of silently marking the whole batch missing.
+        if (
+          error instanceof GitHubRateLimitError ||
+          error instanceof GitHubForbiddenError
+        ) {
+          throw error
+        }
+        console.warn(
+          `[github] batch of ${batch.length} failed, retrying individually`,
+          error
+        )
+        await fetchReposIndividually(batch, results, missing)
+        continue
+      }
+
+      batch.forEach((fullName, index) => {
+        const node = response[`r${index}`]
+        if (!node) {
+          missing.push(fullName)
+          return
+        }
+        try {
+          results.set(fullName, extractRepoInfo({ repository: node }))
+        } catch (error) {
+          console.warn(`[github] could not parse ${fullName}`, error)
+          missing.push(fullName)
+        }
+      })
+    }
+
+    return { results, missing }
+  }
+
+  return {
+    fetchRepoInfo: fetchRepoInfoSafe,
+
+    fetchRepoInfoFallback,
+
+    fetchRepos,
+
+    /**
+     * Counts contributors through the REST API.
+     *
+     * The source implementation scraped the counter out of the repository
+     * page HTML with a CSS selector, which returns 0 whenever GitHub changes
+     * its markup and requires no token to run. Asking for a single
+     * contributor and reading the `rel="last"` page from the `Link` header
+     * is both exact and a single request.
+     */
+    async fetchContributorCount(fullName: string): Promise<number> {
+      const response = await makeRestApiRequest(
+        `repos/${fullName}/contributors?per_page=1&anon=false`
+      )
+
+      if (response.status === 202) {
+        // GitHub computes contributor statistics asynchronously for large
+        // repositories; 202 means the number is not ready yet.
+        return 0
+      }
+      if (response.status === 404) {
+        throw new GitHubNotFoundError(fullName)
+      }
+      if (!response.ok) {
+        throw toGitHubError(
+          new Error(`contributor lookup failed: ${response.statusText}`),
+          { status: response.status, headers: response.headers }
+        )
+      }
+
+      const contributors = (await response.json()) as unknown[]
+      const link = response.headers.get("link")
+      const lastPage = link
+        ? /[?&]page=(\d+)[^>]*>\s*;\s*rel="last"/.exec(link)
+        : null
+      const last = lastPage?.[1] ? Number(lastPage[1]) : undefined
+
+      if (last !== undefined) return last
+      // No `last` rel means everything fits on the first page.
+      return contributors.length
+    },
+
+    /**
+     * Total stargazers with timestamps, used to reconstruct historical star
+     * counts for the Rising Stars report.
+     */
+    async fetchStargazersWithTimestamps(
+      fullName: string,
+      onPage: (stargazers: { starred_at: string }[]) => void
+    ): Promise<void> {
+      let page = 1
+      // 100 is GitHub's maximum per_page; a 400k-star repository is 4000
+      // pages, so this is bounded but intentionally unbounded overall.
+      for (;;) {
+        const response = await makeRestApiRequest(
+          `repos/${fullName}/stargazers?per_page=100&page=${page}`,
+          "application/vnd.github.star+json"
+        )
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new GitHubNotFoundError(fullName)
+          }
+          throw toGitHubError(
+            new Error(`stargazer lookup failed: ${response.statusText}`),
+            { status: response.status, headers: response.headers }
+          )
+        }
+
+        const stargazers = (await response.json()) as { starred_at?: string }[]
+        if (stargazers.length === 0) return
+        onPage(
+          stargazers
+            .filter(
+              (entry): entry is { starred_at: string } =>
+                typeof entry.starred_at === "string"
+            )
+            .map((entry) => ({ starred_at: entry.starred_at }))
+        )
+
+        if (stargazers.length < 100) return
+        page += 1
+      }
+    },
+
+    async fetchUserInfo(login: string) {
+      return extractUserInfo(await requestGraphQL(queryUserInfo, { login }))
+    },
+
+    async fetchRepoReadMeAsHtml(fullName: string, branch = "main") {
+      const response = await makeRestApiRequest(
+        `repos/${fullName}/readme`,
+        "application/vnd.github.VERSION.html"
+      )
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new GitHubNotFoundError(`${fullName}/readme`)
+        }
+        throw toGitHubError(
+          new Error(`README fetch failed: ${response.statusText}`),
+          { status: response.status, headers: response.headers }
+        )
+      }
+      const html = await response.text()
+      return processReadMeHtml(html, fullName, branch)
+    },
+
+    /**
+     * Returns the README as Markdown, or null when the repository has none.
+     * A missing README is a normal outcome, not an error, so it is reported
+     * as null rather than thrown.
+     */
+    async fetchRepoReadMeAsMarkdown(
+      fullName: string,
+      branch = "main"
+    ): Promise<string | null> {
+      try {
+        const response = await makeRestApiRequest(
+          `repos/${fullName}/readme?ref=${encodeURIComponent(branch)}`,
+          "application/vnd.github.v3.raw"
+        )
+
+        if (response.status === 404) return null
+        if (!response.ok) {
+          throw toGitHubError(
+            new Error(`README fetch failed: ${response.statusText}`),
+            { status: response.status, headers: response.headers }
+          )
+        }
+
+        const markdown = await response.text()
+        return processReadMeMd(markdown, fullName, branch)
+      } catch (error) {
+        if (
+          error instanceof GitHubRateLimitError ||
+          error instanceof GitHubNotFoundError
+        ) {
+          throw error
+        }
+        console.warn(`[github] could not read README for ${fullName}`, error)
+        return null
+      }
+    },
+
+    /**
+     * Lists the repository root, or one directory, so skill directories can
+     * be discovered. Returns entry names only; the caller decides what to do
+     * with them.
+     */
+    async listDirectory(
+      fullName: string,
+      path = "",
+      branch?: string
+    ): Promise<{ name: string; path: string; type: string }[]> {
+      const branchQuery = branch ? `?ref=${encodeURIComponent(branch)}` : ""
+      const contents = (await makeRestApiRequestJson(
+        `repos/${fullName}/contents/${path}${branchQuery}`
+      )) as { name?: string; path?: string; type?: string }[]
+
+      if (!Array.isArray(contents)) return []
+      return contents
+        .filter((entry) => entry.name && entry.path)
+        .map((entry) => ({
+          name: entry.name as string,
+          path: entry.path as string,
+          type: entry.type ?? "file",
+        }))
+    },
+
+    /**
+     * Reads a file's text, following the Contents API.
+     *
+     * The API returns base64 for files over 1 MB is not supported, so a large
+     * file arrives as a content-less object; that is surfaced as an error
+     * rather than an empty string, which would look like an empty file.
+     */
+    async fetchFileContent(
+      fullName: string,
+      path: string,
+      branch?: string
+    ): Promise<string> {
+      const branchQuery = branch ? `?ref=${encodeURIComponent(branch)}` : ""
+      const data = (await makeRestApiRequestJson(
+        `repos/${fullName}/contents/${path}${branchQuery}`
+      )) as { content?: string; encoding?: string }
+
+      if (data.encoding === "base64" && data.content) {
+        // The API wraps base64 at 60 characters; the newlines must go before
+        // decoding.
+        return Buffer.from(data.content.replace(/\n/g, ""), "base64").toString(
+          "utf-8"
+        )
+      }
+      if (typeof data.content === "string") return data.content
+
+      throw new GitHubTransportError(
+        `GitHub returned no content for ${fullName}/${path}`,
+        { status: 200 }
+      )
+    },
+
+    /**
+     * Searches repositories. Used by the discovery task to find new skill
+     * and MCP repositories.
+     */
+    async searchRepositories(
+      query: string,
+      options: { perPage?: number; sort?: "stars" | "updated" } = {}
+    ): Promise<
+      { fullName: string; description: string; stars: number }[]
+    > {
+      const params = new URLSearchParams({
+        q: query,
+        per_page: String(Math.min(options.perPage ?? 30, 100)),
+        sort: options.sort ?? "stars",
+        order: "desc",
+      })
+      const result = (await makeRestApiRequestJson(
+        `search/repositories?${params.toString()}`
+      )) as { items?: unknown[] }
+
+      const items = Array.isArray(result?.items) ? result.items : []
+      return items.map((item) => {
+        const entry = item as {
+          full_name?: string
+          description?: string | null
+          stargazers_count?: number
+        }
+        return {
+          fullName: entry.full_name ?? "",
+          description: entry.description ?? "",
+          stars: entry.stargazers_count ?? 0,
+        }
+      })
+    },
+
+    /**
+     * Lists every repository owned by a user, used to seed the curated
+     * accounts in the discovery task.
+     */
+    async listUserRepositories(
+      login: string,
+      options: { perPage?: number } = {}
+    ): Promise<{ fullName: string; description: string; stars: number }[]> {
+      const perPage = Math.min(options.perPage ?? 100, 100)
+      const collected: {
+        fullName: string
+        description: string
+        stars: number
+      }[] = []
+
+      for (let page = 1; page <= 10; page += 1) {
+        const result = (await makeRestApiRequestJson(
+          `users/${login}/repos?per_page=${perPage}&page=${page}&sort=pushed`
+        )) as unknown[]
+
+        if (!Array.isArray(result) || result.length === 0) break
+        for (const item of result) {
+          const entry = item as {
+            full_name?: string
+            description?: string | null
+            stargazers_count?: number
+          }
+          if (!entry.full_name) continue
+          collected.push({
+            fullName: entry.full_name,
+            description: entry.description ?? "",
+            stars: entry.stargazers_count ?? 0,
+          })
+        }
+        if (result.length < perPage) break
+      }
+
+      return collected
+    },
+  }
+}
+
+export type GitHubClient = ReturnType<typeof createGitHubClient>

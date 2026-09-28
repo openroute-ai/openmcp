@@ -15,6 +15,13 @@
       "when": 1790579556696,
       "tag": "0001_chunky_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790589483091,
+      "tag": "0002_bright_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

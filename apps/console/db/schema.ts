@@ -9,8 +9,10 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
+import * as githubSchema from "./schema/github"
 
 export * from "@workspace/db/schema"
+export * from "./schema/github"
 
 /**
  * 扩展的 user 表：在共享 auth schema 基础上增加手机号登录所需的
@@ -81,6 +83,7 @@ export const traffic = pgTable(
 
 export const schema = {
   ...authSchema,
+  ...githubSchema,
   user,
   sections,
   traffic,
