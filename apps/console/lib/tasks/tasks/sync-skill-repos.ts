@@ -1,18 +1,20 @@
 /**
- * Fetches and stores every skill project's SKILL.md documents.
+ * Fetches, translates and stores every skill project's SKILL.md documents.
  *
  * The source app parsed the skills, translated them, and posted them to
- * another service. Only the parse-and-store half is migrated here, because the
- * translation and the downstream push are separate concerns with their own
- * credentials: the push is a separate task reading
- * {@link listSkillsNeedingPush}, so a run here cannot depend on a downstream
- * service being reachable.
+ * another service. Translation is folded back in here when an AI provider is
+ * configured: without one the parse-and-store half stands alone, and the push
+ * is still a separate task reading {@link listSkillsNeedingPush}, so a run
+ * here cannot depend on a downstream service being reachable.
  *
  * A project whose fetch fails keeps its stored skills. Deleting them on a
  * transient failure would unpublish a working project, which is why
  * `syncProjectSkills` also refuses to delete on an empty discovery.
  */
 
+import { translateSkills } from "@/lib/ai/translate-skills"
+import { translator } from "@/lib/ai/translator"
+import { createChatModel } from "@/lib/ai/provider"
 import { createGitHubClient, type GitHubClient } from "@/lib/github/client"
 import {
   fetchSkillMd,
@@ -21,7 +23,11 @@ import {
   parseSkillMd,
   skillPathInDir,
 } from "@/lib/github/skill"
-import { listSkillProjects, syncProjectSkills } from "@/lib/github/service/skill"
+import {
+  listSkillProjects,
+  listSkillsForProject,
+  syncProjectSkills,
+} from "@/lib/github/service/skill"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task } from "@/lib/tasks/runner"
 
@@ -40,12 +46,17 @@ export function createSyncSkillReposTask(
   return {
     name: "sync-skill-repos",
     description:
-      "Fetch SKILL.md from every skill project, in file or directory mode, and " +
-      "replace the stored skills with what was found",
+      "Fetch SKILL.md from every skill project, in file or directory mode, " +
+      "translate what changed, and replace the stored skills",
 
     async run({ db, logger }) {
       const projects = await listSkillProjects(db)
       logger.info(`syncing ${projects.length} skill project(s)`)
+
+      // Translation needs a model. Without one the fetched documents are
+      // stored untranslated and the push task delivers them with the zh
+      // fields empty, which is honest rather than fabricated English.
+      const chatModel = createChatModel()
 
       const result = await processItems(
         projects,
@@ -67,13 +78,46 @@ export function createSyncSkillReposTask(
             return { meta: { empty: 1 }, data: null }
           }
 
+          const stored = new Map(
+            (await listSkillsForProject(db, project.id)).map((skill) => [
+              skill.skillDir,
+              skill,
+            ])
+          )
+
+          const translations = await translateSkills(
+            skills,
+            stored,
+            async (description, readme) => {
+              if (!chatModel) return { descriptionZh: "", readmeZh: "" }
+              const [descriptionZh, readmeZh] = await Promise.all([
+                translator.translateDescription(description),
+                translator.translateReadme(readme),
+              ])
+              return { descriptionZh, readmeZh }
+            }
+          )
+
           await syncProjectSkills(
             db,
             project.id,
-            skills.map((skill) => ({ projectId: project.id, ...skill }))
+            skills.map((skill, index) => ({
+              projectId: project.id,
+              ...skill,
+              ...translations[index],
+            }))
           )
 
-          return { meta: { synced: 1, skills: skills.length }, data: null }
+          return {
+            meta: {
+              synced: 1,
+              skills: skills.length,
+              translated: translations.filter(
+                (item) => item.descriptionZh || item.readmeZh
+              ).length,
+            },
+            data: null,
+          }
         },
         {
           logger,
@@ -87,6 +131,7 @@ export function createSyncSkillReposTask(
         projects: projects.length,
         synced: result.meta.synced ?? 0,
         skills: result.meta.skills ?? 0,
+        translated: result.meta.translated ?? 0,
         empty: result.meta.empty ?? 0,
         errors: result.meta.error ?? 0,
       }
