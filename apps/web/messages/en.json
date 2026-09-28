@@ -1,0 +1,2411 @@
+{
+  "Metadata": {
+    "name": "OpenMCP",
+    "title": "OpenMCP — Skills / MCP / A2A marketplace for Agents",
+    "description": "Browse the shelf, download Skill packages, connect MCP / A2A. Providers publish and optionally monetize. Review and catalog included."
+  },
+  "Common": {
+    "login": "Log in",
+    "logout": "Log out",
+    "signUp": "Sign up",
+    "language": "Switch language",
+    "mode": {
+      "label": "Toggle mode",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "theme": {
+      "label": "Toggle theme",
+      "default": "Default",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "neutral": "Neutral"
+    },
+    "copy": "Copy",
+    "saving": "Saving...",
+    "save": "Save",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "logoutFailed": "Failed to log out"
+  },
+  "Dashboard": {
+    "cards": {
+      "noData": "No data",
+      "totalSpend": "Total Spend",
+      "status": "Status",
+      "models": "Models",
+      "createdAt": "Created At",
+      "budgetLimit": "Budget Limit",
+      "budgetDuration": "Budget Duration",
+      "totalBudget": "Total Budget",
+      "totalTokens": "Total Tokens",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "active": "Active",
+      "blocked": "Blocked",
+      "unnamed": "Unnamed"
+    },
+    "activityChart": {
+      "title": "Recent activity on {modelName}",
+      "description": "Tokens processed per day (Last 60 days)",
+      "loading": "Loading...",
+      "error": "Unable to load usage statistics",
+      "retry": "Retry",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "dailyTokens": "Daily Tokens"
+    },
+    "dashboard": {
+      "title": "Overview"
+    },
+    "firstLoginPrompt": {
+      "message": "First time here?",
+      "action": "Contact Support",
+      "openDialog": "Open WeChat QR code dialog",
+      "dismiss": "Dismiss"
+    },
+    "messages": {
+      "ariaLabel": "In-app messages",
+      "title": "In-app Messages",
+      "unreadCount": "{count} unread messages",
+      "noUnread": "No unread messages",
+      "markAllRead": "Mark all read",
+      "filter": {
+        "all": "All",
+        "unread": "Unread",
+        "read": "Read"
+      },
+      "emptyAll": "No messages",
+      "emptyUnread": "No unread messages",
+      "emptyRead": "No read messages",
+      "emptyHint": "New notifications will show up here",
+      "time": {
+        "justNow": "Just now",
+        "minutesAgo": "{count} minutes ago",
+        "hoursAgo": "{count} hours ago",
+        "daysAgo": "{count} days ago"
+      },
+      "pagination": {
+        "showing": "Showing {start}–{end} of {total}",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "stats": {
+      "totalSpend": "Total Spend",
+      "totalTokens": "Total Tokens",
+      "totalRequests": "Total Requests",
+      "totalFavorites": "Workflow Favorites",
+      "totalDownloads": "Total Downloads",
+      "trendingUp": "Up {percentage} this period",
+      "trendingDown": "Down {percentage} this period",
+      "trendingStable": "Trend stable",
+      "strongRetention": "Strong user retention",
+      "performanceIncrease": "Performance increase",
+      "spendLast6Months": "Spend for the last 6 months",
+      "acquisitionNeedsAttention": "Acquisition needs attention",
+      "engagementExceedTargets": "Engagement exceed targets",
+      "workflowFavorites": "Workflow Favorites",
+      "workflowDownloads": "Workflow Downloads"
+    },
+    "providerStats": {
+      "calls": "Calls",
+      "callsHint": "last 30 days",
+      "income": "Est. Income",
+      "incomeHint": "last 30 days",
+      "access": "Views",
+      "accessHint": "all published assets",
+      "downloads": "Downloads",
+      "downloadsHint": "all published assets",
+      "favorites": "Favorites",
+      "favoritesHint": "all published assets",
+      "trendingUp": "Up {percentage} this period",
+      "trendingDown": "Down {percentage} this period",
+      "trendingStable": "Trend stable",
+      "usageTrend": "Calls & Income Trend",
+      "usageTrendDescription": "Daily calls and estimated income from LiteLLM usage sync",
+      "last30Days": "Last 30 days",
+      "last7Days": "Last 7 days",
+      "noData": "No data available",
+      "assetOverview": "Asset Overview",
+      "assetOverviewDescription": "Number of published assets",
+      "assetTotal": "Total published assets",
+      "assets": {
+        "skills": "Skills",
+        "mcpServers": "MCP Servers",
+        "a2aAgents": "A2A Agents",
+        "personas": "Personas"
+      }
+    },
+    "recentDownloads": "Recent Downloads",
+    "recentFavorites": "Recent Favorites",
+    "workflowName": "Workflow Name",
+    "downloadTime": "Download Time",
+    "favoriteTime": "Favorite Time",
+    "loadError": "Failed to load, please try again later",
+    "noDownloads": "No download records",
+    "noFavorites": "No favorite records",
+    "unnamedWorkflow": "Unnamed Workflow",
+    "charts": {
+      "totalTokensOverTime": "Total Tokens Over Time",
+      "totalTokensDescription": "Showing total Tokens for the last 60 days",
+      "virtualKeyTokensOverTime": "Virtual Key Tokens Over Time",
+      "virtualKeyTokensDescription": "Showing virtual key tokens for the last 60 days",
+      "totalRequestsOverTime": "Total Requests Over Time",
+      "totalRequestsDescription": "Showing total Requests for the last 60 days",
+      "virtualKeyRequestsOverTime": "Virtual Key Requests Over Time",
+      "virtualKeyRequestsDescription": "Showing virtual key requests for the last 60 days",
+      "trendingUpBy": "Trending up by {percentage}% this month",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "total": "Total",
+      "success": "Success",
+      "failure": "Failure",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "dailyTokens": "Daily Tokens",
+      "successfulRequests": "Successful Requests",
+      "failedRequests": "Failed Requests",
+      "apiRequests": "API Requests",
+      "topApiKeys": "Top API Keys",
+      "topModels": "Top Models",
+      "virtualKeyTopModels": "Virtual Key Model Usage",
+      "virtualKeyTopModelsDescription": "Showing model usage distribution for this virtual key",
+      "visitors": "Visitors",
+      "comparedToLastMonth": "Compared to last month",
+      "showingTotalVisitors": "Showing total visitors for the last 6 months",
+      "dailySpend": "Daily Spend",
+      "dailySpendDescription": "Daily Spend for the last 3 months",
+      "last3Months": "Last 3 months",
+      "last30Days": "Last 30 days",
+      "last7Days": "Last 7 days",
+      "noData": "No data available",
+      "loading": "Loading...",
+      "error": "Failed to load",
+      "retry": "Retry",
+      "model": "Model",
+      "spend": "Spend",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "totalSpend": "Total Spend"
+    },
+    "apiKeys": {
+      "title": "API Keys",
+      "description": "Manage your API keys for accessing OpenMCP services",
+      "create": "Create Key",
+      "createFirst": "Create First Key",
+      "loading": "Loading...",
+      "retry": "Retry",
+      "loadFailed": "Failed to load",
+      "nameRequired": "Please enter a key name",
+      "apiKeyCopied": "API key copied",
+      "prefixCopied": "Prefix copied",
+      "copyFailed": "Copy failed",
+      "active": "Active",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "created": "Created",
+      "prefix": "Prefix",
+      "noPrefix": "No prefix",
+      "status": "Status",
+      "rateLimit": "Rate Limit",
+      "unlimited": "Unlimited",
+      "remaining": "Remaining",
+      "expiresAt": "Expires At",
+      "lastRequest": "Last Request",
+      "delete": "Delete",
+      "empty": {
+        "title": "No API Keys",
+        "description": "Create your first API key to start using OpenMCP services"
+      },
+      "createDialog": {
+        "title": "Create API Key",
+        "description": "Create a new API key to access OpenMCP services",
+        "name": "Key Name",
+        "namePlaceholder": "e.g., Production Key",
+        "prefix": "Prefix (Optional)",
+        "prefixPlaceholder": "e.g., prod_",
+        "prefixHint": "Prefix will be shown at the beginning of the API key for easy identification",
+        "expiresIn": "Expires In Days (Optional)",
+        "expiresInHint": "Leave empty for no expiration",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "fail": "Failed to create API key",
+        "successTitle": "API Key Created Successfully",
+        "successDescription": "Please save your API key. You won't be able to view it again after closing this dialog.",
+        "apiKey": "API Key",
+        "apiKeyWarning": "Please save this key securely. You won't be able to view it again after closing this dialog.",
+        "done": "Done"
+      },
+      "deleteDialog": {
+        "title": "Delete API Key",
+        "description": "Are you sure you want to delete the API key \"{name}\"? This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete",
+        "fail": "Failed to delete API key"
+      }
+    },
+    "bills": {
+      "title": "Bills",
+      "description": "View your account balance and consumption / recharge details",
+      "balance": {
+        "available": "Available Balance",
+        "total": "Total Recharged",
+        "spend": "Total Spent",
+        "gifted": "Gifted"
+      },
+      "history": {
+        "title": "Transaction History",
+        "empty": "No transactions yet",
+        "date": "Date",
+        "amount": "Amount",
+        "type": "Type",
+        "channel": "Channel",
+        "status": "Status",
+        "remark": "Remark"
+      },
+      "type": {
+        "recharge": "Recharge",
+        "spend": "Spend",
+        "gifted": "Gift"
+      },
+      "status": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "failed": "Failed"
+      },
+      "loadFailed": "Failed to load",
+      "retry": "Retry",
+      "goRecharge": "Go to Recharge",
+      "deprecatedNote": "Prefer Usage & Spend and Monthly Billing for spend details. This page keeps recharge-focused history."
+    },
+    "income": {
+      "title": "Income",
+      "description": "View your service call summaries and income as a Provider",
+      "stats": {
+        "calls30": "Calls (Last 30 Days)",
+        "income30": "Income (Last 30 Days, CNY)",
+        "callsTotal": "Total Calls",
+        "incomeTotal": "Total Income (CNY)"
+      },
+      "chart": {
+        "title": "Income & Calls Trend (Last 30 Days)",
+        "calls": "Calls",
+        "income": "Income (CNY)",
+        "empty": "No income data yet"
+      },
+      "overview": {
+        "title": "Income Overview",
+        "perCall": "Average Income Per Call"
+      },
+      "notProvider": "You are not a Provider yet and cannot view income bills",
+      "loadFailed": "Failed to load",
+      "retry": "Retry"
+    },
+    "myWorkflows": {
+      "title": "My Workflows"
+    },
+    "myFavorites": {
+      "title": "My Favorites"
+    },
+    "myRelations": {
+      "title": "My Relations",
+      "subtitle": "Manage your connection to the open AI ecosystem: use Skills / MCP / Personas as a consumer, or become a provider and monetize your capabilities.",
+      "userRoleTitle": "Current Identity: Regular User",
+      "userRoleDesc": "You can freely browse and use Skills, MCP services, Personas and A2A agents on the shelves.",
+      "benefitsTitle": "What you get by becoming a Provider",
+      "benefit1Title": "Monetize skills",
+      "benefit1Desc": "Price and publish Skills / MCP / Personas with subscriptions or pay-per-call; earnings go straight to your wallet.",
+      "benefit2Title": "Platform certification",
+      "benefit2Desc": "Get a certified badge after review, with more exposure in search results and rankings.",
+      "benefit3Title": "Brand & followers",
+      "benefit3Desc": "Build your own author profile and follower relations so more AI users adopt your work.",
+      "cta": "Become a Provider",
+      "howTitle": "The onboarding path",
+      "step1": "Fill in entity and payout info",
+      "step2": "Submit identity verification for review",
+      "step3": "Publish assets and start monetizing after approval",
+      "providerWorkbenchTitle": "Provider Workbench",
+      "statusVerified": "Verified",
+      "statusPending": "Pending",
+      "statusUnverified": "Unverified",
+      "statusRejected": "Rejected",
+      "openProfile": "View my public profile",
+      "entityLabel": "Entity type",
+      "entityIndividual": "Individual",
+      "entityCompany": "Company",
+      "payChannelLabel": "Payout channel",
+      "payWechat": "WeChat Pay",
+      "payAlipay": "Alipay",
+      "payNone": "Not connected",
+      "onboardingStatusTitle": "Onboarding status",
+      "assetsTitle": "My Assets",
+      "assetSkills": "Skills",
+      "assetMcp": "MCP Servers",
+      "assetA2a": "A2A Agents",
+      "assetPersonas": "Personas",
+      "impactTitle": "Impact",
+      "impactViews": "Total Views",
+      "impactDownloads": "Total Downloads",
+      "impactLikes": "Total Likes",
+      "impactAssets": "Total Assets",
+      "nextStepTitle": "Suggested next steps",
+      "nextStep1": "Complete onboarding info and keep your payout channel ready",
+      "nextStep2": "Publish more assets to grow exposure and revenue",
+      "exploreTitle": "Explore first, see what others build",
+      "exploreSkills": "Browse Skills",
+      "exploreMcp": "Browse MCP Tools",
+      "explorePersonas": "Browse SOUL Plaza",
+      "networkTitle": "Providers I engaged with",
+      "networkSubtitle": "You downloaded or favorited their assets. Follow quality authors!",
+      "networkEmpty": "No providers you engaged with yet",
+      "networkAction": "Explore",
+      "networkEngagements": "{count} engagement(s)",
+      "loading": "Loading...",
+      "error": "Failed to load, please try again"
+    },
+    "myDownloads": {
+      "title": "My Downloads"
+    },
+    "virtualKeys": {
+      "title": "Virtual Keys",
+      "description": "Manage your virtual keys for accessing AI models",
+      "create": "Create Key",
+      "createFirst": "Create First Key",
+      "loading": "Loading...",
+      "retry": "Retry",
+      "keyCopied": "Virtual key copied",
+      "copyFailed": "Copy failed",
+      "active": "Active",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "spend": "Spend",
+      "maxBudget": "Max Budget",
+      "expiresAt": "Expires At",
+      "created": "Created",
+      "empty": {
+        "title": "No Virtual Keys",
+        "description": "Create your first virtual key to start using AI models"
+      },
+      "createDialog": {
+        "title": "Create Virtual Key",
+        "description": "Create a new virtual key to access AI models",
+        "name": "Key Name",
+        "namePlaceholder": "e.g., Production Key",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "e.g., Key for production environment",
+        "expires": "Expires At",
+        "expiresHint": "Leave empty for no expiration",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "success": "Virtual key created successfully",
+        "fail": "Failed to create virtual key"
+      },
+      "editDialog": {
+        "title": "Edit Virtual Key",
+        "description": "Edit virtual key information",
+        "name": "Key Name",
+        "descriptionLabel": "Description",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving...",
+        "success": "Virtual key updated successfully",
+        "fail": "Failed to update virtual key"
+      },
+      "detailDialog": {
+        "title": "Virtual Key Details",
+        "description": "View detailed information about the virtual key",
+        "key": "Virtual Key",
+        "spend": "Spend",
+        "maxBudget": "Max Budget",
+        "expiresAt": "Expires At",
+        "models": "Supported Models",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At",
+        "close": "Close"
+      },
+      "usageGuide": {
+        "title": "How to Use Virtual Key",
+        "description": "Virtual Key is an API key for accessing the OpenMCP AI Agent infrastructure for stable API access",
+        "badge": "Usage Guide",
+        "apiConfig": {
+          "title": "API Configuration",
+          "baseUrl": "Base URL:",
+          "apiKey": "API Key:",
+          "apiKeyHint": "(Get from your Virtual Key)"
+        },
+        "codeExamples": {
+          "title": "Code Examples",
+          "python": "Python",
+          "javascript": "JavaScript/Node.js",
+          "curl": "cURL",
+          "copyCode": "Copy Code"
+        },
+        "tips": {
+          "title": "Important Tips",
+          "compatibility": {
+            "title": "API Compatibility",
+            "description": "Our API is fully compatible with OpenAI API format, you can directly use OpenAI SDKs and libraries"
+          },
+          "security": {
+            "title": "Security",
+            "description": "Please keep your API Key secure, don't expose it in client-side code, recommend using environment variables"
+          },
+          "limits": {
+            "title": "Usage Limits",
+            "description": "Each Virtual Key has usage limits and budget controls, please use reasonably to avoid exceeding limits"
+          },
+          "models": {
+            "title": "Supported Models",
+            "description": "Supports Qwen, Gemini, DeepSeek and other model series, check documentation for specific supported models"
+          }
+        },
+        "resources": {
+          "title": "Related Resources",
+          "apiDocs": "API Documentation",
+          "modelList": "Model List"
+        },
+        "copySuccess": "Copied to clipboard"
+      }
+    },
+    "admin": {
+      "title": "Admin",
+      "details": "Details",
+      "edit": "Edit",
+      "users": {
+        "title": "Users",
+        "fakeData": "Note: Faked data for demonstration, some features are disabled",
+        "error": "Failed to get users",
+        "search": "Search users...",
+        "columns": {
+          "columns": "Columns",
+          "name": "Name",
+          "email": "Email",
+          "role": "Role",
+          "createdAt": "Created At",
+          "customerId": "Customer ID",
+          "status": "Status",
+          "banReason": "Ban Reason",
+          "banExpires": "Ban Expires",
+          "actions": "Actions"
+        },
+        "noResults": "No results",
+        "firstPage": "First Page",
+        "lastPage": "Last Page",
+        "nextPage": "Next Page",
+        "previousPage": "Previous Page",
+        "rowsPerPage": "Rows per page",
+        "page": "Page",
+        "loading": "Loading...",
+        "admin": "Admin",
+        "user": "User",
+        "email": {
+          "verified": "Email Verified",
+          "unverified": "Email Unverified"
+        },
+        "emailCopied": "Email copied to clipboard",
+        "banned": "Banned",
+        "active": "Active",
+        "joined": "Joined",
+        "updated": "Updated",
+        "viewDetails": "View Details",
+        "ban": {
+          "reason": "Ban Reason",
+          "reasonPlaceholder": "Enter the reason for banning this user",
+          "defaultReason": "Spamming",
+          "never": "Never",
+          "expires": "Ban Expires",
+          "selectDate": "Select Date",
+          "button": "Ban User",
+          "success": "User has been banned",
+          "error": "Failed to ban user"
+        },
+        "unban": {
+          "button": "Unban User",
+          "success": "User has been unbanned",
+          "error": "Failed to unban user"
+        },
+        "recharge": {
+          "title": "User Recharge",
+          "description": "Recharge for {name}",
+          "type": "Recharge Type",
+          "balance": {
+            "label": "Balance Recharge",
+            "amount": "Recharge Amount",
+            "success": "Balance recharged successfully",
+            "error": "Failed to recharge balance"
+          },
+          "credits": {
+            "label": "Credits Recharge",
+            "amount": "Recharge Credits",
+            "success": "Credits recharged successfully",
+            "error": "Failed to recharge credits"
+          },
+          "amountPlaceholder": "Enter recharge amount",
+          "amountInvalid": "Please enter a valid recharge amount",
+          "remark": "Remark",
+          "remarkPlaceholder": "Enter remark (optional)",
+          "cancel": "Cancel",
+          "recharge": "Confirm Recharge",
+          "recharging": "Recharging...",
+          "button": "Recharge"
+        },
+        "close": "Close",
+        "stats": {
+          "total": "Total Users",
+          "totalDescription": "All registered users on the platform",
+          "active": "Active Users",
+          "activeDescription": "Users who have created virtual keys",
+          "todayRegistered": "Today Registered",
+          "todayRegisteredDescription": "Users registered today",
+          "todayRecharge": "Today Recharge",
+          "todayRechargeDescription": "Users who successfully recharged today",
+          "rechargeUsers": "Recharge Users",
+          "rechargeUsersDescription": "Users who have successfully recharged",
+          "error": "Failed to load",
+          "errorDescription": "Please try again later"
+        }
+      },
+      "models": {
+        "title": "Models",
+        "description": "Manage your models",
+        "create": "Create Model",
+        "createFirst": "Create First Model",
+        "loading": "Loading..."
+      },
+      "apps": {
+        "title": "Apps",
+        "description": "Manage your apps",
+        "create": "Create App",
+        "createFirst": "Create First App",
+        "loading": "Loading..."
+      },
+      "virtualKeys": {
+        "title": "Virtual Keys",
+        "description": "Manage your virtual keys",
+        "create": "Create Virtual Key",
+        "createFirst": "Create First Virtual Key",
+        "loading": "Loading..."
+      },
+      "vendors": {
+        "title": "Vendors",
+        "description": "Manage your vendors",
+        "create": "Create Vendor",
+        "createFirst": "Create First Vendor",
+        "loading": "Loading..."
+      },
+      "sessions": {
+        "title": "Sessions",
+        "description": "Manage your sessions",
+        "create": "Create Session",
+        "createFirst": "Create First Session",
+        "loading": "Loading..."
+      },
+      "rechargeOrders": {
+        "title": "Recharge Orders",
+        "description": "Manage recharge orders",
+        "loading": "Loading..."
+      },
+      "newsletterSubscriptions": {
+        "title": "Newsletter Subscriptions",
+        "description": "Manage newsletter subscriptions",
+        "loading": "Loading..."
+      },
+      "payments": {
+        "title": "Payments",
+        "description": "Manage payment records",
+        "loading": "Loading..."
+      },
+      "workflows": {
+        "title": "Workflows",
+        "description": "Manage workflows",
+        "loading": "Loading..."
+      },
+      "authors": {
+        "title": "Authors",
+        "description": "Manage authors",
+        "loading": "Loading..."
+      },
+      "categories": {
+        "title": "Categories",
+        "description": "Manage workflow categories",
+        "loading": "Loading..."
+      },
+      "userSubmissions": {
+        "title": "User Submissions",
+        "description": "Manage user submissions",
+        "loading": "Loading..."
+      },
+      "providerApplications": {
+        "title": "Provider Applications",
+        "description": "Review provider onboarding applications"
+      },
+      "providerPayouts": {
+        "title": "Provider Payouts",
+        "description": "Review skill-sale payout requests"
+      },
+      "a2aAgents": {
+        "title": "A2A Agents",
+        "description": "Manage A2A agents"
+      },
+      "mcpServers": {
+        "title": "MCP Servers",
+        "description": "Manage MCP servers"
+      },
+      "securityReview": {
+        "title": "Security Review",
+        "queue": "Security Review · Queue",
+        "rejected": "Security Review · Rejected",
+        "history": "Security Review · History"
+      }
+    },
+    "cms": {
+      "title": "CMS",
+      "docs": {
+        "title": "Docs"
+      },
+      "blog": {
+        "title": "Blog"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "hub": {
+        "title": "Personal Settings",
+        "subtitle": "Manage your account information and security settings",
+        "account": "Account Info",
+        "security": "Security",
+        "cards": {
+          "profile": {
+            "title": "Profile",
+            "description": "Avatar, display name, and account info"
+          },
+          "security": {
+            "title": "Security & Login",
+            "description": "Password, email binding, and account security"
+          },
+          "organization": {
+            "title": "Organization",
+            "description": "Company KYC and entity details"
+          },
+          "invoice": {
+            "title": "Invoice Profile",
+            "description": "Invoice title and tax details"
+          }
+        }
+      },
+      "overview": {
+        "title": "Personal Settings",
+        "description": "Manage your account info, balance and subscription",
+        "account": {
+          "title": "Account",
+          "description": "Avatar, name and sign-in email"
+        },
+        "billing": {
+          "title": "Billing",
+          "description": "Subscription plans and billing summary"
+        },
+        "recharge": {
+          "title": "Recharge",
+          "description": "Top up your balance with WeChat / Alipay"
+        },
+        "security": {
+          "title": "Security",
+          "description": "Password and account security"
+        },
+        "notification": {
+          "title": "Notifications",
+          "description": "Email subscriptions and notification preferences"
+        },
+        "editAccount": "Edit profile",
+        "balance": {
+          "title": "Account Balance",
+          "description": "Available for payments and subscription"
+        },
+        "credits": {
+          "title": "Credits Balance"
+        },
+        "topUp": "Top up",
+        "viewBilling": "View billing",
+        "plan": {
+          "title": "Current Plan",
+          "description": "Your subscription plan",
+          "active": "Active",
+          "free": "Free",
+          "freeMessage": "You do not have an active subscription",
+          "nextBillingDate": "Next billing date:"
+        }
+      },
+      "profile": {
+        "title": "Profile & Security",
+        "description": "Manage your account information and security settings",
+        "avatar": {
+          "title": "Avatar",
+          "description": "Click upload button to upload a custom one",
+          "recommendation": "An avatar is optional but strongly recommended",
+          "uploading": "Uploading...",
+          "uploadAvatar": "Upload Avatar",
+          "success": "Avatar updated successfully",
+          "fail": "Failed to update avatar",
+          "preview": "Avatar Preview"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Please enter your display name",
+          "placeholder": "Enter your name",
+          "minLength": "Please use 3 characters at minimum",
+          "maxLength": "Please use 30 characters at maximum",
+          "hint": "Please use 3-30 characters for your name",
+          "success": "Name updated successfully",
+          "fail": "Failed to update name",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "accountInfo": {
+          "title": "Account Info",
+          "description": "View your bound email and phone number",
+          "email": "Email",
+          "phone": "Phone",
+          "noEmail": "No email bound",
+          "noPhone": "No phone bound",
+          "verified": "Verified",
+          "unverified": "Unverified",
+          "payoutAccount": "Payout account"
+        },
+        "payoutEntry": {
+          "title": "Payout Account",
+          "description": "Manage Provider payout account details",
+          "manage": "Manage payout account",
+          "viewEarnings": "View earnings"
+        }
+      },
+      "billing": {
+        "title": "Billing",
+        "description": "Manage your subscription and billing details",
+        "overview": {
+          "title": "Billing Summary",
+          "description": "Account balance, recharge records and subscription",
+          "balance": {
+            "title": "Account Balance"
+          },
+          "credits": {
+            "title": "Credits Balance"
+          },
+          "topUp": "Top up",
+          "recent": {
+            "title": "Recent Recharges",
+            "description": "Latest 5 recharge records",
+            "empty": "No recharge records yet",
+            "viewAll": "View all"
+          },
+          "status": {
+            "completed": "Completed",
+            "processing": "Processing",
+            "failed": "Failed"
+          }
+        },
+        "status": {
+          "active": "Active",
+          "trial": "Trial",
+          "free": "Free",
+          "lifetime": "Lifetime"
+        },
+        "interval": {
+          "month": "month",
+          "year": "year",
+          "oneTime": "one-time"
+        },
+        "currentPlan": {
+          "title": "Current Plan",
+          "description": "Your current plan details",
+          "noPlan": "You have no active plan"
+        },
+        "CustomerPortalButton": {
+          "loading": "Loading...",
+          "createCustomerPortalFailed": "Failed to open Stripe customer portal"
+        },
+        "price": "Price:",
+        "nextBillingDate": "Next billing date:",
+        "trialEnds": "Trial ends:",
+        "freePlanMessage": "You are currently on the free plan with limited features",
+        "lifetimeMessage": "You have lifetime access to all premium features",
+        "manageSubscription": "Manage Subscription and Billing",
+        "manageBilling": "Manage Billing",
+        "upgradePlan": "Upgrade Plan",
+        "retry": "Retry",
+        "errorMessage": "Failed to get data"
+      },
+      "recharge": {
+        "title": "Recharge"
+      },
+      "notification": {
+        "title": "Notification",
+        "description": "Manage your notification preferences",
+        "newsletter": {
+          "title": "Newsletter Subscription",
+          "description": "Manage your newsletter subscription preferences",
+          "label": "Subscribe to newsletter",
+          "hint": "You can change your subscription preferences at any time",
+          "emailRequired": "Email is required to subscribe to the newsletter",
+          "subscribeSuccess": "Successfully subscribed to the newsletter",
+          "subscribeFail": "Failed to subscribe to the newsletter",
+          "unsubscribeSuccess": "Successfully unsubscribed from the newsletter",
+          "unsubscribeFail": "Failed to unsubscribe from the newsletter",
+          "error": "An error occurred while updating your subscription"
+        }
+      },
+      "security": {
+        "title": "Security",
+        "description": "Manage your security settings",
+        "updatePassword": {
+          "title": "Change Password",
+          "description": "Enter your current password and a new password",
+          "currentPassword": "Current Password",
+          "currentRequired": "Current password is required",
+          "newPassword": "New Password",
+          "newMinLength": "Password must be at least 8 characters",
+          "hint": "Please use at least 8 characters for password",
+          "showPassword": "Show password",
+          "hidePassword": "Hide password",
+          "success": "Password updated successfully",
+          "fail": "Failed to update password",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "resetPassword": {
+          "title": "Reset Password",
+          "description": "Reset password to enable email login",
+          "info": "Resetting your password will allow you to sign in using your email and password in addition to your social login methods. You will receive an email with instructions to reset your password",
+          "button": "Reset Password"
+        },
+        "deleteAccount": {
+          "title": "Delete Account",
+          "description": "Permanently remove your account and all of its contents",
+          "warning": "This action is not reversible, so please continue with caution",
+          "button": "Delete Account",
+          "confirmTitle": "Delete Account",
+          "confirmDescription": "Are you sure you want to delete your account? This action cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "deleting": "Deleting...",
+          "success": "Account deleted successfully",
+          "fail": "Failed to delete account"
+        },
+        "email": {
+          "title": "Bind / Change Email",
+          "description": "Used for login and notifications. Changing a verified email requires confirmation.",
+          "current": "Current email",
+          "empty": "No email bound yet",
+          "verified": "Verified",
+          "unverified": "Unverified",
+          "newEmail": "New email",
+          "placeholder": "name@example.com",
+          "hint": "Phone-login users can bind an email here. Check your inbox after changing.",
+          "footer": "Email is used for login and important notices",
+          "save": "Save",
+          "saving": "Saving...",
+          "success": "Email updated",
+          "verifySent": "Confirmation email sent — please verify",
+          "fail": "Failed to update email",
+          "invalid": "Please enter a valid email address",
+          "unchanged": "Email was not changed"
+        }
+      },
+      "organization": {
+        "payoutLink": "Payout account",
+        "payoutHint": "After onboarding, configure a payout account for withdrawals"
+      }
+    },
+    "upgrade": {
+      "title": "Upgrade",
+      "description": "Upgrade to Pro to access all features",
+      "button": "Upgrade"
+    },
+    "userGuide": {
+      "title": "User Guide"
+    },
+    "myAssets": {
+      "title": "My Assets",
+      "mcp": "MCP Servers",
+      "a2a": "A2A Agents",
+      "skills": "SKILLS",
+      "titleMcp": "My Assets · MCP",
+      "titleA2a": "My Assets · A2A",
+      "titleSkills": "My Assets · SKILLS",
+      "listSubtitle": "Manage the assets you connect and publish to the open AI ecosystem: connections, publishing, observability and authorization.",
+      "connectAsset": "Connect new asset",
+      "searchPlaceholder": "Search name / slug / endpoint",
+      "statusAll": "All statuses",
+      "statusOnline": "Online",
+      "statusReviewing": "In review",
+      "statusPublished": "Published",
+      "statusRejected": "Rejected",
+      "statusDisabled": "Disabled",
+      "statusAbnormal": "Unhealthy",
+      "colAsset": "Asset",
+      "colEndpoint": "Endpoint",
+      "colProtocol": "Protocol / version",
+      "colStatus": "Status",
+      "colVisibility": "Visibility",
+      "colPrice": "Listing",
+      "colActions": "Actions",
+      "actionDetail": "Detail",
+      "actionTest": "Test",
+      "actionDelete": "Delete",
+      "toggleEnable": "Enable",
+      "toggleDisable": "Disable",
+      "emptyTitle": "No assets connected yet",
+      "emptyDesc": "Once connected, assets can be called through the gateway; they must pass a connection test before being saved.",
+      "emptyAction": "Connect now",
+      "noMatchedTitle": "No matching assets",
+      "noMatchedDesc": "Try a different keyword or filter.",
+      "observabilityTitle": "Observability",
+      "obsRequests": "Requests today",
+      "obsSuccessRate": "Success rate",
+      "obsLatency": "P50 latency",
+      "obsErrors": "Errors",
+      "wizardTitle": "Connect a new asset",
+      "wizardDesc": "Complete connection configuration and pass the test, then add listing information.",
+      "stepConnect": "Connection",
+      "stepPublish": "Listing",
+      "fieldType": "Asset type",
+      "typeMcp": "MCP Server",
+      "typeA2a": "A2A Agent",
+      "typeSkills": "SKILLS",
+      "fieldName": "Gateway slug",
+      "fieldNameHint": "Lowercase letters / digits / dashes; used as part of the gateway call path",
+      "nameTaken": "This slug is already in use",
+      "nameInvalid": "Only lowercase letters, digits and dashes are allowed",
+      "fieldUrl": "Endpoint URL",
+      "fieldUrlPlaceholder": "https://api.example.com/mcp",
+      "fieldProtocolMcp": "Transport",
+      "protoStreamable": "Streamable HTTP",
+      "protoSse": "SSE",
+      "protoStdio": "stdio",
+      "fieldProtocolA2a": "Protocol version",
+      "protocolReject": "Only 0.3 / 1.0 are supported",
+      "fieldAuth": "Auth method",
+      "authNone": "None",
+      "authBearer": "Bearer Token",
+      "authApiKey": "Header API Key",
+      "authBasic": "Basic",
+      "authCustom": "Custom",
+      "fieldAuthSecret": "Secret / Token",
+      "authSecretPlaceholder": "Enter secret (encrypted at rest, preview masked)",
+      "btnTest": "Test connection",
+      "testRunning": "Probing endpoint…",
+      "testSuccess": "Connection successful",
+      "testFail": "Connection failed",
+      "testSuccessTools": "{count} tools / methods available",
+      "testSuccessCard": "Agent Card loaded ({count} capabilities)",
+      "testHint": "You must pass the test before saving",
+      "testAuthFail": "Auth failed: check the secret or authorization method",
+      "testTimeout": "Timeout: make sure the endpoint is reachable",
+      "testProtocolFail": "Protocol unsupported: check transport / version matches the endpoint",
+      "mustTestFirst": "Pass the connection test first",
+      "btnNext": "Next: listing",
+      "btnPrev": "Back: connection",
+      "btnSave": "Save",
+      "btnSubmit": "Submit for review",
+      "saveSuccess": "Asset saved and is now Online",
+      "cancel": "Cancel",
+      "fieldDescription": "Description",
+      "fieldDescriptionPlaceholder": "Describe the tools / capabilities and use cases (20-2000 chars)",
+      "fieldCategory": "Category",
+      "fieldCategoryPlaceholder": "Pick a category (optional)",
+      "fieldScope": "Visibility",
+      "scopePublic": "Public",
+      "scopePrivate": "Private (self only)",
+      "scopeTeam": "Specific users / key groups",
+      "fieldPriceType": "Pricing",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "fieldBilling": "Billing model",
+      "billingOnce": "One-time",
+      "billingSub": "Subscription (periodic)",
+      "billingPerCall": "Per-call",
+      "fieldPrice": "Price (CNY)",
+      "fieldUnitPrice": "Unit price per call (CNY)",
+      "detailTitle": "Asset detail",
+      "backToDetail": "Back to list",
+      "ovStatus": "Status",
+      "ovVisibility": "Visibility",
+      "ovEndpoint": "Endpoint",
+      "ovProtocol": "Protocol / version",
+      "ovAuth": "Auth",
+      "ovTools": "Tools / capabilities",
+      "ovLastTest": "Last test",
+      "ovCreated": "Created",
+      "btnTestAgain": "Test again",
+      "toggleLabel": "Enable asset",
+      "statsTitle": "Observability",
+      "statsDesc": "Last 24 hours",
+      "statRequests": "Total requests",
+      "statSuccess": "Success rate",
+      "statP50": "P50 latency",
+      "statP95": "P95 latency",
+      "statErrors": "Errors",
+      "logsTitle": "Recent call logs",
+      "logsDesc": "Full history (mock data for now)",
+      "logTime": "Time",
+      "logCaller": "Caller",
+      "logMethod": "Method / tool",
+      "logStatus": "Result",
+      "logLatency": "Latency",
+      "logCost": "Cost",
+      "logEmpty": "No call logs yet",
+      "authTitle": "Authorization & visibility",
+      "authDesc": "Control who can call this asset",
+      "authPublicDesc": "Any signed-in user can call",
+      "authPrivateDesc": "Only you can call",
+      "authTeamDesc": "Specific users or key groups can call",
+      "grantedTitle": "Granted callers",
+      "grantSearch": "Enter a username or key identifier",
+      "sandboxTitle": "Sandbox invocation",
+      "sandboxDesc": "Send one request to preview the round trip between the gateway and the asset.",
+      "sandboxPlaceholder": "Type a message to send to the asset…",
+      "sandboxRun": "Run",
+      "sandboxRunning": "Running…",
+      "sandboxResultTitle": "Result",
+      "resultOk": "OK",
+      "resultErr": "Error",
+      "deleteConfirmTitle": "Delete this asset?",
+      "deleteConfirmDesc": "The gateway will immediately stop serving it, and this cannot be undone.",
+      "rejectReason": "Rejection reason",
+      "authOauthClient": "OAuth2 Client Credentials",
+      "engagement": "Views {views} · Downloads/calls {downloads}"
+    },
+    "sidebar": {
+      "workspace": "Workspace",
+      "usage": "Usage",
+      "publish": "Publish",
+      "account": "Account",
+      "recharge": "Balance & Top-up",
+      "onboarding": "Onboarding & Payout",
+      "profile": "Profile",
+      "security": "Security & Login"
+    },
+    "usage": {
+      "title": "Usage & Spend",
+      "description": "View calls, downloads, and recharge usage details",
+      "comingSoon": "Usage detail page coming soon",
+      "summary": {
+        "monthSpend": "Spend this month",
+        "callCount": "Calls this month",
+        "downloadCount": "Downloads this month"
+      },
+      "filters": {
+        "dateRange": "Date range",
+        "type": "Type",
+        "allTypes": "All types"
+      },
+      "table": {
+        "time": "Time",
+        "resource": "Resource",
+        "type": "Type",
+        "quantity": "Quantity",
+        "amount": "Amount",
+        "status": "Status",
+        "empty": "No usage records"
+      },
+      "types": {
+        "mcp_call": "MCP call",
+        "a2a_call": "A2A call",
+        "skill_download": "Skill download",
+        "skill_purchase": "Skill purchase",
+        "recharge": "Recharge"
+      },
+      "loadFailed": "Failed to load usage",
+      "retry": "Retry"
+    },
+    "monthlyBilling": {
+      "title": "Monthly Billing",
+      "description": "Monthly usage and spend rollups",
+      "comingSoon": "Monthly billing page coming soon",
+      "table": {
+        "month": "Month",
+        "total": "Total",
+        "calls": "Calls",
+        "downloads": "Downloads",
+        "actions": "Actions",
+        "viewDetail": "View details",
+        "empty": "No monthly bills"
+      },
+      "loadFailed": "Failed to load monthly billing",
+      "retry": "Retry"
+    },
+    "earnings": {
+      "title": "Earnings & Payouts",
+      "description": "Skill sales, gateway usage income, and payout requests",
+      "comingSoon": "Earnings center coming soon",
+      "notProvider": "You are not a provider yet. Please complete onboarding first.",
+      "goOnboarding": "Go to onboarding",
+      "tabs": {
+        "skills": "Skill sales",
+        "gateway": "Gateway income",
+        "payouts": "Payout requests"
+      },
+      "stats": {
+        "calls30": "Calls (Last 30 Days)",
+        "income30": "Income (Last 30 Days, CNY)",
+        "callsTotal": "Total Calls",
+        "incomeTotal": "Total Income (CNY)"
+      },
+      "chart": {
+        "title": "Income & Calls Trend (Last 30 Days)",
+        "calls": "Calls",
+        "income": "Income (CNY)",
+        "empty": "No income data yet"
+      },
+      "overview": {
+        "title": "Income Overview",
+        "perCall": "Average Income Per Call"
+      },
+      "loadFailed": "Failed to load",
+      "retry": "Retry",
+      "payoutAccount": "Payout account"
+    },
+    "organization": {
+      "title": "Organization",
+      "description": "Manage company KYC and entity info",
+      "comingSoon": "Organization page coming soon",
+      "individualHint": "Individuals can upgrade to a company entity for more capabilities",
+      "goCompanyOnboarding": "Company onboarding",
+      "companyTitle": "Company verification",
+      "verificationStatus": "Verification status",
+      "companyName": "Company name",
+      "contactName": "Contact name",
+      "documentationUrl": "Documents URL",
+      "idNumber": "Business registration ID",
+      "save": "Save",
+      "saving": "Saving...",
+      "saveSuccess": "Organization saved",
+      "saveFailed": "Save failed"
+    },
+    "invoice": {
+      "title": "Invoice Profile",
+      "description": "Store invoice title and tax info (API later)",
+      "comingSoon": "Invoice profile page coming soon",
+      "profileTitle": "Invoice profile",
+      "profileHint": "Store invoice title only — tax API comes later",
+      "fields": {
+        "title": "Invoice title",
+        "taxId": "Tax ID",
+        "address": "Address",
+        "bank": "Bank account",
+        "phone": "Phone"
+      },
+      "save": "Save",
+      "saving": "Saving...",
+      "saveSuccess": "Invoice profile saved",
+      "saveFailed": "Save failed",
+      "requestsTitle": "Invoice requests",
+      "requestsHint": "Invoice request flow coming soon (stub)",
+      "requests": {
+        "date": "Date",
+        "amount": "Amount",
+        "status": "Status",
+        "empty": "No invoice requests yet (draft stub)"
+      }
+    }
+  },
+  "AuthPage": {
+    "login": {
+      "title": "Login",
+      "welcomeBack": "Welcome back",
+      "email": "Email",
+      "password": "Password",
+      "signIn": "Sign In",
+      "signUpHint": "Don't have an account? Sign up",
+      "forgotPassword": "Forgot Password?",
+      "signInWithGoogle": "Sign In with Google",
+      "signInWithGitHub": "Sign In with GitHub",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "or": "Or continue with",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password",
+      "switchToPhone": "Sign in with phone"
+    },
+    "phoneLogin": {
+      "title": "Phone Login",
+      "welcomeBack": "Welcome back",
+      "description": "Please enter your phone number to sign in",
+      "phoneNumber": "Phone Number",
+      "verificationCode": "Verification Code",
+      "sendCode": "Send Code",
+      "resendCode": "Resend",
+      "signIn": "Sign In",
+      "signUpHint": "Don't have an account? Sign up",
+      "switchToEmail": "Sign in with email",
+      "phoneRequired": "Please enter your phone number",
+      "codeRequired": "Please enter verification code",
+      "invalidPhone": "Please enter a valid phone number",
+      "codeSent": "Verification code sent",
+      "countdown": "Resend in {seconds}s",
+      "autoCreateAccount": "Account will be created automatically if phone number doesn't exist"
+    },
+    "register": {
+      "title": "Register",
+      "createAccount": "Create an account",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "signUp": "Sign Up",
+      "signInHint": "Already have an account? Sign in",
+      "checkEmail": "Please check your email inbox",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "nameRequired": "Please enter your name",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "email": "Email",
+      "send": "Send reset link",
+      "backToLogin": "Back to login",
+      "checkEmail": "Please check your email inbox",
+      "emailRequired": "Please enter your email"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "password": "Password",
+      "reset": "Reset password",
+      "backToLogin": "Back to login",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "minLength": "Password must be at least 8 characters"
+    },
+    "error": {
+      "title": "Oops! Something went wrong!",
+      "tryAgain": "Please try again.",
+      "backToLogin": "Back to login",
+      "checkEmail": "Please check your email inbox"
+    },
+    "common": {
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "byClickingContinue": "By clicking continue, you agree to our ",
+      "and": " and "
+    }
+  },
+  "HomePage": {
+    "title": "OpenMCP",
+    "description": "Discover, share, and deploy AI skills, MCP tools and A2A agents. Get AI-powered capability analysis to optimize your agents.",
+    "hero": {
+      "title": "Discover and Share Powerful OpenMCP AI Agent Assets",
+      "description": "Join the global developer community to explore thousands of certified AI skills, MCP tools and A2A agents. Upload your creations, download others' wisdom, and build a smarter agent world together.",
+      "introduction": "Discover and Share Powerful OpenMCP AI Agent Assets",
+      "primary": "Browse Skills",
+      "secondary": "Join Community",
+      "contact": "Contact Us"
+    },
+    "logocloud": {
+      "title": "Your favorite companies are our partners",
+      "poweredBy": "Powered by leading OpenMCP AI agent providers"
+    },
+    "integration": {
+      "title": "Integrations",
+      "subtitle": "Integrate with your favorite tools",
+      "description": "Connect seamlessly with popular platforms and services to enhance your workflow.",
+      "learnMore": "Learn More",
+      "items": {
+        "item-1": {
+          "title": "Google Gemini",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        },
+        "item-2": {
+          "title": "Replit",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        },
+        "item-3": {
+          "title": "MagicUI",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        },
+        "item-4": {
+          "title": "VSCodium",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        },
+        "item-5": {
+          "title": "MediaWiki",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        },
+        "item-6": {
+          "title": "Google PaLM",
+          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        }
+      }
+    },
+    "integration2": {
+      "title": "Integrate with your favorite tools",
+      "description": "Connect seamlessly with popular platforms and services to enhance your workflow.",
+      "primaryButton": "Get Started",
+      "secondaryButton": "See Demo"
+    },
+    "features": {
+      "title": "Core Features",
+      "subtitle": "AI Agent Infrastructure",
+      "description": "Discover, deploy and publish AI skills, MCP tools and A2A agents, with built-in review, billing and metering.",
+      "items": {
+        "item-1": {
+          "title": "Download & Share Skills",
+          "description": "Access thousands of certified AI skills and MCP tools. Deploy ready-to-use capabilities or share your own creations with the community."
+        },
+        "item-2": {
+          "title": "Submit & Get Certified",
+          "description": "Submit your assets for review and certification. Get your capabilities verified and featured in our community."
+        },
+        "item-3": {
+          "title": "AI-Powered Analysis",
+          "description": "Get AI-powered analysis of your skills and agents. Optimize performance, identify bottlenecks, and improve efficiency."
+        },
+        "item-4": {
+          "title": "Community Collaboration",
+          "description": "Connect with AI experts worldwide. Learn from others, share knowledge, and build better agents together."
+        }
+      }
+    },
+    "features2": {
+      "title": "OpenMCP Platform",
+      "subtitle": "Built for AI Agent Infrastructure",
+      "description": "Everything you need to launch and operate your own AI agent capacity marketplace.",
+      "feature-1": "Listing review and moderation",
+      "feature-2": "China payments built in",
+      "feature-3": "Usage metering and billing",
+      "feature-4": "Multi-protocol catalog"
+    },
+    "features3": {
+      "title": "Why OpenMCP",
+      "subtitle": "The infrastructure for the agent economy",
+      "description": "Open protocols for A2A / Skills / MCP, with centralized registration, trusted review and built-in settlement.",
+      "items": {
+        "item-1": {
+          "title": "Skills",
+          "description": "Publish, review and monetize reusable AI skills with versioning and auto-updates for buyers."
+        },
+        "item-2": {
+          "title": "MCP Tools",
+          "description": "Officially curated and reviewed MCP servers that agents can discover and invoke through one gateway."
+        },
+        "item-3": {
+          "title": "A2A Agents",
+          "description": "Register and interoperate agents across the A2A protocol for true multi-agent collaboration."
+        },
+        "item-4": {
+          "title": "Payments & Billing",
+          "description": "China payment channels, subscriptions and pay-per-call billing that settle revenue to providers."
+        },
+        "item-5": {
+          "title": "Reviews & Trust",
+          "description": "Certified badges, ranking and transparency that build trust between buyers and providers."
+        },
+        "item-6": {
+          "title": "Brand & Community",
+          "description": "Author profiles, follower relationships and analytics so providers can grow their audience."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Pricing",
+      "subtitle": "Pricing",
+      "description": "Choose the plan that works best for you"
+    },
+    "complexityComparison": {
+      "title": "Stop Building from Scratch, Start with Proven Skills",
+      "description": "Let OpenMCP accelerate your AI agent journey",
+      "traditional": {
+        "title": "Traditional Approach",
+        "items": {
+          "item-1": "Build every skill from scratch",
+          "item-2": "Spend hours researching best practices",
+          "item-3": "Troubleshoot issues alone",
+          "item-4": "No insights into skill performance"
+        }
+      },
+      "openroute": {
+        "title": "OpenMCP Approach",
+        "recommended": "Recommended",
+        "items": {
+          "item-1": "Deploy certified capabilities instantly",
+          "item-2": "Learn from community best practices",
+          "item-3": "Get AI-powered skill analysis",
+          "item-4": "Share and collaborate with experts"
+        }
+      },
+      "cta": "Start immediately, discover capabilities that work"
+    },
+    "faqs": {
+      "title": "FAQ",
+      "subtitle": "Frequently Asked Questions",
+      "items": {
+        "item-1": {
+          "question": "Do you offer a free trial?",
+          "answer": "Yes, we offer a 7-day free trial."
+        },
+        "item-2": {
+          "question": "How do I cancel my subscription?",
+          "answer": "You can cancel your subscription by visiting the billing page."
+        },
+        "item-3": {
+          "question": "Can I change my plan?",
+          "answer": "Yes, you can change your plan at any time by visiting the billing page."
+        },
+        "item-4": {
+          "question": "What is the refund policy?",
+          "answer": "We offer a 30-day money-back guarantee if you are not happy with our product."
+        },
+        "item-5": {
+          "question": "Can't find what you're looking for?",
+          "answer": "Please contact our customer support team at support@openmcp.cn or submit your asset request."
+        }
+      }
+    },
+    "testimonials": {
+      "title": "Testimonials",
+      "subtitle": "What our customers are saying",
+      "items": {
+        "item-1": {
+          "name": "Jonathan Yombo",
+          "role": "Software Engineer",
+          "image": "https://randomuser.me/api/portraits/men/1.jpg",
+          "quote": "OpenMCP is really extraordinary and very practical, no need to break your head. A real gold mine."
+        },
+        "item-2": {
+          "name": "Yves Kalume",
+          "role": "GDE - Android",
+          "image": "https://randomuser.me/api/portraits/men/6.jpg",
+          "quote": "With no experience in web design I just redesigned my entire website in a few minutes with tailwindcss thanks to OpenMCP."
+        },
+        "item-3": {
+          "name": "Yucel Faruksahan",
+          "role": "Tailkits Creator",
+          "image": "https://randomuser.me/api/portraits/men/7.jpg",
+          "quote": "Great work on OpenMCP template. This is one of the best personal website that I have seen so far :)"
+        },
+        "item-4": {
+          "name": "Anonymous author",
+          "role": "Product Manager",
+          "image": "https://randomuser.me/api/portraits/men/8.jpg",
+          "quote": "I downloaded the one of OpenMCP template which is very clear to understand at the start and you could modify the codes/blocks to fit perfectly on your purpose of the page."
+        },
+        "item-5": {
+          "name": "Shekinah Tshiokufila",
+          "role": "Senior Software Engineer",
+          "image": "https://randomuser.me/api/portraits/men/4.jpg",
+          "quote": "OpenMCP is redefining the standard of web design, with these blocks it provides an easy and efficient way for those who love beauty but may lack the time to implement it."
+        },
+        "item-6": {
+          "name": "Oketa Fred",
+          "role": "Fullstack Developer",
+          "image": "https://randomuser.me/api/portraits/men/2.jpg",
+          "quote": "I absolutely love OpenMCP! The component blocks are beautifully designed and easy to use, which makes creating a great-looking website a breeze."
+        },
+        "item-7": {
+          "name": "Zeki",
+          "role": "Founder of ChatExtend",
+          "image": "https://randomuser.me/api/portraits/men/5.jpg",
+          "quote": "OpenMCP is the perfect fusion of simplicity and versatility, enabling us to create UIs that are as stunning as they are user-friendly."
+        },
+        "item-8": {
+          "name": "Joseph Kitheka",
+          "role": "Fullstack Developer",
+          "image": "https://randomuser.me/api/portraits/men/9.jpg",
+          "quote": "OpenMCP has transformed the way I develop web applications. Their extensive collection of UI components, blocks, and templates has significantly accelerated my workflow."
+        },
+        "item-9": {
+          "name": "Khatab Wedaa",
+          "role": "MerakiUI Creator",
+          "image": "https://randomuser.me/api/portraits/men/10.jpg",
+          "quote": "OpenMCP is an elegant, clean, and responsive tailwind css components it's very helpful to start fast with your project."
+        },
+        "item-10": {
+          "name": "Rodrigo Aguilar",
+          "role": "TailwindAwesome Creator",
+          "image": "https://randomuser.me/api/portraits/men/11.jpg",
+          "quote": "I love OpenMCP ❤️. The component blocks are well-structured, simple to use, and beautifully designed. It makes it really easy to have a good-looking website in no time."
+        },
+        "item-11": {
+          "name": "Eric Ampire",
+          "role": "@GoogleDevExpert for Android",
+          "image": "https://randomuser.me/api/portraits/men/12.jpg",
+          "quote": "OpenMCP templates are the perfect solution for anyone who wants to create a beautiful and functional website without any web design experience."
+        },
+        "item-12": {
+          "name": "Roland Tubonge",
+          "role": "Software Engineer",
+          "image": "https://randomuser.me/api/portraits/men/13.jpg",
+          "quote": "OpenMCP is so well designed that even with a very poor knowledge of web design you can do miracles. Let yourself be seduced!"
+        }
+      }
+    },
+    "stats": {
+      "title": "Statistics",
+      "subtitle": "OpenMCP Impact",
+      "description": "Global leading AI Agent infrastructure",
+      "items": {
+        "item-1": {
+          "title": "Total Skills"
+        },
+        "item-2": {
+          "title": "Global Users"
+        },
+        "item-3": {
+          "title": "Asset Downloads"
+        },
+        "item-4": {
+          "title": "Community Contributors"
+        }
+      }
+    },
+    "gettingStarted": {
+      "title": "Three simple steps to start building with AI agents",
+      "description": "No complex setup required, discover and deploy capabilities in minutes",
+      "steps": {
+        "step1": {
+          "title": "Sign Up",
+          "description": "Create an account to get started. Join thousands of developers and AI enthusiasts.",
+          "action": "Sign Up Now"
+        },
+        "step2": {
+          "title": "Browse & Search Skills",
+          "description": "Explore thousands of certified AI skills, MCP tools and A2A agents. Filter by category, complexity, or use case.",
+          "action": "Browse Skills"
+        },
+        "step3": {
+          "title": "Deploy or Submit",
+          "description": "Deploy ready-to-use capabilities or submit your own for certification and sharing.",
+          "action": "Get Started"
+        }
+      },
+      "noSubscription": "Free to browse, deploy and share"
+    },
+    "calltoaction": {
+      "title": "Stop building from scratch, start with proven capabilities",
+      "description": "Join the largest AI agent community and accelerate your intelligence",
+      "primaryButton": "Browse Skills",
+      "secondaryButton": "Learn More"
+    },
+    "creatorApi": {
+      "label": "Creator API",
+      "title": "Publish skills from your terminal",
+      "description": "Build a skill or persona, then ship it to OpenMCP with a single API call. Your AI assistant can create listings, upload packages, and manage versions — all programmatically.",
+      "feature1Title": "One command to publish",
+      "feature1Text": "Create a listing and upload your package in seconds",
+      "feature2Title": "AI-native publishing",
+      "feature2Text": "Your AI assistant can build and publish skills autonomously",
+      "feature3Title": "Version management",
+      "feature3Text": "Push updates and your buyers get them automatically",
+      "cta": "Get your API key",
+      "terminalLabel": "terminal"
+    }
+  },
+  "Newsletter": {
+    "title": "Newsletter",
+    "subtitle": "Start Subscribing Now",
+    "description": "Subscribe to the newsletter to get the latest news and updates",
+    "daily": {
+      "tagline": "AI Daily Brief",
+      "title": "One AI application tip, every morning",
+      "description": "Practical tips to make your AI agents and infrastructure more useful. Free, no spam, unsubscribe anytime.",
+      "subscribeClaw": "Subscribe",
+      "browsePastIssues": "Browse past issues"
+    },
+    "form": {
+      "email": "Email",
+      "subscribe": "Subscribe",
+      "subscribing": "Subscribing...",
+      "success": "Subscribed successfully",
+      "fail": "Failed to subscribe",
+      "emailValidation": "Please enter a valid email address"
+    }
+  },
+  "Marketing": {
+    "navbar": {
+      "workflows": {
+        "title": "Workflows"
+      },
+      "categories": {
+        "title": "Categories"
+      },
+      "personas": {
+        "title": "Personas"
+      },
+      "skills": {
+        "title": "Skills"
+      },
+      "a2a": {
+        "title": "A2A"
+      },
+      "mcp": {
+        "title": "MCP"
+      },
+      "clawsourcing": {
+        "title": "Clawsourcing"
+      },
+      "authors": {
+        "title": "Authors"
+      },
+      "rankings": {
+        "title": "Rankings"
+      },
+      "features": {
+        "title": "Features"
+      },
+      "pricing": {
+        "title": "Pricing"
+      },
+      "blog": {
+        "title": "Blog"
+      },
+      "docs": {
+        "title": "Docs"
+      },
+      "chat": {
+        "title": "Chat"
+      },
+      "pages": {
+        "title": "Pages",
+        "items": {
+          "about": {
+            "title": "About",
+            "description": "Learn more about our company, mission, and values"
+          },
+          "contact": {
+            "title": "Contact",
+            "description": "Get in touch with our team for support or inquiries"
+          },
+          "waitlist": {
+            "title": "Waitlist",
+            "description": "Join our waitlist for latest news and updates"
+          },
+          "changelog": {
+            "title": "Release Notes",
+            "description": "See the latest updates to our products"
+          },
+          "roadmap": {
+            "title": "Roadmap",
+            "description": "Explore our future plans and upcoming features"
+          },
+          "cookiePolicy": {
+            "title": "Cookie Policy",
+            "description": "How we use the cookies on our website"
+          },
+          "privacyPolicy": {
+            "title": "Privacy Policy",
+            "description": "How we protect and handle your data"
+          },
+          "termsOfService": {
+            "title": "Terms of Service",
+            "description": "The legal agreement between you and our company"
+          }
+        }
+      }
+    },
+    "footer": {
+      "tagline": "MCP / A2A / Skills marketplace: discover trusted capabilities and install them into Agents. Providers publish; monetization is optional.",
+      "product": {
+        "title": "Product",
+        "items": {
+          "features": "Features",
+          "pricing": "Pricing",
+          "workflows": "Workflows",
+          "skills": "Skills",
+          "clawsourcing": "Clawsourcing",
+          "personas": "Personas",
+          "rankings": "Rankings",
+          "categories": "Categories",
+          "authors": "Authors",
+          "mcp": "MCP",
+          "a2a": "A2A",
+          "start": "Getting started"
+        }
+      },
+      "resources": {
+        "title": "Resources",
+        "items": {
+          "blog": "Blog",
+          "docs": "Documentation",
+          "changelog": "Release Notes",
+          "roadmap": "Roadmap"
+        }
+      },
+      "company": {
+        "title": "Company",
+        "items": {
+          "about": "About",
+          "contact": "Contact",
+          "waitlist": "Waitlist"
+        }
+      },
+      "legal": {
+        "title": "Legal",
+        "items": {
+          "cookiePolicy": "Cookie Policy",
+          "privacyPolicy": "Privacy Policy",
+          "termsOfService": "Terms of Service"
+        }
+      }
+    },
+    "avatar": {
+      "dashboard": "Dashboard",
+      "billing": "Billing",
+      "settings": "Settings"
+    }
+  },
+  "ClawsourcingPage": {
+    "qa": {
+      "title": "Questions",
+      "faqs": {
+        "q0": {
+          "question": "How is this different from just setting up OpenClaw myself?",
+          "answer": "Same difference as buying a server vs. hiring a sysadmin. You could do it yourself. But every Clawsourced employee comes pre-built with a battle-tested memory system (most AI setups forget everything — ours doesn't), a curated tool stack, a custom persona, and active support from OpenMCP — the AI that runs our company. Plus we actively maintain and improve yours every month. You get the employee, not a homework assignment."
+        },
+        "q1": {
+          "question": "Is the consult really free?",
+          "answer": "Yes. We review your workflows, ask discovery questions, and send you a concrete scope plan — no charge, no commitment. You only pay when you decide to move forward with a build."
+        },
+        "q2": {
+          "question": "What do I need to provide?",
+          "answer": "An OpenRoute.cn virtual key (pay-as-you-go — we'll send you a setup video) and answers to our intake questions. That's it. We handle everything else."
+        },
+        "q3": {
+          "question": "How fast can my Claw be live?",
+          "answer": "Most go live within one week of scope approval. Some within 48 hours."
+        },
+        "q4": {
+          "question": "What does the $500/mo cover?",
+          "answer": "Hosting, monitoring, bug fixes, skill updates, and active improvement. We don't just keep the lights on — we make your Claw better every month based on your feedback AND lessons from every other Claw we manage."
+        },
+        "q5": {
+          "question": "Can I cancel?",
+          "answer": "Month-to-month. No contract. If you leave, we hand over every file, every config, every piece of the system. Zero lock-in."
+        },
+        "q6": {
+          "question": "Is my data safe?",
+          "answer": "Your Claw runs on isolated infrastructure. Nothing is shared between clients. You own your data, your configs, and your system."
+        },
+        "q7": {
+          "question": "Can you see my business data?",
+          "answer": "No. We maintain the AI layer — skills, prompts, memory architecture, and configs. Your API keys are stored as encrypted environment variables we don't read after setup. Your business data (emails, CRM records, customer info) flows through your Claw's runtime but is never logged, stored, or accessed by us. Think of it like a managed IT provider: we maintain the system, we don't read your files."
+        },
+        "q8": {
+          "question": "What if I don't want you learning from my setup?",
+          "answer": "Totally fine — we can opt you out of cross-client learning. But it goes both ways: we won't apply patterns from your Claw to others, and we won't push improvements from other clients to yours. Most people want the upgrades, but the choice is yours."
+        }
+      }
+    }
+  },
+  "ModelsPage": {
+    "title": "Model Marketplace",
+    "description": "Explore and compare various AI models",
+    "metadata": {
+      "title": "AI Model Marketplace | Thousands of Certified Models | OpenMCP",
+      "description": "Explore and compare thousands of certified AI models from leading providers. Find the perfect model for your project with advanced filtering, pricing comparison, and detailed specifications. OpenMCP and more."
+    },
+    "provider": {
+      "metadata": {
+        "title": "{provider} AI Models | OpenMCP",
+        "description": "Browse {provider} AI models on OpenMCP. Compare pricing, specifications, and features. Access {provider} models through our unified API gateway."
+      }
+    },
+    "model": {
+      "metadata": {
+        "title": "{modelName} - {provider} | OpenMCP",
+        "description": "{modelName} by {provider}. {description} Context length: {contextLength}. Input: {inputPrice}, Output: {outputPrice}. Access via OpenMCP unified gateway."
+      }
+    },
+    "searchPlaceholder": "Search models",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters",
+    "loading": "Loading models...",
+    "error": {
+      "title": "Loading failed",
+      "retry": "Retry"
+    },
+    "noResults": "No matching models found",
+    "filters": {
+      "type": "Type",
+      "provider": "Provider",
+      "price": "Price",
+      "context": "Context",
+      "specs": "Specs"
+    },
+    "filterOptions": {
+      "chat": "Chat",
+      "completion": "Completion",
+      "text": "Text",
+      "embedding": "Embedding",
+      "image": "Image",
+      "audio": "Audio",
+      "vision": "Vision",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "badges": {
+      "new": "New",
+      "popular": "Popular",
+      "free": "FREE"
+    }
+  },
+  "AboutPage": {
+    "title": "About",
+    "description": "OpenMCP is a neutral, open AI Agent infrastructure that helps you discover, publish and share AI skills, MCP tools and A2A agents.",
+    "authorName": "OpenMCP",
+    "authorBio": "Your AI Agent Infrastructure",
+    "introduction": "👋 Welcome to **OpenMCP**!\n\nWe are an **open, neutral multi-agent collaboration infrastructure**, connecting AI agent developers worldwide.\n\n## Our Mission\n\nOur mission is to make AI agent capabilities accessible to everyone by providing thousands of **certified AI skills and assets** that you can:\n\n- **Discover** AI skills, MCP tools and A2A agents that fit your needs\n- **Download** ready-to-use capabilities\n- **Customize** assets for your specific use cases\n- **Share** your own creations with the community\n\n## AI-Powered Analysis\n\nWe offer **AI-powered skill analysis** to help you:\n\n- Optimize performance\n- Identify bottlenecks\n- Improve efficiency\n\n## Join Our Community\n\nWhether you're a beginner or an expert, join our community to:\n\n- Share knowledge\n- Learn from others\n- Build better AI agents together\n\nIf you have any questions or suggestions, we'd love to hear from you!",
+    "talkWithMe": "Contact us",
+    "contactWeChat": "Contact us on WeChat",
+    "followMe": "Follow us on X"
+  },
+  "PricingPage": {
+    "title": "Pricing",
+    "description": "Choose the plan that works best for you",
+    "subtitle": "Choose the plan that works best for you",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "PricingCard": {
+      "freePrice": "$0",
+      "perMonth": "/month",
+      "perYear": "/year",
+      "popular": "Popular",
+      "currentPlan": "Current Plan",
+      "yourCurrentPlan": "Your Current Plan",
+      "getStartedForFree": "Get Started For Free",
+      "getLifetimeAccess": "Get Lifetime Access",
+      "getStarted": "Get Started",
+      "notAvailable": "Not Available",
+      "daysTrial": "{days}-day free trial"
+    },
+    "CheckoutButton": {
+      "loading": "Loading...",
+      "checkoutFailed": "Failed to open checkout page"
+    }
+  },
+  "PricePlans": {
+    "free": {
+      "name": "Free",
+      "description": "Basic features for personal use",
+      "features": {
+        "feature-1": "Up to 3 projects",
+        "feature-2": "1 GB storage",
+        "feature-3": "Basic analytics",
+        "feature-4": "Community support"
+      },
+      "limits": {
+        "limit-1": "Custom domains",
+        "limit-2": "Custom branding",
+        "limit-3": "Lifetime updates"
+      }
+    },
+    "pro": {
+      "name": "Pro",
+      "description": "Advanced features for professionals",
+      "features": {
+        "feature-1": "Unlimited projects",
+        "feature-2": "10 GB storage",
+        "feature-3": "Advanced analytics",
+        "feature-4": "Priority support",
+        "feature-5": "Custom domains"
+      },
+      "limits": {
+        "limit-1": "Custom branding",
+        "limit-2": "Lifetime updates"
+      }
+    },
+    "lifetime": {
+      "name": "Lifetime",
+      "description": "Premium features with one-time payment",
+      "features": {
+        "feature-1": "All Pro features",
+        "feature-2": "100 GB storage",
+        "feature-3": "Dedicated support",
+        "feature-4": "Enterprise-grade security",
+        "feature-5": "Advanced integrations",
+        "feature-6": "Custom branding",
+        "feature-7": "Lifetime updates"
+      }
+    }
+  },
+  "ChangelogPage": {
+    "title": "Release Notes",
+    "description": "Stay up to date with the latest changes in our product",
+    "subtitle": "Stay up to date with the latest changes in our product"
+  },
+  "ContactPage": {
+    "title": "Contact",
+    "description": "We'll help you find the right plan for your business",
+    "subtitle": "We'll help you find the right plan for your business",
+    "form": {
+      "title": "Contact Us",
+      "description": "If you have any questions or feedback, please reach out to our team",
+      "name": "Name",
+      "email": "Email",
+      "message": "Message",
+      "submit": "Submit",
+      "submitting": "Submitting...",
+      "success": "Message sent successfully",
+      "fail": "Failed to send message",
+      "nameMinLength": "Name must be at least 3 characters",
+      "nameMaxLength": "Name must not exceed 30 characters",
+      "emailValidation": "Please enter a valid email address",
+      "messageMinLength": "Message must be at least 10 characters",
+      "messageMaxLength": "Message must not exceed 500 characters"
+    },
+    "wechat": {
+      "title": "WeChat Contact",
+      "description": "Scan the QR code to add WeChat",
+      "contactWeChat": "WeChat Contact",
+      "openDialog": "Open WeChat contact dialog",
+      "qrCodeAlt": "WeChat QR Code",
+      "qrCodePlaceholder": "QR code failed to load",
+      "wechatId": "WeChat ID",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copySuccess": "WeChat ID copied to clipboard",
+      "copyFailed": "Copy failed, please copy manually",
+      "supportNote": "This is our technical support WeChat, we're here to help",
+      "instruction1": "Please scan the QR code above with WeChat"
+    }
+  },
+  "WaitlistPage": {
+    "title": "Waitlist",
+    "description": "Join our waitlist for the launch of our product",
+    "subtitle": "Join our waitlist for the launch of our product",
+    "form": {
+      "title": "Join Our Waitlist",
+      "description": "We will notify you when we launch our product",
+      "email": "Email",
+      "subscribe": "Subscribe",
+      "subscribing": "Subscribing...",
+      "success": "Subscribed successfully",
+      "fail": "Failed to subscribe",
+      "emailValidation": "Please enter a valid email address"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close",
+    "back": "Back",
+    "backToChat": "Back to Chat",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "connect": "Connect",
+    "connecting": "Connecting...",
+    "disconnect": "Disconnect",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "profile": "Profile",
+    "settings": "Settings",
+    "help": "Help",
+    "about": "About",
+    "contact": "Contact Us",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "switchTheme": "Switch theme",
+    "and": "and",
+    "appName": "OpenMCP",
+    "feedback": "Feedback"
+  },
+  "navigation": {
+    "home": "Home",
+    "chat": "Chat",
+    "dashboard": "Dashboard",
+    "models": "Models",
+    "settings": "Settings",
+    "profile": "Profile",
+    "help": "Help",
+    "blog": "Blog",
+    "docs": "Docs",
+    "aiApps": "AI Apps",
+    "aiText": "AI Text",
+    "aiTextDescription": "Intelligent text generation and processing",
+    "aiImage": "AI Image",
+    "aiImageDescription": "AI image generation and editing",
+    "aiVideo": "AI Video",
+    "aiVideoDescription": "AI video generation and processing",
+    "aiAudio": "AI Audio",
+    "aiAudioDescription": "AI audio generation and processing",
+    "externalAiTools": "External AI Tools",
+    "externalAiToolsDescription": "Access external AI tool platforms"
+  },
+  "forms": {
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "description": "Enter your email to reset your password",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "resetPassword": "Reset Password",
+      "passwordResetEmailSent": "Password reset email sent",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "login": {
+      "title": "Welcome back",
+      "description": "Login with your Github account",
+      "loginWithGoogle": "Login with Google",
+      "loginWithGithub": "Login with Github",
+      "lastUsed": "last used",
+      "orContinueWith": "Or continue with",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "Forgot your password?",
+      "login": "Login",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "description": "Enter your new password",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "resetPassword": "Reset Password",
+      "passwordResetSuccess": "Password reset successfully",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "signup": {
+      "title": "Welcome back",
+      "description": "Signup with your GitHub account",
+      "signupWithGoogle": "Signup with Google",
+      "signupWithGithub": "Signup with Github",
+      "orContinueWith": "Or continue with",
+      "username": "Username",
+      "usernamePlaceholder": "shadcn",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "Forgot your password?",
+      "signup": "Signup",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Login",
+      "pleaseCheckEmail": "Please check your email for verification."
+    },
+    "common": {
+      "agreeToTerms": "By clicking continue, you agree to our",
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "cancel": "Cancel"
+    }
+  },
+  "BlogPage": {
+    "title": "Blog",
+    "description": "Latest news and updates from our team",
+    "subtitle": "Latest news and updates from our team",
+    "author": "Author",
+    "categories": "Categories",
+    "tableOfContents": "Table of Contents",
+    "readTime": "{minutes} min read",
+    "all": "All",
+    "noPostsFound": "No posts found",
+    "allPosts": "All Posts",
+    "pagination": {
+      "previousPage": "Previous",
+      "nextPage": "Next",
+      "page": "Page {page}",
+      "goToPage": "Go to page {page}",
+      "currentPage": "Current page: {page}",
+      "totalPages": "of {totalPages} pages"
+    },
+    "morePosts": "More Posts"
+  },
+  "DocsPage": {
+    "toc": "Table of Contents",
+    "search": "Search docs",
+    "lastUpdate": "Last updated on",
+    "searchNoResult": "No results",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "chooseLanguage": "Select language",
+    "title": "OpenMCP Documentation",
+    "homepage": "Homepage",
+    "blog": "Blog",
+    "workflows": "Workflows",
+    "models": "Models",
+    "chat": "Chat"
+  },
+  "Fumadocs": {
+    "chat": {
+      "newChat": "New Chat",
+      "regenerate": "Regenerate",
+      "delete": "Clear Chat",
+      "description": "AI can be inaccurate, please verify the information.",
+      "thinking": "Thinking...",
+      "generating": "Generating...",
+      "typeMessage": "Type a message...",
+      "stop": "Stop",
+      "close": "Close",
+      "you": "You",
+      "assistant": "OpenMCP",
+      "source": "Source",
+      "askAI": "Ask AI"
+    }
+  },
+  "Mail": {
+    "common": {
+      "team": "{name} Team",
+      "copyright": "©️ {year} All Rights Reserved."
+    },
+    "verifyEmail": {
+      "title": "Hi, {name}.",
+      "body": "Please click the link below to verify your email address.",
+      "confirmEmail": "Confirm email",
+      "subject": "Verify your email"
+    },
+    "forgotPassword": {
+      "title": "Hi, {name}.",
+      "body": "Please click the link below to reset your password.",
+      "resetPassword": "Reset password",
+      "subject": "Reset your password"
+    },
+    "subscribeNewsletter": {
+      "body": "Thank you for subscribing to the newsletter. We will keep you updated with the latest news and updates.",
+      "subject": "Thanks for subscribing"
+    },
+    "contactMessage": {
+      "name": "Name: {name}",
+      "email": "Email: {email}",
+      "message": "Message: {message}",
+      "subject": "Contact Message from Website"
+    }
+  },
+  "time": {
+    "now": "Now",
+    "justNow": "Just now",
+    "minutesAgo": "{count} minutes ago",
+    "hoursAgo": "{count} hours ago",
+    "daysAgo": "{count} days ago",
+    "weeksAgo": "{count} weeks ago",
+    "monthsAgo": "{count} months ago",
+    "yearsAgo": "{count} years ago",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "thisWeek": "This week",
+    "lastWeek": "Last week",
+    "nextWeek": "Next week",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "nextMonth": "Next month",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "nextYear": "Next year"
+  },
+  "NotFoundPage": {
+    "title": "404",
+    "message": "Sorry, the page you are looking for does not exist.",
+    "backToHome": "Back to home"
+  },
+  "ErrorPage": {
+    "title": "Oops! Something went wrong!",
+    "tryAgain": "Try again",
+    "backToHome": "Back to home"
+  },
+  "AuthorsPage": {
+    "title": "Skill Authors",
+    "description": "Discover skills created by our community of AI experts.",
+    "totalAuthors": "{count} authors",
+    "authors": "authors",
+    "searchPlaceholder": "Search for an author...",
+    "workflows": "workflows",
+    "loadingMore": "Loading more authors...",
+    "allLoaded": "All authors have been loaded",
+    "noAuthors": "No authors found",
+    "loading": "Loading...",
+    "pagination": {
+      "previousPage": "Previous",
+      "nextPage": "Next"
+    },
+    "notFound": {
+      "title": "Author Not Found",
+      "description": "Sorry, we couldn't find information about this author."
+    },
+    "authorDetailContentTypeTitle": "Content type",
+    "authorDetail": {
+      "contentTypeTitle": "Content type",
+      "tabSkills": "Skills",
+      "tabWorkflows": "Workflows",
+      "tabPersonas": "Personas",
+      "statSkills": "Skills",
+      "statWorkflows": "Workflows",
+      "statPersonas": "Personas",
+      "hasLinksNote": "External links available"
+    }
+  },
+  "CategoriesPage": {
+    "title": "Skill Categories",
+    "description": "Browse skills by category to find exactly what you're looking for.",
+    "backToCatalog": "Back to catalog",
+    "workflow": "workflow",
+    "workflows": "workflows",
+    "notFound": {
+      "title": "Category Not Found",
+      "description": "Sorry, we couldn't find information about this category."
+    },
+    "loadError": "Failed to load categories, please try again later"
+  },
+  "Workflows": {
+    "workflowCount": "{count, plural, =0 {workflows} =1 {workflow} other {workflows}}",
+    "workflows": "Workflows",
+    "workflow": "Workflow",
+    "categories": "Categories",
+    "category": "Category",
+    "complexity": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "priceType": {
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived",
+      "rejected": "Rejected"
+    },
+    "views": "Views",
+    "downloads": "Downloads",
+    "likes": "Likes",
+    "comments": "Comments",
+    "verifications": "Verifications",
+    "author": "Author",
+    "publishedAt": "Published At",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "certified": "Certified",
+    "notCertified": "Not Certified",
+    "download": "Download",
+    "viewDetails": "View Details",
+    "relatedWorkflows": "Related Workflows",
+    "noWorkflows": "No workflows",
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "retry": "Retry",
+    "filters": {
+      "title": "Filters & Sort",
+      "titleMobile": "Filters & Categories",
+      "price": "Price",
+      "timePeriod": "Time Period",
+      "sort": "Sort By",
+      "category": "Category",
+      "all": "All",
+      "allCategories": "All Categories",
+      "allTime": "All Time",
+      "free": "Free",
+      "paid": "Paid",
+      "last7Days": "Last 7 Days",
+      "lastMonth": "Last Month",
+      "last3Months": "Last 3 Months",
+      "sortBy": {
+        "dateDesc": "Newest",
+        "dateAsc": "Oldest",
+        "downloadsDesc": "Most Downloads",
+        "viewsDesc": "Most Views",
+        "popularityDesc": "Most Popular",
+        "likesDesc": "Most Likes"
+      }
+    },
+    "grid": {
+      "noWorkflowsFound": "No workflows found matching your criteria",
+      "tryAdjustFilters": "Try adjusting your filters",
+      "showing": "Showing",
+      "of": "of",
+      "workflows": "workflows"
+    },
+    "activeFilters": {
+      "selected": "Selected:",
+      "search": "Search",
+      "sortLabel": "Sort",
+      "remove": "Remove",
+      "clearAll": "Clear All",
+      "certified": "Certified",
+      "timePeriod": {
+        "7d": "Last 7 Days",
+        "1m": "Last Month",
+        "3m": "Last 3 Months",
+        "all": "All Time"
+      },
+      "priceType": {
+        "free": "Free",
+        "paid": "Paid"
+      },
+      "complexity": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "sort": {
+        "dateDesc": "Newest",
+        "dateAsc": "Oldest",
+        "downloadsDesc": "Most Downloads",
+        "viewsDesc": "Most Views",
+        "popularityDesc": "Most Popular"
+      }
+    }
+  },
+  "StartPage": {
+    "title": "Install OpenMCP into your Agent",
+    "description": "Copy a short prompt so your Agent follows /install/openmcp.md; then download Skill zips into local skills dirs.",
+    "badge": "OpenMCP · Getting started",
+    "heading": "Install Skill packages and the OpenMCP store",
+    "intro": "Copy the “install for AI” prompt (points at install/openmcp.md), then browse the shelf for Zip downloads or Store MCP installs. MCP / A2A use the platform gateway only.",
+    "promptHint": "Copy the short prompt below into your Agent to finish store and package setup.",
+    "copyPrompt": "Copy for AI install",
+    "cta": {
+      "browse": "Browse Skills / MCP / A2A",
+      "provider": "Become a Provider"
+    },
+    "stepsHeading": "Three steps",
+    "steps": {
+      "one": {
+        "title": "Copy the prompt to install the OpenMCP store",
+        "body": "Paste the prompt into Cursor / Claude Code / Codex. The Agent reads /install/openmcp.md and registers Store MCP or downloads the helper Skill package."
+      },
+      "two": {
+        "title": "Download a Skill Zip into local skills dirs",
+        "body": "Open Skills, use “Download Zip” on a detail page, unzip into ~/.cursor/skills, ~/.claude/skills, or Codex skills."
+      },
+      "three": {
+        "title": "Optionally connect MCP / A2A (gateway)",
+        "body": "Copy gateway config from MCP / A2A detail pages with an API key placeholder. No Provider direct connect. Optionally become a Provider."
+      }
+    },
+    "future": {
+      "badge": "Live · Store MCP",
+      "title": "OpenMCP Store MCP",
+      "body": "Platform-hosted Store MCP (search_assets / get_asset / install_asset). Register with a Dashboard API key in Cursor / Claude Code / Codex.",
+      "bullets": {
+        "one": "Agents call search_assets / get_asset / install_asset",
+        "two": "Runtime-specific files or gateway mcp.json / A2A Card",
+        "three": "Paid assets check entitlement; gateway URLs only"
+      },
+      "note": "Store MCP is live: /start and Install into Agent include “Add OpenMCP Store MCP” snippets. Endpoint /api/mcp/store."
+    }
+  }
+}

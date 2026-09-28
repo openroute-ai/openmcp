@@ -1,24 +1,71 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getSessionCookie } from "better-auth/cookies"
+import createMiddleware from "next-intl/middleware"
+import { NextResponse, type NextRequest } from "next/server"
+import { routing, type Locale } from "@/i18n/routing"
 
-export function proxy(request: NextRequest) {
-  const sessionCookie = getSessionCookie(request)
-  const { pathname } = request.nextUrl
+/**
+ * next-intl locale negotiation, combined with the auth gate.
+ *
+ * The app uses `localePrefix: 'as-needed'`, so the default locale renders at
+ * the bare path (`/dashboard`) and other locales are prefixed (`/zh/dashboard`).
+ *
+ * https://next-intl.dev/docs/routing#base-path
+ */
+const handleI18nRouting = createMiddleware(routing)
 
-  const isAuthRoute =
-    pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")
+const LOGIN_ROUTE = "/sign-in"
+const SIGN_UP_ROUTE = "/sign-up"
+const AUTH_ROUTES = [LOGIN_ROUTE, SIGN_UP_ROUTE]
 
-  if (!sessionCookie && !isAuthRoute) {
-    return NextResponse.redirect(new URL("/sign-in", request.url))
+/** Strips a leading locale segment, e.g. `/zh/dashboard` -> `/dashboard`. */
+function splitLocale(pathname: string): { locale: Locale; pathname: string } {
+  const [, maybeLocale, ...rest] = pathname.split("/")
+  if (maybeLocale && (routing.locales as readonly string[]).includes(maybeLocale)) {
+    return { locale: maybeLocale as Locale, pathname: `/${rest.join("/")}` }
+  }
+  return { locale: routing.defaultLocale, pathname }
+}
+
+/** Rebuilds a path with its locale prefix, respecting `as-needed`. */
+function localize(pathname: string, locale: Locale): string {
+  return locale === routing.defaultLocale ? pathname : `/${locale}${pathname}`
+}
+
+export default function proxy(request: NextRequest) {
+  const response = runAuthChecks(request)
+  if (response) return response
+
+  return handleI18nRouting(request)
+}
+
+function runAuthChecks(request: NextRequest): NextResponse | null {
+  const { locale, pathname } = splitLocale(request.nextUrl.pathname)
+  const sessionCookie = request.cookies.get("better-auth.session_token")
+  const isLoggedIn = !!sessionCookie
+
+  const isAuthRoute = AUTH_ROUTES.some((route) => pathname === route)
+
+  if (!isLoggedIn && !isAuthRoute) {
+    // Any non-auth page requires a session; remember where the user was going
+    const signInUrl = new URL(localize(LOGIN_ROUTE, locale), request.url)
+    const callbackUrl = request.nextUrl.pathname + request.nextUrl.search
+    signInUrl.searchParams.set("callbackUrl", callbackUrl)
+    return NextResponse.redirect(signInUrl)
   }
 
-  if (sessionCookie && isAuthRoute) {
-    return NextResponse.redirect(new URL("/", request.url))
+  if (isLoggedIn && isAuthRoute) {
+    return NextResponse.redirect(
+      new URL(localize("/dashboard", locale), request.url)
+    )
   }
 
-  return NextResponse.next()
+  return null
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Match all pathnames except:
+  // - /api, /_next, /_vercel
+  // - files with an extension (e.g. favicon.ico, robots.txt)
+  matcher: [
+    "/((?!api|trpc|_next|_vercel|.*\\.(?:ico|js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|webmanifest|xml|txt)$).*)",
+  ],
 }
