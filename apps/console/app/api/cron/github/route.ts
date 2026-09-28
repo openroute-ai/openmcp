@@ -17,16 +17,16 @@
  * lock, so a second instance arriving mid-tick does not duplicate work.
  */
 
-import { timingSafeEqual } from "node:crypto"
 import { db } from "@/db/client"
 import { cronSecret } from "@/lib/env"
-import { isDue, TASK_SEEDS } from "@/lib/tasks/definitions"
+import { authorized } from "@/lib/cron/guard"
+import { isDue } from "@/lib/tasks/definitions"
 import { installTaskRegistry, UNIMPLEMENTED_TASKS } from "@/lib/tasks/registry"
 import {
-  ensureTaskDefinition,
   hasRunDuringMinute,
   listTaskDefinitions,
 } from "@/lib/github/service/task"
+import { seedDefinitions } from "@/lib/tasks/seed"
 import {
   createBufferingLogger,
   getTaskRegistry,
@@ -45,25 +45,6 @@ export const maxDuration = 300
 
 /** Not cached: every invocation must do work. */
 export const dynamic = "force-dynamic"
-
-/**
- * Constant-time comparison of the bearer token.
- *
- * A plain `===` on a secret is a timing oracle, and this endpoint is
- * unauthenticated by default. Length is compared first because
- * `timingSafeEqual` throws on a length mismatch, and the length of a secret is
- * not itself the secret.
- */
-function authorized(header: string | null, secret: string): boolean {
-  if (!header) return false
-  const expected = `Bearer ${secret}`
-
-  const given = Buffer.from(header)
-  const wanted = Buffer.from(expected)
-  if (given.length !== wanted.length) return false
-
-  return timingSafeEqual(given, wanted)
-}
 
 export async function GET(request: Request) {
   const secret = cronSecret()
@@ -172,31 +153,6 @@ export async function runScheduledTasks(now = new Date()) {
     registered: [...getTaskRegistry().keys()],
     results,
   })
-}
-
-/**
- * Creates any missing task definition.
- *
- * Run on every tick rather than from a migration, so adding a task is a code
- * change rather than a coordinated deploy of a migration and a scheduler.
- *
- * Insert-only, deliberately. An existing definition is left exactly as stored,
- * which is what preserves an operator's schedule change and their enabled
- * flag: seeding on every tick through an upsert would revert both to whatever
- * the code shipped with, minutes after anyone edited them.
- */
-export async function seedDefinitions() {
-  for (const seed of TASK_SEEDS) {
-    await ensureTaskDefinition(db, {
-      name: seed.name,
-      description: seed.description,
-      cronExpression: seed.cronExpression,
-      taskType: seed.taskType,
-      isDaily: seed.isDaily,
-      isWeekly: seed.isWeekly,
-      isMonthly: seed.isMonthly,
-    })
-  }
 }
 
 function describe(error: unknown): string {
