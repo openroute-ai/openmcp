@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl"
 import { LocaleLink } from "@/i18n/navigation"
 import type { defaultMessages } from "@/i18n/messages"
-import { Button } from "@workspace/ui/components/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -11,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { IconCirclePlusFilled, IconMail } from "@tabler/icons-react"
+import { IconCirclePlusFilled } from "@tabler/icons-react"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 
 /** A key of the `Nav` messages, so a missing label fails the build. */
@@ -32,7 +31,7 @@ export function NavMain({
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
+          <SidebarMenuItem>
             <CreateProjectDialog
               trigger={
                 <SidebarMenuButton
@@ -44,14 +43,6 @@ export function NavMain({
                 </SidebarMenuButton>
               }
             />
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <IconMail />
-              <span className="sr-only">{t("inbox")}</span>
-            </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>

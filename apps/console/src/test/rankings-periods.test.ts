@@ -82,14 +82,18 @@ describe("lastCompletePeriod", () => {
   })
 
   it("ranks the month that just ended on the first", () => {
-    expect(lastCompletePeriod("month", new Date("2026-03-01T00:00:00Z"))).toEqual({
+    expect(
+      lastCompletePeriod("month", new Date("2026-03-01T00:00:00Z"))
+    ).toEqual({
       year: 2026,
       month: 2,
     })
   })
 
   it("rolls back into December when the first is in January", () => {
-    expect(lastCompletePeriod("month", new Date("2026-01-01T00:00:00Z"))).toEqual({
+    expect(
+      lastCompletePeriod("month", new Date("2026-01-01T00:00:00Z"))
+    ).toEqual({
       year: 2025,
       month: 12,
     })
@@ -98,7 +102,9 @@ describe("lastCompletePeriod", () => {
   it("keeps the previous month even on the last day", () => {
     // No boundary case: March's ranking is published in April, so a month is
     // never published while it is still accumulating.
-    expect(lastCompletePeriod("month", new Date("2026-03-31T23:00:00Z"))).toEqual({
+    expect(
+      lastCompletePeriod("month", new Date("2026-03-31T23:00:00Z"))
+    ).toEqual({
       year: 2026,
       month: 2,
     })

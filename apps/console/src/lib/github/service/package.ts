@@ -90,10 +90,7 @@ export async function upsertPackages(
  * task can tell a package that has no browser bundle from one that was never
  * attempted.
  */
-export async function upsertBundle(
-  db: Db,
-  input: BundleInput
-): Promise<void> {
+export async function upsertBundle(db: Db, input: BundleInput): Promise<void> {
   const row = {
     version: input.version ?? null,
     size: input.size ?? null,
@@ -145,7 +142,8 @@ export async function listBundles(
     .orderBy(bundles.name)
 }
 
-export type BundleOutcome = "updated" | "same-version" | "error" | "timeout" | "not-browser-bundle"
+export type BundleOutcome =
+  "updated" | "same-version" | "error" | "timeout" | "not-browser-bundle"
 
 /**
  * Outcomes that will not change by trying again.
@@ -262,9 +260,10 @@ export function groupDownloadsByMonth(
  * The first of the current month is the end of the interval, so the current
  * partial month is excluded rather than reported as a collapse in downloads.
  */
-export function downloadRangeDates(
-  today: Date
-): { startDate: string; endDate: string } {
+export function downloadRangeDates(today: Date): {
+  startDate: string
+  endDate: string
+} {
   const firstOfMonth = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)
   )
@@ -290,7 +289,9 @@ export interface ProjectPackage {
  * Deprecated projects are excluded, matching the source task: bundling a
  * package that has been withdrawn is wasted work.
  */
-export async function listPackagesWithBundles(db: Db): Promise<ProjectPackage[]> {
+export async function listPackagesWithBundles(
+  db: Db
+): Promise<ProjectPackage[]> {
   const rows = await db
     .select({ project: projects, package: packages, bundle: bundles })
     .from(packages)
@@ -298,7 +299,9 @@ export async function listPackagesWithBundles(db: Db): Promise<ProjectPackage[]>
     // Left join because most packages have no browser bundle; the inner join
     // would silently drop every backend-only package from the listing.
     .leftJoin(bundles, eq(bundles.name, packages.name))
-    .where(and(ne(projects.status, "deprecated"), isNotNull(packages.projectId)))
+    .where(
+      and(ne(projects.status, "deprecated"), isNotNull(packages.projectId))
+    )
 
   return rows.map((row) => ({
     project: row.project,

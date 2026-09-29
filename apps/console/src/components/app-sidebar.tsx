@@ -19,6 +19,7 @@ import {
   IconDashboard,
   IconChartBar,
   IconClock,
+  IconCode,
   IconFolder,
   IconRobot,
   IconRepeat,
@@ -32,6 +33,7 @@ const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
   { key: "rankings", url: "/dashboard/rankings", icon: <IconChartBar /> },
   { key: "tasks", url: "/dashboard/tasks", icon: <IconClock /> },
   { key: "projects", url: "/dashboard/projects", icon: <IconFolder /> },
+  { key: "repos", url: "/dashboard/repos", icon: <IconCode /> },
   { key: "skills", url: "/dashboard/skills", icon: <IconRobot /> },
   { key: "syncJobs", url: "/dashboard/sync", icon: <IconRepeat /> },
 ]

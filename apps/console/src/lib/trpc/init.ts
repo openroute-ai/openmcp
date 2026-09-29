@@ -12,6 +12,20 @@ export type TRPCContext = {
   headers: Headers
 }
 
+/**
+ * Reads an application code out of an error cause.
+ *
+ * `data.code` is already taken by tRPC's own code, so the application code
+ * travels beside it as `appCode` rather than shadowing it.
+ */
+const readAppCode = (cause: unknown): string | null => {
+  if (cause && typeof cause === "object" && "code" in cause) {
+    const code = (cause as { code: unknown }).code
+    if (typeof code === "string") return code
+  }
+  return null
+}
+
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
@@ -19,6 +33,7 @@ const t = initTRPC.context<TRPCContext>().create({
       ...shape,
       data: {
         ...shape.data,
+        appCode: readAppCode(error.cause),
         zodError:
           error.cause instanceof ZodError ? error.cause.flatten() : null,
       },

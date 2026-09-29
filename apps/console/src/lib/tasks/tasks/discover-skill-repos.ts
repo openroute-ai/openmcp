@@ -117,7 +117,9 @@ export function createDiscoverSkillReposTask(
           // A candidate is a repository and nothing more. The project row is
           // what publishes it, and creating one here would publish every
           // search result.
-          logger.info(`discovered ${fullName} (${info.stars} stars), awaiting curation`)
+          logger.info(
+            `discovered ${fullName} (${info.stars} stars), awaiting curation`
+          )
 
           return { meta: { discovered: 1 }, data: null }
         },

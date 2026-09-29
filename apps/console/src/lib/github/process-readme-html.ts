@@ -17,18 +17,16 @@ export function processReadMeHtml(
   })
 
   // Links to files in the repository, e.g. <a href="/docs"> or "docs".
-  readme = readme.replace(
-    /href="\/?(.+?)"/gi,
-    (match, path: string) => {
-      if (path.startsWith("http")) return match
-      return `href="${root}/blob/${branch}/${path}"`
-    }
-  )
+  readme = readme.replace(/href="\/?(.+?)"/gi, (match, path: string) => {
+    if (path.startsWith("http")) return match
+    return `href="${root}/blob/${branch}/${path}"`
+  })
 
   // Markdown image links that use a root-relative path: ![cover](/cover.png)
   readme = readme.replace(
     /!\[(.+?)]\(\/(.+?)\)/gi,
-    (_match, alt: string, path: string) => `[${alt}](${root}/blob/${branch}/${path})`
+    (_match, alt: string, path: string) =>
+      `[${alt}](${root}/blob/${branch}/${path})`
   )
 
   // <img src="..."> with a relative path.

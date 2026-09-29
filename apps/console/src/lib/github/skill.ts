@@ -45,7 +45,9 @@ export async function listSkillDirs(
   ref?: string
 ): Promise<string[]> {
   const entries = await client.listDirectory(fullName, path, ref)
-  return entries.filter((entry) => entry.type === "dir").map((entry) => entry.name)
+  return entries
+    .filter((entry) => entry.type === "dir")
+    .map((entry) => entry.name)
 }
 
 /**

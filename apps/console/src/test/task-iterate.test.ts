@@ -146,7 +146,11 @@ describe("processItems", () => {
   })
 
   it("handles an empty list", async () => {
-    const result = await processItems([], async () => ({ meta: {}, data: null }), base)
+    const result = await processItems(
+      [],
+      async () => ({ meta: {}, data: null }),
+      base
+    )
 
     expect(result).toMatchObject({ data: [], errors: [] })
     expect(result.meta).toEqual({})

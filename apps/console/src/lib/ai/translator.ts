@@ -92,6 +92,34 @@ ${readme}
     }
   }
 
+  /** Translates a release note, keeping it as-is on failure or already-Chinese. */
+  async translateReleaseNote(releaseDescription: string): Promise<string> {
+    if (!releaseDescription) return ""
+    if (isChinese(releaseDescription)) return releaseDescription
+
+    try {
+      const translated = await this.generate(
+        `请将以下Release Note翻译成中文，保持原有的格式和结构：
+
+${releaseDescription}
+
+翻译要求：
+1. 保持版本号、日期等格式不变
+2. 保持列表格式和缩进
+3. 不要翻译技术术语、函数名、变量名等
+4. 只翻译功能描述、修复说明等自然语言内容
+5. 保持链接格式不变
+6. 保持代码示例格式不变
+
+翻译结果：`,
+        { temperature: 0.3, maxOutputTokens: 4000 }
+      )
+      return translated || releaseDescription
+    } catch {
+      return releaseDescription
+    }
+  }
+
   private async translateToChinese(text: string): Promise<string> {
     const translated = await this.generate(
       `请将以下文本翻译成中文，保持原有的格式和结构，只翻译文本内容，不要翻译代码、URL、文件名、变量名等技术术语：

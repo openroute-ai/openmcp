@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "next-intl"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -18,10 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { IconArrowRight } from "@tabler/icons-react"
+import { ProjectLogo } from "@/components/projects/project-logo"
 import { TaskStatusBadge } from "@/components/status-badge"
+import { LocaleLink } from "@/i18n/navigation"
+import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
-import { formatDuration, formatRelative } from "@/lib/format"
+import { useFormats } from "@/lib/i18n/format"
 
 function StatCard({
   title,
@@ -53,6 +58,7 @@ function StatCard({
 }
 
 export function OverviewContent() {
+  const formats = useFormats()
   const t = useTranslations("Overview")
   // A namespaced translator cannot reach another namespace with a dotted key,
   // so the execution table borrows the `Tasks` one instead.
@@ -60,6 +66,7 @@ export function OverviewContent() {
   const format = useFormatter()
   const triggerLabel = useEnumLabel("Trigger")
   const statusLabel = useEnumLabel("Status")
+  const typeLabel = useEnumLabel("Type")
   const trpc = useTRPC()
   const { data, isPending } = useQuery(trpc.overview.snapshot.queryOptions())
 
@@ -211,10 +218,10 @@ export function OverviewContent() {
                       <TaskStatusBadge status={run.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatRelative(run.startedAt)}
+                      {formats.relative(run.startedAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatDuration(run.duration)}
+                      {formats.duration(run.duration)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {triggerLabel(run.triggeredBy)}
@@ -223,6 +230,68 @@ export function OverviewContent() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="grid gap-1">
+              <CardTitle>{t("recentProjects")}</CardTitle>
+              <CardDescription>
+                {t("recentProjectsDescription")}
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <LocaleLink href="/dashboard/projects">
+                {t("viewAllProjects")}
+                <IconArrowRight />
+              </LocaleLink>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isPending ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (data?.recentProjects.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {data?.recentProjects.map((project) => (
+                <li key={project.id}>
+                  <LocaleLink
+                    href={`/dashboard/projects/${project.id}`}
+                    className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:bg-accent"
+                  >
+                    <ProjectLogo
+                      name={project.name}
+                      logo={project.logo}
+                      avatar={githubAvatarUrl(project.owner, {
+                        ownerId: project.ownerId,
+                        // Twice the 32px slot, for a 2x display.
+                        size: 64,
+                      })}
+                      iconUrl={project.iconUrl}
+                    />
+                    <div className="grid min-w-0 flex-1 gap-0.5">
+                      <span className="truncate text-sm font-medium">
+                        {project.name}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {project.owner} · {typeLabel(project.type)} ·{" "}
+                        {formats.relative(project.createdAt)}
+                      </span>
+                    </div>
+                    {project.stars === null || project.stars === undefined ? null : (
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {format.number(project.stars)}
+                      </span>
+                    )}
+                  </LocaleLink>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

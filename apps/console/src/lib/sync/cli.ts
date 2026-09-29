@@ -18,7 +18,10 @@ import { config } from "dotenv"
 import { db, pool } from "@/db/client"
 import { TASK_SEEDS } from "@/lib/tasks/definitions"
 import { installTaskRegistry, UNIMPLEMENTED_TASKS } from "@/lib/tasks/registry"
-import { ensureTaskDefinition, listTaskDefinitions } from "@/lib/github/service/task"
+import {
+  ensureTaskDefinition,
+  listTaskDefinitions,
+} from "@/lib/github/service/task"
 import { createBufferingLogger, runTask } from "@/lib/tasks/runner"
 import type { TaskDefinitionInput } from "@/lib/github/service/task"
 
@@ -96,9 +99,9 @@ async function main() {
   // uses the stored one rather than the value in the code.
   const definition = args.seed
     ? await ensureTaskDefinition(db, seedFor(args.name))
-    : (await listTaskDefinitions(db)).find(
+    : ((await listTaskDefinitions(db)).find(
         (candidate) => candidate.name === args.name
-      ) ?? (await ensureTaskDefinition(db, seedFor(args.name)))
+      ) ?? (await ensureTaskDefinition(db, seedFor(args.name))))
 
   const logger = createBufferingLogger()
   const outcome = await runTask(db, definition, {

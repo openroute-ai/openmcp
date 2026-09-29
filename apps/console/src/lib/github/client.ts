@@ -84,7 +84,9 @@ export function createGitHubClient() {
       const reset = headers.get("x-ratelimit-reset")
       console.warn(
         `[github] rate limit: ${value} requests remaining` +
-          (reset ? `, resets at ${new Date(Number(reset) * 1000).toISOString()}` : "")
+          (reset
+            ? `, resets at ${new Date(Number(reset) * 1000).toISOString()}`
+            : "")
       )
       lastReportedRemaining = value
     }
@@ -333,7 +335,10 @@ export function createGitHubClient() {
         return fetchRepoInfoMain(relocated.fullName)
       }
 
-      if (graphqlType === "FORBIDDEN" || error instanceof GitHubForbiddenError) {
+      if (
+        graphqlType === "FORBIDDEN" ||
+        error instanceof GitHubForbiddenError
+      ) {
         const reduced = await fetchRepoInfoMain(fullName, queryRepoInfoBasic)
         return backfillRepoStats(reduced, fullName)
       }
@@ -654,9 +659,7 @@ export function createGitHubClient() {
     async searchRepositories(
       query: string,
       options: { perPage?: number; sort?: "stars" | "updated" } = {}
-    ): Promise<
-      { fullName: string; description: string; stars: number }[]
-    > {
+    ): Promise<{ fullName: string; description: string; stars: number }[]> {
       const params = new URLSearchParams({
         q: query,
         per_page: String(Math.min(options.perPage ?? 30, 100)),

@@ -33,6 +33,7 @@ import {
   type RunOutcome,
 } from "@/lib/tasks/runner"
 import { NextResponse } from "next/server"
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
 /** A long-running task can spend minutes on a large catalogue, like cron's. */
 export const maxDuration = 300
@@ -113,14 +114,24 @@ export async function triggerTask(name: string) {
 
   if (!definition.isEnabled) {
     return NextResponse.json(
-      { task: name, status: "skipped", reason: "task is disabled" },
+      {
+        task: name,
+        status: "skipped",
+        reason: "task is disabled",
+        reasonCode: SKIP_CODES.taskDisabled,
+      },
       { status: 409 }
     )
   }
 
   if (await hasRunDuringMinute(db, definition.id, minuteStart(new Date()))) {
     return NextResponse.json(
-      { task: name, status: "skipped", reason: "already ran this minute" },
+      {
+        task: name,
+        status: "skipped",
+        reason: "already ran this minute",
+        reasonCode: SKIP_CODES.alreadyRanThisMinute,
+      },
       { status: 409 }
     )
   }
@@ -151,7 +162,12 @@ export async function triggerTask(name: string) {
   }
 
   return NextResponse.json(
-    { task: name, status: outcome.status, reason: outcome.reason },
+    {
+      task: name,
+      status: outcome.status,
+      reason: outcome.reason,
+      reasonCode: outcome.reasonCode ?? null,
+    },
     { status: 409 }
   )
 }

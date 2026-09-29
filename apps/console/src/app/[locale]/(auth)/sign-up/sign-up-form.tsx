@@ -24,6 +24,7 @@ import {
   FieldGroup,
 } from "@workspace/ui/components/field"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { authErrorMessage } from "@/lib/auth/auth-error"
 
 export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
   const t = useTranslations("Auth")
@@ -48,7 +49,7 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
           router.refresh()
         },
         onError: (ctx) => {
-          setError(ctx.error.message)
+          setError(authErrorMessage(ctx.error, t, t("signUpFailed")))
         },
       }
     )

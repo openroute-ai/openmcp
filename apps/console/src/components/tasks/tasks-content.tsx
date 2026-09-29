@@ -1,7 +1,9 @@
 "use client"
 
+import * as React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
+import { isErrorCode, SKIP_CODES } from "@/lib/trpc/error-codes"
 import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -26,9 +28,14 @@ import {
 import { TaskStatusBadge } from "@/components/status-badge"
 import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
-import { formatDuration, formatRelative } from "@/lib/format"
+import { DataPagination } from "@/components/data-pagination"
+import { useFormats } from "@/lib/i18n/format"
+
+/** Execution rows per page, matching the other logs. */
+const EXECUTIONS_PAGE_SIZE = 20
 
 export function TasksContent() {
+  const formats = useFormats()
   const t = useTranslations("Tasks")
   const common = useTranslations("Common")
   const statusLabel = useEnumLabel("Status")
@@ -43,8 +50,18 @@ export function TasksContent() {
   const { data: tasks = [], isPending } = useQuery(
     trpc.tasks.list.queryOptions()
   )
-  const { data: executions = [] } = useQuery(
-    trpc.tasks.executions.queryOptions({ limit: 50 })
+  const [executionPageIndex, setExecutionPageIndex] = React.useState(1)
+  const { data: executionPage } = useQuery(
+    trpc.tasks.executions.queryOptions({
+      limit: EXECUTIONS_PAGE_SIZE,
+      offset: (executionPageIndex - 1) * EXECUTIONS_PAGE_SIZE,
+    })
+  )
+  const executions = executionPage?.items ?? []
+  const executionTotal = executionPage?.total ?? 0
+  const executionPageCount = Math.max(
+    1,
+    Math.ceil(executionTotal / EXECUTIONS_PAGE_SIZE)
   )
 
   const setEnabled = useMutation(
@@ -79,13 +96,41 @@ export function TasksContent() {
         if (result.status === "completed") {
           toast.success(t("runCompleted", { name }))
         } else if (result.status === "skipped") {
-          toast.info(t("runSkipped", { name, reason: result.reason }))
+          // The server's prose is English, so a known code is translated and
+          // anything else is shown as sent: a task whose own skip reason has
+          // no code yet reads as English rather than as a code.
+          let reason = result.reason
+          switch (result.reasonCode) {
+            case SKIP_CODES.taskDisabled:
+              reason = t("skipDisabled")
+              break
+            case SKIP_CODES.taskAlreadyRunning:
+              reason = t("skipAlreadyRunning")
+              break
+            case SKIP_CODES.noDataForPeriod:
+              reason = t("skipNoData")
+              break
+            case SKIP_CODES.noDataForYear:
+              reason = t("skipNoData")
+              break
+            case SKIP_CODES.missingNotifyWebhook:
+              reason = t("skipMissingNotifyWebhook")
+              break
+          }
+          toast.info(t("runSkipped", { name, reason }))
         } else {
           toast.error(t("runFailed", { name, error: result.error }))
         }
       },
-      onError: (error) => {
-        toast.error(error.message)
+      onError: (error, { name }) => {
+        // `appCode` is the server's own translation key. Anything else is a
+        // failure the server has not classified, where its message is the only
+        // thing there is to show.
+        toast.error(
+          isErrorCode(error.data?.appCode)
+            ? t("runTaskNotFound", { name })
+            : error.message
+        )
       },
       onSettled: () => {
         void queryClient.invalidateQueries({ queryKey: listKey })
@@ -176,16 +221,16 @@ export function TasksContent() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatRelative(task.nextRunAt)}
+                        {formats.relative(task.nextRunAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         {task.lastExecution ? (
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-sm">
-                              {formatRelative(task.lastExecution.startedAt)}
+                              {formats.relative(task.lastExecution.startedAt)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {formatDuration(task.lastExecution.duration)} ·{" "}
+                              {formats.duration(task.lastExecution.duration)} ·{" "}
                               {triggerLabel(task.lastExecution.triggeredBy)}
                             </span>
                           </div>
@@ -248,10 +293,10 @@ export function TasksContent() {
                       <TaskStatusBadge status={run.status} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatRelative(run.startedAt)}
+                      {formats.relative(run.startedAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatDuration(run.duration)}
+                      {formats.duration(run.duration)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {triggerLabel(run.triggeredBy)}
@@ -275,6 +320,14 @@ export function TasksContent() {
               </TableBody>
             </Table>
           )}
+
+          <DataPagination
+            page={executionPageIndex}
+            pageCount={executionPageCount}
+            pageSize={EXECUTIONS_PAGE_SIZE}
+            total={executionTotal}
+            onPageChange={setExecutionPageIndex}
+          />
         </CardContent>
       </Card>
     </div>

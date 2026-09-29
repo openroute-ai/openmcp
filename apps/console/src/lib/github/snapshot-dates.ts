@@ -42,8 +42,9 @@ export function getIsoWeekNumber(date: Date): YearWeek {
 
   const isoYear = target.getUTCFullYear()
   const yearStart = new Date(Date.UTC(isoYear, 0, 1))
-  const week =
-    Math.ceil(((target.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7)
+  const week = Math.ceil(
+    ((target.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7
+  )
   return { year: isoYear, week }
 }
 

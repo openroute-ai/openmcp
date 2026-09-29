@@ -90,8 +90,10 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
         isConsecutiveMonth({ year: 2026, month: 1 }, { year: 2026, month: 3 })
       ).toBe(false)
       expect(
-        isConsecutiveMonth({ year: 2026, month: 12 }, { year: 2027, month: 1 })
-          === false
+        isConsecutiveMonth(
+          { year: 2026, month: 12 },
+          { year: 2027, month: 1 }
+        ) === false
       ).toBe(false)
       expect(
         isConsecutiveMonth({ year: 2024, month: 12 }, { year: 2026, month: 1 })
@@ -119,13 +121,23 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
 
   it("keeps stars and downloads recorded by different collectors", async () => {
     const repo = await seedRepo("snap", "collectors")
-    await recordMonth(db, repo.id, { year: 2026, month: 5 }, {
-      totalDownloads: 5_000,
-    })
+    await recordMonth(
+      db,
+      repo.id,
+      { year: 2026, month: 5 },
+      {
+        totalDownloads: 5_000,
+      }
+    )
     await recordMonth(db, repo.id, { year: 2026, month: 5 }, { stars: 700 })
-    await recordMonth(db, repo.id, { year: 2026, month: 5 }, {
-      totalContributors: 12,
-    })
+    await recordMonth(
+      db,
+      repo.id,
+      { year: 2026, month: 5 },
+      {
+        totalContributors: 12,
+      }
+    )
 
     const row = await getSnapshot(db, repo.id, 2026)
     expect(monthAt(row!, { year: 2026, month: 5 })).toEqual({
@@ -143,12 +155,22 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
     const repo = await seedRepo("snap", "race")
     await Promise.all([
       recordMonth(db, repo.id, { year: 2026, month: 7 }, { stars: 1 }),
-      recordMonth(db, repo.id, { year: 2026, month: 7 }, {
-        totalDownloads: 2,
-      }),
-      recordMonth(db, repo.id, { year: 2026, month: 7 }, {
-        totalContributors: 3,
-      }),
+      recordMonth(
+        db,
+        repo.id,
+        { year: 2026, month: 7 },
+        {
+          totalDownloads: 2,
+        }
+      ),
+      recordMonth(
+        db,
+        repo.id,
+        { year: 2026, month: 7 },
+        {
+          totalContributors: 3,
+        }
+      ),
     ])
 
     const month = monthAt((await getSnapshot(db, repo.id, 2026))!, {
@@ -193,9 +215,14 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
   it("lists repositories that have history", async () => {
     const withHistory = await seedRepo("snap", "history")
     await seedRepo("snap", "nohistory")
-    await recordMonth(db, withHistory.id, { year: 2026, month: 1 }, {
-      stars: 1,
-    })
+    await recordMonth(
+      db,
+      withHistory.id,
+      { year: 2026, month: 1 },
+      {
+        stars: 1,
+      }
+    )
 
     const ids = await listSnapshottedRepoIds(db)
     expect(ids).toContain(withHistory.id)
@@ -233,8 +260,12 @@ describe.skipIf(!hasDatabase)("snapshot service (integration)", () => {
       expect(gap?.stars).toBe(0)
       // 2026-01-05 falls in ISO week 2 and 2026-03-02 in week 10, so the
       // stargazers straddle the empty weeks rather than sharing one.
-      expect(rows.find((row) => row.year === 2026 && row.week === 2)?.stars).toBe(1)
-      expect(rows.find((row) => row.year === 2026 && row.week === 10)?.stars).toBe(1)
+      expect(
+        rows.find((row) => row.year === 2026 && row.week === 2)?.stars
+      ).toBe(1)
+      expect(
+        rows.find((row) => row.year === 2026 && row.week === 10)?.stars
+      ).toBe(1)
       // More weeks than stargazers, because the empty ones are materialized.
       expect(rows).toHaveLength(weeks)
       expect(rows.length).toBeGreaterThan(2)

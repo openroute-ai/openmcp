@@ -187,22 +187,37 @@ export function chunk<T>(items: T[], size: number): T[][] {
 function safeGet<T>(obj: unknown, path: string[], defaultValue: T): T {
   let current: unknown = obj
   for (const key of path) {
-    if (current === null || current === undefined || typeof current !== "object") {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== "object"
+    ) {
       return defaultValue
     }
     current = (current as Record<string, unknown>)[key]
   }
-  return current !== null && current !== undefined ? (current as T) : defaultValue
+  return current !== null && current !== undefined
+    ? (current as T)
+    : defaultValue
 }
 
-function safeGetArray(obj: unknown, path: string[], defaultValue: unknown[] = []) {
+function safeGetArray(
+  obj: unknown,
+  path: string[],
+  defaultValue: unknown[] = []
+) {
   const result = safeGet<unknown>(obj, path, null)
   return Array.isArray(result) ? result : defaultValue
 }
 
-function safeGetDate(obj: unknown, path: string[], defaultValue = new Date()): Date {
+function safeGetDate(
+  obj: unknown,
+  path: string[],
+  defaultValue = new Date()
+): Date {
   const value = safeGet<unknown>(obj, path, null)
-  if (typeof value !== "string" && typeof value !== "number") return defaultValue
+  if (typeof value !== "string" && typeof value !== "number")
+    return defaultValue
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? defaultValue : date
 }

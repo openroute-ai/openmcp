@@ -132,6 +132,16 @@ export const TASK_SEEDS: TaskSeed[] = [
     cronExpression: "0 12 1 1 *",
     taskType: "yearly",
   },
+  {
+    name: "refresh-authors",
+    description: "Refresh hall of fame authors from their GitHub profiles",
+    // Weekly, and off the hour: a follower count does not move in a day, and
+    // the sweep spends the same rate-limit budget the repository refreshes
+    // need on the same tick.
+    cronExpression: "0 4 * * 1",
+    taskType: "weekly",
+    isWeekly: true,
+  },
 ]
 
 /**

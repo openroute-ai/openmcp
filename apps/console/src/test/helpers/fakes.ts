@@ -40,9 +40,7 @@ export function fakeGitHubClient(
   return { ...base, ...overrides } as unknown as GitHubClient
 }
 
-export function fakeNpmClient(
-  overrides: Partial<NpmClient> = {}
-): NpmClient {
+export function fakeNpmClient(overrides: Partial<NpmClient> = {}): NpmClient {
   const unimplemented = (name: string) => () => {
     throw new Error(`fake npm client: ${name} was not stubbed`)
   }
@@ -65,4 +63,3 @@ export function fakeContext(db: unknown, extra: Record<string, unknown> = {}) {
     ...extra,
   }
 }
-

@@ -55,7 +55,10 @@ export class AliyunOSSClient {
    * which fails on serverless where the filesystem is read-only or
    * ephemeral. The buffer is held in memory instead.
    */
-  async uploadFromUrl(url: string, ossPath: string): Promise<string | undefined> {
+  async uploadFromUrl(
+    url: string,
+    ossPath: string
+  ): Promise<string | undefined> {
     if (!this.isEnabled()) return undefined
 
     const response = await fetch(url, { redirect: "follow" })

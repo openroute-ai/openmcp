@@ -86,8 +86,12 @@ describe("zonedParts", () => {
   })
 
   it("names the day of week", () => {
-    expect(zonedParts(new Date("2026-03-09T00:00:00Z"), "UTC").dayOfWeek).toBe(1)
-    expect(zonedParts(new Date("2026-03-15T00:00:00Z"), "UTC").dayOfWeek).toBe(0)
+    expect(zonedParts(new Date("2026-03-09T00:00:00Z"), "UTC").dayOfWeek).toBe(
+      1
+    )
+    expect(zonedParts(new Date("2026-03-15T00:00:00Z"), "UTC").dayOfWeek).toBe(
+      0
+    )
   })
 })
 
@@ -107,29 +111,47 @@ describe("matchesCron", () => {
   })
 
   it("matches every day when both day fields are wildcards", () => {
-    expect(matchesCron("0 2 * * *", new Date("2026-03-11T02:00:00Z"), "UTC")).toBe(true)
-    expect(matchesCron("0 2 * * *", new Date("2026-03-15T02:00:00Z"), "UTC")).toBe(true)
+    expect(
+      matchesCron("0 2 * * *", new Date("2026-03-11T02:00:00Z"), "UTC")
+    ).toBe(true)
+    expect(
+      matchesCron("0 2 * * *", new Date("2026-03-15T02:00:00Z"), "UTC")
+    ).toBe(true)
   })
 
   it("matches a day-of-month schedule", () => {
     // The monthly rankings run on the 1st.
-    expect(matchesCron("0 3 1 * *", new Date("2026-03-01T03:00:00Z"), "UTC")).toBe(true)
-    expect(matchesCron("0 3 1 * *", new Date("2026-03-02T03:00:00Z"), "UTC")).toBe(false)
+    expect(
+      matchesCron("0 3 1 * *", new Date("2026-03-01T03:00:00Z"), "UTC")
+    ).toBe(true)
+    expect(
+      matchesCron("0 3 1 * *", new Date("2026-03-02T03:00:00Z"), "UTC")
+    ).toBe(false)
   })
 
   it("matches a day-of-week schedule", () => {
     // 2026-03-09 is a Monday.
-    expect(matchesCron("0 8 * * 1", new Date("2026-03-09T08:00:00Z"), "UTC")).toBe(true)
-    expect(matchesCron("0 8 * * 1", new Date("2026-03-10T08:00:00Z"), "UTC")).toBe(false)
+    expect(
+      matchesCron("0 8 * * 1", new Date("2026-03-09T08:00:00Z"), "UTC")
+    ).toBe(true)
+    expect(
+      matchesCron("0 8 * * 1", new Date("2026-03-10T08:00:00Z"), "UTC")
+    ).toBe(false)
   })
 
   it("applies cron's OR rule when both day fields are restricted", () => {
     // Standard cron: with day-of-month and day-of-week both restricted, a
     // date matching either one is due.
     const cron = "0 0 15 * 1"
-    expect(matchesCron(cron, new Date("2026-03-15T00:00:00Z"), "UTC")).toBe(true) // 15th
-    expect(matchesCron(cron, new Date("2026-03-16T00:00:00Z"), "UTC")).toBe(true) // Monday
-    expect(matchesCron(cron, new Date("2026-03-17T00:00:00Z"), "UTC")).toBe(false) // neither
+    expect(matchesCron(cron, new Date("2026-03-15T00:00:00Z"), "UTC")).toBe(
+      true
+    ) // 15th
+    expect(matchesCron(cron, new Date("2026-03-16T00:00:00Z"), "UTC")).toBe(
+      true
+    ) // Monday
+    expect(matchesCron(cron, new Date("2026-03-17T00:00:00Z"), "UTC")).toBe(
+      false
+    ) // neither
   })
 
   it("requires every field to match", () => {
@@ -155,7 +177,9 @@ describe("isDue", () => {
     // A definition stored with no schedule is treated as daily, matching the
     // source scheduler's default.
     expect(isDue({ cronExpression: "", isDaily: true }, new Date())).toBe(true)
-    expect(isDue({ cronExpression: "", isWeekly: true }, new Date())).toBe(false)
+    expect(isDue({ cronExpression: "", isWeekly: true }, new Date())).toBe(
+      false
+    )
   })
 })
 
@@ -182,7 +206,10 @@ describe("TASK_SEEDS", () => {
     // Several of these depend on each other's output, so overlapping start
     // times would mean running a ranking build on half-written input.
     const times = TASK_SEEDS.filter((seed) => seed.isDaily).map(
-      (seed) => seed.cronExpression.split(" ")[0] + " " + seed.cronExpression.split(" ")[1]
+      (seed) =>
+        seed.cronExpression.split(" ")[0] +
+        " " +
+        seed.cronExpression.split(" ")[1]
     )
     expect(new Set(times).size).toBe(times.length)
   })
@@ -234,9 +261,10 @@ describe("task registry", () => {
     const seeded = new Set(TASK_SEEDS.map((seed) => seed.name))
 
     for (const name of installTaskRegistry().keys()) {
-      expect(seeded.has(name), `${name} is registered but never scheduled`).toBe(
-        true
-      )
+      expect(
+        seeded.has(name),
+        `${name} is registered but never scheduled`
+      ).toBe(true)
     }
   })
 

@@ -9,10 +9,10 @@ function smsEnv(name: string): string | undefined {
 export function isTencentSmsConfigured(): boolean {
   return Boolean(
     smsEnv("TENCENT_SMS_SECRET_ID") &&
-      smsEnv("TENCENT_SMS_SECRET_KEY") &&
-      smsEnv("TENCENT_SMS_SDK_APP_ID") &&
-      smsEnv("TENCENT_SMS_SIGN_NAME") &&
-      smsEnv("TENCENT_SMS_TEMPLATE_ID")
+    smsEnv("TENCENT_SMS_SECRET_KEY") &&
+    smsEnv("TENCENT_SMS_SDK_APP_ID") &&
+    smsEnv("TENCENT_SMS_SIGN_NAME") &&
+    smsEnv("TENCENT_SMS_TEMPLATE_ID")
   )
 }
 
@@ -35,7 +35,10 @@ export async function sendSmsCode(
   console.log(`[sms:test] OTP for ${phoneNumber}: ${code}`)
 }
 
-async function sendTencentSms(phoneNumber: string, code: string): Promise<void> {
+async function sendTencentSms(
+  phoneNumber: string,
+  code: string
+): Promise<void> {
   const client = new sms.v20210111.Client({
     credential: {
       secretId: smsEnv("TENCENT_SMS_SECRET_ID")!,

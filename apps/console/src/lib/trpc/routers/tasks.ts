@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm"
+import { asc, count, desc, eq } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { taskDefinitions, taskExecutions, taskStatus } from "@/db/schema"
@@ -7,6 +7,7 @@ import { createBufferingLogger, runTask } from "@/lib/tasks/runner"
 import { installTaskRegistry } from "@/lib/tasks/registry"
 import { seedDefinitions } from "@/lib/tasks/seed"
 import { createTRPCRouter, protectedProcedure } from "../init"
+import { ERROR_CODES, SKIP_CODES } from "@/lib/trpc/error-codes"
 
 const statusSchema = z.enum([
   "pending",
@@ -83,31 +84,49 @@ export const tasksRouter = createTRPCRouter({
     .input(
       z.object({
         status: statusSchema.optional(),
-        limit: z.number().int().min(1).max(200).default(50),
+        limit: z.number().int().min(1).max(100).default(20),
+        offset: z.number().int().min(0).default(0),
       })
     )
     .query(async ({ ctx, input }) => {
-      return ctx.db
-        .select({
-          id: taskExecutions.id,
-          task: taskDefinitions.name,
-          status: taskExecutions.status,
-          startedAt: taskExecutions.startedAt,
-          completedAt: taskExecutions.completedAt,
-          duration: taskExecutions.duration,
-          triggeredBy: taskExecutions.triggeredBy,
-          error: taskExecutions.error,
-        })
-        .from(taskExecutions)
-        .innerJoin(
-          taskDefinitions,
-          eq(taskExecutions.taskDefinitionId, taskDefinitions.id)
-        )
-        .where(
-          input.status ? eq(taskExecutions.status, input.status) : undefined
-        )
-        .orderBy(desc(taskExecutions.createdAt))
-        .limit(input.limit)
+      const where = input.status
+        ? eq(taskExecutions.status, input.status)
+        : undefined
+
+      // The count shares the filter, so the page count cannot disagree with the
+      // rows: both read the same predicate over the same executions.
+      const [rows, [rowCount]] = await Promise.all([
+        ctx.db
+          .select({
+            id: taskExecutions.id,
+            task: taskDefinitions.name,
+            status: taskExecutions.status,
+            startedAt: taskExecutions.startedAt,
+            completedAt: taskExecutions.completedAt,
+            duration: taskExecutions.duration,
+            triggeredBy: taskExecutions.triggeredBy,
+            error: taskExecutions.error,
+          })
+          .from(taskExecutions)
+          .innerJoin(
+            taskDefinitions,
+            eq(taskExecutions.taskDefinitionId, taskDefinitions.id)
+          )
+          .where(where)
+          .orderBy(desc(taskExecutions.createdAt))
+          .limit(input.limit)
+          .offset(input.offset),
+        ctx.db
+          .select({ value: count() })
+          .from(taskExecutions)
+          .innerJoin(
+            taskDefinitions,
+            eq(taskExecutions.taskDefinitionId, taskDefinitions.id)
+          )
+          .where(where),
+      ])
+
+      return { items: rows, total: Number(rowCount?.value ?? 0) }
     }),
 
   setEnabled: protectedProcedure
@@ -130,14 +149,22 @@ export const tasksRouter = createTRPCRouter({
       if (!definition) {
         throw new TRPCError({
           code: "NOT_FOUND",
+          // Readable in a server log, and the code is what the interface
+          // translates. A name can go stale between listing the tasks and
+          // clicking one, so this is a race the user can actually hit.
           message: `unknown task: ${input.name}`,
+          cause: { code: ERROR_CODES.taskNotFound },
         })
       }
 
       if (!definition.isEnabled) {
         // `as const` like the arms below, so the union stays discriminated and
         // the client can read `.reason` and `.error` without a null check.
-        return { status: "skipped" as const, reason: "task is disabled" }
+        return {
+          status: "skipped" as const,
+          reason: "task is disabled",
+          reasonCode: SKIP_CODES.taskDisabled,
+        }
       }
 
       installTaskRegistry()
@@ -147,7 +174,13 @@ export const tasksRouter = createTRPCRouter({
       })
 
       if (outcome.status === "skipped") {
-        return { status: "skipped" as const, reason: outcome.reason }
+        return {
+          status: "skipped" as const,
+          reason: outcome.reason,
+          // A task's own skip reason has no code yet, so this stays undefined
+          // and the client falls back to the English prose.
+          reasonCode: outcome.reasonCode,
+        }
       }
       if (outcome.status === "failed") {
         return { status: "failed" as const, error: outcome.error }

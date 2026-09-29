@@ -12,8 +12,7 @@
  */
 
 import {
-  linkAuthorToProject,
-  upsertAuthorFromRepo,
+  linkAuthorToProjectFromRepo,
 } from "@/lib/github/service/hall-of-fame"
 import {
   NO_DESCRIPTION,
@@ -137,7 +136,7 @@ export async function createProjectFromRepo(
     `created ${type} project ${parsed.fullName} (${project.slug})`
   )
 
-  const authorLinked = await linkAuthor(db, repo, project.id)
+  const authorLinked = await linkAuthorToProjectFromRepo(db, repo, project.id)
 
   const readme = await syncReadme(db, client, repo)
 
@@ -243,28 +242,3 @@ async function syncSkills(
   return result
 }
 
-/**
- * Records the author's presence in the hall of fame and links the project.
- *
- * Best effort: an author entry is a byline, and a create that failed on one
- * would leave the project unpublished for a cosmetic reason.
- */
-async function linkAuthor(
-  db: Db,
-  repo: RepoRow,
-  projectId: string
-): Promise<boolean> {
-  try {
-    await upsertAuthorFromRepo(db, {
-      owner: repo.owner,
-      // The column is an integer; the avatar URL builder takes a string.
-      ownerId: String(repo.ownerId),
-      homepage: repo.homepage,
-    })
-    await linkAuthorToProject(db, repo.owner, projectId)
-    return true
-  } catch (error) {
-    console.warn("[create-project] could not record the author", error)
-    return false
-  }
-}

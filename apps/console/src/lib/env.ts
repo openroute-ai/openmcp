@@ -15,10 +15,7 @@ import { z } from "zod"
 const emptyToUndefined = (value: unknown) =>
   value === "" || value === undefined ? undefined : value
 
-const optionalString = z.preprocess(
-  emptyToUndefined,
-  z.string().optional()
-)
+const optionalString = z.preprocess(emptyToUndefined, z.string().optional())
 
 const optionalUrl = z.preprocess(
   emptyToUndefined,
@@ -175,9 +172,9 @@ export function hasAliyunOss(): boolean {
   const env = syncEnv()
   return Boolean(
     env.ALIYUN_ACCESS_KEY_ID &&
-      env.ALIYUN_ACCESS_KEY_SECRET &&
-      env.ALIYUN_OSS_BUCKET &&
-      env.ALIYUN_OSS_REGION
+    env.ALIYUN_ACCESS_KEY_SECRET &&
+    env.ALIYUN_OSS_BUCKET &&
+    env.ALIYUN_OSS_REGION
   )
 }
 

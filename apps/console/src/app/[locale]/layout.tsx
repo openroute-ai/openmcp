@@ -3,10 +3,13 @@ import { hasLocale, NextIntlClientProvider } from "next-intl"
 import { notFound } from "next/navigation"
 
 import "@workspace/ui/globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import {
+  ThemeProvider,
+  ThemeScript,
+  ThemedToaster,
+} from "@/components/theme-provider"
 import { routing } from "@/i18n/routing"
 import { TRPCReactProvider } from "@/lib/trpc/client"
-import { Toaster } from "@workspace/ui/components/sonner"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -55,12 +58,17 @@ export default async function LocaleLayout({
         geist.variable
       )}
     >
+      <head>
+        {/* Sets the theme class before the first paint, from the document
+            rather than from the React tree: see ThemeScript. */}
+        <ThemeScript />
+      </head>
       <body>
         <NextIntlClientProvider>
           <ThemeProvider>
             <TRPCReactProvider>
               <TooltipProvider>{children}</TooltipProvider>
-              <Toaster />
+              <ThemedToaster />
             </TRPCReactProvider>
           </ThemeProvider>
         </NextIntlClientProvider>

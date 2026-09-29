@@ -10,11 +10,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import {
-  projectsToTags,
-  tags,
-  TAGS_EXCLUDED_FROM_RANKINGS,
-} from "@/db/schema"
+import { projectsToTags, tags, TAGS_EXCLUDED_FROM_RANKINGS } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 
 type TagRow = typeof tags.$inferSelect
@@ -40,7 +36,10 @@ export interface UpsertTagInput {
  * `code` is the stable identifier and is never rewritten, so renaming a tag
  * for display cannot break the assignments that reference it.
  */
-export async function upsertTag(db: Db, input: UpsertTagInput): Promise<TagRow> {
+export async function upsertTag(
+  db: Db,
+  input: UpsertTagInput
+): Promise<TagRow> {
   const existing = await getTagByCode(db, input.code)
   const excludeFromRankings =
     input.excludeFromRankings ??
@@ -75,7 +74,10 @@ export async function upsertTag(db: Db, input: UpsertTagInput): Promise<TagRow> 
   return row
 }
 
-export async function getTagByCode(db: Db, code: string): Promise<TagRow | undefined> {
+export async function getTagByCode(
+  db: Db,
+  code: string
+): Promise<TagRow | undefined> {
   return db.query.tags.findFirst({ where: eq(tags.code, code) })
 }
 
@@ -91,10 +93,7 @@ export async function getTagsByCodes(
   const byCode = new Map<string, TagRow>()
   if (codes.length === 0) return byCode
 
-  const rows = await db
-    .select()
-    .from(tags)
-    .where(inArray(tags.code, codes))
+  const rows = await db.select().from(tags).where(inArray(tags.code, codes))
   for (const row of rows) byCode.set(row.code, row)
   return byCode
 }
@@ -134,9 +133,9 @@ export async function setProjectTags(
       throw new Error(`Unknown tag codes: ${missing.join(", ")}`)
     }
 
-    await tx.insert(projectsToTags).values(
-      known.map((tag) => ({ projectId, tagId: tag.id }))
-    )
+    await tx
+      .insert(projectsToTags)
+      .values(known.map((tag) => ({ projectId, tagId: tag.id })))
   })
 }
 

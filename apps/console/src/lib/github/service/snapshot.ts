@@ -13,11 +13,7 @@
  */
 
 import { and, eq, sql } from "drizzle-orm"
-import {
-  repoWeeklyStars,
-  snapshots,
-  type SnapshotMonth,
-} from "@/db/schema"
+import { repoWeeklyStars, snapshots, type SnapshotMonth } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 import {
   getIsoWeekNumber,
@@ -93,7 +89,10 @@ export function mergeMonth(
 export function accumulateStarsByMonth(
   stamps: StargazerStamp[]
 ): { yearMonth: YearMonth; stars: number }[] {
-  const counts = new Map<number, { year: number; month: number; count: number }>()
+  const counts = new Map<
+    number,
+    { year: number; month: number; count: number }
+  >()
 
   for (const stamp of stamps) {
     const date = new Date(stamp.starredAt)
@@ -286,7 +285,9 @@ export async function recordWeeklyStarsFromStargazers(
     }
   }
 
-  const counts = new Map(weeks.map((week) => [weekKey(week.yearWeek), week.total]))
+  const counts = new Map(
+    weeks.map((week) => [weekKey(week.yearWeek), week.total])
+  )
 
   // Replaced wholesale rather than range-deleted. A sweep always covers a
   // repository's whole stargazer history, so every row this repository owns is
@@ -338,7 +339,9 @@ export function isConsecutiveMonth(
   if (next.year === previous.year) return next.month === previous.month + 1
   // December is followed by January of the following year; a December in one
   // year and a January in any other is not consecutive.
-  return previous.month === 12 && next.month === 1 && next.year === previous.year + 1
+  return (
+    previous.month === 12 && next.month === 1 && next.year === previous.year + 1
+  )
 }
 
 /**
@@ -429,12 +432,18 @@ export function sweepWeekRange(
     const date = new Date(stamp.starredAt)
     if (Number.isNaN(date.getTime())) continue
     const yearWeek = getIsoWeekNumber(date)
-    if (!first || yearWeek.year < first.year ||
-      (yearWeek.year === first.year && yearWeek.week < first.week)) {
+    if (
+      !first ||
+      yearWeek.year < first.year ||
+      (yearWeek.year === first.year && yearWeek.week < first.week)
+    ) {
       first = yearWeek
     }
-    if (!last || yearWeek.year > last.year ||
-      (yearWeek.year === last.year && yearWeek.week > last.week)) {
+    if (
+      !last ||
+      yearWeek.year > last.year ||
+      (yearWeek.year === last.year && yearWeek.week > last.week)
+    ) {
       last = yearWeek
     }
   }

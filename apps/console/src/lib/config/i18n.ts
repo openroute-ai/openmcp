@@ -7,7 +7,7 @@
  * be.
  */
 export const i18n = {
-  defaultLocale: "en",
+  defaultLocale: "zh",
   locales: {
     en: { label: "English" },
     zh: { label: "中文" },

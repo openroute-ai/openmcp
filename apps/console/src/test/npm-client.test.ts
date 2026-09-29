@@ -30,10 +30,9 @@ describe("extractPackageVersion", () => {
 
 describe("toDependencyList", () => {
   it("renders name@range and sorts for a stable row", () => {
-    expect(toDependencyList({ react: "^18.0.0", "react-dom": "^18.0.0" })).toEqual([
-      "react-dom@^18.0.0",
-      "react@^18.0.0",
-    ])
+    expect(
+      toDependencyList({ react: "^18.0.0", "react-dom": "^18.0.0" })
+    ).toEqual(["react-dom@^18.0.0", "react@^18.0.0"])
   })
 
   it("treats an absent or empty group as no data", () => {
@@ -67,8 +66,7 @@ describe("compareVersions", () => {
 describe("createNpmClient", () => {
   it("fetches package info from the latest dist-tag", async () => {
     const client = createNpmClient({
-      fetchImpl: async () =>
-        jsonResponse({ name: "redux", version: "5.0.1" }),
+      fetchImpl: async () => jsonResponse({ name: "redux", version: "5.0.1" }),
     })
 
     await expect(client.fetchPackageInfo("redux")).resolves.toMatchObject({

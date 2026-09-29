@@ -26,6 +26,7 @@ import {
   type TaskExecutionRow,
 } from "@/lib/github/service/task"
 import type { Db } from "@/lib/github/service/repo"
+import { SKIP_CODES, type SkipCode } from "@/lib/trpc/error-codes"
 
 export interface TaskContext {
   db: Db
@@ -122,7 +123,11 @@ function stringifyArg(value: unknown): string {
 
 export type RunOutcome =
   | { status: "completed"; execution: TaskExecutionRow; result: unknown }
-  | { status: "skipped"; reason: string }
+  // `reason` is prose because it is read in logs and in the webhook response,
+  // where English is right. `reasonCode` is there so an interface can ask for
+  // the reason in its own language, and is absent for a skip that only the
+  // task itself can describe.
+  | { status: "skipped"; reason: string; reasonCode?: SkipCode }
   | { status: "failed"; execution: TaskExecutionRow; error: string }
 
 export interface RunOptions {
@@ -150,7 +155,11 @@ export async function runTask(
   options: RunOptions = {}
 ): Promise<RunOutcome> {
   if (!definition.isEnabled && !options.force) {
-    return { status: "skipped", reason: "task is disabled" }
+    return {
+      status: "skipped",
+      reason: "task is disabled",
+      reasonCode: SKIP_CODES.taskDisabled,
+    }
   }
 
   const startedAt = new Date()
@@ -182,7 +191,11 @@ export async function runTask(
       // row counts as live and would later be reclaimed as an abandoned run,
       // reporting a healthy overlapping tick as a failure.
       await cancelExecution(db, execution.id)
-      return { status: "skipped", reason: "task is already running" }
+      return {
+        status: "skipped",
+        reason: "task is already running",
+        reasonCode: SKIP_CODES.taskAlreadyRunning,
+      }
     }
   }
 

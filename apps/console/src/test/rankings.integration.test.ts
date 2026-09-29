@@ -72,7 +72,8 @@ async function seed(overrides: Record<string, unknown> = {}) {
   const repo = await upsertRepo(
     db,
     info({
-      description: (overrides.repoDescription as string) ?? "The repository description",
+      description:
+        (overrides.repoDescription as string) ?? "The repository description",
     })
   )
 
@@ -81,7 +82,8 @@ async function seed(overrides: Record<string, unknown> = {}) {
     name: (overrides.projectName as string) ?? `Project ${n}`,
     owner: repo.owner,
     slug: `slug-${n}`,
-    description: (overrides.projectDescription as string) ?? "The project description",
+    description:
+      (overrides.projectDescription as string) ?? "The project description",
     url: "https://example.com",
     status: (overrides.status as "active") ?? "active",
     type: "application",
@@ -119,7 +121,12 @@ async function attach(projectId: string, tagCode: string, excluded = false) {
 }
 
 /** Three weekly rows, so the running total has to span more than one delta. */
-async function seedWeeks(repoId: string, oldest: number, middle: number, latest: number) {
+async function seedWeeks(
+  repoId: string,
+  oldest: number,
+  middle: number,
+  latest: number
+) {
   await db
     .insert(repoWeeklyStars)
     .values([
@@ -218,8 +225,18 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
   describe("monthly", () => {
     it("ranks by the difference between consecutive months", async () => {
       const repo = await seed()
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 1 }, { stars: 100 })
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 2 }, { stars: 160 })
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 1 },
+        { stars: 100 }
+      )
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 2 },
+        { stars: 160 }
+      )
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
 
@@ -232,8 +249,18 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       // The boundary a naive "same year, month - 1" lookup gets wrong: the
       // December being compared lives in the previous year's snapshot row.
       const repo = await seed()
-      await recordMonth(db, repo.repo.id, { year: 2025, month: 12 }, { stars: 200 })
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 1 }, { stars: 260 })
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2025, month: 12 },
+        { stars: 200 }
+      )
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 1 },
+        { stars: 260 }
+      )
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 1 })
 
@@ -244,8 +271,18 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       // A fall is a correction or a transfer, not a riser. Ranking it as a
       // large negative delta would only add noise.
       const repo = await seed()
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 1 }, { stars: 300 })
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 2 }, { stars: 250 })
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 1 },
+        { stars: 300 }
+      )
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 2 },
+        { stars: 250 }
+      )
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
 
@@ -254,7 +291,12 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
     it("skips a month with nothing to compare against", async () => {
       const repo = await seed()
-      await recordMonth(db, repo.repo.id, { year: 2026, month: 2 }, { stars: 100 })
+      await recordMonth(
+        db,
+        repo.repo.id,
+        { year: 2026, month: 2 },
+        { stars: 100 }
+      )
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
 
@@ -328,7 +370,9 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
-      expect(rankings.trending[0]?.description).toBe("The repository description")
+      expect(rankings.trending[0]?.description).toBe(
+        "The repository description"
+      )
     })
 
     it("truncates a long description", async () => {

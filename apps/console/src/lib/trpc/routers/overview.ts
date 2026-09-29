@@ -32,6 +32,7 @@ export const overviewRouter = createTRPCRouter({
       projectJobs,
       readmeJobs,
       recentExecutions,
+      recentProjects,
     ] = await Promise.all([
       ctx.db
         .select({ value: sql<number>`count(*)::int` })
@@ -103,6 +104,25 @@ export const overviewRouter = createTRPCRouter({
         )
         .orderBy(desc(taskExecutions.createdAt))
         .limit(8),
+      ctx.db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          owner: projects.owner,
+          type: projects.type,
+          logo: projects.logo,
+          createdAt: projects.createdAt,
+          // Carried for the owner's avatar: the overview is a glance, and a
+          // row of bare names gives no way to tell two same-named projects
+          // apart at that size.
+          ownerId: repos.ownerId,
+          iconUrl: repos.iconUrl,
+          stars: repos.stars,
+        })
+        .from(projects)
+        .leftJoin(repos, eq(projects.repoId, repos.id))
+        .orderBy(desc(projects.createdAt))
+        .limit(6),
     ])
 
     const executionCounts = byStatus(executions)
@@ -136,6 +156,7 @@ export const overviewRouter = createTRPCRouter({
         failed: jobCounts.failed ?? 0,
       },
       recentExecutions,
+      recentProjects,
     }
   }),
 })

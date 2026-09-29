@@ -1,17 +1,24 @@
 /**
  * Refreshes repository metadata from GitHub.
  *
- * The shape of the run follows the source app's `update-github-data`, with two
+ * The shape of the run follows the source app's `update-github-data`, with the
+ * per-repository work delegated to `refreshRepoFromGitHub` so that the manual
+ * "resync this project" button and this sweep cannot drift apart, and with two
  * differences that matter:
  *
  * - Metadata is fetched in batches of 100 through the batched GraphQL query
  *   rather than one request per repository. The source issued one GraphQL call
  *   per repository, so a 500-repository refresh spent 500 requests before
  *   contributor counts and READMEs were counted, and the hourly budget was
- *   gone before the run finished.
+ *   gone before the run finished. The batched result is handed to the shared
+ *   refresh so it is not requested twice.
  * - Contributor counts come from REST instead of an HTML scrape of the
  *   repository page, which the source did with a CSS selector and which broke
  *   silently whenever GitHub changed its markup.
+ *
+ * Translation is deliberately not part of this sweep. The source re-translated
+ * every README on every run, which is a language-model call per repository per
+ * run; here it happens when an operator asks for it, in `syncProjectData`.
  */
 
 import { createGitHubClient, type GitHubClient } from "@/lib/github/client"
@@ -19,15 +26,12 @@ import {
   setAuthorProjects,
   upsertAuthorFromRepo,
 } from "@/lib/github/service/hall-of-fame"
-import { listAllProjects, syncProjectFromRepo } from "@/lib/github/service/project"
 import {
-  listAllRepos,
-  listReposByOwner,
-  setContributorCount,
-  setReadme,
-  upsertRepo,
-  type Db,
-} from "@/lib/github/service/repo"
+  listAllProjects,
+  syncProjectFromRepo,
+} from "@/lib/github/service/project"
+import { listAllRepos, listReposByOwner, type Db } from "@/lib/github/service/repo"
+import { refreshRepoFromGitHub } from "@/lib/github/sync-project"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task, TaskLogger } from "@/lib/tasks/runner"
 
@@ -59,49 +63,29 @@ export function createUpdateGitHubDataTask(
         logger.warn(`${missing.length} repos could not be fetched`, missing)
       }
 
-      let updated = 0
-      for (const info of results.values()) {
-        try {
-          await upsertRepo(db, info)
-          updated += 1
-        } catch (error) {
-          logger.error(`could not store ${info.fullName}`, error)
-        }
-      }
-
       // Re-read: the batch may have renamed a repository or moved it to another
       // owner, and the per-repository REST work below writes against the rows.
       const rows = await listAllRepos(db)
+      const updated = rows.filter(
+        (repo) => !missing.includes(`${repo.owner}/${repo.name}`)
+      ).length
 
       const perRepo = await processItems(
         rows,
         async (repo) => {
-          const fullName = `${repo.owner}/${repo.name}`
-          let counted = false
-
-          try {
-            const contributorCount = await client.fetchContributorCount(fullName)
-            await setContributorCount(db, repo.id, contributorCount)
-            counted = true
-          } catch (error) {
-            // Deliberately not recorded as zero: a rate-limited call would then
-            // read as the project having lost every contributor it had.
-            logger.warn(`could not count contributors for ${fullName}`, error)
-          }
-
-          // The stored default branch, not an assumed "main": fetching from the
-          // wrong branch returns the wrong README, or none.
-          const readme = await client.fetchRepoReadMeAsMarkdown(
-            fullName,
-            repo.defaultBranch ?? undefined
-          )
-          if (readme) await setReadme(db, repo.id, readme)
+          const refreshed = await refreshRepoFromGitHub(db, client, repo, {
+            logger,
+            info: results.get(`${repo.owner}/${repo.name}`),
+          })
 
           return {
             meta: {
               processed: 1,
-              readme: readme ? 1 : 0,
-              contributorCount: counted ? 1 : 0,
+              readme: refreshed.readme ? 1 : 0,
+              contributorCount: refreshed.contributorCount ? 1 : 0,
+              icon: refreshed.icon ? 1 : 0,
+              openGraphImage: refreshed.openGraphImage ? 1 : 0,
+              snapshot: refreshed.snapshot ? 1 : 0,
             },
             data: null,
           }
@@ -114,10 +98,8 @@ export function createUpdateGitHubDataTask(
         }
       )
 
-      const { projects: projectsSynced, authors } = await syncProjectsAndAuthors(
-        db,
-        logger
-      )
+      const { projects: projectsSynced, authors } =
+        await syncProjectsAndAuthors(db, logger)
 
       return {
         processed: perRepo.meta.processed ?? 0,
@@ -125,6 +107,9 @@ export function createUpdateGitHubDataTask(
         missing: missing.length,
         readme: perRepo.meta.readme ?? 0,
         contributorCount: perRepo.meta.contributorCount ?? 0,
+        icon: perRepo.meta.icon ?? 0,
+        openGraphImage: perRepo.meta.openGraphImage ?? 0,
+        snapshot: perRepo.meta.snapshot ?? 0,
         errors: perRepo.meta.error ?? 0,
         projectsSynced,
         authors,

@@ -28,7 +28,10 @@ function repositoryNode(overrides: Record<string, unknown> = {}) {
     pullRequests: { totalCount: 4_000 },
     releases: { totalCount: 400 },
     repositoryTopics: {
-      edges: [{ node: { topic: { name: "react" } } }, { node: { topic: { name: "nextjs" } } }],
+      edges: [
+        { node: { topic: { name: "react" } } },
+        { node: { topic: { name: "nextjs" } } },
+      ],
     },
     languages: {
       nodes: [{ name: "TypeScript" }, { name: "JavaScript" }, { name: "CSS" }],

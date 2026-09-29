@@ -133,7 +133,9 @@ export const projects = pgTable(
     url: text("url"),
     overrideUrl: boolean("override_url"),
     status: text("status", { enum: PROJECT_STATUSES }).notNull(),
-    type: text("type", { enum: PROJECT_TYPES }).notNull().default("application"),
+    type: text("type", { enum: PROJECT_TYPES })
+      .notNull()
+      .default("application"),
     logo: text("logo"),
     twitter: text("twitter"),
     priority: smallint("priority").notNull().default(0),
@@ -498,19 +500,16 @@ export const taskStatus = pgTable(
  * repository, so the tasks failed with ENOENT on every run. Configuration
  * now lives in the database and is seeded from `defaultRisingStarCategories`.
  */
-export const risingStarCategories = pgTable(
-  "rising_star_categories",
-  {
-    year: integer("year").primaryKey(),
-    /** The full category list, ordered, as JSON. */
-    categories: jsonb("categories")
-      .$type<RisingStarCategory[]>()
-      .notNull()
-      .default([]),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at"),
-  }
-)
+export const risingStarCategories = pgTable("rising_star_categories", {
+  year: integer("year").primaryKey(),
+  /** The full category list, ordered, as JSON. */
+  categories: jsonb("categories")
+    .$type<RisingStarCategory[]>()
+    .notNull()
+    .default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+})
 
 export type RisingStarCategory = {
   key: string
@@ -570,19 +569,16 @@ export const projectsRelations = relations(projects, ({ many, one }) => ({
   hallOfFameToProjects: many(hallOfFameToProjects),
 }))
 
-export const projectsToTagsRelations = relations(
-  projectsToTags,
-  ({ one }) => ({
-    project: one(projects, {
-      fields: [projectsToTags.projectId],
-      references: [projects.id],
-    }),
-    tag: one(tags, {
-      fields: [projectsToTags.tagId],
-      references: [tags.id],
-    }),
-  })
-)
+export const projectsToTagsRelations = relations(projectsToTags, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectsToTags.projectId],
+    references: [projects.id],
+  }),
+  tag: one(tags, {
+    fields: [projectsToTags.tagId],
+    references: [tags.id],
+  }),
+}))
 
 export const snapshotsRelations = relations(snapshots, ({ one }) => ({
   repo: one(repos, { fields: [snapshots.repoId], references: [repos.id] }),
@@ -610,7 +606,10 @@ export const packagesRelations = relations(packages, ({ one }) => ({
 }))
 
 export const bundlesRelations = relations(bundles, ({ one }) => ({
-  package: one(packages, { fields: [bundles.name], references: [packages.name] }),
+  package: one(packages, {
+    fields: [bundles.name],
+    references: [packages.name],
+  }),
 }))
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -642,16 +641,19 @@ export const projectSkillsRelations = relations(projectSkills, ({ one }) => ({
   }),
 }))
 
-export const projectSyncJobsRelations = relations(projectSyncJobs, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectSyncJobs.projectId],
-    references: [projects.id],
-  }),
-  repo: one(repos, {
-    fields: [projectSyncJobs.repoId],
-    references: [repos.id],
-  }),
-}))
+export const projectSyncJobsRelations = relations(
+  projectSyncJobs,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [projectSyncJobs.projectId],
+      references: [projects.id],
+    }),
+    repo: one(repos, {
+      fields: [projectSyncJobs.repoId],
+      references: [repos.id],
+    }),
+  })
+)
 
 export const readmeSyncJobsRelations = relations(readmeSyncJobs, ({ one }) => ({
   repo: one(repos, {
