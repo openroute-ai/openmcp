@@ -3205,6 +3205,270 @@
         "accountRequired": "Enter a payout account or upload a payment QR code.",
         "saveFailed": "Could not save your payout account. Please try again."
       }
+    },
+    "imageUpload": {
+      "choose": "Choose an image",
+      "uploading": "Uploading...",
+      "done": "Uploaded",
+      "remove": "Remove image",
+      "failed": "Upload failed",
+      "tooLarge": "File is too large, the maximum is {max}.",
+      "notImage": "Only image files are supported."
+    }
+  },
+  "McpSubmit": {
+    "meta": {
+      "title": "Publish an MCP Server",
+      "description": "Connect your MCP endpoint, test it, and publish it to the OpenMCP marketplace for Claude, Codex and other AI clients."
+    },
+    "cardTitle": "Publish an MCP Server",
+    "cardDescription": "Connect and test your endpoint first, then add the listing details.",
+    "step1": "1. Connect endpoint",
+    "step2": "2. Listing details",
+    "url": {
+      "label": "Endpoint URL",
+      "placeholder": "https://example.com/mcp"
+    },
+    "discover": {
+      "button": "Auto-discover",
+      "successTitle": "Discovery succeeded",
+      "failedTitle": "Discovery failed",
+      "summary": "Discovered {count} tools",
+      "nameLabel": "Service name",
+      "toolCountLabel": "Tools",
+      "protocolLabel": "Protocol",
+      "toastSuccess": "Discovery succeeded"
+    },
+    "assetName": {
+      "label": "Asset slug",
+      "placeholder": "e.g. order-query-server",
+      "hint": "Lowercase, a-z / 0-9 / - only. Gateway ID: your-username/{assetName}",
+      "checking": "Checking availability...",
+      "available": "This slug is available.",
+      "taken": "This slug is already taken.",
+      "invalid": "Use lowercase letters, digits and hyphens, starting with a letter or digit."
+    },
+    "displayName": {
+      "label": "Display name",
+      "placeholder": "e.g. Order Query MCP"
+    },
+    "transport": {
+      "label": "Transport",
+      "streamable": "Streamable HTTP",
+      "sse": "SSE"
+    },
+    "auth": {
+      "label": "Authentication",
+      "none": "No authentication",
+      "apiKey": "API Key",
+      "bearer": "Bearer token",
+      "basic": "Basic auth",
+      "oauthClient": "Client credentials (OAuth2)",
+      "secret": "Secret",
+      "secretPlaceholder": "Secret used for the connection test",
+      "basicLabel": "Credentials",
+      "basicPlaceholder": "username:password",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://example.com/oauth/token",
+      "oauthHint": "We store the credentials encrypted and use them to fetch tokens when clients call this server."
+    },
+    "test": {
+      "button": "Run connection test",
+      "running": "Testing...",
+      "success": "Connection succeeded: {count} tools, {ms}ms",
+      "failed": "The connection test did not pass.",
+      "steps": {
+        "handshake": "Endpoint reachable",
+        "auth": "Authentication",
+        "tools": "Tool listing",
+        "protocol": "Protocol version"
+      },
+      "pass": "Pass",
+      "fail": "Fail",
+      "pending": "Not checked"
+    },
+    "step1Confirm": "Continue to listing details",
+    "description": {
+      "label": "Service description",
+      "placeholder": "Which tools this MCP exposes, when to use it, and how to connect.",
+      "hint": "At least {min} characters."
+    },
+    "logo": {
+      "label": "Logo",
+      "hint": "Square image, up to {max}."
+    },
+    "cover": {
+      "label": "Cover image",
+      "hint": "Recommended 1200x630, up to {max}."
+    },
+    "category": {
+      "label": "Category",
+      "placeholder": "Choose a category",
+      "none": "No category"
+    },
+    "scope": {
+      "label": "Visibility",
+      "public": "Public",
+      "private": "Private",
+      "team": "Team"
+    },
+    "priceType": {
+      "label": "Pricing",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "billingModel": {
+      "label": "Billing model",
+      "placeholder": "Choose a billing model",
+      "none": "Choose a billing model",
+      "oneTime": "One-time purchase",
+      "subscription": "Subscription",
+      "payPerCall": "Per call"
+    },
+    "priceAmount": {
+      "label": "Price (CNY)",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "Price per call (CNY)",
+      "placeholder": "0.01"
+    },
+    "payoutWarning": "Paid listings need a bound payout account. Free listings can be submitted now.",
+    "step2Back": "Back",
+    "step2Submit": "Submit for review",
+    "submitting": "Submitting...",
+    "upload": {
+      "choose": "Choose an image",
+      "uploading": "Uploading...",
+      "replace": "Replace",
+      "remove": "Remove",
+      "done": "Uploaded",
+      "failed": "Upload failed",
+      "tooLarge": "File is too large, the maximum is {max}.",
+      "notImage": "Only image files are supported."
+    },
+    "error": {
+      "urlRequired": "Enter an endpoint URL first.",
+      "discoverFailed": "Auto-discovery failed, please fill the fields manually.",
+      "testFailed": "The connection test failed.",
+      "testRequired": "Run and pass the connection test first.",
+      "descriptionTooShort": "The description needs at least {min} characters.",
+      "billingModelRequired": "Choose a billing model for a paid listing.",
+      "priceRequired": "Enter a price for a paid listing.",
+      "priceInvalid": "Enter a price greater than or equal to 0.",
+      "connectFailed": "Could not register the endpoint.",
+      "publishFailed": "Could not submit the listing.",
+      "submitFailed": "Submission failed."
+    },
+    "success": {
+      "title": "MCP server submitted",
+      "description": "The connection test passed and the listing is in the review queue.",
+      "manage": "Manage your assets"
+    }
+  },
+  "SkillSubmit": {
+    "meta": {
+      "title": "Submit a Skill",
+      "description": "Import a skill from a GitHub repository or upload a ZIP package, then publish it to the OpenMCP Skills shelf."
+    },
+    "cardTitle": "Submit a Skill",
+    "cardDescription": "Import from GitHub or upload a ZIP. The platform runs a security scan before listing.",
+    "mode": {
+      "label": "Import method",
+      "github": "GitHub repository",
+      "zip": "ZIP package"
+    },
+    "github": {
+      "heading": "GitHub repository",
+      "urlLabel": "Repository URL",
+      "urlPlaceholder": "https://github.com/owner/skill-name",
+      "check": "Check",
+      "hint": "The platform fetches the repository on the server side, so no pull request is needed.",
+      "valid": "Repository URL looks valid"
+    },
+    "zip": {
+      "heading": "Upload a ZIP",
+      "dropzone": "Drop a ZIP here, or",
+      "browse": "choose a file",
+      "hint": "Only .zip, up to {max}. It must contain skill.yaml or SKILL.md.",
+      "remove": "Remove",
+      "uploading": "Uploading...",
+      "selected": "{name} ({size})",
+      "failed": "ZIP upload failed",
+      "tooLarge": "The ZIP is larger than the {max} limit."
+    },
+    "name": {
+      "label": "Skill name",
+      "placeholder": "e.g. pdf-report"
+    },
+    "description": {
+      "label": "Description",
+      "placeholder": "What it does, when to use it, and any dependencies.",
+      "hint": "Optional, up to {max} characters."
+    },
+    "image": {
+      "label": "Logo or cover image",
+      "hint": "Optional, up to {max}."
+    },
+    "category": {
+      "label": "Category",
+      "placeholder": "Choose a category",
+      "none": "No category"
+    },
+    "scope": {
+      "label": "Visibility",
+      "public": "Public",
+      "private": "Private",
+      "team": "Team"
+    },
+    "priceType": {
+      "label": "Pricing",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "billingModel": {
+      "label": "Billing model",
+      "placeholder": "Choose a billing model",
+      "none": "Choose a billing model",
+      "oneTime": "One-time purchase",
+      "subscription": "Subscription",
+      "payPerCall": "Per call"
+    },
+    "priceAmount": {
+      "label": "Price (CNY)",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "Price per call (CNY)",
+      "placeholder": "0.01"
+    },
+    "requirements": {
+      "title": "Submission requirements",
+      "metaFile": "Include skill.yaml or SKILL.md metadata in the repository or package",
+      "readme": "Provide a README describing usage and configuration",
+      "noSecrets": "Do not include API keys, passwords or other secrets",
+      "payout": "Bind a WeChat Pay or Alipay account before publishing a paid skill"
+    },
+    "submitGithub": "Import from GitHub",
+    "submitZip": "Upload and import",
+    "submitting": "Submitting...",
+    "payoutWarning": "Paid listings need a bound payout account. Free listings can be submitted now.",
+    "error": {
+      "invalidRepoUrl": "Enter a valid GitHub repository URL.",
+      "zipRequired": "Choose a ZIP file first.",
+      "billingModelRequired": "Choose a billing model for a paid listing.",
+      "priceRequired": "Enter a price for a paid listing.",
+      "priceInvalid": "Enter a price greater than or equal to 0.",
+      "connectGithubFailed": "Could not import the GitHub repository.",
+      "submitFailed": "Submission failed."
+    },
+    "success": {
+      "title": "Skill imported",
+      "githubDescription": "A security scan is queued, you can track it under My assets.",
+      "zipDescription": "Parsed and scanned, you can find it under My assets.",
+      "manage": "Manage your assets"
     }
   }
 }

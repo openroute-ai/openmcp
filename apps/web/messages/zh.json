@@ -3133,6 +3133,270 @@
         "accountRequired": "请至少填写收款账号或上传收款二维码。",
         "saveFailed": "保存收款账户失败，请重试。"
       }
+    },
+    "imageUpload": {
+      "choose": "选择图片",
+      "uploading": "上传中…",
+      "done": "已上传",
+      "remove": "移除图片",
+      "failed": "上传失败",
+      "tooLarge": "文件过大，最大支持 {max}。",
+      "notImage": "仅支持图片文件。"
+    }
+  },
+  "McpSubmit": {
+    "meta": {
+      "title": "发布 MCP Server",
+      "description": "接入你的 MCP 端点，完成连接测试后发布到 OpenMCP 市场，供 Claude、Codex 等 AI 客户端调用。"
+    },
+    "cardTitle": "发布 MCP Server",
+    "cardDescription": "先接入并测通端点，再补充上架信息。",
+    "step1": "1. 接入端点",
+    "step2": "2. 上架信息",
+    "url": {
+      "label": "端点 URL",
+      "placeholder": "https://example.com/mcp"
+    },
+    "discover": {
+      "button": "一键发现",
+      "successTitle": "自动发现成功",
+      "failedTitle": "自动发现失败",
+      "summary": "发现成功：{count} 个工具",
+      "nameLabel": "服务名称",
+      "toolCountLabel": "工具数量",
+      "protocolLabel": "协议",
+      "toastSuccess": "自动发现成功"
+    },
+    "assetName": {
+      "label": "资产标识（slug）",
+      "placeholder": "例如 order-query-server",
+      "hint": "小写字母开头，仅 a-z / 0-9 / -（网关 ID：你的用户名/{assetName}）",
+      "checking": "正在检查是否可用…",
+      "available": "该标识可以使用。",
+      "taken": "该标识已被占用。",
+      "invalid": "需以小写字母或数字开头，仅包含小写字母、数字和中划线。"
+    },
+    "displayName": {
+      "label": "显示名称",
+      "placeholder": "例如 电商订单查询 MCP"
+    },
+    "transport": {
+      "label": "传输协议",
+      "streamable": "Streamable HTTP",
+      "sse": "SSE"
+    },
+    "auth": {
+      "label": "鉴权方式",
+      "none": "无需认证",
+      "apiKey": "API Key",
+      "bearer": "Bearer Token",
+      "basic": "Basic Auth",
+      "oauthClient": "Client Credentials（OAuth2）",
+      "secret": "密钥",
+      "secretPlaceholder": "用于连接测试的密钥",
+      "basicLabel": "凭据",
+      "basicPlaceholder": "username:password",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://example.com/oauth/token",
+      "oauthHint": "凭据会加密存储，客户端调用时由平台使用它换取 access token。"
+    },
+    "test": {
+      "button": "连接测试",
+      "running": "测试中…",
+      "success": "连接成功：{count} 个工具，耗时 {ms}ms",
+      "failed": "连接测试未通过。",
+      "steps": {
+        "handshake": "端点可达",
+        "auth": "身份认证",
+        "tools": "工具列表",
+        "protocol": "协议版本"
+      },
+      "pass": "通过",
+      "fail": "失败",
+      "pending": "未检查"
+    },
+    "step1Confirm": "继续填写上架信息",
+    "description": {
+      "label": "服务描述",
+      "placeholder": "描述该 MCP 提供哪些工具、适用场景与接入方式。",
+      "hint": "至少 {min} 个字符。"
+    },
+    "logo": {
+      "label": "服务 Logo",
+      "hint": "建议正方形图片，最大 {max}。"
+    },
+    "cover": {
+      "label": "封面图片",
+      "hint": "建议尺寸 1200x630，最大 {max}。"
+    },
+    "category": {
+      "label": "分类",
+      "placeholder": "选择分类",
+      "none": "不选择"
+    },
+    "scope": {
+      "label": "可见范围",
+      "public": "公开",
+      "private": "私有",
+      "team": "团队"
+    },
+    "priceType": {
+      "label": "价格类型",
+      "free": "免费",
+      "paid": "付费"
+    },
+    "billingModel": {
+      "label": "计费模式",
+      "placeholder": "选择计费模式",
+      "none": "请选择",
+      "oneTime": "一次性购买",
+      "subscription": "订阅",
+      "payPerCall": "按次计费"
+    },
+    "priceAmount": {
+      "label": "价格（元）",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "单次单价（元）",
+      "placeholder": "0.01"
+    },
+    "payoutWarning": "发布付费上架需先绑定收款账户，免费上架可以现在提交。",
+    "step2Back": "上一步",
+    "step2Submit": "提交上架",
+    "submitting": "提交中…",
+    "upload": {
+      "choose": "选择图片",
+      "uploading": "上传中…",
+      "replace": "重新上传",
+      "remove": "移除",
+      "done": "已上传",
+      "failed": "上传失败",
+      "tooLarge": "文件过大，最大支持 {max}。",
+      "notImage": "仅支持图片文件。"
+    },
+    "error": {
+      "urlRequired": "请先填写端点 URL。",
+      "discoverFailed": "自动发现失败，请手动填写。",
+      "testFailed": "连接测试失败。",
+      "testRequired": "请先通过连接测试。",
+      "descriptionTooShort": "描述至少 {min} 个字符。",
+      "billingModelRequired": "付费上架必须选择计费模式。",
+      "priceRequired": "付费上架请填写价格。",
+      "priceInvalid": "请输入大于等于 0 的价格。",
+      "connectFailed": "接入端点失败。",
+      "publishFailed": "提交上架失败。",
+      "submitFailed": "提交失败。"
+    },
+    "success": {
+      "title": "MCP 服务已提交",
+      "description": "连接测试已通过，资产已进入审核队列。",
+      "manage": "管理我的资产"
+    }
+  },
+  "SkillSubmit": {
+    "meta": {
+      "title": "提交 Skill",
+      "description": "通过 GitHub 仓库地址或 ZIP 包提交你的 Skill，经安全扫描与审核后收录到 OpenMCP Skills 仓库。"
+    },
+    "cardTitle": "提交 Skill",
+    "cardDescription": "通过 GitHub 仓库或 ZIP 包接入，平台完成安全扫描后可上架到 Skills 仓库。",
+    "mode": {
+      "label": "接入方式",
+      "github": "GitHub 仓库",
+      "zip": "ZIP 包上传"
+    },
+    "github": {
+      "heading": "GitHub 仓库",
+      "urlLabel": "仓库地址",
+      "urlPlaceholder": "https://github.com/owner/skill-name",
+      "check": "校验",
+      "hint": "由平台侧抓取同步，无需你跳转 GitHub 提 PR。",
+      "valid": "仓库地址有效"
+    },
+    "zip": {
+      "heading": "上传 ZIP",
+      "dropzone": "拖拽 ZIP 到此处，或",
+      "browse": "点击选择",
+      "hint": "仅支持 .zip，最大 {max}；需包含 skill.yaml 或 SKILL.md。",
+      "remove": "移除",
+      "uploading": "上传中…",
+      "selected": "{name}（{size}）",
+      "failed": "ZIP 上传失败",
+      "tooLarge": "ZIP 超过 {max} 上限。"
+    },
+    "name": {
+      "label": "Skill 名称",
+      "placeholder": "例如 pdf-report"
+    },
+    "description": {
+      "label": "补充说明",
+      "placeholder": "用途、适用场景、依赖说明等。",
+      "hint": "可选，最多 {max} 个字符。"
+    },
+    "image": {
+      "label": "Logo / 封面图",
+      "hint": "可选，最大 {max}。"
+    },
+    "category": {
+      "label": "分类",
+      "placeholder": "选择分类",
+      "none": "不选择"
+    },
+    "scope": {
+      "label": "可见范围",
+      "public": "公开",
+      "private": "私有",
+      "team": "团队"
+    },
+    "priceType": {
+      "label": "价格类型",
+      "free": "免费",
+      "paid": "付费"
+    },
+    "billingModel": {
+      "label": "计费模式",
+      "placeholder": "选择计费模式",
+      "none": "请选择",
+      "oneTime": "一次性购买",
+      "subscription": "订阅",
+      "payPerCall": "按次计费"
+    },
+    "priceAmount": {
+      "label": "价格（元）",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "单次单价（元）",
+      "placeholder": "0.01"
+    },
+    "requirements": {
+      "title": "提交要求",
+      "metaFile": "仓库或包中需包含 skill.yaml / SKILL.md 元信息",
+      "readme": "提供完整 README，说明用法与配置",
+      "noSecrets": "不包含 API Key、密码等敏感信息",
+      "payout": "发布付费 Skill 前需先绑定微信 / 支付宝收款账户"
+    },
+    "submitGithub": "从 GitHub 接入",
+    "submitZip": "上传并接入",
+    "submitting": "提交中…",
+    "payoutWarning": "发布付费上架需先绑定收款账户，免费上架可以现在提交。",
+    "error": {
+      "invalidRepoUrl": "请输入有效的 GitHub 仓库地址。",
+      "zipRequired": "请先选择 ZIP 文件。",
+      "billingModelRequired": "付费 Skill 必须选择计费模式。",
+      "priceRequired": "付费上架请填写价格。",
+      "priceInvalid": "请输入大于等于 0 的价格。",
+      "connectGithubFailed": "接入 GitHub Skill 失败。",
+      "submitFailed": "提交失败。"
+    },
+    "success": {
+      "title": "Skill 已接入",
+      "githubDescription": "安全扫描已排队，可在「我的资产」查看进度。",
+      "zipDescription": "已完成解析与安全扫描，可在「我的资产」查看。",
+      "manage": "管理我的资产"
     }
   }
 }

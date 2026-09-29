@@ -1,0 +1,50 @@
+import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
+import { headers } from 'next/headers'
+import { assertLocale } from '@/i18n/routing'
+import { constructMetadata } from '@/lib/metadata'
+import { auth } from '@/lib/auth'
+import { getUrlWithLocale } from '@/lib/urls/urls'
+import { McpSubmitForm } from '@/components/mcp-servers/mcp-submit-form'
+import { ProviderNotLogin } from '@/components/provider/provider-not-login'
+import { ProviderSubmitGate } from '@/components/provider/provider-submit-gate'
+import { Routes } from '@/lib/routes'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const locale = assertLocale((await params).locale)
+  const t = await getTranslations({ locale, namespace: 'McpSubmit.meta' })
+
+  return constructMetadata({
+    title: t('title'),
+    description: t('description'),
+    canonicalUrl: getUrlWithLocale(Routes.McpSubmit, locale),
+    keywords: ['MCP', 'MCP Server', 'Model Context Protocol', 'publish', 'provider'],
+    locale,
+  })
+}
+
+export default async function McpSubmitPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+
+  if (!session?.user) {
+    return (
+      <div className='pt-16'>
+        <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+          <ProviderNotLogin />
+        </div>
+      </div>
+    )
+  }
+
+  const t = await getTranslations('McpSubmit')
+
+  return (
+    <ProviderSubmitGate title={t('cardTitle')} description={t('cardDescription')}>
+      <McpSubmitForm />
+    </ProviderSubmitGate>
+  )
+}

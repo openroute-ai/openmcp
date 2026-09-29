@@ -14,6 +14,7 @@ export enum Routes {
   Personas = '/personas',
   A2A = '/a2a',
   MCP = '/mcp',
+  McpSubmit = '/mcp/submit',
   OpenPay = '/openpay',
   Clawsourcing = '/clawsourcing',
   Start = '/start',
