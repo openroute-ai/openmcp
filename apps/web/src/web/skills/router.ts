@@ -5,6 +5,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
 import { acquireSkill } from './acquire'
 import { skillsGatewayAccess } from './gateway'
+import { skillsHistoryAccess } from './history'
 import { skillsDataAccess } from './index'
 import { createSkillPurchase, hasSkillEntitlement } from './purchase'
 import {
@@ -112,6 +113,41 @@ export const skillsRouter = createTRPCRouter({
       return failResult(error, '获取 Skill 失败')
     }
   }),
+
+  /** Download history for the signed-in user, used by the console. */
+  listMyDownloads: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const locale = (await getLocale()) as 'zh' | 'en'
+      const data = await skillsHistoryAccess.listDownloads(ctx.user.id, locale)
+      return { success: true, data }
+    } catch (error) {
+      return failResult(error, '获取下载记录失败')
+    }
+  }),
+
+  /** Install history for the signed-in user, used by the console. */
+  listMyInstalls: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const locale = (await getLocale()) as 'zh' | 'en'
+      const data = await skillsHistoryAccess.listInstalls(ctx.user.id, locale)
+      return { success: true, data }
+    } catch (error) {
+      return failResult(error, '获取安装记录失败')
+    }
+  }),
+
+  /** Mark one of the user's install records as removed, or restore it. */
+  setMyInstallStatus: protectedProcedure
+    .input(z.object({ installId: z.string(), status: z.enum(['active', 'removed']) }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await skillsHistoryAccess.setInstallStatus(ctx.user.id, input.installId, input.status)
+        if (!result.ok) return { success: false, error: result.error ?? '操作失败' }
+        return { success: true }
+      } catch (error) {
+        return failResult(error, '更新安装状态失败')
+      }
+    }),
 
   checkGithub: protectedProcedure.input(z.object({ repoUrl: z.string().min(8).max(500) })).query(async ({ input }) => {
     try {

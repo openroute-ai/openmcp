@@ -212,7 +212,7 @@ export async function acquireSkill(params: {
         // Attach minimal metadata package
         metaPackage: {
           files: minimalPkg.files,
-          downloadUrl: `/api/skills/${skill.id}/download`,
+          downloadUrl: `/api/skills/${skill.id}/package`,
         },
       },
     }
