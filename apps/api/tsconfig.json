@@ -1,4 +1,10 @@
 {
   "extends": "@workspace/typescript-config/node.json",
+  "compilerOptions": {
+    "paths": {
+      "@workspace/auth": ["../../packages/auth/src/index.ts"],
+      "@workspace/db": ["../../packages/db/src/index.ts"]
+    }
+  },
   "include": ["src", "tsdown.config.ts"]
 }

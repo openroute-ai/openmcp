@@ -1,0 +1,4119 @@
+{
+  "Metadata": {
+    "name": "OpenMCP",
+    "title": "OpenMCP — Skills / MCP / A2A marketplace for Agents",
+    "description": "Browse the shelf, download Skill packages, connect MCP / A2A. Providers publish and optionally monetize. Review and catalog included."
+  },
+  "Common": {
+    "login": "Log in",
+    "logout": "Log out",
+    "signUp": "Sign up",
+    "language": "Switch language",
+    "mode": {
+      "label": "Toggle mode",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "theme": {
+      "label": "Toggle theme",
+      "default": "Default",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "neutral": "Neutral"
+    },
+    "copy": "Copy",
+    "saving": "Saving...",
+    "save": "Save",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "logoutFailed": "Failed to log out",
+    "copied": "Copied",
+    "breadcrumb": "Breadcrumb",
+    "home": "Home",
+    "mcpMarket": "MCP Market",
+    "a2aMarket": "A2A Market",
+    "personas": "Personas",
+    "openpay": "OpenPay",
+    "backTo": "Back to {name}"
+  },
+  "Dashboard": {
+    "cards": {
+      "noData": "No data",
+      "totalSpend": "Total Spend",
+      "status": "Status",
+      "models": "Models",
+      "createdAt": "Created At",
+      "budgetLimit": "Budget Limit",
+      "budgetDuration": "Budget Duration",
+      "totalBudget": "Total Budget",
+      "totalTokens": "Total Tokens",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "active": "Active",
+      "blocked": "Blocked",
+      "unnamed": "Unnamed"
+    },
+    "activityChart": {
+      "title": "Recent activity on {modelName}",
+      "description": "Tokens processed per day (Last 60 days)",
+      "loading": "Loading...",
+      "error": "Unable to load usage statistics",
+      "retry": "Retry",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "dailyTokens": "Daily Tokens"
+    },
+    "dashboard": {
+      "title": "Overview"
+    },
+    "firstLoginPrompt": {
+      "message": "First time here?",
+      "action": "Contact Support",
+      "openDialog": "Open WeChat QR code dialog",
+      "dismiss": "Dismiss"
+    },
+    "messages": {
+      "ariaLabel": "In-app messages",
+      "title": "In-app Messages",
+      "unreadCount": "{count} unread messages",
+      "noUnread": "No unread messages",
+      "markAllRead": "Mark all read",
+      "filter": {
+        "all": "All",
+        "unread": "Unread",
+        "read": "Read"
+      },
+      "emptyAll": "No messages",
+      "emptyUnread": "No unread messages",
+      "emptyRead": "No read messages",
+      "emptyHint": "New notifications will show up here",
+      "time": {
+        "justNow": "Just now",
+        "minutesAgo": "{count} minutes ago",
+        "hoursAgo": "{count} hours ago",
+        "daysAgo": "{count} days ago"
+      },
+      "pagination": {
+        "showing": "Showing {start}–{end} of {total}",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "stats": {
+      "totalSpend": "Total Spend",
+      "totalTokens": "Total Tokens",
+      "totalRequests": "Total Requests",
+      "totalFavorites": "Workflow Favorites",
+      "totalDownloads": "Total Downloads",
+      "trendingUp": "Up {percentage} this period",
+      "trendingDown": "Down {percentage} this period",
+      "trendingStable": "Trend stable",
+      "strongRetention": "Strong user retention",
+      "performanceIncrease": "Performance increase",
+      "spendLast6Months": "Spend for the last 6 months",
+      "acquisitionNeedsAttention": "Acquisition needs attention",
+      "engagementExceedTargets": "Engagement exceed targets",
+      "workflowFavorites": "Workflow Favorites",
+      "workflowDownloads": "Workflow Downloads"
+    },
+    "providerStats": {
+      "calls": "Calls",
+      "callsHint": "last 30 days",
+      "income": "Est. Income",
+      "incomeHint": "last 30 days",
+      "access": "Views",
+      "accessHint": "all published assets",
+      "downloads": "Downloads",
+      "downloadsHint": "all published assets",
+      "favorites": "Favorites",
+      "favoritesHint": "all published assets",
+      "trendingUp": "Up {percentage} this period",
+      "trendingDown": "Down {percentage} this period",
+      "trendingStable": "Trend stable",
+      "usageTrend": "Calls & Income Trend",
+      "usageTrendDescription": "Daily calls and estimated income from LiteLLM usage sync",
+      "last30Days": "Last 30 days",
+      "last7Days": "Last 7 days",
+      "noData": "No data available",
+      "assetOverview": "Asset Overview",
+      "assetOverviewDescription": "Number of published assets",
+      "assetTotal": "Total published assets",
+      "assets": {
+        "skills": "Skills",
+        "mcpServers": "MCP Servers",
+        "a2aAgents": "A2A Agents",
+        "personas": "Personas"
+      }
+    },
+    "recentDownloads": "Recent Downloads",
+    "recentFavorites": "Recent Favorites",
+    "workflowName": "Workflow Name",
+    "downloadTime": "Download Time",
+    "favoriteTime": "Favorite Time",
+    "loadError": "Failed to load, please try again later",
+    "noDownloads": "No download records",
+    "noFavorites": "No favorite records",
+    "unnamedWorkflow": "Unnamed Workflow",
+    "charts": {
+      "totalTokensOverTime": "Total Tokens Over Time",
+      "totalTokensDescription": "Showing total Tokens for the last 60 days",
+      "virtualKeyTokensOverTime": "Virtual Key Tokens Over Time",
+      "virtualKeyTokensDescription": "Showing virtual key tokens for the last 60 days",
+      "totalRequestsOverTime": "Total Requests Over Time",
+      "totalRequestsDescription": "Showing total Requests for the last 60 days",
+      "virtualKeyRequestsOverTime": "Virtual Key Requests Over Time",
+      "virtualKeyRequestsDescription": "Showing virtual key requests for the last 60 days",
+      "trendingUpBy": "Trending up by {percentage}% this month",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "total": "Total",
+      "success": "Success",
+      "failure": "Failure",
+      "promptTokens": "Prompt Tokens",
+      "completionTokens": "Completion Tokens",
+      "dailyTokens": "Daily Tokens",
+      "successfulRequests": "Successful Requests",
+      "failedRequests": "Failed Requests",
+      "apiRequests": "API Requests",
+      "topApiKeys": "Top API Keys",
+      "topModels": "Top Models",
+      "virtualKeyTopModels": "Virtual Key Model Usage",
+      "virtualKeyTopModelsDescription": "Showing model usage distribution for this virtual key",
+      "visitors": "Visitors",
+      "comparedToLastMonth": "Compared to last month",
+      "showingTotalVisitors": "Showing total visitors for the last 6 months",
+      "dailySpend": "Daily Spend",
+      "dailySpendDescription": "Daily Spend for the last 3 months",
+      "last3Months": "Last 3 months",
+      "last30Days": "Last 30 days",
+      "last7Days": "Last 7 days",
+      "noData": "No data available",
+      "loading": "Loading...",
+      "error": "Failed to load",
+      "retry": "Retry",
+      "model": "Model",
+      "spend": "Spend",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "totalSpend": "Total Spend"
+    },
+    "apiKeys": {
+      "title": "API Keys",
+      "description": "Manage your API keys for accessing OpenMCP services",
+      "create": "Create Key",
+      "createFirst": "Create First Key",
+      "loading": "Loading...",
+      "retry": "Retry",
+      "loadFailed": "Failed to load",
+      "nameRequired": "Please enter a key name",
+      "apiKeyCopied": "API key copied",
+      "prefixCopied": "Prefix copied",
+      "copyFailed": "Copy failed",
+      "active": "Active",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "created": "Created",
+      "prefix": "Prefix",
+      "noPrefix": "No prefix",
+      "status": "Status",
+      "rateLimit": "Rate Limit",
+      "unlimited": "Unlimited",
+      "remaining": "Remaining",
+      "expiresAt": "Expires At",
+      "lastRequest": "Last Request",
+      "delete": "Delete",
+      "empty": {
+        "title": "No API Keys",
+        "description": "Create your first API key to start using OpenMCP services"
+      },
+      "createDialog": {
+        "title": "Create API Key",
+        "description": "Create a new API key to access OpenMCP services",
+        "name": "Key Name",
+        "namePlaceholder": "e.g., Production Key",
+        "prefix": "Prefix (Optional)",
+        "prefixPlaceholder": "e.g., prod_",
+        "prefixHint": "Prefix will be shown at the beginning of the API key for easy identification",
+        "expiresIn": "Expires In Days (Optional)",
+        "expiresInHint": "Leave empty for no expiration",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "fail": "Failed to create API key",
+        "successTitle": "API Key Created Successfully",
+        "successDescription": "Please save your API key. You won't be able to view it again after closing this dialog.",
+        "apiKey": "API Key",
+        "apiKeyWarning": "Please save this key securely. You won't be able to view it again after closing this dialog.",
+        "done": "Done",
+        "gatewayHint": "Issued by the platform gateway — usable directly for MCP / A2A calls and Skill installs."
+      },
+      "deleteDialog": {
+        "title": "Delete API Key",
+        "description": "Are you sure you want to delete the API key \"{name}\"? This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete",
+        "fail": "Failed to delete API key"
+      },
+      "gatewayHint": "Keys issued here are gateway keys (sk-…): the same key works for Store MCP, Skill package downloads, and marketplace MCP / A2A calls.",
+      "budget": {
+        "title": "Gateway budget",
+        "available": "Available balance",
+        "availableHint": "Marketplace MCP / A2A calls are capped by this balance; calls are rejected once it runs out.",
+        "noGatewayKey": "No gateway key yet. A newly created key is capped automatically.",
+        "insufficient": "Insufficient balance — gateway calls are being rejected. Please recharge.",
+        "recharge": "Recharge",
+        "sync": "Sync budget",
+        "syncing": "Syncing…",
+        "syncSuccess": "Budget synced to the gateway",
+        "syncSkipped": "Nothing to sync",
+        "syncFail": "Failed to sync budget",
+        "lastSynced": "Last synced",
+        "neverSynced": "Never synced",
+        "perKeyBudget": "Key budget",
+        "notConfigured": "Gateway not configured"
+      }
+    },
+    "bills": {
+      "title": "Bills",
+      "description": "View your account balance and consumption / recharge details",
+      "balance": {
+        "available": "Available Balance",
+        "total": "Total Recharged",
+        "spend": "Total Spent",
+        "gifted": "Gifted"
+      },
+      "history": {
+        "title": "Transaction History",
+        "empty": "No transactions yet",
+        "date": "Date",
+        "amount": "Amount",
+        "type": "Type",
+        "channel": "Channel",
+        "status": "Status",
+        "remark": "Remark"
+      },
+      "type": {
+        "recharge": "Recharge",
+        "spend": "Spend",
+        "gifted": "Gift"
+      },
+      "status": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "failed": "Failed"
+      },
+      "loadFailed": "Failed to load",
+      "retry": "Retry",
+      "goRecharge": "Go to Recharge",
+      "deprecatedNote": "Prefer Usage & Spend and Monthly Billing for spend details. This page keeps recharge-focused history."
+    },
+    "income": {
+      "title": "Income",
+      "description": "View your service call summaries and income as a Provider",
+      "stats": {
+        "calls30": "Calls (Last 30 Days)",
+        "income30": "Income (Last 30 Days, CNY)",
+        "callsTotal": "Total Calls",
+        "incomeTotal": "Total Income (CNY)"
+      },
+      "chart": {
+        "title": "Income & Calls Trend (Last 30 Days)",
+        "calls": "Calls",
+        "income": "Income (CNY)",
+        "empty": "No income data yet"
+      },
+      "overview": {
+        "title": "Income Overview",
+        "perCall": "Average Income Per Call"
+      },
+      "notProvider": "You are not a Provider yet and cannot view income bills",
+      "loadFailed": "Failed to load",
+      "retry": "Retry"
+    },
+    "myWorkflows": {
+      "title": "My Workflows"
+    },
+    "myFavorites": {
+      "title": "My Favorites"
+    },
+    "myRelations": {
+      "title": "My Relations",
+      "subtitle": "Manage your connection to the open AI ecosystem: use Skills / MCP / Personas as a consumer, or become a provider and monetize your capabilities.",
+      "userRoleTitle": "Current Identity: Regular User",
+      "userRoleDesc": "You can freely browse and use Skills, MCP services, Personas and A2A agents on the shelves.",
+      "benefitsTitle": "What you get by becoming a Provider",
+      "benefit1Title": "Monetize skills",
+      "benefit1Desc": "Price and publish Skills / MCP / Personas with subscriptions or pay-per-call; earnings go straight to your wallet.",
+      "benefit2Title": "Platform certification",
+      "benefit2Desc": "Get a certified badge after review, with more exposure in search results and rankings.",
+      "benefit3Title": "Brand & followers",
+      "benefit3Desc": "Build your own author profile and follower relations so more AI users adopt your work.",
+      "cta": "Become a Provider",
+      "howTitle": "The onboarding path",
+      "step1": "Fill in entity and payout info",
+      "step2": "Submit identity verification for review",
+      "step3": "Publish assets and start monetizing after approval",
+      "providerWorkbenchTitle": "Provider Workbench",
+      "statusVerified": "Verified",
+      "statusPending": "Pending",
+      "statusUnverified": "Unverified",
+      "statusRejected": "Rejected",
+      "openProfile": "View my public profile",
+      "entityLabel": "Entity type",
+      "entityIndividual": "Individual",
+      "entityCompany": "Company",
+      "payChannelLabel": "Payout channel",
+      "payWechat": "WeChat Pay",
+      "payAlipay": "Alipay",
+      "payNone": "Not connected",
+      "onboardingStatusTitle": "Onboarding status",
+      "assetsTitle": "My Assets",
+      "assetSkills": "Skills",
+      "assetMcp": "MCP Servers",
+      "assetA2a": "A2A Agents",
+      "assetPersonas": "Personas",
+      "impactTitle": "Impact",
+      "impactViews": "Total Views",
+      "impactDownloads": "Total Downloads",
+      "impactLikes": "Total Likes",
+      "impactAssets": "Total Assets",
+      "nextStepTitle": "Suggested next steps",
+      "nextStep1": "Complete onboarding info and keep your payout channel ready",
+      "nextStep2": "Publish more assets to grow exposure and revenue",
+      "exploreTitle": "Explore first, see what others build",
+      "exploreSkills": "Browse Skills",
+      "exploreMcp": "Browse MCP Tools",
+      "explorePersonas": "Browse SOUL Plaza",
+      "networkTitle": "Providers I engaged with",
+      "networkSubtitle": "You downloaded or favorited their assets. Follow quality authors!",
+      "networkEmpty": "No providers you engaged with yet",
+      "networkAction": "Explore",
+      "networkEngagements": "{count} engagement(s)",
+      "loading": "Loading...",
+      "error": "Failed to load, please try again"
+    },
+    "myDownloads": {
+      "title": "My Downloads",
+      "description": "Review every Skill you have downloaded, and download it again anytime",
+      "empty": {
+        "title": "No downloads yet",
+        "description": "Head to the Skills marketplace to browse and download Skills"
+      },
+      "browseSkills": "Skills marketplace",
+      "count": "{count} download record(s)",
+      "downloadAgain": "Download again",
+      "viewDetail": "View details",
+      "skillRemoved": "This skill has been unpublished or deleted",
+      "unknownSkill": "Untitled skill",
+      "grade": {
+        "safe": "Safe",
+        "caution": "Caution"
+      }
+    },
+    "myInstalls": {
+      "viewDetail": "View details",
+      "noMatch": "No installs match the current filters",
+      "title": "My Installs",
+      "description": "Review every Skill installed to your local agent, and manage or reinstall them",
+      "empty": {
+        "title": "No installs yet",
+        "description": "Once you install a Skill through an agent, the record shows up here automatically"
+      },
+      "count": "{count} install record(s)",
+      "countFiltered": "{count} of {total} install record(s)",
+      "filters": {
+        "runtime": "Runtime",
+        "status": "Status",
+        "all": "All",
+        "runtimes": {
+          "cursor": "Cursor",
+          "claude-code": "Claude Code",
+          "codex": "Codex",
+          "generic": "Generic"
+        },
+        "statuses": {
+          "active": "Active",
+          "removed": "Removed"
+        }
+      },
+      "installedAt": "Installed {time}",
+      "lastUsedAt": "Last used {time}",
+      "installPath": "Install path",
+      "reinstall": "Reinstall",
+      "markRemoved": "Mark as removed",
+      "restore": "Restore",
+      "markRemovedConfirm": "Mark this install as removed? Your local files are not deleted.",
+      "updateFailed": "Failed to update the install record",
+      "skillRemoved": "This skill has been unpublished or deleted",
+      "unknownSkill": "Untitled skill",
+      "grade": {
+        "safe": "Safe",
+        "caution": "Caution"
+      }
+    },
+    "virtualKeys": {
+      "loadFailed": "Failed to load",
+      "nameRequired": "Please enter a key name",
+      "descriptionRequired": "Please enter a key description",
+      "delete": "Delete",
+      "edit": "Edit",
+      "view": "View details",
+      "title": "Virtual Keys",
+      "description": "Manage your virtual keys for accessing AI models",
+      "create": "Create Key",
+      "createFirst": "Create First Key",
+      "loading": "Loading...",
+      "retry": "Retry",
+      "keyCopied": "Virtual key copied",
+      "copyFailed": "Copy failed",
+      "active": "Active",
+      "disabled": "Disabled",
+      "expired": "Expired",
+      "spend": "Spend",
+      "maxBudget": "Max Budget",
+      "expiresAt": "Expires At",
+      "created": "Created",
+      "empty": {
+        "title": "No Virtual Keys",
+        "description": "Create your first virtual key to start using AI models"
+      },
+      "createDialog": {
+        "title": "Create Virtual Key",
+        "description": "Create a new virtual key to access AI models",
+        "name": "Key Name",
+        "namePlaceholder": "e.g., Production Key",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "e.g., Key for production environment",
+        "expires": "Expires At",
+        "expiresHint": "Leave empty for no expiration",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "success": "Virtual key created successfully",
+        "fail": "Failed to create virtual key"
+      },
+      "editDialog": {
+        "title": "Edit Virtual Key",
+        "description": "Edit virtual key information",
+        "name": "Key Name",
+        "descriptionLabel": "Description",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving...",
+        "success": "Virtual key updated successfully",
+        "fail": "Failed to update virtual key"
+      },
+      "detailDialog": {
+        "name": "Name",
+        "descriptionLabel": "Description",
+        "status": "Status",
+        "title": "Virtual Key Details",
+        "description": "View detailed information about the virtual key",
+        "key": "Virtual Key",
+        "spend": "Spend",
+        "maxBudget": "Max Budget",
+        "expiresAt": "Expires At",
+        "models": "Supported Models",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At",
+        "close": "Close"
+      },
+      "usageGuide": {
+        "title": "How to Use Virtual Key",
+        "description": "Virtual Key is an API key for accessing the OpenMCP AI Agent infrastructure for stable API access",
+        "badge": "Usage Guide",
+        "apiConfig": {
+          "title": "API Configuration",
+          "baseUrl": "Base URL:",
+          "apiKey": "API Key:",
+          "apiKeyHint": "(Get from your Virtual Key)"
+        },
+        "codeExamples": {
+          "title": "Code Examples",
+          "python": "Python",
+          "javascript": "JavaScript/Node.js",
+          "curl": "cURL",
+          "copyCode": "Copy Code"
+        },
+        "tips": {
+          "title": "Important Tips",
+          "compatibility": {
+            "title": "API Compatibility",
+            "description": "Our API is fully compatible with OpenAI API format, you can directly use OpenAI SDKs and libraries"
+          },
+          "security": {
+            "title": "Security",
+            "description": "Please keep your API Key secure, don't expose it in client-side code, recommend using environment variables"
+          },
+          "limits": {
+            "title": "Usage Limits",
+            "description": "Each Virtual Key has usage limits and budget controls, please use reasonably to avoid exceeding limits"
+          },
+          "models": {
+            "title": "Supported Models",
+            "description": "Supports Qwen, Gemini, DeepSeek and other model series, check documentation for specific supported models"
+          }
+        },
+        "resources": {
+          "title": "Related Resources",
+          "apiDocs": "API Documentation",
+          "modelList": "Model List"
+        },
+        "copySuccess": "Copied to clipboard"
+      }
+    },
+    "admin": {
+      "title": "Admin",
+      "details": "Details",
+      "edit": "Edit",
+      "users": {
+        "title": "Users",
+        "fakeData": "Note: Faked data for demonstration, some features are disabled",
+        "error": "Failed to get users",
+        "search": "Search users...",
+        "columns": {
+          "columns": "Columns",
+          "name": "Name",
+          "email": "Email",
+          "role": "Role",
+          "createdAt": "Created At",
+          "customerId": "Customer ID",
+          "status": "Status",
+          "banReason": "Ban Reason",
+          "banExpires": "Ban Expires",
+          "actions": "Actions"
+        },
+        "noResults": "No results",
+        "firstPage": "First Page",
+        "lastPage": "Last Page",
+        "nextPage": "Next Page",
+        "previousPage": "Previous Page",
+        "rowsPerPage": "Rows per page",
+        "page": "Page",
+        "loading": "Loading...",
+        "admin": "Admin",
+        "user": "User",
+        "email": {
+          "verified": "Email Verified",
+          "unverified": "Email Unverified"
+        },
+        "emailCopied": "Email copied to clipboard",
+        "banned": "Banned",
+        "active": "Active",
+        "joined": "Joined",
+        "updated": "Updated",
+        "viewDetails": "View Details",
+        "ban": {
+          "reason": "Ban Reason",
+          "reasonPlaceholder": "Enter the reason for banning this user",
+          "defaultReason": "Spamming",
+          "never": "Never",
+          "expires": "Ban Expires",
+          "selectDate": "Select Date",
+          "button": "Ban User",
+          "success": "User has been banned",
+          "error": "Failed to ban user"
+        },
+        "unban": {
+          "button": "Unban User",
+          "success": "User has been unbanned",
+          "error": "Failed to unban user"
+        },
+        "recharge": {
+          "title": "User Recharge",
+          "description": "Recharge for {name}",
+          "type": "Recharge Type",
+          "balance": {
+            "label": "Balance Recharge",
+            "amount": "Recharge Amount",
+            "success": "Balance recharged successfully",
+            "error": "Failed to recharge balance"
+          },
+          "credits": {
+            "label": "Credits Recharge",
+            "amount": "Recharge Credits",
+            "success": "Credits recharged successfully",
+            "error": "Failed to recharge credits"
+          },
+          "amountPlaceholder": "Enter recharge amount",
+          "amountInvalid": "Please enter a valid recharge amount",
+          "remark": "Remark",
+          "remarkPlaceholder": "Enter remark (optional)",
+          "cancel": "Cancel",
+          "recharge": "Confirm Recharge",
+          "recharging": "Recharging...",
+          "button": "Recharge"
+        },
+        "close": "Close",
+        "stats": {
+          "total": "Total Users",
+          "totalDescription": "All registered users on the platform",
+          "active": "Active Users",
+          "activeDescription": "Users who have created virtual keys",
+          "todayRegistered": "Today Registered",
+          "todayRegisteredDescription": "Users registered today",
+          "todayRecharge": "Today Recharge",
+          "todayRechargeDescription": "Users who successfully recharged today",
+          "rechargeUsers": "Recharge Users",
+          "rechargeUsersDescription": "Users who have successfully recharged",
+          "error": "Failed to load",
+          "errorDescription": "Please try again later"
+        }
+      },
+      "models": {
+        "title": "Models",
+        "description": "Manage your models",
+        "create": "Create Model",
+        "createFirst": "Create First Model",
+        "loading": "Loading..."
+      },
+      "apps": {
+        "title": "Apps",
+        "description": "Manage your apps",
+        "create": "Create App",
+        "createFirst": "Create First App",
+        "loading": "Loading..."
+      },
+      "virtualKeys": {
+        "title": "Virtual Keys",
+        "description": "Manage your virtual keys",
+        "create": "Create Virtual Key",
+        "createFirst": "Create First Virtual Key",
+        "loading": "Loading..."
+      },
+      "vendors": {
+        "title": "Vendors",
+        "description": "Manage your vendors",
+        "create": "Create Vendor",
+        "createFirst": "Create First Vendor",
+        "loading": "Loading..."
+      },
+      "sessions": {
+        "title": "Sessions",
+        "description": "Manage your sessions",
+        "create": "Create Session",
+        "createFirst": "Create First Session",
+        "loading": "Loading..."
+      },
+      "rechargeOrders": {
+        "title": "Recharge Orders",
+        "description": "Manage recharge orders",
+        "loading": "Loading..."
+      },
+      "newsletterSubscriptions": {
+        "title": "Newsletter Subscriptions",
+        "description": "Manage newsletter subscriptions",
+        "loading": "Loading..."
+      },
+      "payments": {
+        "title": "Payments",
+        "description": "Manage payment records",
+        "loading": "Loading..."
+      },
+      "workflows": {
+        "title": "Workflows",
+        "description": "Manage workflows",
+        "loading": "Loading..."
+      },
+      "authors": {
+        "title": "Authors",
+        "description": "Manage authors",
+        "loading": "Loading..."
+      },
+      "categories": {
+        "title": "Categories",
+        "description": "Manage workflow categories",
+        "loading": "Loading..."
+      },
+      "userSubmissions": {
+        "title": "User Submissions",
+        "description": "Manage user submissions",
+        "loading": "Loading..."
+      },
+      "providerApplications": {
+        "title": "Provider Applications",
+        "description": "Review provider onboarding applications"
+      },
+      "providerPayouts": {
+        "title": "Provider Payouts",
+        "description": "Review skill-sale payout requests"
+      },
+      "a2aAgents": {
+        "title": "A2A Agents",
+        "description": "Manage A2A agents"
+      },
+      "mcpServers": {
+        "title": "MCP Servers",
+        "description": "Manage MCP servers"
+      },
+      "securityReview": {
+        "title": "Security Review",
+        "queue": "Security Review · Queue",
+        "rejected": "Security Review · Rejected",
+        "history": "Security Review · History"
+      }
+    },
+    "cms": {
+      "title": "CMS",
+      "docs": {
+        "title": "Docs"
+      },
+      "blog": {
+        "title": "Blog"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "hub": {
+        "title": "Personal Settings",
+        "subtitle": "Manage your account information and security settings",
+        "account": "Account Info",
+        "security": "Security",
+        "cards": {
+          "profile": {
+            "title": "Profile",
+            "description": "Avatar, display name, and account info"
+          },
+          "security": {
+            "title": "Security & Login",
+            "description": "Password, email binding, and account security"
+          },
+          "organization": {
+            "title": "Organization",
+            "description": "Company KYC and entity details"
+          },
+          "invoice": {
+            "title": "Invoice Profile",
+            "description": "Invoice title and tax details"
+          }
+        }
+      },
+      "overview": {
+        "title": "Personal Settings",
+        "description": "Manage your account info, balance and subscription",
+        "account": {
+          "title": "Account",
+          "description": "Avatar, name and sign-in email"
+        },
+        "billing": {
+          "title": "Billing",
+          "description": "Subscription plans and billing summary"
+        },
+        "recharge": {
+          "title": "Recharge",
+          "description": "Top up your balance with WeChat / Alipay"
+        },
+        "security": {
+          "title": "Security",
+          "description": "Password and account security"
+        },
+        "notification": {
+          "title": "Notifications",
+          "description": "Email subscriptions and notification preferences"
+        },
+        "editAccount": "Edit profile",
+        "balance": {
+          "title": "Account Balance",
+          "description": "Available for payments and subscription"
+        },
+        "credits": {
+          "title": "Credits Balance"
+        },
+        "topUp": "Top up",
+        "viewBilling": "View billing",
+        "plan": {
+          "title": "Current Plan",
+          "description": "Your subscription plan",
+          "active": "Active",
+          "free": "Free",
+          "freeMessage": "You do not have an active subscription",
+          "nextBillingDate": "Next billing date:"
+        }
+      },
+      "profile": {
+        "title": "Profile & Security",
+        "description": "Manage your account information and security settings",
+        "avatar": {
+          "title": "Avatar",
+          "description": "Click upload button to upload a custom one",
+          "recommendation": "An avatar is optional but strongly recommended",
+          "uploading": "Uploading...",
+          "uploadAvatar": "Upload Avatar",
+          "success": "Avatar updated successfully",
+          "fail": "Failed to update avatar",
+          "preview": "Avatar Preview"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Please enter your display name",
+          "placeholder": "Enter your name",
+          "minLength": "Please use 3 characters at minimum",
+          "maxLength": "Please use 30 characters at maximum",
+          "hint": "Please use 3-30 characters for your name",
+          "success": "Name updated successfully",
+          "fail": "Failed to update name",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "accountInfo": {
+          "title": "Account Info",
+          "description": "View your bound email and phone number",
+          "email": "Email",
+          "phone": "Phone",
+          "noEmail": "No email bound",
+          "noPhone": "No phone bound",
+          "verified": "Verified",
+          "unverified": "Unverified",
+          "payoutAccount": "Payout account"
+        },
+        "payoutEntry": {
+          "title": "Payout Account",
+          "description": "Manage Provider payout account details",
+          "manage": "Manage payout account",
+          "viewEarnings": "View earnings"
+        }
+      },
+      "billing": {
+        "title": "Billing",
+        "description": "Manage your subscription and billing details",
+        "overview": {
+          "title": "Billing Summary",
+          "description": "Account balance, recharge records and subscription",
+          "balance": {
+            "title": "Account Balance"
+          },
+          "credits": {
+            "title": "Credits Balance"
+          },
+          "topUp": "Top up",
+          "recent": {
+            "title": "Recent Recharges",
+            "description": "Latest 5 recharge records",
+            "empty": "No recharge records yet",
+            "viewAll": "View all"
+          },
+          "status": {
+            "completed": "Completed",
+            "processing": "Processing",
+            "failed": "Failed"
+          }
+        },
+        "status": {
+          "active": "Active",
+          "trial": "Trial",
+          "free": "Free",
+          "lifetime": "Lifetime"
+        },
+        "interval": {
+          "month": "month",
+          "year": "year",
+          "oneTime": "one-time"
+        },
+        "currentPlan": {
+          "title": "Current Plan",
+          "description": "Your current plan details",
+          "noPlan": "You have no active plan"
+        },
+        "CustomerPortalButton": {
+          "loading": "Loading...",
+          "createCustomerPortalFailed": "Failed to open Stripe customer portal"
+        },
+        "price": "Price:",
+        "nextBillingDate": "Next billing date:",
+        "trialEnds": "Trial ends:",
+        "freePlanMessage": "You are currently on the free plan with limited features",
+        "lifetimeMessage": "You have lifetime access to all premium features",
+        "manageSubscription": "Manage Subscription and Billing",
+        "manageBilling": "Manage Billing",
+        "upgradePlan": "Upgrade Plan",
+        "retry": "Retry",
+        "errorMessage": "Failed to get data"
+      },
+      "recharge": {
+        "title": "Recharge"
+      },
+      "notification": {
+        "title": "Notification",
+        "description": "Manage your notification preferences",
+        "newsletter": {
+          "title": "Newsletter Subscription",
+          "description": "Manage your newsletter subscription preferences",
+          "label": "Subscribe to newsletter",
+          "hint": "You can change your subscription preferences at any time",
+          "emailRequired": "Email is required to subscribe to the newsletter",
+          "subscribeSuccess": "Successfully subscribed to the newsletter",
+          "subscribeFail": "Failed to subscribe to the newsletter",
+          "unsubscribeSuccess": "Successfully unsubscribed from the newsletter",
+          "unsubscribeFail": "Failed to unsubscribe from the newsletter",
+          "error": "An error occurred while updating your subscription"
+        }
+      },
+      "security": {
+        "title": "Security",
+        "description": "Manage your security settings",
+        "updatePassword": {
+          "title": "Change Password",
+          "description": "Enter your current password and a new password",
+          "currentPassword": "Current Password",
+          "currentRequired": "Current password is required",
+          "newPassword": "New Password",
+          "newMinLength": "Password must be at least 8 characters",
+          "hint": "Please use at least 8 characters for password",
+          "showPassword": "Show password",
+          "hidePassword": "Hide password",
+          "success": "Password updated successfully",
+          "fail": "Failed to update password",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "resetPassword": {
+          "title": "Reset Password",
+          "description": "Reset password to enable email login",
+          "info": "Resetting your password will allow you to sign in using your email and password in addition to your social login methods. You will receive an email with instructions to reset your password",
+          "button": "Reset Password"
+        },
+        "deleteAccount": {
+          "title": "Delete Account",
+          "description": "Permanently remove your account and all of its contents",
+          "warning": "This action is not reversible, so please continue with caution",
+          "button": "Delete Account",
+          "confirmTitle": "Delete Account",
+          "confirmDescription": "Are you sure you want to delete your account? This action cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "deleting": "Deleting...",
+          "success": "Account deleted successfully",
+          "fail": "Failed to delete account"
+        },
+        "email": {
+          "title": "Bind / Change Email",
+          "description": "Used for login and notifications. Changing a verified email requires confirmation.",
+          "current": "Current email",
+          "empty": "No email bound yet",
+          "verified": "Verified",
+          "unverified": "Unverified",
+          "newEmail": "New email",
+          "placeholder": "name@example.com",
+          "hint": "Phone-login users can bind an email here. Check your inbox after changing.",
+          "footer": "Email is used for login and important notices",
+          "save": "Save",
+          "saving": "Saving...",
+          "success": "Email updated",
+          "verifySent": "Confirmation email sent — please verify",
+          "fail": "Failed to update email",
+          "invalid": "Please enter a valid email address",
+          "unchanged": "Email was not changed"
+        }
+      },
+      "organization": {
+        "payoutLink": "Payout account",
+        "payoutHint": "After onboarding, configure a payout account for withdrawals"
+      }
+    },
+    "upgrade": {
+      "title": "Upgrade",
+      "description": "Upgrade to Pro to access all features",
+      "button": "Upgrade"
+    },
+    "userGuide": {
+      "title": "User Guide"
+    },
+    "myAssets": {
+      "title": "My Assets",
+      "mcp": "MCP Servers",
+      "a2a": "A2A Agents",
+      "skills": "SKILLS",
+      "titleMcp": "My Assets · MCP",
+      "titleA2a": "My Assets · A2A",
+      "titleSkills": "My Assets · SKILLS",
+      "listSubtitle": "Manage the assets you connect and publish to the open AI ecosystem: connections, publishing, observability and authorization.",
+      "connectAsset": "Connect new asset",
+      "searchPlaceholder": "Search name / slug / endpoint",
+      "statusAll": "All statuses",
+      "statusOnline": "Online",
+      "statusReviewing": "In review",
+      "statusPublished": "Published",
+      "statusRejected": "Rejected",
+      "statusDisabled": "Disabled",
+      "statusAbnormal": "Unhealthy",
+      "colAsset": "Asset",
+      "colEndpoint": "Endpoint",
+      "colProtocol": "Protocol / version",
+      "colStatus": "Status",
+      "colVisibility": "Visibility",
+      "colPrice": "Listing",
+      "colActions": "Actions",
+      "actionDetail": "Detail",
+      "actionTest": "Test",
+      "actionDelete": "Delete",
+      "toggleEnable": "Enable",
+      "toggleDisable": "Disable",
+      "emptyTitle": "No assets connected yet",
+      "emptyDesc": "Once connected, assets can be called through the gateway; they must pass a connection test before being saved.",
+      "emptyAction": "Connect now",
+      "noMatchedTitle": "No matching assets",
+      "noMatchedDesc": "Try a different keyword or filter.",
+      "observabilityTitle": "Observability",
+      "obsRequests": "Requests today",
+      "obsSuccessRate": "Success rate",
+      "obsLatency": "P50 latency",
+      "obsErrors": "Errors",
+      "wizardTitle": "Connect a new asset",
+      "wizardDesc": "Complete connection configuration and pass the test, then add listing information.",
+      "stepConnect": "Connection",
+      "stepPublish": "Listing",
+      "fieldType": "Asset type",
+      "typeMcp": "MCP Server",
+      "typeA2a": "A2A Agent",
+      "typeSkills": "SKILLS",
+      "fieldName": "Gateway slug",
+      "fieldNameHint": "Lowercase letters / digits / dashes; used as part of the gateway call path",
+      "nameTaken": "This slug is already in use",
+      "nameInvalid": "Only lowercase letters, digits and dashes are allowed",
+      "fieldUrl": "Endpoint URL",
+      "fieldUrlPlaceholder": "https://api.example.com/mcp",
+      "fieldProtocolMcp": "Transport",
+      "protoStreamable": "Streamable HTTP",
+      "protoSse": "SSE",
+      "protoStdio": "stdio",
+      "fieldProtocolA2a": "Protocol version",
+      "protocolReject": "Only 0.3 / 1.0 are supported",
+      "fieldAuth": "Auth method",
+      "authNone": "None",
+      "authBearer": "Bearer Token",
+      "authApiKey": "Header API Key",
+      "authBasic": "Basic",
+      "authCustom": "Custom",
+      "fieldAuthSecret": "Secret / Token",
+      "authSecretPlaceholder": "Enter secret (encrypted at rest, preview masked)",
+      "btnTest": "Test connection",
+      "testRunning": "Probing endpoint…",
+      "testSuccess": "Connection successful",
+      "testFail": "Connection failed",
+      "testSuccessTools": "{count} tools / methods available",
+      "testSuccessCard": "Agent Card loaded ({count} capabilities)",
+      "testHint": "You must pass the test before saving",
+      "testAuthFail": "Auth failed: check the secret or authorization method",
+      "testTimeout": "Timeout: make sure the endpoint is reachable",
+      "testProtocolFail": "Protocol unsupported: check transport / version matches the endpoint",
+      "mustTestFirst": "Pass the connection test first",
+      "btnNext": "Next: listing",
+      "btnPrev": "Back: connection",
+      "btnSave": "Save",
+      "btnSubmit": "Submit for review",
+      "saveSuccess": "Asset saved and is now Online",
+      "cancel": "Cancel",
+      "fieldDescription": "Description",
+      "fieldDescriptionPlaceholder": "Describe the tools / capabilities and use cases (20-2000 chars)",
+      "fieldCategory": "Category",
+      "fieldCategoryPlaceholder": "Pick a category (optional)",
+      "fieldScope": "Visibility",
+      "scopePublic": "Public",
+      "scopePrivate": "Private (self only)",
+      "scopeTeam": "Specific users / key groups",
+      "fieldPriceType": "Pricing",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "fieldBilling": "Billing model",
+      "billingOnce": "One-time",
+      "billingSub": "Subscription (periodic)",
+      "billingPerCall": "Per-call",
+      "fieldPrice": "Price (CNY)",
+      "fieldUnitPrice": "Unit price per call (CNY)",
+      "detailTitle": "Asset detail",
+      "backToDetail": "Back to list",
+      "ovStatus": "Status",
+      "ovVisibility": "Visibility",
+      "ovEndpoint": "Endpoint",
+      "ovProtocol": "Protocol / version",
+      "ovAuth": "Auth",
+      "ovTools": "Tools / capabilities",
+      "ovLastTest": "Last test",
+      "ovCreated": "Created",
+      "btnTestAgain": "Test again",
+      "toggleLabel": "Enable asset",
+      "statsTitle": "Observability",
+      "statsDesc": "Last 24 hours",
+      "statRequests": "Total requests",
+      "statSuccess": "Success rate",
+      "statP50": "P50 latency",
+      "statP95": "P95 latency",
+      "statErrors": "Errors",
+      "logsTitle": "Recent call logs",
+      "logsDesc": "Full history (mock data for now)",
+      "logTime": "Time",
+      "logCaller": "Caller",
+      "logMethod": "Method / tool",
+      "logStatus": "Result",
+      "logLatency": "Latency",
+      "logCost": "Cost",
+      "logEmpty": "No call logs yet",
+      "authTitle": "Authorization & visibility",
+      "authDesc": "Control who can call this asset",
+      "authPublicDesc": "Any signed-in user can call",
+      "authPrivateDesc": "Only you can call",
+      "authTeamDesc": "Specific users or key groups can call",
+      "grantedTitle": "Granted callers",
+      "grantSearch": "Enter a username or key identifier",
+      "sandboxTitle": "Sandbox invocation",
+      "sandboxDesc": "Send one request to preview the round trip between the gateway and the asset.",
+      "sandboxPlaceholder": "Type a message to send to the asset…",
+      "sandboxRun": "Run",
+      "sandboxRunning": "Running…",
+      "sandboxResultTitle": "Result",
+      "resultOk": "OK",
+      "resultErr": "Error",
+      "deleteConfirmTitle": "Delete this asset?",
+      "deleteConfirmDesc": "The gateway will immediately stop serving it, and this cannot be undone.",
+      "rejectReason": "Rejection reason",
+      "authOauthClient": "OAuth2 Client Credentials",
+      "engagement": "Views {views} · Downloads/calls {downloads}"
+    },
+    "sidebar": {
+      "workspace": "Workspace",
+      "usage": "Usage",
+      "publish": "Publish",
+      "account": "Account",
+      "recharge": "Balance & Top-up",
+      "onboarding": "Onboarding & Payout",
+      "profile": "Profile",
+      "security": "Security & Login"
+    },
+    "usage": {
+      "title": "Usage & Spend",
+      "description": "View calls, downloads, and recharge usage details",
+      "comingSoon": "Usage detail page coming soon",
+      "summary": {
+        "monthSpend": "Spend this month",
+        "callCount": "Calls this month",
+        "downloadCount": "Downloads this month"
+      },
+      "filters": {
+        "dateRange": "Date range",
+        "type": "Type",
+        "allTypes": "All types"
+      },
+      "table": {
+        "time": "Time",
+        "resource": "Resource",
+        "type": "Type",
+        "quantity": "Quantity",
+        "amount": "Amount",
+        "status": "Status",
+        "empty": "No usage records"
+      },
+      "types": {
+        "mcp_call": "MCP call",
+        "a2a_call": "A2A call",
+        "skill_download": "Skill download",
+        "skill_purchase": "Skill purchase",
+        "recharge": "Recharge"
+      },
+      "loadFailed": "Failed to load usage",
+      "retry": "Retry"
+    },
+    "monthlyBilling": {
+      "title": "Monthly Billing",
+      "description": "Monthly usage and spend rollups",
+      "comingSoon": "Monthly billing page coming soon",
+      "table": {
+        "month": "Month",
+        "total": "Total",
+        "calls": "Calls",
+        "downloads": "Downloads",
+        "actions": "Actions",
+        "viewDetail": "View details",
+        "empty": "No monthly bills"
+      },
+      "loadFailed": "Failed to load monthly billing",
+      "retry": "Retry"
+    },
+    "earnings": {
+      "title": "Earnings & Payouts",
+      "description": "Skill sales, gateway usage income, and payout requests",
+      "comingSoon": "Earnings center coming soon",
+      "notProvider": "You are not a provider yet. Please complete onboarding first.",
+      "goOnboarding": "Go to onboarding",
+      "tabs": {
+        "skills": "Skill sales",
+        "gateway": "Gateway income",
+        "payouts": "Payout requests"
+      },
+      "stats": {
+        "calls30": "Calls (Last 30 Days)",
+        "income30": "Income (Last 30 Days, CNY)",
+        "callsTotal": "Total Calls",
+        "incomeTotal": "Total Income (CNY)"
+      },
+      "chart": {
+        "title": "Income & Calls Trend (Last 30 Days)",
+        "calls": "Calls",
+        "income": "Income (CNY)",
+        "empty": "No income data yet"
+      },
+      "overview": {
+        "title": "Income Overview",
+        "perCall": "Average Income Per Call"
+      },
+      "loadFailed": "Failed to load",
+      "retry": "Retry",
+      "payoutAccount": "Payout account",
+      "payoutAccountHint": "Bind a WeChat / Alipay account so the platform can remit your earnings",
+      "managePayoutAccount": "Manage payout account",
+      "statusLabel": "Status: {status}",
+      "payReady": "Bound — you can request a payout",
+      "payNotReady": "Not bound — bind an account before requesting a payout",
+      "skillsShareTitle": "Skill sales share",
+      "skillsShareDescription": "Paid Skills add {share}% to your withdrawable balance (platform fee {fee}%)",
+      "requestPayout": "Request payout",
+      "requesting": "Submitting…",
+      "summary": {
+        "payable": "Withdrawable",
+        "paid": "Settled",
+        "total": "Total net income"
+      },
+      "skillsTable": {
+        "skill": "Skill",
+        "gross": "Gross",
+        "platformFee": "Platform fee",
+        "net": "Net income",
+        "status": "Status",
+        "createdAt": "Time",
+        "empty": "No Skill sales yet"
+      },
+      "payouts": {
+        "title": "Payout requests",
+        "amount": "Amount",
+        "channel": "Channel",
+        "status": "Status",
+        "createdAt": "Time",
+        "note": "Note",
+        "empty": "—"
+      },
+      "channel": {
+        "wechat": "WeChat",
+        "alipay": "Alipay",
+        "unknown": "—"
+      },
+      "status": {
+        "payable": "Withdrawable",
+        "paid": "Settled",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "unknown": "Unknown"
+      },
+      "toast": {
+        "requested": "Payout request submitted",
+        "requestFailed": "Failed to request payout",
+        "payAccountRequired": "Bind a WeChat / Alipay payout account first"
+      }
+    },
+    "organization": {
+      "title": "Organization",
+      "description": "Manage company KYC and entity info",
+      "comingSoon": "Organization page coming soon",
+      "individualHint": "Individuals can upgrade to a company entity for more capabilities",
+      "goCompanyOnboarding": "Company onboarding",
+      "companyTitle": "Company verification",
+      "verificationStatus": "Verification status",
+      "companyName": "Company name",
+      "contactName": "Contact name",
+      "documentationUrl": "Documents URL",
+      "idNumber": "Business registration ID",
+      "save": "Save",
+      "saving": "Saving...",
+      "saveSuccess": "Organization saved",
+      "saveFailed": "Save failed"
+    },
+    "invoice": {
+      "title": "Invoice Profile",
+      "description": "Store invoice title and tax info (API later)",
+      "comingSoon": "Invoice profile page coming soon",
+      "profileTitle": "Invoice profile",
+      "profileHint": "Store invoice title only — tax API comes later",
+      "fields": {
+        "title": "Invoice title",
+        "taxId": "Tax ID",
+        "address": "Address",
+        "bank": "Bank account",
+        "phone": "Phone"
+      },
+      "save": "Save",
+      "saving": "Saving...",
+      "saveSuccess": "Invoice profile saved",
+      "saveFailed": "Save failed",
+      "requestsTitle": "Invoice requests",
+      "requestsHint": "Invoice request flow coming soon (stub)",
+      "requests": {
+        "date": "Date",
+        "amount": "Amount",
+        "status": "Status",
+        "empty": "No invoice requests yet (draft stub)"
+      }
+    }
+  },
+  "AuthPage": {
+    "login": {
+      "title": "Login",
+      "welcomeBack": "Welcome back",
+      "email": "Email",
+      "password": "Password",
+      "signIn": "Sign In",
+      "signUpHint": "Don't have an account? Sign up",
+      "forgotPassword": "Forgot Password?",
+      "signInWithGoogle": "Sign In with Google",
+      "signInWithGitHub": "Sign In with GitHub",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "or": "Or continue with",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password",
+      "switchToPhone": "Sign in with phone"
+    },
+    "phoneLogin": {
+      "title": "Phone Login",
+      "welcomeBack": "Welcome back",
+      "description": "Please enter your phone number to sign in",
+      "phoneNumber": "Phone Number",
+      "verificationCode": "Verification Code",
+      "sendCode": "Send Code",
+      "resendCode": "Resend",
+      "signIn": "Sign In",
+      "signUpHint": "Don't have an account? Sign up",
+      "switchToEmail": "Sign in with email",
+      "phoneRequired": "Please enter your phone number",
+      "codeRequired": "Please enter verification code",
+      "invalidPhone": "Please enter a valid phone number",
+      "codeSent": "Verification code sent",
+      "countdown": "Resend in {seconds}s",
+      "autoCreateAccount": "Account will be created automatically if phone number doesn't exist",
+      "captchaTitle": "Security Verification",
+      "captchaHint": "Slide to complete the puzzle",
+      "captchaLoading": "Loading captcha...",
+      "captchaVerifying": "Verifying...",
+      "captchaChallengeFailed": "Failed to load captcha",
+      "captchaVerifyFailed": "Verification failed",
+      "captchaMismatch": "Slide position mismatch, please try again",
+      "captchaTooManyAttempts": "Too many attempts, please try again later",
+      "sendCodeFailed": "Failed to send verification code",
+      "verifySuccess": "Signed in successfully",
+      "verifyFailed": "Verification failed, please check the code"
+    },
+    "register": {
+      "title": "Register",
+      "createAccount": "Create an account",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "signUp": "Sign Up",
+      "signInHint": "Already have an account? Sign in",
+      "checkEmail": "Please check your email inbox",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "nameRequired": "Please enter your name",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "email": "Email",
+      "send": "Send reset link",
+      "backToLogin": "Back to login",
+      "checkEmail": "Please check your email inbox",
+      "emailRequired": "Please enter your email",
+      "description": "Enter your email and we will send you a reset link"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "password": "Password",
+      "reset": "Reset password",
+      "backToLogin": "Back to login",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "minLength": "Password must be at least 8 characters",
+      "confirmPassword": "Confirm password",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "description": "Choose a new password for your account",
+      "missingToken": "This reset link is invalid or has expired. Please request a new one."
+    },
+    "error": {
+      "title": "Oops! Something went wrong!",
+      "tryAgain": "Please try again.",
+      "backToLogin": "Back to login",
+      "checkEmail": "Please check your email inbox"
+    },
+    "common": {
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "byClickingContinue": "By clicking continue, you agree to our ",
+      "and": " and "
+    }
+  },
+  "HomePage": {
+    "title": "OpenMCP",
+    "description": "Discover, share, and deploy AI skills, MCP tools and A2A agents. Get AI-powered capability analysis to optimize your agents.",
+    "hero": {
+      "badge": "Skills / MCP / A2A Marketplace",
+      "badgeSuffix": " · discover, install, publish",
+      "titleLead": "Discover, install and publish",
+      "titleHighlight": "Agent skills",
+      "subtitle": "Browse the catalog, download Skill packages and wire up MCP / A2A. Providers can list their work and monetize when they choose.",
+      "ctaBrowse": "Browse Skills",
+      "ctaPublish": "Publish a Skill",
+      "copyPrompt": "Copy prompt for AI install",
+      "runtimes": {
+        "agent": "any Agent harness"
+      },
+      "installLead": "Install the OpenMCP store via",
+      "installTrail": "",
+      "stepsLead": "Full setup in"
+    },
+    "carousel": {
+      "ariaLabel": "Load into your Agent",
+      "eyebrow": "Agent Marketplace",
+      "title": "Load into your Agent and find the right business capability",
+      "subtitle": "Skills work the moment they are installed; A2A and MCP services connect on demand. Compatible with Codex, Hermes, OpenCode and DeepSeek harnesses.",
+      "sampleLabel": "Sample data",
+      "updatedSuffix": " · updated live",
+      "prevAria": "Previous",
+      "nextAria": "Next",
+      "shelves": {
+        "skill": {
+          "title": "Find the right Skills",
+          "description": "Search SKILL.md skills by business scenario, then copy the prompt to load it into a Codex, Hermes, OpenCode or DeepSeek harness.",
+          "cta": "Browse skills",
+          "total": "50+ certified Skills"
+        },
+        "mcp": {
+          "title": "Find MCP services",
+          "description": "Data and tool services register under the protocol with their own key governance. Connect them straight to an Agent with transparent per-call or subscription billing.",
+          "cta": "Browse tools",
+          "total": "100+ MCP services"
+        },
+        "a2a": {
+          "title": "Find A2A agents",
+          "description": "Legal, finance and engineering agents callable on demand. Multi-agent collaboration closes the loop, billed per call, per session or by subscription.",
+          "cta": "Browse agents",
+          "total": "10+ A2A agents"
+        },
+        "items": {
+          "bid": {
+            "name": "Bid proposal assistant",
+            "tag": "Free"
+          },
+          "finance": {
+            "name": "Monthly finance close",
+            "tag": "¥99 one-off"
+          },
+          "compliance": {
+            "name": "Cross-border compliance review",
+            "tag": "Free"
+          },
+          "invoice": {
+            "name": "Invoice verification API",
+            "tag": "¥0.01/call"
+          },
+          "quotes": {
+            "name": "Live market data",
+            "tag": "¥29/month"
+          },
+          "erp": {
+            "name": "Enterprise ERP gateway",
+            "tag": "Private deploy"
+          },
+          "legal": {
+            "name": "Legal due diligence agent",
+            "tag": "Per call"
+          },
+          "support": {
+            "name": "Support desk agent",
+            "tag": "¥199/month"
+          },
+          "analytics": {
+            "name": "Data analysis agent",
+            "tag": "Per session"
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "title": "One registry for Skills, MCP and A2A",
+      "subtitle": "Individuals and companies submit assets; users search and install them; paid assets settle on actual usage.",
+      "cta": "Submit a service",
+      "revenueBadge": "Provider revenue share",
+      "revenueValue": "90%",
+      "revenueText": "Creators keep 90%. The platform handles review and distribution.",
+      "ctaSubmitSkill": "Submit a Skill",
+      "ctaProviderOnboarding": "Company onboarding",
+      "items": {
+        "protocol": {
+          "title": "Open protocols",
+          "description": "SKILL.md / MCP / A2A, no lock-in"
+        },
+        "registry": {
+          "title": "Unified registry",
+          "description": "Submit once, searchable and installable everywhere"
+        },
+        "security": {
+          "title": "Security review",
+          "description": "Listing scans, content fingerprinting and digital signatures"
+        },
+        "metering": {
+          "title": "Metered billing",
+          "description": "Per call, subscription or seat, with usage visible in real time"
+        },
+        "keys": {
+          "title": "Key governance",
+          "description": "A dedicated virtual key per service, isolated per channel"
+        },
+        "settlement": {
+          "title": "Instant settlement",
+          "description": "WeChat and Alipay, split on every call"
+        },
+        "runtimes": {
+          "title": "Multi-runtime",
+          "description": "Codex / Hermes / OpenCode / DeepSeek harnesses"
+        },
+        "api": {
+          "title": "Open API",
+          "description": "Submit, register and meter programmatically"
+        }
+      }
+    },
+    "protocols": {
+      "eyebrow": "Catalog",
+      "title": "Skills, MCP and A2A on one shelf",
+      "subtitle": "Browse the catalog, download Skill packages or connect MCP / A2A. Providers list after review.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a provider",
+      "ctaCopy": "Copy prompt for AI install",
+      "footerNote": "Three tracks, one registry · browse and get · optional monetization",
+      "items": {
+        "skill": {
+          "name": "Skills as a standard",
+          "description": "Atomic skills that install across runtimes (Codex, Hermes, OpenCode, DeepSeek)",
+          "badge": "Installable"
+        },
+        "mcp": {
+          "name": "Tools and data services",
+          "description": "Registered as servers, connecting to Agents over http or stdio",
+          "badge": "Callable"
+        },
+        "a2a": {
+          "name": "Agent interoperability",
+          "description": "Declared with an Agent Card, orchestrated across platforms into one workflow",
+          "badge": "Obtainable"
+        }
+      }
+    },
+    "publish": {
+      "eyebrow": "Trust and distribution",
+      "title": "Submit assets, publish after review",
+      "subtitle": "Individuals and companies can both submit. Once verified and security-reviewed, assets enter the catalog and can settle on install or usage.",
+      "tabs": {
+        "personal": "Individual",
+        "enterprise": "Company"
+      },
+      "ctaPersonal": "Submit a personal Skill",
+      "ctaEnterprise": "Submit a company service",
+      "personal": {
+        "s1": {
+          "title": "Identity verification",
+          "description": "Establish a trusted provider identity and earn the verified badge"
+        },
+        "s2": {
+          "title": "Automated security review",
+          "description": "Listing scans and content fingerprinting identify and block risk"
+        },
+        "s3": {
+          "title": "Submit to all three tracks",
+          "description": "Skills, MCP and A2A in one submission, usable everywhere"
+        },
+        "s4": {
+          "title": "90% revenue share",
+          "description": "Downloads, calls and subscriptions metered in real time, split on settlement"
+        }
+      },
+      "enterprise": {
+        "s1": {
+          "title": "Team registration and verification",
+          "description": "Company credentials checked, org space and member management enabled"
+        },
+        "s2": {
+          "title": "Platform plus admin review",
+          "description": "Automated security review layered with human verification"
+        },
+        "s3": {
+          "title": "Controlled access and scope",
+          "description": "Share internally or distribute externally, with scope and channels you set"
+        },
+        "s4": {
+          "title": "Content fingerprinting and signing",
+          "description": "Tamper-evident and traceable, protecting ongoing distribution"
+        }
+      },
+      "cards": {
+        "credentials": {
+          "title": "Verified credentials",
+          "description": "Personal ID or company credentials for a trusted identity"
+        },
+        "security": {
+          "title": "Security review",
+          "description": "Automated scanning plus human review to identify and block risk"
+        },
+        "fingerprint": {
+          "title": "Fingerprinting and signing",
+          "description": "Tamper-evident and traceable, keeping distribution trustworthy"
+        },
+        "settlement": {
+          "title": "Metering and revenue share",
+          "description": "Metered on every call, settled in real time"
+        }
+      }
+    },
+    "metrics": {
+      "skills": {
+        "label": "Certified Skills",
+        "caption": "Reviewed before listing"
+      },
+      "mcp": {
+        "label": "MCP services",
+        "caption": "Centrally registered"
+      },
+      "a2a": {
+        "label": "A2A agents",
+        "caption": "Protocol-level interop"
+      },
+      "share": {
+        "label": "Creator share",
+        "caption": "Settled in real time"
+      }
+    },
+    "revenue": {
+      "eyebrow": "Provider · publish and get exposure",
+      "title": "List on the catalog",
+      "titleBreak": "get discovered and installed, monetize optionally",
+      "subtitle": "Submit Skills, register MCP / A2A, and enter one unified directory. Settlement is an optional path after you list.",
+      "ctaProvider": "Become a provider",
+      "ctaBrowse": "Browse the market",
+      "chartLabel": "Sample · installs and calls this month",
+      "chartValue": "128k",
+      "chartBadge": "Sample data",
+      "earningsLabel": "Optional earnings (sample)",
+      "earningsValue": "¥31.9k",
+      "earningsNote": "Publishing first, settlement optional"
+    },
+    "openpay": {
+      "eyebrow": "OpenPay · optional payments and settlement",
+      "title": "Get discovered and installed first",
+      "titleBreak": "monetization is an option",
+      "subtitle": "The main path is browsing and installing Skills, MCP and A2A. Use OpenPay for payments and per-call settlement when you need it.",
+      "ctaBrowse": "Browse the market first",
+      "ctaLearn": "Learn about OpenPay",
+      "panelLabel": "Sample · paid calls",
+      "panelValue": "Enabled on demand, never in the way",
+      "panelBadge": "Optional",
+      "footerLeft": "WeChat Pay / Alipay",
+      "footerRight": "Free and paid side by side",
+      "lines": {
+        "earnings": {
+          "label": "Earnings report agent",
+          "amount": "¥0.5"
+        },
+        "stocks": {
+          "label": "In-depth market commentary",
+          "amount": "¥0.3"
+        },
+        "meeting": {
+          "label": "Meeting notes and task routing",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "audience": {
+      "eyebrow": "Two roles",
+      "title": "One platform, both sides moving",
+      "subtitle": "Agent users find capabilities and run their business; individuals and companies submit services and earn. One set of protocol standards and one registry.",
+      "consumer": {
+        "eyebrowLabel": "Use · agent harness",
+        "title": "Find a capability, load it into your Agent",
+        "steps": {
+          "s1": "Find the right Skill for your business scenario",
+          "s2": "Copy the prompt and load it into a Codex, Hermes, OpenCode or DeepSeek harness",
+          "s3": "Connect A2A and MCP services to get the business running"
+        },
+        "primary": "Browse all capabilities",
+        "secondaryMcp": "MCP services",
+        "secondaryA2a": "A2A agents"
+      },
+      "provider": {
+        "eyebrowLabel": "Provide · individuals and companies",
+        "title": "Submit services and get your expertise used",
+        "steps": {
+          "s1": "Submit Skills and register MCP / A2A services",
+          "s2": "List on the market once verified and security-reviewed",
+          "s3": "Get discovered and called, with optional payments and settlement"
+        },
+        "primary": "Submit a Skill",
+        "secondaryProvider": "Company onboarding"
+      }
+    },
+    "onboarding": {
+      "corner": "discover · install · publish",
+      "eyebrow": "OpenMCP market",
+      "title": "Install a Skill package, or list your own asset",
+      "subtitle": "Browse and install Skills, MCP and A2A. Providers are listed after review. Monetization is optional.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a provider"
+    }
+  },
+  "McpPage": {
+    "meta": {
+      "title": "MCP Servers - Browse the Tool Marketplace",
+      "description": "Discover reusable MCP Servers and give your Agent native tool-calling capabilities",
+      "notFoundTitle": "Server Not Found",
+      "notFoundDescription": "Sorry, this MCP server could not be found.",
+      "detailTitleSuffix": "MCP Server",
+      "detailFallbackDescription": "View and connect {name} as an MCP server"
+    },
+    "hero": {
+      "title": "MCP tool marketplace",
+      "subtitle": "Discover and connect reusable MCP Servers. Each one exposes a set of native tools so your Agent can reach any external system.",
+      "searchPlaceholder": "Search MCP Server names or descriptions",
+      "searchAction": "Search"
+    },
+    "list": {
+      "loadError": "Could not load the server list. Please try again later.",
+      "emptyTitle": "No published MCP Servers yet",
+      "emptyHint": "Be the first provider and publish your MCP tools",
+      "emptySearchTitle": "No matching MCP Servers found",
+      "emptySearchHint": "Try a different keyword, or publish your first MCP Server",
+      "publish": "Publish an MCP Server",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}"
+    },
+    "card": {
+      "noDescription": "No description yet",
+      "calls": "{count} calls",
+      "free": "Free"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/call",
+      "subscription": "Subscription · ¥{amount}",
+      "oneTime": "One-time · ¥{amount}",
+      "free": "Free"
+    },
+    "detail": {
+      "notFoundHeading": "MCP server not found",
+      "noDescription": "This server has no description yet.",
+      "overview": "Overview",
+      "tools": "Tools",
+      "toolsCount": "{count} tools",
+      "author": "Provider",
+      "category": "Category",
+      "transport": "Transport",
+      "auth": "Auth",
+      "hosting": "Hosting",
+      "scope": "Visibility",
+      "endpoint": "Endpoint",
+      "pricing": "Pricing",
+      "stats": "Stats",
+      "views": "Views",
+      "downloads": "Calls",
+      "created": "Created",
+      "updated": "Updated",
+      "certified": "Certified",
+      "safeDefault": "Safe",
+      "billingModel": "Billing",
+      "free": "Free"
+    }
+  },
+  "A2APage": {
+    "meta": {
+      "title": "A2A Agents - Browse the Agent Marketplace",
+      "description": "Discover interoperable AI agents and invoke third-party capabilities via Agent Cards",
+      "notFoundTitle": "Agent Not Found",
+      "notFoundDescription": "Sorry, this A2A agent could not be found.",
+      "detailTitleSuffix": "A2A Agent",
+      "detailFallbackDescription": "View and invoke {name} as an A2A agent"
+    },
+    "hero": {
+      "title": "A2A agent marketplace",
+      "subtitle": "Discover and invoke interoperable AI agents. Each agent publishes an Agent Card that describes the boundaries of what it can do, so other agents can find and call it.",
+      "searchPlaceholder": "Search agent names or descriptions",
+      "searchAction": "Search"
+    },
+    "list": {
+      "loadError": "Could not load the agent list. Please try again later.",
+      "emptyTitle": "No published A2A agents yet",
+      "emptyHint": "Be the first provider and publish your agent",
+      "emptySearchTitle": "No matching A2A agents found",
+      "emptySearchHint": "Try a different keyword, or publish your first A2A agent",
+      "publish": "Publish an A2A Agent",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}"
+    },
+    "card": {
+      "noDescription": "No description yet",
+      "calls": "{count} calls",
+      "protocol": "A2A {version}",
+      "free": "Free"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/call",
+      "subscription": "Subscription · ¥{amount}",
+      "oneTime": "One-time · ¥{amount}",
+      "free": "Free"
+    },
+    "detail": {
+      "notFoundHeading": "A2A agent not found",
+      "noDescription": "This agent has no description yet.",
+      "overview": "Overview",
+      "agentCard": "Agent Card",
+      "skillsCount": "{count} skills",
+      "author": "Provider",
+      "category": "Category",
+      "protocol": "Protocol",
+      "auth": "Auth",
+      "scope": "Visibility",
+      "pricing": "Pricing",
+      "stats": "Stats",
+      "views": "Views",
+      "downloads": "Calls",
+      "created": "Created",
+      "updated": "Updated",
+      "certified": "Certified",
+      "safeDefault": "Safe",
+      "billingModel": "Billing",
+      "free": "Free",
+      "idLabel": "Agent ID",
+      "copyId": "Copy Agent ID",
+      "idCopied": "Agent ID copied",
+      "copyCardUrl": "Copy Agent Card URL",
+      "cardUrlCopied": "Agent Card URL copied"
+    }
+  },
+  "Newsletter": {
+    "title": "Newsletter",
+    "subtitle": "Start Subscribing Now",
+    "description": "Subscribe to the newsletter to get the latest news and updates",
+    "daily": {
+      "tagline": "AI Daily Brief",
+      "title": "One AI application tip, every morning",
+      "description": "Practical tips to make your AI agents and infrastructure more useful. Free, no spam, unsubscribe anytime.",
+      "subscribeClaw": "Subscribe",
+      "browsePastIssues": "Browse past issues"
+    },
+    "form": {
+      "email": "Email",
+      "subscribe": "Subscribe",
+      "subscribing": "Subscribing...",
+      "success": "Subscribed successfully",
+      "fail": "Failed to subscribe",
+      "emailValidation": "Please enter a valid email address"
+    }
+  },
+  "Landing": {
+    "cta": {
+      "browse": "Browse the marketplace",
+      "provider": "Become a creator",
+      "submitSkill": "Publish a personal Skill",
+      "providerJoin": "Enterprise publishing",
+      "skills": "Browse Skills",
+      "mcp": "MCP services",
+      "a2a": "A2A agents"
+    },
+    "hero": {
+      "badge": "One marketplace for Skills / MCP / A2A",
+      "badgeSuffix": " · Built for agents in China",
+      "titleLead": "Discover, install and publish ",
+      "titleHighlight": "agent skills",
+      "subtitle": "Search SKILL.md skill packs by business scenario, or connect MCP / A2A services. Individuals and companies can both submit assets; payment and settlement are optional.",
+      "copyPrompt": "Copy for your AI agent",
+      "stepsPrefix": "Full steps at ",
+      "runtimeCompat": "The same SKILL.md works in {runtimes}, and in any agent that can install local skill directories.",
+      "installPrompt": "Install the OpenMCP store with <path>/install/openmcp.md</path>"
+    },
+    "carousel": {
+      "ariaLabel": "Three kinds of available capabilities",
+      "eyebrow": "Agent Marketplace",
+      "title": "Three capabilities, one standard",
+      "subtitle": "Skills install and run immediately, MCP services are called on demand, A2A agents orchestrate across platforms — all sharing one registry and one billing and settlement system.",
+      "sampleLabel": "Ready to use · sample data",
+      "updatedSuffix": " · updated live",
+      "prevAria": "Previous",
+      "nextAria": "Next",
+      "skills": {
+        "title": "Skills: installable skill packs",
+        "description": "Search skills by business scenario and copy the prompt to drop them into {runtimes} — install and go.",
+        "total": "50+ certified Skills",
+        "items": {
+          "1": {
+            "name": "Bid proposal assistant",
+            "tag": "Free"
+          },
+          "2": {
+            "name": "Enterprise month-end close",
+            "tag": "One-off ¥99"
+          },
+          "3": {
+            "name": "Cross-border compliance review",
+            "tag": "Free"
+          }
+        }
+      },
+      "mcp": {
+        "title": "MCP: tool and data services",
+        "description": "Data and tool services register under the protocol with independent key governance; find one and connect it straight to your agent, with transparent per-call or subscription billing.",
+        "total": "100+ MCP services",
+        "items": {
+          "1": {
+            "name": "Invoice verification API",
+            "tag": "¥0.01/call"
+          },
+          "2": {
+            "name": "Live market data",
+            "tag": "Subscription ¥29/mo"
+          },
+          "3": {
+            "name": "Enterprise ERP gateway",
+            "tag": "Private deployment"
+          }
+        }
+      },
+      "a2a": {
+        "title": "A2A: orchestrable agents",
+        "description": "Legal, finance and engineering agents are called on demand; multi-agent collaboration closes the business loop, billed per call, per session or by subscription.",
+        "total": "10+ A2A agents",
+        "items": {
+          "1": {
+            "name": "Legal due diligence agent",
+            "tag": "Per call"
+          },
+          "2": {
+            "name": "Support desk agent",
+            "tag": "Subscription ¥199/mo"
+          },
+          "3": {
+            "name": "Data analysis agent",
+            "tag": "Per session"
+          }
+        }
+      }
+    },
+    "platform": {
+      "eyebrow": "Platform foundation",
+      "title": "One registry, three kinds of assets",
+      "description": "Assets submitted by individuals or companies land in one catalog: users search and install them, and paid assets settle on actual usage. Prefer programmatic integration? Use the open API.",
+      "cta": "View integration docs",
+      "capabilities": {
+        "protocol": {
+          "title": "Open standards",
+          "description": "SKILL.md / MCP / A2A, never locked in"
+        },
+        "registry": {
+          "title": "Unified registry and discovery",
+          "description": "Submit once, searchable and installable everywhere"
+        },
+        "metering": {
+          "title": "Metering and billing",
+          "description": "Per call / subscription / seat, usage visible in real time"
+        },
+        "keys": {
+          "title": "Key governance",
+          "description": "A virtual key per service, isolated by channel"
+        },
+        "settlement": {
+          "title": "Real-time settlement",
+          "description": "WeChat / Alipay, split on every call"
+        },
+        "api": {
+          "title": "Open API",
+          "description": "Submit, register and meter — all programmatic"
+        }
+      }
+    },
+    "publish": {
+      "ariaLabel": "The publishing path from submission to invocation",
+      "eyebrow": "Publishing flow",
+      "titleLead": "From submission to invocation,",
+      "titleAccent": "every step is traceable",
+      "description": "Two channels for individuals and enterprises, sharing the same identity verification, security review and distribution guarantees.",
+      "personal": {
+        "label": "Individual",
+        "milestones": {
+          "1": {
+            "title": "Real-name verification",
+            "stat": "Publish after real-name verification",
+            "caption": "A trusted publishing identity",
+            "description": "Real-name verification is required before a Skill can be published. The platform completes identity validation through face verification, stores the information encrypted and uses it solely to verify identity, for no other purpose, in full compliance with the law."
+          },
+          "2": {
+            "title": "Security and content review",
+            "stat": "24h",
+            "caption": "Average automated review time · sample data",
+            "description": "The platform reviews all published content along multiple dimensions: keyword filtering combined with AI semantic understanding to identify violations and low-quality content, keeping the Skill ecosystem safe and trustworthy."
+          },
+          "3": {
+            "title": "Mandatory security gate",
+            "stat": "100%",
+            "caption": "Mandatory security gate for Skills",
+            "description": "Every Skill must pass a three-line parallel security review pipeline before listing — content compliance filtering, deep vulnerability scanning and AI model safety assessment — and is listed automatically only once all three pass."
+          },
+          "4": {
+            "title": "Web, CLI and agent publishing",
+            "stat": "Multiple publishing ways",
+            "caption": "Web UI / CLI / automated agent deployment",
+            "description": "Three ways to publish: a visual web form, one-command CLI push, and automated agent deployment. Versions are fully traceable and can be rolled back at any time."
+          }
+        }
+      },
+      "enterprise": {
+        "label": "Enterprise",
+        "milestones": {
+          "1": {
+            "title": "Organization identity check",
+            "stat": "Publish after enterprise verification",
+            "caption": "A trusted organization identity",
+            "description": "Once the legal entity and its contacts are verified, an organization space is opened where members collaborate on assets, and the verified badge is visible across every distribution channel."
+          },
+          "2": {
+            "title": "Platform plus admin review",
+            "stat": "2 layers",
+            "caption": "Automated review plus organization admin sign-off",
+            "description": "Manual review by an organization admin is layered on top of automated security review. Core assets require two-person sign-off before entering external distribution, and review records are kept throughout."
+          },
+          "3": {
+            "title": "Security gate and distribution scope",
+            "stat": "100%",
+            "caption": "Mandatory security gate for external distribution",
+            "description": "Assets can be set to internal-only or externally distributed, with visibility scoped by team, project and channel. Versions that fail the security gate are blocked outright and never reach the marketplace."
+          },
+          "4": {
+            "title": "Private distribution and signed traceability",
+            "stat": "Private delivery",
+            "caption": "Private repo / internal CLI / agent deployment",
+            "description": "Supports private repository sync, internal CLI push and automated agent deployment. Content fingerprints and digital signatures prevent tampering and provide traceability, meeting enterprise internal control and compliance requirements."
+          }
+        }
+      },
+      "visual": {
+        "verified": "Verified",
+        "submit": "Submit for review",
+        "reviewTitle": "Review pipeline",
+        "gateTitle": "Security gate · three lines in parallel",
+        "blocked": "blocked",
+        "passed": "passed",
+        "reviewStages": {
+          "1": "Content compliance filtering",
+          "2": "AI semantic review",
+          "3": "Low-quality content detection"
+        },
+        "gateStages": {
+          "1": "Content compliance filtering",
+          "2": "Deep vulnerability scanning",
+          "3": "AI model safety assessment"
+        },
+        "ways": {
+          "web": {
+            "label": "Web publishing",
+            "caption": "Upload SKILL.md via a visual form"
+          },
+          "agent": {
+            "label": "Agent publishing",
+            "caption": "The agent reads credentials and deploys automatically"
+          },
+          "cli": {
+            "label": "CLI publishing",
+            "caption": "One-command push from the command line"
+          }
+        }
+      }
+    },
+    "providerCta": {
+      "eyebrow": "Creators · publish and monetize",
+      "titleLead": "List on OpenMCP",
+      "titleAccent": "Get discovered, get installed, keep 90%",
+      "description": "Submit Skills, register MCP / A2A, and enter the unified catalog. Revenue comes from installs and invocations; payment and settlement are optional extras after listing.",
+      "existingPrefix": "Already have an asset? See the ",
+      "stepsLink": "listing steps",
+      "openpayLink": "OpenPay billing",
+      "installsLabel": "Sample · installs / calls this month",
+      "installsValue": "128k",
+      "sampleBadge": "Sample data",
+      "revenueLabel": "Optional revenue (sample)",
+      "revenueValue": "¥31.9k",
+      "revenueNote": "Publishing first · settlement optional",
+      "payLabel": "Sample · paid calls",
+      "payValue": "Handled by OpenPay, enabled on demand",
+      "payBadge": "Optional capability",
+      "payFootLeft": "WeChat Pay / Alipay",
+      "payFootRight": "Free and paid coexist",
+      "orders": {
+        "1": {
+          "name": "Earnings report agent",
+          "amount": "¥0.5"
+        },
+        "2": {
+          "name": "In-depth stock analysis",
+          "amount": "¥0.3"
+        },
+        "3": {
+          "name": "Meeting minutes · task dispatch",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "metrics": {
+      "skills": {
+        "label": "Certified Skills",
+        "caption": "Approved on listing"
+      },
+      "mcp": {
+        "label": "MCP services",
+        "caption": "Centrally registered"
+      },
+      "a2a": {
+        "label": "A2A agents",
+        "caption": "Protocol-level interop"
+      },
+      "revenue": {
+        "label": "Creator share",
+        "caption": "Real-time settlement"
+      }
+    },
+    "onboarding": {
+      "corner": "Discover · Install · Publish",
+      "eyebrow": "OpenMCP marketplace",
+      "title": "Install skill packs, or list your own assets",
+      "description": "Browse and install Skills / MCP / A2A; creator submissions go live after review. Monetization is an optional capability.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a creator"
+    }
+  },
+  "Marketing": {
+    "navbar": {
+      "workflows": {
+        "title": "Workflows"
+      },
+      "categories": {
+        "title": "Categories"
+      },
+      "personas": {
+        "title": "Personas"
+      },
+      "openpay": {
+        "title": "OpenPay"
+      },
+      "skills": {
+        "title": "Skills"
+      },
+      "a2a": {
+        "title": "A2A"
+      },
+      "mcp": {
+        "title": "MCP"
+      },
+      "clawsourcing": {
+        "title": "Clawsourcing"
+      },
+      "authors": {
+        "title": "Authors"
+      },
+      "rankings": {
+        "title": "Rankings"
+      },
+      "features": {
+        "title": "Features"
+      },
+      "pricing": {
+        "title": "Pricing"
+      },
+      "blog": {
+        "title": "Blog"
+      },
+      "docs": {
+        "title": "Docs"
+      },
+      "chat": {
+        "title": "Chat"
+      },
+      "pages": {
+        "title": "Pages",
+        "items": {
+          "about": {
+            "title": "About",
+            "description": "Learn more about our company, mission, and values"
+          },
+          "contact": {
+            "title": "Contact",
+            "description": "Get in touch with our team for support or inquiries"
+          },
+          "waitlist": {
+            "title": "Waitlist",
+            "description": "Join our waitlist for latest news and updates"
+          },
+          "changelog": {
+            "title": "Release Notes",
+            "description": "See the latest updates to our products"
+          },
+          "roadmap": {
+            "title": "Roadmap",
+            "description": "Explore our future plans and upcoming features"
+          },
+          "cookiePolicy": {
+            "title": "Cookie Policy",
+            "description": "How we use the cookies on our website"
+          },
+          "privacyPolicy": {
+            "title": "Privacy Policy",
+            "description": "How we protect and handle your data"
+          },
+          "termsOfService": {
+            "title": "Terms of Service",
+            "description": "The legal agreement between you and our company"
+          }
+        }
+      },
+      "models": {
+        "title": "模型"
+      }
+    },
+    "footer": {
+      "tagline": "MCP / A2A / Skills marketplace: discover trusted capabilities and install them into Agents. Providers publish; monetization is optional.",
+      "product": {
+        "title": "Product",
+        "items": {
+          "features": "Features",
+          "pricing": "Pricing",
+          "workflows": "Workflows",
+          "skills": "Skills",
+          "clawsourcing": "Clawsourcing",
+          "personas": "Personas",
+          "rankings": "Rankings",
+          "categories": "Categories",
+          "authors": "Authors",
+          "mcp": "MCP",
+          "a2a": "A2A",
+          "start": "Getting started",
+          "faq": "常见问题"
+        }
+      },
+      "resources": {
+        "title": "Resources",
+        "items": {
+          "blog": "Blog",
+          "docs": "Documentation",
+          "changelog": "Release Notes",
+          "roadmap": "Roadmap"
+        }
+      },
+      "company": {
+        "title": "Company",
+        "items": {
+          "about": "About",
+          "contact": "Contact",
+          "waitlist": "Waitlist"
+        }
+      },
+      "legal": {
+        "title": "Legal",
+        "items": {
+          "cookiePolicy": "Cookie Policy",
+          "privacyPolicy": "Privacy Policy",
+          "termsOfService": "Terms of Service"
+        }
+      },
+      "disclaimer": {
+        "contentSource": "Content source: some Skill content on this site comes from public channels, certified enterprises, or user submissions. Please exercise caution before use; copyright remains with the original author.",
+        "infringement": "Copyright complaints: if a Skill infringes copyright, email <link>service@openmcp.cn</link>. We will verify the report and take the content down.",
+        "copyright": "Copyright ©2025-Present Tianjin Julians Technology Co., Ltd.",
+        "icp": "Tianjin ICP Filing 2023007973"
+      }
+    },
+    "avatar": {
+      "dashboard": "Dashboard",
+      "billing": "Billing",
+      "settings": "Settings"
+    }
+  },
+  "ClawsourcingPage": {
+    "qa": {
+      "title": "Questions",
+      "faqs": {
+        "q0": {
+          "question": "How is this different from just setting up OpenClaw myself?",
+          "answer": "Same difference as buying a server vs. hiring a sysadmin. You could do it yourself. But every Clawsourced employee comes pre-built with a battle-tested memory system (most AI setups forget everything — ours doesn't), a curated tool stack, a custom persona, and active support from OpenMCP — the AI that runs our company. Plus we actively maintain and improve yours every month. You get the employee, not a homework assignment."
+        },
+        "q1": {
+          "question": "Is the consult really free?",
+          "answer": "Yes. We review your workflows, ask discovery questions, and send you a concrete scope plan — no charge, no commitment. You only pay when you decide to move forward with a build."
+        },
+        "q2": {
+          "question": "What do I need to provide?",
+          "answer": "An OpenRoute.cn virtual key (pay-as-you-go — we'll send you a setup video) and answers to our intake questions. That's it. We handle everything else."
+        },
+        "q3": {
+          "question": "How fast can my Claw be live?",
+          "answer": "Most go live within one week of scope approval. Some within 48 hours."
+        },
+        "q4": {
+          "question": "What does the $500/mo cover?",
+          "answer": "Hosting, monitoring, bug fixes, skill updates, and active improvement. We don't just keep the lights on — we make your Claw better every month based on your feedback AND lessons from every other Claw we manage."
+        },
+        "q5": {
+          "question": "Can I cancel?",
+          "answer": "Month-to-month. No contract. If you leave, we hand over every file, every config, every piece of the system. Zero lock-in."
+        },
+        "q6": {
+          "question": "Is my data safe?",
+          "answer": "Your Claw runs on isolated infrastructure. Nothing is shared between clients. You own your data, your configs, and your system."
+        },
+        "q7": {
+          "question": "Can you see my business data?",
+          "answer": "No. We maintain the AI layer — skills, prompts, memory architecture, and configs. Your API keys are stored as encrypted environment variables we don't read after setup. Your business data (emails, CRM records, customer info) flows through your Claw's runtime but is never logged, stored, or accessed by us. Think of it like a managed IT provider: we maintain the system, we don't read your files."
+        },
+        "q8": {
+          "question": "What if I don't want you learning from my setup?",
+          "answer": "Totally fine — we can opt you out of cross-client learning. But it goes both ways: we won't apply patterns from your Claw to others, and we won't push improvements from other clients to yours. Most people want the upgrades, but the choice is yours."
+        }
+      }
+    }
+  },
+  "ModelsPage": {
+    "title": "Model Marketplace",
+    "description": "Explore and compare various AI models",
+    "metadata": {
+      "title": "AI Model Marketplace | Thousands of Certified Models | OpenMCP",
+      "description": "Explore and compare thousands of certified AI models from leading providers. Find the perfect model for your project with advanced filtering, pricing comparison, and detailed specifications. OpenMCP and more."
+    },
+    "provider": {
+      "metadata": {
+        "title": "{provider} AI Models | OpenMCP",
+        "description": "Browse {provider} AI models on OpenMCP. Compare pricing, specifications, and features. Access {provider} models through our unified API gateway."
+      }
+    },
+    "model": {
+      "metadata": {
+        "title": "{modelName} - {provider} | OpenMCP",
+        "description": "{modelName} by {provider}. {description} Context length: {contextLength}. Input: {inputPrice}, Output: {outputPrice}. Access via OpenMCP unified gateway."
+      }
+    },
+    "searchPlaceholder": "Search models",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters",
+    "loading": "Loading models...",
+    "error": {
+      "title": "Loading failed",
+      "retry": "Retry"
+    },
+    "noResults": "No matching models found",
+    "filters": {
+      "type": "Type",
+      "provider": "Provider",
+      "price": "Price",
+      "context": "Context",
+      "specs": "Specs"
+    },
+    "filterOptions": {
+      "chat": "Chat",
+      "completion": "Completion",
+      "text": "Text",
+      "embedding": "Embedding",
+      "image": "Image",
+      "audio": "Audio",
+      "vision": "Vision",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "badges": {
+      "new": "New",
+      "popular": "Popular",
+      "free": "FREE"
+    }
+  },
+  "AboutPage": {
+    "title": "About",
+    "description": "OpenMCP is a neutral, open AI Agent infrastructure that helps you discover, publish and share AI skills, MCP tools and A2A agents.",
+    "authorName": "OpenMCP",
+    "authorBio": "Your AI Agent Infrastructure",
+    "introduction": "👋 Welcome to **OpenMCP**!\n\nWe are an **open, neutral multi-agent collaboration infrastructure**, connecting AI agent developers worldwide.\n\n## Our Mission\n\nOur mission is to make AI agent capabilities accessible to everyone by providing thousands of **certified AI skills and assets** that you can:\n\n- **Discover** AI skills, MCP tools and A2A agents that fit your needs\n- **Download** ready-to-use capabilities\n- **Customize** assets for your specific use cases\n- **Share** your own creations with the community\n\n## AI-Powered Analysis\n\nWe offer **AI-powered skill analysis** to help you:\n\n- Optimize performance\n- Identify bottlenecks\n- Improve efficiency\n\n## Join Our Community\n\nWhether you're a beginner or an expert, join our community to:\n\n- Share knowledge\n- Learn from others\n- Build better AI agents together\n\nIf you have any questions or suggestions, we'd love to hear from you!",
+    "talkWithMe": "Contact us",
+    "contactWeChat": "Contact us on WeChat",
+    "followMe": "Follow us on X"
+  },
+  "PricingPage": {
+    "title": "Pricing",
+    "description": "Choose the plan that works best for you",
+    "subtitle": "Choose the plan that works best for you",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "PricingCard": {
+      "freePrice": "$0",
+      "perMonth": "/month",
+      "perYear": "/year",
+      "popular": "Popular",
+      "currentPlan": "Current Plan",
+      "yourCurrentPlan": "Your Current Plan",
+      "getStartedForFree": "Get Started For Free",
+      "getLifetimeAccess": "Get Lifetime Access",
+      "getStarted": "Get Started",
+      "notAvailable": "Not Available",
+      "daysTrial": "{days}-day free trial"
+    },
+    "CheckoutButton": {
+      "loading": "Loading...",
+      "checkoutFailed": "Failed to open checkout page"
+    }
+  },
+  "PricePlans": {
+    "free": {
+      "name": "Free",
+      "description": "Basic features for personal use",
+      "features": {
+        "feature-1": "Up to 3 projects",
+        "feature-2": "1 GB storage",
+        "feature-3": "Basic analytics",
+        "feature-4": "Community support"
+      },
+      "limits": {
+        "limit-1": "Custom domains",
+        "limit-2": "Custom branding",
+        "limit-3": "Lifetime updates"
+      }
+    },
+    "pro": {
+      "name": "Pro",
+      "description": "Advanced features for professionals",
+      "features": {
+        "feature-1": "Unlimited projects",
+        "feature-2": "10 GB storage",
+        "feature-3": "Advanced analytics",
+        "feature-4": "Priority support",
+        "feature-5": "Custom domains"
+      },
+      "limits": {
+        "limit-1": "Custom branding",
+        "limit-2": "Lifetime updates"
+      }
+    },
+    "lifetime": {
+      "name": "Lifetime",
+      "description": "Premium features with one-time payment",
+      "features": {
+        "feature-1": "All Pro features",
+        "feature-2": "100 GB storage",
+        "feature-3": "Dedicated support",
+        "feature-4": "Enterprise-grade security",
+        "feature-5": "Advanced integrations",
+        "feature-6": "Custom branding",
+        "feature-7": "Lifetime updates",
+        "feature-8": "无限额度团队支持"
+      }
+    }
+  },
+  "ChangelogPage": {
+    "title": "Release Notes",
+    "description": "Stay up to date with the latest changes in our product",
+    "subtitle": "Stay up to date with the latest changes in our product"
+  },
+  "ContactPage": {
+    "title": "Contact",
+    "description": "We'll help you find the right plan for your business",
+    "subtitle": "We'll help you find the right plan for your business",
+    "form": {
+      "title": "Contact Us",
+      "description": "If you have any questions or feedback, please reach out to our team",
+      "name": "Name",
+      "email": "Email",
+      "message": "Message",
+      "submit": "Submit",
+      "submitting": "Submitting...",
+      "success": "Message sent successfully",
+      "fail": "Failed to send message",
+      "nameMinLength": "Name must be at least 3 characters",
+      "nameMaxLength": "Name must not exceed 30 characters",
+      "emailValidation": "Please enter a valid email address",
+      "messageMinLength": "Message must be at least 10 characters",
+      "messageMaxLength": "Message must not exceed 500 characters"
+    },
+    "wechat": {
+      "title": "WeChat Contact",
+      "description": "Scan the QR code to add WeChat",
+      "contactWeChat": "WeChat Contact",
+      "openDialog": "Open WeChat contact dialog",
+      "qrCodeAlt": "WeChat QR Code",
+      "qrCodePlaceholder": "QR code failed to load",
+      "wechatId": "WeChat ID",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copySuccess": "WeChat ID copied to clipboard",
+      "copyFailed": "Copy failed, please copy manually",
+      "supportNote": "This is our technical support WeChat, we're here to help",
+      "instruction1": "Please scan the QR code above with WeChat"
+    }
+  },
+  "WaitlistPage": {
+    "title": "Waitlist",
+    "description": "Join our waitlist for the launch of our product",
+    "subtitle": "Join our waitlist for the launch of our product",
+    "form": {
+      "title": "Join Our Waitlist",
+      "description": "We will notify you when we launch our product",
+      "email": "Email",
+      "subscribe": "Subscribe",
+      "subscribing": "Subscribing...",
+      "success": "Subscribed successfully",
+      "fail": "Failed to subscribe",
+      "emailValidation": "Please enter a valid email address"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close",
+    "back": "Back",
+    "backToChat": "Back to Chat",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "connect": "Connect",
+    "connecting": "Connecting...",
+    "disconnect": "Disconnect",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "profile": "Profile",
+    "settings": "Settings",
+    "help": "Help",
+    "about": "About",
+    "contact": "Contact Us",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "switchTheme": "Switch theme",
+    "and": "and",
+    "appName": "OpenMCP",
+    "feedback": "Feedback"
+  },
+  "navigation": {
+    "home": "Home",
+    "chat": "Chat",
+    "dashboard": "Dashboard",
+    "models": "Models",
+    "settings": "Settings",
+    "profile": "Profile",
+    "help": "Help",
+    "blog": "Blog",
+    "docs": "Docs",
+    "aiApps": "AI Apps",
+    "aiText": "AI Text",
+    "aiTextDescription": "Intelligent text generation and processing",
+    "aiImage": "AI Image",
+    "aiImageDescription": "AI image generation and editing",
+    "aiVideo": "AI Video",
+    "aiVideoDescription": "AI video generation and processing",
+    "aiAudio": "AI Audio",
+    "aiAudioDescription": "AI audio generation and processing",
+    "externalAiTools": "External AI Tools",
+    "externalAiToolsDescription": "Access external AI tool platforms"
+  },
+  "forms": {
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "description": "Enter your email to reset your password",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "resetPassword": "Reset Password",
+      "passwordResetEmailSent": "Password reset email sent",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "login": {
+      "title": "Welcome back",
+      "description": "Login with your Github account",
+      "loginWithGoogle": "Login with Google",
+      "loginWithGithub": "Login with Github",
+      "lastUsed": "last used",
+      "orContinueWith": "Or continue with",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "Forgot your password?",
+      "login": "Login",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "description": "Enter your new password",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "resetPassword": "Reset Password",
+      "passwordResetSuccess": "Password reset successfully",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "signup": {
+      "title": "Welcome back",
+      "description": "Signup with your GitHub account",
+      "signupWithGoogle": "Signup with Google",
+      "signupWithGithub": "Signup with Github",
+      "orContinueWith": "Or continue with",
+      "username": "Username",
+      "usernamePlaceholder": "shadcn",
+      "email": "Email",
+      "emailPlaceholder": "m@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "Forgot your password?",
+      "signup": "Signup",
+      "alreadyHaveAccount": "Already have an account?",
+      "login": "Login",
+      "pleaseCheckEmail": "Please check your email for verification."
+    },
+    "common": {
+      "agreeToTerms": "By clicking continue, you agree to our",
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "cancel": "Cancel"
+    }
+  },
+  "BlogPage": {
+    "title": "Blog",
+    "description": "Latest news and updates from our team",
+    "subtitle": "Latest news and updates from our team",
+    "author": "Author",
+    "categories": "Categories",
+    "tableOfContents": "Table of Contents",
+    "readTime": "{minutes} min read",
+    "all": "All",
+    "noPostsFound": "No posts found",
+    "allPosts": "All Posts",
+    "pagination": {
+      "previousPage": "Previous",
+      "nextPage": "Next",
+      "page": "Page {page}",
+      "goToPage": "Go to page {page}",
+      "currentPage": "Current page: {page}",
+      "totalPages": "of {totalPages} pages"
+    },
+    "morePosts": "More Posts"
+  },
+  "DocsPage": {
+    "toc": "Table of Contents",
+    "search": "Search docs",
+    "lastUpdate": "Last updated on",
+    "searchNoResult": "No results",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "chooseLanguage": "Select language",
+    "title": "OpenMCP Documentation",
+    "homepage": "Homepage",
+    "blog": "Blog",
+    "workflows": "Workflows",
+    "models": "Models",
+    "chat": "Chat"
+  },
+  "Fumadocs": {
+    "chat": {
+      "newChat": "New Chat",
+      "regenerate": "Regenerate",
+      "delete": "Clear Chat",
+      "description": "AI can be inaccurate, please verify the information.",
+      "thinking": "Thinking...",
+      "generating": "Generating...",
+      "typeMessage": "Type a message...",
+      "stop": "Stop",
+      "close": "Close",
+      "you": "You",
+      "assistant": "OpenMCP",
+      "source": "Source",
+      "askAI": "Ask AI"
+    }
+  },
+  "Mail": {
+    "common": {
+      "team": "{name} Team",
+      "copyright": "©️ {year} All Rights Reserved."
+    },
+    "verifyEmail": {
+      "title": "Hi, {name}.",
+      "body": "Please click the link below to verify your email address.",
+      "confirmEmail": "Confirm email",
+      "subject": "Verify your email"
+    },
+    "forgotPassword": {
+      "title": "Hi, {name}.",
+      "body": "Please click the link below to reset your password.",
+      "resetPassword": "Reset password",
+      "subject": "Reset your password"
+    },
+    "subscribeNewsletter": {
+      "body": "Thank you for subscribing to the newsletter. We will keep you updated with the latest news and updates.",
+      "subject": "Thanks for subscribing"
+    },
+    "contactMessage": {
+      "name": "Name: {name}",
+      "email": "Email: {email}",
+      "message": "Message: {message}",
+      "subject": "Contact Message from Website"
+    }
+  },
+  "time": {
+    "now": "Now",
+    "justNow": "Just now",
+    "minutesAgo": "{count} minutes ago",
+    "hoursAgo": "{count} hours ago",
+    "daysAgo": "{count} days ago",
+    "weeksAgo": "{count} weeks ago",
+    "monthsAgo": "{count} months ago",
+    "yearsAgo": "{count} years ago",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "thisWeek": "This week",
+    "lastWeek": "Last week",
+    "nextWeek": "Next week",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "nextMonth": "Next month",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "nextYear": "Next year"
+  },
+  "NotFoundPage": {
+    "title": "404",
+    "message": "Sorry, the page you are looking for does not exist.",
+    "backToHome": "Back to home"
+  },
+  "ErrorPage": {
+    "title": "Oops! Something went wrong!",
+    "tryAgain": "Try again",
+    "backToHome": "Back to home"
+  },
+  "AuthorsPage": {
+    "title": "Skill Authors",
+    "description": "Discover skills created by our community of AI experts.",
+    "totalAuthors": "{count} authors",
+    "authors": "authors",
+    "searchPlaceholder": "Search for an author...",
+    "workflows": "workflows",
+    "loadingMore": "Loading more authors...",
+    "allLoaded": "All authors have been loaded",
+    "noAuthors": "No authors found",
+    "loading": "Loading...",
+    "pagination": {
+      "previousPage": "Previous",
+      "nextPage": "Next"
+    },
+    "notFound": {
+      "title": "Author Not Found",
+      "description": "Sorry, we couldn't find information about this author."
+    },
+    "authorDetailContentTypeTitle": "Content type",
+    "authorDetail": {
+      "contentTypeTitle": "Content type",
+      "tabSkills": "Skills",
+      "tabWorkflows": "Workflows",
+      "tabPersonas": "Personas",
+      "statSkills": "Skills",
+      "statWorkflows": "Workflows",
+      "statPersonas": "Personas",
+      "hasLinksNote": "External links available"
+    },
+    "skills": "Skills"
+  },
+  "CategoriesPage": {
+    "title": "Skill Categories",
+    "description": "Browse skills by category to find exactly what you're looking for.",
+    "backToCatalog": "Back to catalog",
+    "workflow": "workflow",
+    "workflows": "workflows",
+    "notFound": {
+      "title": "Category Not Found",
+      "description": "Sorry, we couldn't find information about this category."
+    },
+    "loadError": "Failed to load categories, please try again later",
+    "skill": "Skill",
+    "skills": "Skills"
+  },
+  "Workflows": {
+    "workflowCount": "{count, plural, =0 {workflows} =1 {workflow} other {workflows}}",
+    "workflows": "Workflows",
+    "workflow": "Workflow",
+    "categories": "Categories",
+    "category": "Category",
+    "complexity": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "priceType": {
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived",
+      "rejected": "Rejected"
+    },
+    "views": "Views",
+    "downloads": "Downloads",
+    "likes": "Likes",
+    "comments": "Comments",
+    "verifications": "Verifications",
+    "author": "Author",
+    "publishedAt": "Published At",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "certified": "Certified",
+    "notCertified": "Not Certified",
+    "download": "Download",
+    "viewDetails": "View Details",
+    "relatedWorkflows": "Related Workflows",
+    "noWorkflows": "No workflows",
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "retry": "Retry",
+    "filters": {
+      "nodeTypes": "Node Types",
+      "supportAuthor": "Support the author",
+      "supportTitle": "Thank you for your support",
+      "supportDescription": "If this project has been useful to you, you can support it by scanning the WeChat QR code below. Your support keeps the work improving.",
+      "supportQrAlt": "WeChat payment QR code",
+      "supportHint": "Scan the QR code above with WeChat to donate. Thank you for your generous support!"
+    },
+    "grid": {
+      "loadError": "Failed to load workflows. Please try again later.",
+      "empty": "No workflows match your filters",
+      "emptyHint": "Try adjusting your filters",
+      "showing": "Showing {from}-{to} of {total} workflows",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "activeFilters": {
+      "selected": "Selected:",
+      "search": "Search",
+      "sortLabel": "Sort",
+      "remove": "Remove",
+      "clearAll": "Clear All",
+      "certified": "Certified",
+      "timePeriod": {
+        "7d": "Last 7 Days",
+        "1m": "Last Month",
+        "3m": "Last 3 Months",
+        "all": "All Time"
+      },
+      "priceType": {
+        "free": "Free",
+        "paid": "Paid"
+      },
+      "complexity": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "sort": {
+        "dateDesc": "Newest",
+        "dateAsc": "Oldest",
+        "downloadsDesc": "Most Downloads",
+        "viewsDesc": "Most Views",
+        "popularityDesc": "Most Popular"
+      }
+    },
+    "hero": {
+      "title": "Workflow Library - Discover and share powerful automations",
+      "countSuffix": "workflows available",
+      "subtitle": "Explore ready-to-use automation workflows and optimize how you work",
+      "searchPlaceholder": "Search workflows..."
+    },
+    "related": {
+      "title": "Related Workflows",
+      "description": "Discover more great automation solutions"
+    },
+    "share": {
+      "title": "Share your workflow",
+      "description": "Have a great workflow to share? Join the creator community and help the community grow!",
+      "submitCta": "Submit your template",
+      "howTo": "How to submit",
+      "footnote": "Join hundreds of creators and share your automation workflows"
+    },
+    "detail": {
+      "description": "Description",
+      "expandDescription": "Expand description",
+      "collapseDescription": "Collapse description",
+      "markdown": "Markdown Content",
+      "expandMarkdown": "Expand Markdown content",
+      "collapseMarkdown": "Collapse Markdown content",
+      "copyMarkdown": "Copy Markdown",
+      "copied": "Copied!",
+      "home": "Home",
+      "workflows": "Workflows",
+      "nodes": "Nodes",
+      "categories": "Categories",
+      "website": "Website",
+      "copyId": "Copy workflow ID",
+      "viewOnN8n": "View on n8n.io",
+      "downloading": "Downloading...",
+      "downloadWorkflow": "Download workflow",
+      "downloadSuccess": "Downloaded",
+      "downloadError": "Download failed",
+      "missingId": "Could not resolve the workflow ID",
+      "certifiedTitle": "Certified workflow",
+      "certifiedDescription": "This workflow has passed the official quality review",
+      "signInRequired": "Sign in to continue",
+      "signIn": "Sign in"
+    },
+    "notFound": {
+      "title": "Workflow Not Found",
+      "description": "Sorry, we could not find information about this workflow."
+    }
+  },
+  "StartPage": {
+    "title": "Install OpenMCP into your Agent",
+    "description": "Copy a short prompt so your Agent follows /install/openmcp.md; then download Skill zips into local skills dirs.",
+    "badge": "OpenMCP · Getting started",
+    "heading": "Install Skill packages and the OpenMCP store",
+    "intro": "Copy the “install for AI” prompt (points at install/openmcp.md), then browse the shelf for Zip downloads or Store MCP installs. MCP / A2A use the platform gateway only.",
+    "promptHint": "Copy the short prompt below into your Agent to finish store and package setup.",
+    "copyPrompt": "Copy for AI install",
+    "cta": {
+      "browse": "Browse Skills / MCP / A2A",
+      "provider": "Become a Provider"
+    },
+    "stepsHeading": "Three steps",
+    "steps": {
+      "one": {
+        "title": "Copy the prompt to install the OpenMCP store",
+        "body": "Paste the prompt into Cursor / Claude Code / Codex. The Agent reads /install/openmcp.md and registers Store MCP or downloads the helper Skill package."
+      },
+      "two": {
+        "title": "Download a Skill Zip into local skills dirs",
+        "body": "Open Skills, use “Download Zip” on a detail page, unzip into ~/.cursor/skills, ~/.claude/skills, or Codex skills."
+      },
+      "three": {
+        "title": "Optionally connect MCP / A2A (gateway)",
+        "body": "Copy gateway config from MCP / A2A detail pages with an API key placeholder. No Provider direct connect. Optionally become a Provider."
+      }
+    },
+    "future": {
+      "badge": "Live · Store MCP",
+      "title": "OpenMCP Store MCP",
+      "body": "Platform-hosted Store MCP (search_assets / get_asset / install_asset). Register with a Dashboard API key in Cursor / Claude Code / Codex.",
+      "bullets": {
+        "one": "Agents call search_assets / get_asset / install_asset",
+        "two": "Runtime-specific files or gateway mcp.json / A2A Card",
+        "three": "Paid assets check entitlement; gateway URLs only"
+      },
+      "note": "Store MCP is live: /start and Install into Agent include “Add OpenMCP Store MCP” snippets. Endpoint /api/mcp/store."
+    }
+  },
+  "Skills": {
+    "hero": {
+      "title": "All Skills",
+      "subtitle": "Quickly discover expert skills to take AI from generic to specialized",
+      "searchPlaceholder": "Search skills",
+      "searchButton": "Search",
+      "countSeparator": "·",
+      "countSuffix": "skills",
+      "categoryLabel": "Category",
+      "allCategories": "All categories",
+      "priceLabel": "Price",
+      "allPrices": "All prices",
+      "free": "Free",
+      "paid": "Paid",
+      "certLabel": "Certification",
+      "certAll": "All",
+      "certified": "Certified",
+      "sortLabel": "Sort",
+      "tabs": {
+        "all": "All",
+        "rising": "Trending",
+        "downloads": "Downloads",
+        "newest": "Newest"
+      },
+      "sorts": {
+        "dateDesc": "Newest",
+        "dateAsc": "Oldest",
+        "downloadsDesc": "Most downloaded",
+        "viewsDesc": "Most viewed",
+        "popularityDesc": "Most popular"
+      }
+    },
+    "list": {
+      "loadError": "Failed to load skills, please try again later",
+      "noMatch": "No matching skills found",
+      "adjustFilters": "Try adjusting your filters",
+      "totalPrefix": "Total",
+      "totalSuffix": "skills",
+      "listView": "List view",
+      "gridView": "Grid view",
+      "showingRange": "Showing",
+      "ofTotal": "of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "grid": {
+      "loadError": "Failed to load skills, please try again later",
+      "noMatch": "No matching skills found",
+      "adjustFilters": "Try adjusting your filters",
+      "showingRange": "Showing {from}-{to} skills, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "card": {
+      "safe": "Safe",
+      "caution": "⚠️ Caution",
+      "certified": "Certified",
+      "iconAlt": "{title} icon"
+    },
+    "row": {
+      "certified": "Certified",
+      "iconAlt": "{title} icon"
+    },
+    "category": {
+      "details": "Details",
+      "type": "Type",
+      "category": "Category",
+      "price": "Price",
+      "schemaVersion": "Schema version",
+      "billing": "Billing"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    }
+  },
+  "Personas": {
+    "hero": {
+      "title": "SOUL Gallery",
+      "subtitle": "Pick a soul for your Agent: browse the cards to find the right fit, then install that SOUL into your own AI companion.",
+      "testCta": "Test my SOUL",
+      "installCta": "Pair with expert packs",
+      "countSuffix": "available roles"
+    },
+    "grid": {
+      "loadError": "Failed to load roles, please try again later",
+      "noMatch": "No matching roles found",
+      "adjustFilters": "Try adjusting your filters",
+      "helper": "Not sure who clicks? Take the quick test to get a feel for the vibe. Already sold? Open a card to see the persona breakdown and install instructions.",
+      "galleryAria": "SOUL gallery",
+      "showingRange": "Showing {from}-{to} roles, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "card": {
+      "ariaLabel": "{code}・{title} persona details",
+      "shortReview": "Short review",
+      "viewDetail": "View details"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    }
+  },
+  "Authors": {
+    "workflows": {
+      "showingRange": "Showing {from}-{to} workflows, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "periods": {
+      "7d": "Last 7 days",
+      "1m": "Last month",
+      "3m": "Last 3 months"
+    },
+    "sorts": {
+      "dateAsc": "Oldest first",
+      "downloadsDesc": "Most downloads",
+      "viewsDesc": "Most views",
+      "popularityDesc": "Most popular",
+      "likesDesc": "Most likes"
+    },
+    "loading": "Loading...",
+    "activeFilters": "Active filters:",
+    "removeFilter": "Remove {label}",
+    "clearAll": "Clear all",
+    "sortPrefix": "Sort: {value}"
+  },
+  "RechargePage": {
+    "title": "Wallet top-up",
+    "subtitle": "Top up your wallet to buy paid skills. Balance arrives as soon as payment clears.",
+    "balanceLabel": "Available balance",
+    "balanceHint": "Paid skills deduct from this balance.",
+    "tabOnline": "WeChat / Alipay",
+    "tabBank": "Corporate transfer",
+    "chooseAmount": "Choose an amount",
+    "customAmount": "Custom amount",
+    "customAmountHint": "Enter an amount between the minimum and maximum.",
+    "createOrder": "Create order",
+    "creating": "Creating…",
+    "scanToPay": "Scan to pay",
+    "scanHint": "Open your wallet app and scan the code, or use the pay link.",
+    "openPayLink": "Open payment link",
+    "paySucceeded": "Payment received",
+    "paySucceededHint": "Your balance has been updated.",
+    "payPending": "Waiting for payment",
+    "payFailed": "Payment failed",
+    "payExpired": "Order expired",
+    "payClosed": "Order closed",
+    "balanceNow": "Balance",
+    "viewHistory": "Top-up history",
+    "historyEmpty": "No top-ups yet.",
+    "historyDate": "Date",
+    "historyAmount": "Amount",
+    "historyStatus": "Status",
+    "refresh": "Refresh",
+    "bankTitle": "Corporate bank transfer",
+    "bankIntro": "Transfer to our corporate account, then enter the remittance code so we can match your payment. An administrator confirms the transfer before the balance is credited.",
+    "bankAccountName": "Account name",
+    "bankAccountNumber": "Account number",
+    "bankName": "Bank",
+    "bankBranch": "Branch",
+    "bankNotConfigured": "Corporate transfer is not configured yet. Please use WeChat or Alipay.",
+    "remittanceLabel": "Remittance code",
+    "remittanceHint": "Put this code in the transfer memo/reference field. It is how we match your payment.",
+    "payerNameLabel": "Your account holder name (optional)",
+    "payerNameHint": "Helps us match the incoming transfer faster.",
+    "createBankOrder": "Generate remittance code",
+    "bankAwaiting": "Waiting for confirmation",
+    "bankAwaitingHint": "We have received your order. The balance is credited once an administrator confirms the transfer.",
+    "bankRejected": "Transfer rejected",
+    "bankRejectedHint": "The transfer could not be matched. Please contact support with the remittance code.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "statusPending": "Pending",
+    "statusPendingTransfer": "Awaiting confirmation",
+    "statusPaid": "Paid",
+    "statusExpired": "Expired",
+    "statusClosed": "Closed",
+    "statusFailed": "Failed",
+    "signInRequired": "Sign in to top up your wallet.",
+    "simulationBanner": "Development mode: payments are simulated. No real money moves.",
+    "simulatePay": "Simulate successful payment",
+    "simulateDecline": "Simulate declined payment",
+    "simulateHint": "These buttons exist only in local development and run the same settlement path a real gateway callback would.",
+    "errorAmountInvalid": "That amount is not available.",
+    "errorAmountRange": "Amount must be between the minimum and maximum.",
+    "errorGeneric": "Something went wrong. Please try again."
+  },
+  "AdminBankTransfer": {
+    "title": "Corporate transfer reconciliation",
+    "subtitle": "Match incoming corporate transfers against bank statements, then confirm or reject them. Confirming credits the user's wallet.",
+    "filterStatus": "Status",
+    "filterSearch": "Search",
+    "filterSearchPlaceholder": "Remittance code or order id",
+    "statusAll": "All",
+    "statusPending": "Pending",
+    "statusConfirmed": "Confirmed",
+    "statusRejected": "Rejected",
+    "empty": "No transfers to show.",
+    "colCode": "Remittance code",
+    "colAmount": "Amount",
+    "colPayer": "Payer",
+    "colDate": "Created",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "confirm": "Confirm",
+    "reject": "Reject",
+    "rejectReason": "Reason for rejection",
+    "rejectReasonPlaceholder": "Why this transfer could not be matched",
+    "confirmReject": "Confirm rejection",
+    "cancel": "Cancel",
+    "prev": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {totalPages}",
+    "errorGeneric": "Something went wrong. Please try again."
+  },
+  "OpenPayPage": {
+    "meta": {
+      "title": "OpenPay - Monetize Every Skill You Ship",
+      "description": "Package your expertise as payable skills, accept WeChat Pay and Alipay, and get paid on every Agent call."
+    },
+    "hero": {
+      "eyebrow": "OpenPay · Monetize your capabilities",
+      "titleLine1": "Ship paid skills",
+      "titleLine2": "Turn AI capability into revenue",
+      "subtitle": "Package your professional services as callable, payable skills. Connect WeChat Pay and Alipay, and every Agent call becomes revenue — pay per call, settled in real time.",
+      "ctaPrimary": "Start publishing paid skills",
+      "ctaSecondary": "See how it works",
+      "highlights": {
+        "channels": "WeChat Pay and Alipay",
+        "billing": "Pay per call · real-time settlement",
+        "inflow": "Payment confirmed inside the task flow"
+      }
+    },
+    "comparison": {
+      "eyebrow": "Free skill vs paid skill",
+      "title": "Same capability, a completely different revenue model",
+      "free": {
+        "title": "Free skill",
+        "items": {
+          "download": "Free download, source delivered",
+          "exposure": "Exposure depends on the platform store",
+          "noContact": "No contact with the provider after install"
+        },
+        "earningsLabel": "Earnings",
+        "earningsValue": "One delivery, then word of mouth only"
+      },
+      "paid": {
+        "badge": "Upgrade to a paid skill",
+        "title": "Paid skill (Pay Skill)",
+        "items": {
+          "collect": "WeChat Pay and Alipay, pay by scanning",
+          "models": "Per-call, subscription or monthly billing",
+          "inflow": "Payment confirmed inside the Agent task flow"
+        },
+        "earningsLabel": "Earnings",
+        "earningsValue": "Every real call settles in real time"
+      }
+    },
+    "capabilities": {
+      "eyebrow": "From listing to distribution, one platform",
+      "title": "Turn a capability into a product you can sell",
+      "items": {
+        "wallet": {
+          "title": "WeChat Pay and Alipay out of the box",
+          "description": "Connect WeChat Pay and Alipay collection, get paid by scanning a code, and skip building a payment system of your own. Settlement and reconciliation stay readable."
+        },
+        "migrate": {
+          "title": "Move existing skills to paid billing",
+          "description": "Listed skills need no rework. Switch on billing in one step, and existing users and install records migrate seamlessly without interrupting current usage."
+        },
+        "inflow": {
+          "title": "Payment confirmed inside the task flow",
+          "description": "Users place orders, pay and confirm directly in the Agent conversation, without leaving the task chain. Fewer drop-offs."
+        },
+        "distribute": {
+          "title": "One OpenMCP connection, many entry points",
+          "description": "A single paid skill distributes to multiple Agent platforms at once. SKILL.md, MCP and A2A list in one place and sell everywhere."
+        }
+      }
+    },
+    "cases": {
+      "eyebrow": "Companies on OpenPay",
+      "title": "They turned expertise into recurring revenue",
+      "items": {
+        "workRally": {
+          "name": "Work Rally",
+          "scene": "Meeting minutes with automatic task assignment",
+          "price": "Subscription ¥29/mo"
+        },
+        "trip": {
+          "name": "Trip.com",
+          "scene": "Intelligent itinerary summaries",
+          "price": "¥0.2 per call"
+        },
+        "luckin": {
+          "name": "Luckin Coffee",
+          "scene": "Store operations data briefings",
+          "price": "Subscription ¥19/mo"
+        },
+        "wind": {
+          "name": "Wind",
+          "scene": "Real-time financial data retrieval",
+          "price": "¥0.5 per call"
+        },
+        "tencent": {
+          "name": "Tencent Stock",
+          "scene": "In-depth equity market analysis",
+          "price": "¥0.3 per call"
+        },
+        "tongdaxin": {
+          "name": "Tongdaxin",
+          "scene": "Technical indicator recognition",
+          "price": "¥0.4 per call"
+        }
+      },
+      "disclaimer": "Illustrative examples of paid skills listed on OpenPay."
+    },
+    "steps": {
+      "eyebrow": "Three steps to integrate",
+      "title": "How to get started with OpenPay",
+      "tabWechat": "WeChat Pay",
+      "tabAlipay": "Alipay",
+      "contentWechat": "Official direct connection throughout: bind your WeChat Pay merchant ID once, get paid by scanning, and revenue is split automatically on the settlement cycle.",
+      "contentAlipay": "Authorize your corporate Alipay account to connect to the open platform. Both payment code and web pay are supported, with fees queryable in real time.",
+      "items": {
+        "verify": {
+          "title": "Complete verification and connect a payout channel",
+          "description": "Submit your company details for verification, then bind WeChat Pay or Alipay once approved to enable per-call and subscription collection."
+        },
+        "package": {
+          "title": "Package your expertise as a paid skill",
+          "description": "List the skill on Skills and switch on billing: set per-call or subscription pricing, then describe the capability and its parameters."
+        },
+        "launch": {
+          "title": "Go live and earn on every Agent call",
+          "description": "After passing review the skill joins the central directory, calls are metered and billed, and earnings settle in real time."
+        }
+      },
+      "ctaPrimary": "Start onboarding",
+      "ctaSecondary": "Publish a free skill first",
+      "support": "Human support throughout"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "A few things worth confirming before you start",
+      "items": {
+        "difference": {
+          "question": "How do paid skills differ from free skills?",
+          "answer": "Free skills are distributed by download, and the provider delivers once. A paid skill (Pay Skill) packages expertise into a callable, billable service charged per call or per subscription. The more an Agent calls it, the more you earn."
+        },
+        "qualification": {
+          "question": "What do I need to list a paid skill?",
+          "answer": "Individuals and companies can both join. Completing company verification unlocks higher settlement limits and lower fees, but individual developers can list right away and bind a payout account in their own name."
+        },
+        "bothChannels": {
+          "question": "Can I accept both WeChat Pay and Alipay?",
+          "answer": "Yes. A single paid skill can bind WeChat Pay and Alipay at once, and users are routed to the method they prefer. Fees and settlement records for both channels stay in one OpenPay dashboard."
+        },
+        "payout": {
+          "question": "When do I get paid?",
+          "answer": "Per-call and subscription revenue is aggregated and paid out automatically on the settlement cycle (T+1 by default), alongside a real-time view of calls and payouts for straightforward reconciliation."
+        },
+        "migrate": {
+          "question": "Will converting an existing skill affect current users?",
+          "answer": "No. The move is seamless: install and usage history are preserved and the free entry point keeps working, while new paid calls use a new billing channel you can switch on or off at any time."
+        }
+      }
+    },
+    "cta": {
+      "title": "Get started with OpenPay",
+      "subtitle": "Let your expertise earn on real usage — list a paid skill, connect WeChat Pay and Alipay, and every Agent call adds to your income.",
+      "ctaPrimary": "Publish a paid skill",
+      "ctaSecondary": "Browse the skill market",
+      "note": "OpenMCP. Bridging AI capability and real-world application."
+    }
+  },
+  "PersonaPage": {
+    "meta": {
+      "notFoundTitle": "Persona Not Found",
+      "notFoundDescription": "Sorry, this persona could not be found.",
+      "detailTitleSuffix": "Persona",
+      "detailFallbackDescription": "View and install the {name} persona"
+    },
+    "detail": {
+      "notFoundHeading": "Persona not found",
+      "notFoundHint": "Sorry, this persona could not be found.",
+      "description": "Description",
+      "noDescription": "No description yet",
+      "noImage": "No cover image for this persona",
+      "verified": "Verified author",
+      "certified": "Certified",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "viewsCount": "{count} views",
+      "downloadsCount": "{count} downloads",
+      "soul": {
+        "taglineHeading": "Personality blurb",
+        "noTagline": "No blurb yet",
+        "profileHeading": "Character profile",
+        "noProfile": "No character profile yet",
+        "installHeading": "Install this SOUL",
+        "viaChat": "Install via chat",
+        "viaChatHint": "Copy the prompt below and send it to any AI assistant (e.g. Lighthouse, OpenClaw, WorkBuddy, QClaw, Kimi, Claude) to give your AI companion the soul of {name}.",
+        "installPrompt": "Please install {code} by following {doc}.",
+        "copyPrompt": "Copy prompt",
+        "zipTitle": "Zip package",
+        "zipHint": "Zip package installation is coming soon."
+      }
+    }
+  },
+  "ProviderPage": {
+    "authGate": {
+      "loading": "Loading..."
+    },
+    "submit": {
+      "progress": "Publishing progress",
+      "steps": {
+        "login": "Sign in",
+        "verify": "Verification",
+        "upload": "Upload / configure"
+      }
+    },
+    "gate": {
+      "loading": "Loading your provider status...",
+      "statusErrorTitle": "Could not load your provider status",
+      "statusErrorHint": "Please try again in a moment.",
+      "retry": "Reload",
+      "needVerifyTitle": "Complete verification first",
+      "needVerifyHint": "Before publishing MCP servers, A2A agents or skills you need to complete identity verification (KYC) as an individual or a company. Once approved you can upload and configure your assets.",
+      "rejectedTitle": "Verification was not approved",
+      "rejectionReason": "Rejection reason",
+      "goVerify": "Go to verification",
+      "pendingTitle": "Verification under review",
+      "pendingHint": "We are reviewing your provider details, which usually takes 1-3 business days. You can submit assets here once it is approved.",
+      "viewStatus": "View provider status",
+      "payMissingTitle": "No payout account bound",
+      "payMissingHint": "You can submit free assets first. Bind a WeChat Pay or Alipay account before publishing paid assets so the platform can pay you out.",
+      "bindPayout": "Bind a payout account",
+      "verifiedLabel": "Verification approved",
+      "payChannels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      }
+    },
+    "notLogin": {
+      "eyebrow": "Provider onboarding",
+      "headline": "List your skills on the OpenMCP marketplace",
+      "subheadline": "The app store for the AI era. Publish MCP tools, A2A agents and skills, reach the developer community, and earn revenue in real time.",
+      "steps": {
+        "account": {
+          "title": "1. Sign in",
+          "description": "Register quickly with your email or phone number"
+        },
+        "onboard": {
+          "title": "2. Complete onboarding",
+          "description": "Fill in your entity and payout details (individual or company)"
+        },
+        "payout": {
+          "title": "3. Connect payouts",
+          "description": "Bind a WeChat Pay or Alipay channel"
+        },
+        "publish": {
+          "title": "4. Publish",
+          "description": "Submit an MCP server, A2A agent or skill for review"
+        }
+      },
+      "whyTitle": "Why onboard with OpenMCP?",
+      "benefits": {
+        "shelves": "Publish to the MCP server, A2A agent and AI skill shelves",
+        "pricing": "Price assets as free or paid and settle revenue in real time",
+        "revenue": "Low platform fees, and what you see is what you earn",
+        "review": "Security review and compliance checks that users trust"
+      },
+      "ctaTitle": "Sign in to start onboarding",
+      "ctaHint": "Once onboarding is complete you can publish to the MCP, A2A and Skills shelves",
+      "ctaButton": "Sign in and start onboarding",
+      "ctaFootnote": "No account yet? The sign-in page can register you in a moment",
+      "enterpriseTitle": "Company verification and corporate settlement are enterprise features",
+      "enterpriseHint": "Individual providers accept WeChat Pay and Alipay; company providers support corporate settlement and invoicing."
+    },
+    "kyc": {
+      "meta": {
+        "title": "Provider onboarding - OpenMCP",
+        "description": "Complete identity verification to publish MCP servers, A2A agents and skills on the OpenMCP marketplace."
+      },
+      "pageTitle": "Provider onboarding",
+      "pageDescription": "Complete identity verification to start publishing on OpenMCP.",
+      "entry": {
+        "title": "Choose your verification type",
+        "description": "Pick individual or company verification. The documents you need to provide differ, and the choice decides which payout and invoicing options are available.",
+        "individual": {
+          "title": "Individual verification",
+          "description": "For independent developers. Verify with your ID card and receive payouts to WeChat Pay or Alipay.",
+          "detail": "Best for freelancers and solo developers"
+        },
+        "company": {
+          "title": "Company verification",
+          "description": "For teams and organisations. Verify with a business licence and support corporate settlement and invoicing.",
+          "detail": "Best for teams, companies and institutions"
+        }
+      },
+      "individual": {
+        "pageTitle": "Individual verification",
+        "pageDescription": "Verify your identity and choose a payout channel. Review usually takes 1-3 business days.",
+        "meta": {
+          "title": "Individual verification - OpenMCP",
+          "description": "Complete individual identity verification to publish on the OpenMCP marketplace."
+        }
+      },
+      "company": {
+        "pageTitle": "Company verification",
+        "pageDescription": "Verify your company and choose a payout channel. Review usually takes 1-3 business days.",
+        "meta": {
+          "title": "Company verification - OpenMCP",
+          "description": "Complete company identity verification to publish on the OpenMCP marketplace."
+        }
+      },
+      "steps": {
+        "entity": "Choose entity",
+        "details": "Add details",
+        "pending": "Under review",
+        "verified": "Approved"
+      },
+      "status": {
+        "unverified": {
+          "title": "Not submitted",
+          "body": "You have not submitted verification details yet. Fill in the form and upload the required documents."
+        },
+        "pending": {
+          "title": "Under review",
+          "body": "Your details are being reviewed and are locked while the review runs, which usually takes 1-3 business days."
+        },
+        "verified": {
+          "title": "Approved",
+          "body": "Your verification is approved, so you can publish assets and receive payouts. Submit again if your details change."
+        },
+        "rejected": {
+          "title": "Not approved",
+          "body": "Verification was not approved. Update your details as noted below and submit again."
+        },
+        "note": "Review note"
+      },
+      "lock": {
+        "title": "Details are locked while under review",
+        "body": "We cannot change submitted details during the review. You can edit them again once it is approved or rejected."
+      },
+      "docs": {
+        "idCardFront": "ID card, photo side",
+        "idCardBack": "ID card, emblem side",
+        "businessLicense": "Business licence",
+        "legalPersonIdFront": "Legal person's ID, photo side",
+        "legalPersonIdBack": "Legal person's ID, emblem side",
+        "authorizationFile": "Authorisation letter",
+        "authorizationFileHint": "Signed by the legal person, authorising the account operator to act on the company's behalf.",
+        "authorizerIdFront": "Authoriser's ID, photo side",
+        "authorizerIdBack": "Authoriser's ID, emblem side"
+      },
+      "upload": {
+        "choose": "Choose file",
+        "uploading": "Uploading...",
+        "done": "Uploaded",
+        "remove": "Remove file",
+        "failed": "Upload failed. Please try again."
+      },
+      "fields": {
+        "companyName": "Registered company name",
+        "companyNamePlaceholder": "As shown on the business licence",
+        "contactName": "Contact name",
+        "contactNamePlaceholder": "Full legal name",
+        "idNumber": "ID number",
+        "idNumberPlaceholder": "ID or unified social credit code",
+        "idNumberHint": "For companies this is the unified social credit code, used only for verification.",
+        "payChannel": "Payout channel",
+        "payChannelHint": "Tells the platform where to send your earnings. You can bind the account or QR code itself after verification is approved.",
+        "agreedTerms": "I have read and agree to the provider agreement and the marketplace terms.",
+        "legalPersonIsAuthorizer": "The legal person is the account operator, so no separate authorisation letter is needed."
+      },
+      "payChannels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      },
+      "validation": {
+        "contactName": "Enter the contact name",
+        "idNumber": "Enter the ID number",
+        "companyName": "Enter the registered company name",
+        "payChannelType": "Choose a payout channel",
+        "idCardDocs": "Upload both sides of your ID card",
+        "businessLicense": "Upload the business licence",
+        "authorizerId": "Upload both sides of the authoriser's ID",
+        "authorizationFile": "Upload the authorisation letter, or confirm that the legal person is the account operator",
+        "agreedTerms": "You must accept the agreement before submitting"
+      },
+      "serverErrors": {
+        "locked": "Verification is under review and your details are locked until it is approved or rejected.",
+        "idCardMissing": "Upload both sides of your ID card.",
+        "businessLicenseMissing": "Company verification requires a business licence.",
+        "companyDocsMissing": "Upload the legal person's ID, or an authorisation letter together with the authoriser's ID.",
+        "authorizerIdMissing": "Add both sides of the authoriser's ID.",
+        "entityMissing": "Choose a verification type first.",
+        "detailsIncomplete": "Complete your contact name, ID number and payout channel before submitting.",
+        "saveFailed": "Could not save your onboarding details. Please try again.",
+        "userMissing": "Account not found."
+      },
+      "submit": {
+        "label": "Submit for review",
+        "sending": "Submitting..."
+      },
+      "actions": {
+        "refresh": "Refresh status"
+      }
+    },
+    "payout": {
+      "meta": {
+        "title": "Payout account - OpenMCP",
+        "description": "Bind the WeChat Pay or Alipay account the platform uses to pay you for paid assets."
+      },
+      "pageTitle": "Payout account",
+      "pageDescription": "Bind where the platform sends your earnings. A payout account is required before you can publish paid assets.",
+      "title": "Payout account binding",
+      "description": "Add the WeChat Pay or Alipay account the platform should use to pay you. You can bind both channels and choose which one settles by default. This is account binding only; it does not connect a WeChat or Alipay merchant account.",
+      "channels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      },
+      "ready": {
+        "title": "Payout channel ready (default: {channel})",
+        "defaultBadge": "Default",
+        "body": "You can publish paid assets. Edit either channel below to change your details."
+      },
+      "notReady": {
+        "title": "No payout account bound yet",
+        "body": "Free assets can be submitted first, but you must bind at least one payout account before publishing paid MCP servers, A2A agents or skills."
+      },
+      "loadError": {
+        "title": "Could not load your payout details",
+        "body": "Please try again in a moment.",
+        "retry": "Reload"
+      },
+      "onboardingRequired": {
+        "title": "Complete onboarding first",
+        "body": "You need to submit verification details before binding a payout account.",
+        "cta": "Go to verification"
+      },
+      "fields": {
+        "account": "Account",
+        "accountPlaceholder": "Phone number or account ID",
+        "accountHint": {
+          "wechat": "Enter your WeChat ID or the phone number bound to it.",
+          "alipay": "Enter the email or phone number bound to your Alipay account."
+        },
+        "accountName": "Account name",
+        "accountNamePlaceholder": "Name on the account",
+        "qrCode": "Payment QR code",
+        "willBecomeDefault": "Saving this channel makes it your default settlement channel."
+      },
+      "upload": {
+        "choose": "Upload QR code",
+        "uploading": "Uploading...",
+        "remove": "Remove QR code"
+      },
+      "validation": {
+        "accountRequired": "Enter an account or upload a payment QR code"
+      },
+      "submit": {
+        "label": "Save payout account",
+        "sending": "Saving..."
+      },
+      "toast": {
+        "saved": "Payout account saved",
+        "failed": "Could not save your payout account"
+      },
+      "serverErrors": {
+        "onboardingRequired": "Complete provider onboarding before binding a payout account.",
+        "accountRequired": "Enter a payout account or upload a payment QR code.",
+        "saveFailed": "Could not save your payout account. Please try again."
+      }
+    },
+    "imageUpload": {
+      "choose": "Choose an image",
+      "uploading": "Uploading...",
+      "done": "Uploaded",
+      "remove": "Remove image",
+      "failed": "Upload failed",
+      "tooLarge": "File is too large, the maximum is {max}.",
+      "notImage": "Only image files are supported."
+    }
+  },
+  "McpSubmit": {
+    "meta": {
+      "title": "Publish an MCP Server",
+      "description": "Connect your MCP endpoint, test it, and publish it to the OpenMCP marketplace for Claude, Codex and other AI clients."
+    },
+    "cardTitle": "Publish an MCP Server",
+    "cardDescription": "Connect and test your endpoint first, then add the listing details.",
+    "step1": "1. Connect endpoint",
+    "step2": "2. Listing details",
+    "url": {
+      "label": "Endpoint URL",
+      "placeholder": "https://example.com/mcp"
+    },
+    "discover": {
+      "button": "Auto-discover",
+      "successTitle": "Discovery succeeded",
+      "failedTitle": "Discovery failed",
+      "summary": "Discovered {count} tools",
+      "nameLabel": "Service name",
+      "toolCountLabel": "Tools",
+      "protocolLabel": "Protocol",
+      "toastSuccess": "Discovery succeeded"
+    },
+    "assetName": {
+      "label": "Asset slug",
+      "placeholder": "e.g. order-query-server",
+      "hint": "Lowercase, a-z / 0-9 / - only. Gateway ID: your-username/{assetName}",
+      "checking": "Checking availability...",
+      "available": "This slug is available.",
+      "taken": "This slug is already taken.",
+      "invalid": "Use lowercase letters, digits and hyphens, starting with a letter or digit."
+    },
+    "displayName": {
+      "label": "Display name",
+      "placeholder": "e.g. Order Query MCP"
+    },
+    "transport": {
+      "label": "Transport",
+      "streamable": "Streamable HTTP",
+      "sse": "SSE"
+    },
+    "auth": {
+      "label": "Authentication",
+      "none": "No authentication",
+      "apiKey": "API Key",
+      "bearer": "Bearer token",
+      "basic": "Basic auth",
+      "oauthClient": "Client credentials (OAuth2)",
+      "secret": "Secret",
+      "secretPlaceholder": "Secret used for the connection test",
+      "basicLabel": "Credentials",
+      "basicPlaceholder": "username:password",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://example.com/oauth/token",
+      "oauthHint": "We store the credentials encrypted and use them to fetch tokens when clients call this server."
+    },
+    "test": {
+      "button": "Run connection test",
+      "running": "Testing...",
+      "success": "Connection succeeded: {count} tools, {ms}ms",
+      "failed": "The connection test did not pass.",
+      "steps": {
+        "handshake": "Endpoint reachable",
+        "auth": "Authentication",
+        "tools": "Tool listing",
+        "protocol": "Protocol version"
+      },
+      "pass": "Pass",
+      "fail": "Fail",
+      "pending": "Not checked"
+    },
+    "step1Confirm": "Continue to listing details",
+    "description": {
+      "label": "Service description",
+      "placeholder": "Which tools this MCP exposes, when to use it, and how to connect.",
+      "hint": "At least {min} characters."
+    },
+    "logo": {
+      "label": "Logo",
+      "hint": "Square image, up to {max}."
+    },
+    "cover": {
+      "label": "Cover image",
+      "hint": "Recommended 1200x630, up to {max}."
+    },
+    "category": {
+      "label": "Category",
+      "placeholder": "Choose a category",
+      "none": "No category"
+    },
+    "scope": {
+      "label": "Visibility",
+      "public": "Public",
+      "private": "Private",
+      "team": "Team"
+    },
+    "priceType": {
+      "label": "Pricing",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "billingModel": {
+      "label": "Billing model",
+      "placeholder": "Choose a billing model",
+      "none": "Choose a billing model",
+      "oneTime": "One-time purchase",
+      "subscription": "Subscription",
+      "payPerCall": "Per call"
+    },
+    "priceAmount": {
+      "label": "Price (CNY)",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "Price per call (CNY)",
+      "placeholder": "0.01"
+    },
+    "payoutWarning": "Paid listings need a bound payout account. Free listings can be submitted now.",
+    "step2Back": "Back",
+    "step2Submit": "Submit for review",
+    "submitting": "Submitting...",
+    "upload": {
+      "choose": "Choose an image",
+      "uploading": "Uploading...",
+      "replace": "Replace",
+      "remove": "Remove",
+      "done": "Uploaded",
+      "failed": "Upload failed",
+      "tooLarge": "File is too large, the maximum is {max}.",
+      "notImage": "Only image files are supported."
+    },
+    "error": {
+      "urlRequired": "Enter an endpoint URL first.",
+      "discoverFailed": "Auto-discovery failed, please fill the fields manually.",
+      "testFailed": "The connection test failed.",
+      "testRequired": "Run and pass the connection test first.",
+      "descriptionTooShort": "The description needs at least {min} characters.",
+      "billingModelRequired": "Choose a billing model for a paid listing.",
+      "priceRequired": "Enter a price for a paid listing.",
+      "priceInvalid": "Enter a price greater than or equal to 0.",
+      "connectFailed": "Could not register the endpoint.",
+      "publishFailed": "Could not submit the listing.",
+      "submitFailed": "Submission failed."
+    },
+    "success": {
+      "title": "MCP server submitted",
+      "description": "The connection test passed and the listing is in the review queue.",
+      "manage": "Manage your assets"
+    }
+  },
+  "SkillSubmit": {
+    "meta": {
+      "title": "Submit a Skill",
+      "description": "Import a skill from a GitHub repository or upload a ZIP package, then publish it to the OpenMCP Skills shelf."
+    },
+    "cardTitle": "Submit a Skill",
+    "cardDescription": "Import from GitHub or upload a ZIP. The platform runs a security scan before listing.",
+    "mode": {
+      "label": "Import method",
+      "github": "GitHub repository",
+      "zip": "ZIP package"
+    },
+    "github": {
+      "heading": "GitHub repository",
+      "urlLabel": "Repository URL",
+      "urlPlaceholder": "https://github.com/owner/skill-name",
+      "check": "Check",
+      "hint": "The platform fetches the repository on the server side, so no pull request is needed.",
+      "valid": "Repository URL looks valid"
+    },
+    "zip": {
+      "heading": "Upload a ZIP",
+      "dropzone": "Drop a ZIP here, or",
+      "browse": "choose a file",
+      "hint": "Only .zip, up to {max}. It must contain skill.yaml or SKILL.md.",
+      "remove": "Remove",
+      "uploading": "Uploading...",
+      "selected": "{name} ({size})",
+      "failed": "ZIP upload failed",
+      "tooLarge": "The ZIP is larger than the {max} limit."
+    },
+    "name": {
+      "label": "Skill name",
+      "placeholder": "e.g. pdf-report"
+    },
+    "description": {
+      "label": "Description",
+      "placeholder": "What it does, when to use it, and any dependencies.",
+      "hint": "Optional, up to {max} characters."
+    },
+    "image": {
+      "label": "Logo or cover image",
+      "hint": "Optional, up to {max}."
+    },
+    "category": {
+      "label": "Category",
+      "placeholder": "Choose a category",
+      "none": "No category"
+    },
+    "scope": {
+      "label": "Visibility",
+      "public": "Public",
+      "private": "Private",
+      "team": "Team"
+    },
+    "priceType": {
+      "label": "Pricing",
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "billingModel": {
+      "label": "Billing model",
+      "placeholder": "Choose a billing model",
+      "none": "Choose a billing model",
+      "oneTime": "One-time purchase",
+      "subscription": "Subscription",
+      "payPerCall": "Per call"
+    },
+    "priceAmount": {
+      "label": "Price (CNY)",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "Price per call (CNY)",
+      "placeholder": "0.01"
+    },
+    "requirements": {
+      "title": "Submission requirements",
+      "metaFile": "Include skill.yaml or SKILL.md metadata in the repository or package",
+      "readme": "Provide a README describing usage and configuration",
+      "noSecrets": "Do not include API keys, passwords or other secrets",
+      "payout": "Bind a WeChat Pay or Alipay account before publishing a paid skill"
+    },
+    "submitGithub": "Import from GitHub",
+    "submitZip": "Upload and import",
+    "submitting": "Submitting...",
+    "payoutWarning": "Paid listings need a bound payout account. Free listings can be submitted now.",
+    "error": {
+      "invalidRepoUrl": "Enter a valid GitHub repository URL.",
+      "zipRequired": "Choose a ZIP file first.",
+      "billingModelRequired": "Choose a billing model for a paid listing.",
+      "priceRequired": "Enter a price for a paid listing.",
+      "priceInvalid": "Enter a price greater than or equal to 0.",
+      "connectGithubFailed": "Could not import the GitHub repository.",
+      "submitFailed": "Submission failed."
+    },
+    "success": {
+      "title": "Skill imported",
+      "githubDescription": "A security scan is queued, you can track it under My assets.",
+      "zipDescription": "Parsed and scanned, you can find it under My assets.",
+      "manage": "Manage your assets"
+    }
+  },
+  "A2ASubmit": {
+    "meta": {
+      "title": "Publish an A2A Agent",
+      "description": "Connect an A2A agent endpoint, verify its Agent Card, and publish it to the marketplace"
+    },
+    "cardTitle": "Publish an A2A Agent",
+    "cardDescription": "Point at your agent endpoint, verify the Agent Card, then decide how it is listed and priced.",
+    "step1": "Connect",
+    "step2": "Listing details",
+    "url": {
+      "label": "Endpoint URL",
+      "placeholder": "https://your-agent.example.com"
+    },
+    "discover": {
+      "button": "Discover",
+      "successTitle": "Agent Card read",
+      "failedTitle": "Could not read the Agent Card",
+      "nameLabel": "Agent name",
+      "skillCountLabel": "Skills",
+      "protocolLabel": "Protocol",
+      "toastSuccess": "Agent Card discovered"
+    },
+    "assetName": {
+      "label": "Asset name",
+      "placeholder": "my-agent",
+      "hint": "Your asset will be published at {assetName}",
+      "checking": "Checking availability...",
+      "available": "This name is available",
+      "taken": "This name is already taken",
+      "invalid": "Use lowercase letters, numbers and hyphens only"
+    },
+    "displayName": {
+      "label": "Display name",
+      "placeholder": "My Agent"
+    },
+    "protocol": {
+      "label": "Agent Card protocol",
+      "v03": "0.3 (legacy)",
+      "v10": "1.0"
+    },
+    "auth": {
+      "label": "Authentication",
+      "none": "None",
+      "apiKey": "API key",
+      "bearer": "Bearer token",
+      "basic": "Basic auth",
+      "oauthClient": "OAuth client credentials",
+      "secret": "API key or token",
+      "secretPlaceholder": "Paste the key or token",
+      "basicLabel": "user:password",
+      "basicPlaceholder": "username:password",
+      "oauthHint": "The gateway exchanges these credentials for a token on every call.",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://auth.example.com/oauth/token"
+    },
+    "test": {
+      "button": "Test connection",
+      "running": "Testing...",
+      "success": "Connection passed in {ms} ms with {count} skills",
+      "failed": "Connection test failed",
+      "steps": {
+        "handshake": "Endpoint reachable",
+        "auth": "Authentication",
+        "tools": "Agent Card parsed",
+        "protocol": "Protocol version match"
+      }
+    },
+    "step1Confirm": "Continue to listing details",
+    "step2Back": "Back to connection",
+    "step2Submit": "Publish agent",
+    "submitting": "Publishing...",
+    "payoutWarning": "Paid agents need a bound payout account before they can be published.",
+    "listing": {
+      "description": {
+        "label": "Description",
+        "placeholder": "Describe what this agent can do and when to call it",
+        "hint": "At least {min} characters"
+      },
+      "logo": {
+        "label": "Logo",
+        "hint": "Square image, up to {max}"
+      },
+      "cover": {
+        "label": "Cover image",
+        "hint": "Wide image, up to {max}"
+      },
+      "category": {
+        "label": "Category",
+        "placeholder": "Select a category",
+        "none": "No category"
+      },
+      "scope": {
+        "label": "Visibility",
+        "public": "Public",
+        "private": "Private",
+        "team": "Team"
+      },
+      "priceType": {
+        "label": "Pricing",
+        "free": "Free",
+        "paid": "Paid"
+      },
+      "billingModel": {
+        "label": "Billing model",
+        "placeholder": "Select a billing model",
+        "oneTime": "One-time",
+        "subscription": "Subscription",
+        "payPerCall": "Pay per call"
+      },
+      "priceAmount": {
+        "label": "Price",
+        "placeholder": "0.00"
+      },
+      "unitPrice": {
+        "label": "Price per call",
+        "placeholder": "0.00"
+      }
+    },
+    "error": {
+      "urlRequired": "Enter the agent endpoint URL",
+      "discoverFailed": "Could not read the Agent Card from this endpoint",
+      "testFailed": "Connection test failed",
+      "connectFailed": "Could not connect this agent to the gateway",
+      "publishFailed": "Could not submit the agent for review",
+      "submitFailed": "Something went wrong while publishing",
+      "testRequired": "Run a passing connection test first",
+      "descriptionTooShort": "Write a description of at least {min} characters",
+      "billingModelRequired": "Select a billing model for paid agents",
+      "priceRequired": "Enter a price",
+      "priceInvalid": "Enter a valid price"
+    },
+    "success": {
+      "title": "Agent submitted for review",
+      "description": "You can track its status from your dashboard.",
+      "manage": "Manage your agents"
+    }
+  }
+}

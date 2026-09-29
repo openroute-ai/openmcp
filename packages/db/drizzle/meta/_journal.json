@@ -8,6 +8,34 @@
       "when": 1774894801739,
       "tag": "0000_nappy_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790636313231,
+      "tag": "0001_marketplace_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790654450854,
+      "tag": "0002_bank_transfer_vouchers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790667000000,
+      "tag": "0003_api_key_gateway_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790681895781,
+      "tag": "0004_user_phone_number_unique",
+      "breakpoints": true
     }
   ]
 }

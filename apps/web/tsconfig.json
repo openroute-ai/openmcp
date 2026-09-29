@@ -2,7 +2,18 @@
   "extends": "@workspace/typescript-config/nextjs.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
+      "@workspace/auth": ["../../packages/auth/src/index.ts"],
+      "@workspace/db": ["../../packages/db/src/index.ts"],
+      "@workspace/litellm": ["../../packages/litellm/src/index.ts"],
+      "@workspace/storage/browser": ["../../packages/storage/src/browser.ts"],
+      "@workspace/storage": ["../../packages/storage/src/index.ts"],
+      "@workspace/mail/types": ["../../packages/mail/src/types.ts"],
+      "@workspace/mail": ["../../packages/mail/src/index.ts"],
+      "@workspace/payment/types": ["../../packages/payment/src/types.ts"],
+      "@workspace/payment/repository": ["../../packages/payment/src/repository.ts"],
+      "@workspace/payment": ["../../packages/payment/src/index.ts"],
+      "@workspace/payment/topup": ["../../packages/payment/src/topup/index.ts"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [

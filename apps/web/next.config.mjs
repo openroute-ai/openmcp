@@ -1,6 +1,25 @@
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@workspace/ui", "@workspace/auth", "@workspace/db"],
-}
+  transpilePackages: [
+    "@workspace/ui",
+    "@workspace/auth",
+    "@workspace/db",
+    "@workspace/litellm",
+    "@workspace/storage",
+    "@workspace/mail",
+    "@workspace/payment",
+  ],
+  experimental: {
+    proxyTimeout: 30_000,
+  },
+  // ali-oss pulls in urllib, which lazily requires the optional `proxy-agent`
+  // package. Bundling it makes the build fail on that missing optional dep, so
+  // the Node-only storage SDK is kept as a runtime require instead.
+  serverExternalPackages: ["ali-oss"],
+};
 
-export default nextConfig
+export default withNextIntl(nextConfig);

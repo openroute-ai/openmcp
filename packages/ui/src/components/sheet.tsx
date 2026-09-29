@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { cn } from "cn"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { IconX } from "@tabler/icons-react"
 
@@ -75,7 +75,8 @@ function SheetContent({
               className="absolute top-3 right-3"
               size="icon-sm"
             >
-              <IconX />
+              <IconX
+              />
               <span className="sr-only">Close</span>
             </Button>
           </SheetPrimitive.Close>

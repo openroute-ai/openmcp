@@ -1,0 +1,4119 @@
+{
+  "Metadata": {
+    "name": "OpenMCP",
+    "title": "OpenMCP — 为中国 Agent 优化的 Skills / MCP / A2A 市场",
+    "description": "浏览货架、下载 Skill 包、接入 MCP / A2A；Provider 入驻上架，可选变现。审核与目录开箱即用。"
+  },
+  "Common": {
+    "login": "登录",
+    "logout": "退出",
+    "signUp": "注册",
+    "language": "切换语言",
+    "mode": {
+      "label": "切换模式",
+      "light": "浅色模式",
+      "dark": "深色模式",
+      "system": "跟随系统"
+    },
+    "theme": {
+      "label": "切换主题",
+      "default": "默认",
+      "blue": "蓝色",
+      "green": "绿色",
+      "amber": "橙色",
+      "neutral": "中性"
+    },
+    "copy": "复制",
+    "save": "保存",
+    "saving": "保存中...",
+    "loading": "加载中...",
+    "cancel": "取消",
+    "logoutFailed": "退出失败",
+    "copied": "已复制",
+    "breadcrumb": "面包屑导航",
+    "home": "首页",
+    "mcpMarket": "MCP 市场",
+    "a2aMarket": "A2A 市场",
+    "personas": "虚拟员工",
+    "openpay": "OpenPay",
+    "backTo": "返回{name}"
+  },
+  "Dashboard": {
+    "activityChart": {
+      "title": "{modelName} 的最近活动",
+      "description": "每日处理的令牌数（最近60天）",
+      "loading": "加载中...",
+      "error": "无法加载使用统计",
+      "retry": "重试",
+      "promptTokens": "提示令牌",
+      "completionTokens": "完成令牌",
+      "dailyTokens": "每日令牌"
+    },
+    "dashboard": {
+      "title": "概览"
+    },
+    "firstLoginPrompt": {
+      "message": "首次登录？",
+      "action": "联系技术支持",
+      "openDialog": "打开微信二维码对话框",
+      "dismiss": "关闭提示"
+    },
+    "messages": {
+      "ariaLabel": "站内信",
+      "title": "站内信",
+      "unreadCount": "{count} 条未读消息",
+      "noUnread": "暂无未读消息",
+      "markAllRead": "全部已读",
+      "filter": {
+        "all": "全部",
+        "unread": "未读",
+        "read": "已读"
+      },
+      "emptyAll": "暂无消息",
+      "emptyUnread": "暂无未读消息",
+      "emptyRead": "暂无已读消息",
+      "emptyHint": "新的通知会显示在这里",
+      "time": {
+        "justNow": "刚刚",
+        "minutesAgo": "{count} 分钟前",
+        "hoursAgo": "{count} 小时前",
+        "daysAgo": "{count} 天前"
+      },
+      "pagination": {
+        "showing": "显示 {start}–{end} 条，共 {total} 条",
+        "previous": "上一页",
+        "next": "下一页"
+      }
+    },
+    "stats": {
+      "totalSpend": "总消费",
+      "totalTokens": "总令牌数",
+      "totalRequests": "总请求数",
+      "totalFavorites": "工作流收藏数",
+      "totalDownloads": "总下载数",
+      "trendingUp": "本周期上升 {percentage}",
+      "trendingDown": "本周期下降 {percentage}",
+      "trendingStable": "趋势稳定",
+      "strongRetention": "用户留存表现强劲",
+      "performanceIncrease": "性能持续提升",
+      "spendLast6Months": "近6个月消费情况",
+      "acquisitionNeedsAttention": "获客需要关注",
+      "engagementExceedTargets": "用户参与度超出目标",
+      "workflowFavorites": "工作流收藏",
+      "workflowDownloads": "工作流下载"
+    },
+    "providerStats": {
+      "calls": "调用次数",
+      "callsHint": "近 30 天调用",
+      "income": "预估收入",
+      "incomeHint": "近 30 天预估",
+      "access": "访问量",
+      "accessHint": "全部已发布资产",
+      "downloads": "下载量",
+      "downloadsHint": "全部已发布资产",
+      "favorites": "收藏数",
+      "favoritesHint": "全部已发布资产",
+      "trendingUp": "本周期上升 {percentage}",
+      "trendingDown": "本周期下降 {percentage}",
+      "trendingStable": "趋势稳定",
+      "usageTrend": "调用与收入趋势",
+      "usageTrendDescription": "近 30 天调用次数与预估收入，来自 LiteLLM 用量同步",
+      "last30Days": "近 30 天",
+      "last7Days": "近 7 天",
+      "noData": "暂无数据",
+      "assetOverview": "资产概览",
+      "assetOverviewDescription": "已发布的资产数量",
+      "assetTotal": "已发布资产总数",
+      "assets": {
+        "skills": "技能",
+        "mcpServers": "MCP 服务",
+        "a2aAgents": "A2A 代理",
+        "personas": "角色"
+      }
+    },
+    "recentDownloads": "最近下载",
+    "recentFavorites": "最近收藏",
+    "workflowName": "工作流名称",
+    "downloadTime": "下载时间",
+    "favoriteTime": "收藏时间",
+    "loadError": "加载失败，请稍后重试",
+    "noDownloads": "暂无下载记录",
+    "noFavorites": "暂无收藏记录",
+    "unnamedWorkflow": "未命名工作流",
+    "cards": {
+      "noData": "暂无数据",
+      "totalSpend": "总消费",
+      "status": "状态",
+      "models": "模型数量",
+      "createdAt": "创建时间",
+      "budgetLimit": "预算限制",
+      "budgetDuration": "预算周期",
+      "totalBudget": "预算总额",
+      "totalTokens": "总令牌数",
+      "promptTokens": "提示令牌",
+      "completionTokens": "完成令牌",
+      "active": "活跃",
+      "blocked": "已阻止",
+      "unnamed": "未命名"
+    },
+    "charts": {
+      "totalTokensOverTime": "令牌使用量趋势",
+      "totalTokensDescription": "显示近60天的令牌使用情况",
+      "virtualKeyTokensOverTime": "虚拟密钥令牌使用量趋势",
+      "virtualKeyTokensDescription": "显示此虚拟密钥近60天的令牌使用情况",
+      "totalRequestsOverTime": "请求量趋势",
+      "totalRequestsDescription": "显示近60天的请求情况",
+      "virtualKeyRequestsOverTime": "虚拟密钥请求量趋势",
+      "virtualKeyRequestsDescription": "显示此虚拟密钥近60天的请求情况",
+      "trendingUpBy": "本月增长 {percentage}",
+      "desktop": "桌面端",
+      "mobile": "移动端",
+      "total": "总计",
+      "success": "成功",
+      "failure": "失败",
+      "promptTokens": "提示令牌",
+      "completionTokens": "完成令牌",
+      "dailyTokens": "每日令牌",
+      "successfulRequests": "成功请求",
+      "failedRequests": "失败请求",
+      "apiRequests": "API请求",
+      "topApiKeys": "热门API密钥",
+      "topModels": "热门模型",
+      "virtualKeyTopModels": "虚拟密钥模型使用情况",
+      "virtualKeyTopModelsDescription": "显示此虚拟密钥的模型使用分布",
+      "visitors": "访问量",
+      "comparedToLastMonth": "与上月相比",
+      "showingTotalVisitors": "显示近6个月总访问量",
+      "dailySpend": "每日消费",
+      "dailySpendDescription": "近3个月每日消费情况",
+      "last3Months": "近3个月",
+      "last30Days": "近30天",
+      "last7Days": "近7天",
+      "noData": "暂无数据",
+      "loading": "加载中...",
+      "error": "加载失败",
+      "retry": "重试",
+      "model": "模型",
+      "spend": "消费",
+      "requests": "请求",
+      "tokens": "令牌",
+      "totalSpend": "总消费"
+    },
+    "apiKeys": {
+      "title": "API密钥",
+      "description": "管理您的API密钥，用于访问 OpenMCP 服务",
+      "create": "创建密钥",
+      "createFirst": "创建第一个密钥",
+      "loading": "加载中...",
+      "retry": "重试",
+      "loadFailed": "加载失败",
+      "nameRequired": "请输入密钥名称",
+      "apiKeyCopied": "API密钥已复制",
+      "prefixCopied": "前缀已复制",
+      "copyFailed": "复制失败",
+      "active": "活跃",
+      "disabled": "已禁用",
+      "expired": "已过期",
+      "created": "创建于",
+      "prefix": "前缀",
+      "noPrefix": "无前缀",
+      "status": "状态",
+      "rateLimit": "速率限制",
+      "unlimited": "无限制",
+      "remaining": "剩余次数",
+      "expiresAt": "过期时间",
+      "lastRequest": "最后请求",
+      "delete": "删除",
+      "empty": {
+        "title": "暂无API密钥",
+        "description": "创建您的第一个API密钥以开始使用OpenMCP 服务"
+      },
+      "createDialog": {
+        "title": "创建API密钥",
+        "description": "创建一个新的API密钥来访问OpenMCP 服务",
+        "name": "密钥名称",
+        "namePlaceholder": "例如：生产环境密钥",
+        "prefix": "前缀（可选）",
+        "prefixPlaceholder": "例如：prod_",
+        "prefixHint": "前缀将显示在API密钥的开头，便于识别",
+        "expiresIn": "过期天数（可选）",
+        "expiresInHint": "留空表示永不过期",
+        "cancel": "取消",
+        "create": "创建",
+        "creating": "创建中...",
+        "fail": "创建API密钥失败",
+        "successTitle": "API密钥创建成功",
+        "successDescription": "请保存您的API密钥，关闭此对话框后将无法再次查看",
+        "apiKey": "API密钥",
+        "apiKeyWarning": "请妥善保存此密钥，关闭对话框后将无法再次查看",
+        "done": "完成",
+        "gatewayHint": "由平台网关签发，可直接用于 MCP / A2A 调用与 Skill 安装。"
+      },
+      "deleteDialog": {
+        "title": "删除API密钥",
+        "description": "确定要删除API密钥 \"{name}\" 吗？此操作无法撤销。",
+        "cancel": "取消",
+        "confirm": "删除",
+        "fail": "删除API密钥失败"
+      },
+      "gatewayHint": "此处签发的是网关密钥（sk-…）：同一把 Key 可用于 Store MCP、Skill 包下载，以及市场 MCP / A2A 调用。",
+      "budget": {
+        "title": "网关额度",
+        "available": "可用余额",
+        "availableHint": "网关 MCP / A2A 调用按此余额限额，余额耗尽后调用会被拒绝。",
+        "noGatewayKey": "尚未创建网关密钥，创建后将自动按余额限额。",
+        "insufficient": "余额不足，网关调用已被拒绝。请先充值。",
+        "recharge": "去充值",
+        "sync": "同步额度",
+        "syncing": "同步中…",
+        "syncSuccess": "额度已同步到网关",
+        "syncSkipped": "当前无需同步",
+        "syncFail": "额度同步失败",
+        "lastSynced": "上次同步",
+        "neverSynced": "未同步",
+        "perKeyBudget": "Key 额度",
+        "notConfigured": "网关未配置"
+      }
+    },
+    "bills": {
+      "title": "消费账单",
+      "description": "查看账户余额与消费 / 充值明细",
+      "balance": {
+        "available": "可用余额",
+        "total": "累计充值",
+        "spend": "累计消费",
+        "gifted": "平台赠送"
+      },
+      "history": {
+        "title": "收支明细",
+        "empty": "暂无收支记录",
+        "date": "日期",
+        "amount": "金额",
+        "type": "类型",
+        "channel": "渠道",
+        "status": "状态",
+        "remark": "备注"
+      },
+      "type": {
+        "recharge": "充值",
+        "spend": "消费",
+        "gifted": "赠送"
+      },
+      "status": {
+        "completed": "已完成",
+        "processing": "处理中",
+        "failed": "失败"
+      },
+      "loadFailed": "加载失败",
+      "retry": "重试",
+      "goRecharge": "前往充值",
+      "deprecatedNote": "消费明细请优先查看「用量与花费」与「月度账单」。本页保留充值相关记录。"
+    },
+    "income": {
+      "title": "收入账单",
+      "description": "查看作为 Provider 的服务调用与收入汇总",
+      "stats": {
+        "calls30": "近30天调用",
+        "income30": "近30天收益（元）",
+        "callsTotal": "累计调用",
+        "incomeTotal": "累计收益（元）"
+      },
+      "chart": {
+        "title": "近30天收入与调用趋势",
+        "calls": "调用次数",
+        "income": "收益（元）",
+        "empty": "暂无收入数据"
+      },
+      "overview": {
+        "title": "收益概览",
+        "perCall": "平均单次调用收入"
+      },
+      "notProvider": "您还不是 Provider，无法查看收入账单",
+      "loadFailed": "加载失败",
+      "retry": "重试"
+    },
+    "myWorkflows": {
+      "title": "我的工作流"
+    },
+    "myFavorites": {
+      "title": "我的收藏"
+    },
+    "myRelations": {
+      "title": "我的关系",
+      "subtitle": "管理你与开放 AI 生态的连接：既可以作为使用者享受 Skills / MCP / Personas，也可以成为提供者把能力变成收益。",
+      "userRoleTitle": "当前身份：普通用户",
+      "userRoleDesc": "你可以自由浏览、使用仓库中的 Skills、MCP 服务、Personas 与 A2A 智能体。",
+      "benefitsTitle": "转为 Provider 能获得什么",
+      "benefit1Title": "技能变现",
+      "benefit1Desc": "把 Skills / MCP / Personas 定价发布，付费订阅、按次计费，收益直达你的钱包。",
+      "benefit2Title": "平台认证",
+      "benefit2Desc": "通过审核后获得认证徽章，在搜索结果与排行中获得更多曝光。",
+      "benefit3Title": "品牌与粉丝",
+      "benefit3Desc": "建立自己的作者主页与粉丝关系，让更多 AI 用户用上你的作品。",
+      "cta": "立即转为 Provider",
+      "howTitle": "入驻流程三步走",
+      "step1": "填写主体与收款信息",
+      "step2": "提交实名认证待审核",
+      "step3": "审核通过后发布资产变现",
+      "providerWorkbenchTitle": "提供者工作台",
+      "statusVerified": "已认证",
+      "statusPending": "待审核",
+      "statusUnverified": "未认证",
+      "statusRejected": "已驳回",
+      "openProfile": "查看我的公开主页",
+      "entityLabel": "主体类型",
+      "entityIndividual": "个人",
+      "entityCompany": "企业",
+      "payChannelLabel": "收款通道",
+      "payWechat": "微信支付",
+      "payAlipay": "支付宝",
+      "payNone": "未开通",
+      "onboardingStatusTitle": "入驻状态",
+      "assetsTitle": "我的资产",
+      "assetSkills": "Skills",
+      "assetMcp": "MCP 服务",
+      "assetA2a": "A2A 智能体",
+      "assetPersonas": "Personas",
+      "impactTitle": "影响力数据",
+      "impactViews": "总浏览",
+      "impactDownloads": "总下载",
+      "impactLikes": "总点赞",
+      "impactAssets": "资产总数",
+      "nextStepTitle": "下一步建议",
+      "nextStep1": "完善入驻资料，确保收款通道可用",
+      "nextStep2": "发布更多资产，持续获得曝光与收益",
+      "exploreTitle": "先逛逛，看看别人都在做什么",
+      "exploreSkills": "去逛 Skills 仓库",
+      "exploreMcp": "去逛 MCP 工具库",
+      "explorePersonas": "去逛 SOUL 广场",
+      "networkTitle": "我互动过的提供者",
+      "networkSubtitle": "你下载或收藏过他们发布的资产，多多关注优质主理人",
+      "networkEmpty": "还没有互动过的提供者",
+      "networkAction": "去逛逛",
+      "networkEngagements": "{count} 次互动",
+      "loading": "加载中...",
+      "error": "加载失败，请稍后重试"
+    },
+    "myDownloads": {
+      "title": "我的下载",
+      "description": "查看您已获取的所有 Skills，支持再次下载和安装",
+      "empty": {
+        "title": "还没有下载记录",
+        "description": "前往技能市场浏览和下载 Skills"
+      },
+      "browseSkills": "技能市场",
+      "count": "共 {count} 个下载记录",
+      "downloadAgain": "再次下载",
+      "viewDetail": "查看详情",
+      "skillRemoved": "该技能已下架或删除",
+      "unknownSkill": "未知技能",
+      "grade": {
+        "safe": "安全",
+        "caution": "谨慎"
+      }
+    },
+    "myInstalls": {
+      "viewDetail": "查看详情",
+      "noMatch": "没有符合当前筛选条件的安装记录",
+      "title": "我的安装",
+      "description": "查看您已安装到本地 Agent 的所有 Skills，支持管理和重新安装",
+      "empty": {
+        "title": "还没有安装记录",
+        "description": "当您通过 Agent 成功安装 Skill 后，记录会自动显示在这里"
+      },
+      "count": "共 {count} 个安装记录",
+      "countFiltered": "共 {count} 个安装记录（总计 {total} 个）",
+      "filters": {
+        "runtime": "运行环境",
+        "status": "状态",
+        "all": "全部",
+        "runtimes": {
+          "cursor": "Cursor",
+          "claude-code": "Claude Code",
+          "codex": "Codex",
+          "generic": "通用"
+        },
+        "statuses": {
+          "active": "已激活",
+          "removed": "已移除"
+        }
+      },
+      "installedAt": "安装于{time}",
+      "lastUsedAt": "最后使用{time}",
+      "installPath": "安装路径",
+      "reinstall": "重新下载",
+      "markRemoved": "标记已移除",
+      "restore": "恢复",
+      "markRemovedConfirm": "确定要标记此安装为已移除？这不会删除您本地的文件。",
+      "updateFailed": "更新安装记录失败",
+      "skillRemoved": "该技能已下架或删除",
+      "unknownSkill": "未知技能",
+      "grade": {
+        "safe": "安全",
+        "caution": "谨慎"
+      }
+    },
+    "virtualKeys": {
+      "title": "虚拟密钥",
+      "description": "管理您的虚拟密钥，用于访问OpenMCP 服务",
+      "create": "创建密钥",
+      "createFirst": "创建第一个密钥",
+      "loading": "加载中...",
+      "retry": "重试",
+      "loadFailed": "加载失败",
+      "nameRequired": "请输入密钥名称",
+      "descriptionRequired": "请输入密钥描述",
+      "keyCopied": "虚拟密钥已复制",
+      "copyFailed": "复制失败",
+      "active": "活跃",
+      "disabled": "已禁用",
+      "expired": "已过期",
+      "created": "创建于",
+      "spend": "消费金额",
+      "maxBudget": "最大预算",
+      "expiresAt": "过期时间",
+      "delete": "删除",
+      "edit": "编辑",
+      "view": "查看详情",
+      "empty": {
+        "title": "暂无虚拟密钥",
+        "description": "创建您的第一个虚拟密钥以开始使用OpenMCP 服务"
+      },
+      "createDialog": {
+        "title": "创建虚拟密钥",
+        "description": "创建一个新的虚拟密钥来访问OpenMCP 服务",
+        "name": "密钥名称",
+        "namePlaceholder": "例如：生产环境密钥",
+        "descriptionLabel": "密钥描述",
+        "descriptionPlaceholder": "例如：用于生产环境的虚拟密钥",
+        "expires": "过期时间（可选）",
+        "expiresHint": "留空表示30天后过期",
+        "cancel": "取消",
+        "create": "创建",
+        "creating": "创建中...",
+        "success": "虚拟密钥创建成功",
+        "fail": "创建虚拟密钥失败"
+      },
+      "editDialog": {
+        "title": "编辑虚拟密钥",
+        "description": "编辑虚拟密钥的基本信息",
+        "name": "密钥名称",
+        "descriptionLabel": "密钥描述",
+        "cancel": "取消",
+        "save": "保存",
+        "saving": "保存中...",
+        "success": "虚拟密钥更新成功",
+        "fail": "更新虚拟密钥失败"
+      },
+      "detailDialog": {
+        "title": "虚拟密钥详情",
+        "description": "查看虚拟密钥的详细信息",
+        "key": "密钥",
+        "name": "名称",
+        "descriptionLabel": "描述",
+        "status": "状态",
+        "spend": "消费金额",
+        "maxBudget": "最大预算",
+        "expiresAt": "过期时间",
+        "models": "支持的模型",
+        "createdAt": "创建时间",
+        "updatedAt": "更新时间",
+        "close": "关闭"
+      },
+      "usageGuide": {
+        "title": "如何使用 Virtual Key",
+        "description": "Virtual Key 是访问 OpenMCP AI Agent 基础设施的密钥，通过 OpenMCP 服务提供稳定的 API 访问",
+        "badge": "使用指南",
+        "apiConfig": {
+          "title": "API 配置信息",
+          "baseUrl": "Base URL:",
+          "apiKey": "API Key:",
+          "apiKeyHint": "(从你的 Virtual Key 中获取)"
+        },
+        "codeExamples": {
+          "title": "代码示例",
+          "python": "Python 示例",
+          "javascript": "JavaScript/Node.js",
+          "curl": "cURL",
+          "copyCode": "复制代码"
+        },
+        "tips": {
+          "title": "重要提示",
+          "compatibility": {
+            "title": "API 兼容性",
+            "description": "我们的 API 完全兼容 OpenAI 格式，你可以直接使用 OpenAI 的 SDK 和库"
+          },
+          "security": {
+            "title": "安全性",
+            "description": "请妥善保管你的 API Key，不要在客户端代码中暴露，建议使用环境变量存储。"
+          },
+          "limits": {
+            "title": "使用限制",
+            "description": "每个 Virtual Key 都有使用限制和预算控制，请合理使用以避免超出限制"
+          },
+          "models": {
+            "title": "支持模型",
+            "description": "支持 Qwen、Gemini、DeepSeek 等系列模型，具体支持的模型请查看文档"
+          }
+        },
+        "resources": {
+          "title": "相关资源",
+          "apiDocs": "API 文档",
+          "modelList": "模型列表"
+        },
+        "copySuccess": "已复制到剪贴板"
+      }
+    },
+    "admin": {
+      "title": "系统管理",
+      "details": "详情",
+      "edit": "编辑",
+      "users": {
+        "title": "用户管理",
+        "fakeData": "注：只为演示功能，数据为假数据，封禁功能不可用",
+        "error": "获取用户失败",
+        "search": "搜索用户...",
+        "columns": {
+          "columns": "显示列",
+          "name": "姓名",
+          "email": "邮箱",
+          "role": "角色",
+          "createdAt": "创建时间",
+          "customerId": "客户ID",
+          "status": "状态",
+          "banReason": "封禁原因",
+          "banExpires": "封禁到期时间",
+          "actions": "操作"
+        },
+        "noResults": "没有结果",
+        "firstPage": "第一页",
+        "lastPage": "最后一页",
+        "nextPage": "下一页",
+        "previousPage": "上一页",
+        "rowsPerPage": "每页行数",
+        "page": "页",
+        "loading": "加载中...",
+        "admin": "管理员",
+        "user": "用户",
+        "email": {
+          "verified": "邮箱已验证",
+          "unverified": "邮箱未验证"
+        },
+        "emailCopied": "邮箱已复制到剪贴板",
+        "banned": "账号被封禁",
+        "active": "账号正常",
+        "joined": "加入时间",
+        "updated": "更新时间",
+        "viewDetails": "查看详情",
+        "ban": {
+          "reason": "封禁原因",
+          "reasonPlaceholder": "请输入封禁该用户的原因",
+          "defaultReason": "垃圾信息",
+          "never": "永不解禁",
+          "expires": "封禁到期时间",
+          "selectDate": "选择日期",
+          "button": "封禁用户",
+          "success": "用户已被封禁",
+          "error": "封禁用户失败"
+        },
+        "unban": {
+          "button": "解除封禁",
+          "success": "用户已被解除封禁",
+          "error": "解除封禁失败"
+        },
+        "recharge": {
+          "title": "用户充值",
+          "description": "为 {name} 进行充值",
+          "type": "充值类型",
+          "balance": {
+            "label": "余额充值",
+            "amount": "充值金额",
+            "success": "余额充值成功",
+            "error": "余额充值失败"
+          },
+          "credits": {
+            "label": "积分充值",
+            "amount": "充值积分",
+            "success": "积分充值成功",
+            "error": "积分充值失败"
+          },
+          "amountPlaceholder": "请输入充值金额",
+          "amountInvalid": "请输入有效的充值金额",
+          "remark": "备注",
+          "remarkPlaceholder": "请输入备注信息（可选）",
+          "cancel": "取消",
+          "recharge": "确认充值",
+          "recharging": "充值中...",
+          "button": "充值"
+        },
+        "close": "关闭",
+        "stats": {
+          "total": "总用户数",
+          "totalDescription": "平台所有注册用户",
+          "active": "活跃用户",
+          "activeDescription": "创建了虚拟密钥的用户数",
+          "todayRegistered": "今日注册",
+          "todayRegisteredDescription": "今天新注册的用户数",
+          "todayRecharge": "今日充值",
+          "todayRechargeDescription": "今天充值成功的用户数",
+          "rechargeUsers": "充值用户",
+          "rechargeUsersDescription": "有过充值成功的用户数",
+          "error": "加载失败",
+          "errorDescription": "请稍后重试"
+        }
+      },
+      "models": {
+        "title": "模型管理",
+        "description": "管理您的模型",
+        "create": "创建模型",
+        "createFirst": "创建第一个模型",
+        "loading": "加载中..."
+      },
+      "apps": {
+        "title": "应用管理",
+        "description": "管理您的应用",
+        "create": "创建应用",
+        "createFirst": "创建第一个应用",
+        "loading": "加载中..."
+      },
+      "virtualKeys": {
+        "title": "虚拟密钥管理",
+        "description": "管理您的虚拟密钥",
+        "create": "创建虚拟密钥",
+        "createFirst": "创建第一个虚拟密钥",
+        "loading": "加载中..."
+      },
+      "vendors": {
+        "title": "供应商管理",
+        "description": "管理您的供应商",
+        "create": "创建供应商",
+        "createFirst": "创建第一个供应商",
+        "loading": "加载中..."
+      },
+      "sessions": {
+        "title": "会话管理",
+        "description": "管理您的会话",
+        "create": "创建会话",
+        "createFirst": "创建第一个会话",
+        "loading": "加载中..."
+      },
+      "payments": {
+        "title": "支付管理",
+        "description": "管理支付记录",
+        "loading": "加载中..."
+      },
+      "rechargeOrders": {
+        "title": "充值订单",
+        "description": "管理充值订单",
+        "loading": "加载中..."
+      },
+      "newsletterSubscriptions": {
+        "title": "邮件订阅",
+        "description": "管理邮件订阅",
+        "loading": "加载中..."
+      },
+      "workflows": {
+        "title": "工作流",
+        "description": "管理工作流",
+        "loading": "加载中..."
+      },
+      "authors": {
+        "title": "创作者",
+        "description": "管理创作者",
+        "loading": "加载中..."
+      },
+      "categories": {
+        "title": "工作流分类",
+        "description": "管理工作流分类",
+        "loading": "加载中..."
+      },
+      "userSubmissions": {
+        "title": "用户提交",
+        "description": "管理用户提交",
+        "loading": "加载中..."
+      },
+      "providerApplications": {
+        "title": "入驻申请审核",
+        "description": "审核提供者入驻申请与收款通道"
+      },
+      "providerPayouts": {
+        "title": "Provider 提现",
+        "description": "审批 Skill 销售分成提现申请"
+      },
+      "a2aAgents": {
+        "title": "A2A 管理",
+        "description": "管理 A2A 智能体，含审核与上架"
+      },
+      "mcpServers": {
+        "title": "MCP 管理",
+        "description": "管理 MCP Server，含审核与上架"
+      },
+      "securityReview": {
+        "title": "安全审核",
+        "queue": "安全审核 · 复核队列",
+        "rejected": "安全审核 · 驳回记录",
+        "history": "安全审核 · 审核历史"
+      }
+    },
+    "cms": {
+      "title": "CMS",
+      "docs": {
+        "title": "文章"
+      },
+      "blog": {
+        "title": "教程"
+      }
+    },
+    "settings": {
+      "title": "设置",
+      "hub": {
+        "title": "个人设置",
+        "subtitle": "管理您的账户信息与安全设置",
+        "account": "账户信息",
+        "security": "安全设置",
+        "cards": {
+          "profile": {
+            "title": "个人资料",
+            "description": "头像、昵称与账户信息"
+          },
+          "security": {
+            "title": "安全与登录",
+            "description": "密码、邮箱绑定与账号安全"
+          },
+          "organization": {
+            "title": "企业主体",
+            "description": "企业认证与主体资料"
+          },
+          "invoice": {
+            "title": "发票信息",
+            "description": "开票抬头与税务资料"
+          }
+        }
+      },
+      "overview": {
+        "title": "个人设置",
+        "description": "集中管理您的账户信息、余额与订阅",
+        "account": {
+          "title": "账户信息",
+          "description": "头像、昵称与登录邮箱"
+        },
+        "billing": {
+          "title": "账单",
+          "description": "订阅方案与账单汇总"
+        },
+        "recharge": {
+          "title": "充值",
+          "description": "微信 / 支付宝充值账户余额"
+        },
+        "security": {
+          "title": "安全",
+          "description": "登录密码与账户安全"
+        },
+        "notification": {
+          "title": "通知",
+          "description": "邮件订阅与通知偏好"
+        },
+        "editAccount": "编辑资料",
+        "balance": {
+          "title": "账户余额",
+          "description": "可用于支付与订阅扣费"
+        },
+        "credits": {
+          "title": "积分余额"
+        },
+        "topUp": "去充值",
+        "viewBilling": "查看账单",
+        "plan": {
+          "title": "当前套餐",
+          "description": "您的订阅方案",
+          "active": "已激活",
+          "free": "免费版",
+          "freeMessage": "您当前没有激活的订阅方案",
+          "nextBillingDate": "下次账单日期："
+        }
+      },
+      "profile": {
+        "title": "账户与安全",
+        "description": "管理您的账户信息与安全设置",
+        "avatar": {
+          "title": "头像",
+          "description": "点击上传按钮上传自定义头像",
+          "recommendation": "头像是可选的，但强烈推荐设置",
+          "uploading": "上传中...",
+          "uploadAvatar": "上传头像",
+          "success": "头像更新成功",
+          "fail": "更新头像失败",
+          "preview": "头像预览"
+        },
+        "name": {
+          "title": "名字",
+          "description": "请输入您的名字",
+          "placeholder": "名字",
+          "minLength": "请至少使用 3 个字符",
+          "maxLength": "请最多使用 30 个字符",
+          "hint": "请使用 3-30 个字符",
+          "success": "名字更新成功",
+          "fail": "更新名字失败",
+          "saving": "保存中...",
+          "save": "保存"
+        },
+        "accountInfo": {
+          "title": "账户信息",
+          "description": "查看当前绑定的邮箱与手机号",
+          "email": "邮箱",
+          "phone": "手机号",
+          "noEmail": "未绑定邮箱",
+          "noPhone": "未绑定手机号",
+          "verified": "已验证",
+          "unverified": "未验证",
+          "payoutAccount": "收款账号"
+        },
+        "payoutEntry": {
+          "title": "收款账号",
+          "description": "管理 Provider 打款账户信息",
+          "manage": "管理收款账号",
+          "viewEarnings": "查看收益"
+        }
+      },
+      "billing": {
+        "title": "账单",
+        "description": "管理您的订阅和账单信息",
+        "overview": {
+          "title": "账单汇总",
+          "description": "账户余额、充值记录与订阅方案",
+          "balance": {
+            "title": "账户余额"
+          },
+          "credits": {
+            "title": "积分余额"
+          },
+          "topUp": "去充值",
+          "recent": {
+            "title": "最近充值记录",
+            "description": "最近 5 笔充值",
+            "empty": "暂无充值记录",
+            "viewAll": "查看全部"
+          },
+          "status": {
+            "completed": "成功",
+            "processing": "处理中",
+            "failed": "失败"
+          }
+        },
+        "status": {
+          "active": "已激活",
+          "trial": "试用中",
+          "free": "免费版",
+          "lifetime": "终身版"
+        },
+        "interval": {
+          "month": "月",
+          "year": "年",
+          "oneTime": "一次性"
+        },
+        "currentPlan": {
+          "title": "当前方案",
+          "description": "您当前的方案详情",
+          "noPlan": "您没有激活的方案"
+        },
+        "CustomerPortalButton": {
+          "loading": "加载中...",
+          "createCustomerPortalFailed": "打开Stripe客户界面失败"
+        },
+        "price": "价格：",
+        "nextBillingDate": "下次账单日期：",
+        "trialEnds": "试用结束日期：",
+        "freePlanMessage": "您当前使用的是功能有限的免费方案",
+        "lifetimeMessage": "您拥有所有高级功能的终身使用权限",
+        "manageSubscription": "管理订阅和账单",
+        "manageBilling": "管理账单",
+        "upgradePlan": "升级方案",
+        "retry": "重试",
+        "errorMessage": "获取数据失败"
+      },
+      "recharge": {
+        "title": "充值"
+      },
+      "notification": {
+        "title": "通知",
+        "description": "管理您的通知设置",
+        "newsletter": {
+          "title": "订阅",
+          "description": "管理您的邮件列表订阅偏好",
+          "label": "订阅邮件列表",
+          "hint": "您可以随时更改订阅偏好",
+          "emailRequired": "订阅邮件列表需要邮箱",
+          "subscribeSuccess": "成功订阅邮件列表",
+          "subscribeFail": "订阅邮件列表失败",
+          "unsubscribeSuccess": "成功取消订阅邮件列表",
+          "unsubscribeFail": "取消订阅邮件列表失败",
+          "error": "更新订阅时发生错误"
+        }
+      },
+      "security": {
+        "title": "安全",
+        "description": "管理您的安全设置",
+        "updatePassword": {
+          "title": "修改密码",
+          "description": "输入您的当前密码和新密码",
+          "currentPassword": "当前密码",
+          "currentRequired": "当前密码是必填项",
+          "newPassword": "新密码",
+          "newMinLength": "密码必须至少包含 8 个字符",
+          "hint": "请至少使用 8 个字符作为密码",
+          "showPassword": "显示密码",
+          "hidePassword": "隐藏密码",
+          "success": "密码更新成功",
+          "fail": "更新密码失败",
+          "saving": "保存中...",
+          "save": "保存"
+        },
+        "resetPassword": {
+          "title": "重置密码",
+          "description": "重置密码以启用邮箱登录",
+          "info": "重置密码将允许您除了社交登录方式外，还可以使用邮箱和密码登录，您将收到一封包含重置密码链接的电子邮件",
+          "button": "重置密码"
+        },
+        "deleteAccount": {
+          "title": "删除账号",
+          "description": "永久删除您的账号和所有内容",
+          "warning": "此操作是不可逆的，请谨慎操作",
+          "button": "删除账号",
+          "confirmTitle": "删除账号",
+          "confirmDescription": "您确定要删除您的账号吗？此操作无法撤销",
+          "confirm": "删除",
+          "cancel": "取消",
+          "deleting": "删除中...",
+          "success": "账号删除成功",
+          "fail": "删除账号失败"
+        },
+        "email": {
+          "title": "绑定 / 更换邮箱",
+          "description": "用于登录与接收通知。已验证邮箱更换时需确认邮件。",
+          "current": "当前邮箱",
+          "empty": "尚未绑定邮箱",
+          "verified": "已验证",
+          "unverified": "未验证",
+          "newEmail": "新邮箱",
+          "placeholder": "name@example.com",
+          "hint": "手机号登录用户可在此绑定邮箱；更换后请查收确认邮件。",
+          "footer": "邮箱将用于登录与重要通知",
+          "save": "保存",
+          "saving": "保存中...",
+          "success": "邮箱已更新",
+          "verifySent": "确认邮件已发送，请查收并完成验证",
+          "fail": "更新邮箱失败",
+          "invalid": "请输入有效的邮箱地址",
+          "unchanged": "邮箱未发生变化"
+        }
+      },
+      "organization": {
+        "payoutLink": "收款账号",
+        "payoutHint": "完成入驻后请配置收款账号以便打款"
+      }
+    },
+    "upgrade": {
+      "title": "升级",
+      "description": "升级到Pro以获取所有功能",
+      "button": "升级"
+    },
+    "userGuide": {
+      "title": "使用指南"
+    },
+    "myAssets": {
+      "title": "我的资产",
+      "mcp": "MCP 服务",
+      "a2a": "A2A 智能体",
+      "skills": "SKILLS",
+      "titleMcp": "我的资产 · MCP",
+      "titleA2a": "我的资产 · A2A",
+      "titleSkills": "我的资产 · SKILLS",
+      "listSubtitle": "管理你接入和上架到开放 AI 生态的资产：连接配置、发布、调用观测与授权。",
+      "connectAsset": "接入新资产",
+      "searchPlaceholder": "搜索名称 / 标识 / 端点",
+      "statusAll": "全部状态",
+      "statusOnline": "在线",
+      "statusReviewing": "审核中",
+      "statusPublished": "已上架",
+      "statusRejected": "已驳回",
+      "statusDisabled": "已停用",
+      "statusAbnormal": "异常",
+      "colAsset": "资产",
+      "colEndpoint": "端点",
+      "colProtocol": "协议 / 版本",
+      "colStatus": "状态",
+      "colVisibility": "可见性",
+      "colPrice": "上架",
+      "colActions": "操作",
+      "actionDetail": "详情",
+      "actionTest": "测试",
+      "actionDelete": "删除",
+      "toggleEnable": "启用",
+      "toggleDisable": "停用",
+      "emptyTitle": "还没有接入任何资产",
+      "emptyDesc": "接入后将可被网关联到并调用；测试通过后才能保存。",
+      "emptyAction": "立即接入",
+      "noMatchedTitle": "没有匹配的资产",
+      "noMatchedDesc": "换个关键词或筛选条件试试。",
+      "observabilityTitle": "调用观测",
+      "obsRequests": "今日请求",
+      "obsSuccessRate": "成功率",
+      "obsLatency": "P50 延迟",
+      "obsErrors": "错误数",
+      "wizardTitle": "接入新资产",
+      "wizardDesc": "先完成连接配置并通过测试，再补充上架信息。",
+      "stepConnect": "连接配置",
+      "stepPublish": "上架信息",
+      "fieldType": "资产类型",
+      "typeMcp": "MCP Server",
+      "typeA2a": "A2A Agent",
+      "typeSkills": "SKILLS",
+      "fieldName": "网关标识名",
+      "fieldNameHint": "小写字母 / 数字 / 中划线，将作为网关调用路径的一部分",
+      "nameTaken": "该名称已被使用，请更换",
+      "nameInvalid": "仅支持小写字母、数字与中划线",
+      "fieldUrl": "端点地址",
+      "fieldUrlPlaceholder": "https://api.example.com/mcp",
+      "fieldProtocolMcp": "传输方式",
+      "protoStreamable": "Streamable HTTP",
+      "protoSse": "SSE",
+      "protoStdio": "stdio",
+      "fieldProtocolA2a": "协议版本",
+      "protocolReject": "仅支持 0.3 / 1.0",
+      "fieldAuth": "鉴权方式",
+      "authNone": "无",
+      "authBearer": "Bearer Token",
+      "authApiKey": "Header API Key",
+      "authBasic": "Basic",
+      "authCustom": "自定义",
+      "fieldAuthSecret": "密钥 / Token",
+      "authSecretPlaceholder": "输入密钥（加密存储，预览脱敏）",
+      "btnTest": "测试连接",
+      "testRunning": "正在探测端点…",
+      "testSuccess": "连接成功",
+      "testFail": "连接失败",
+      "testSuccessTools": "可用工具 / 方法 {count} 个",
+      "testSuccessCard": "Agent Card 读取成功（{count} 项能力）",
+      "testHint": "测试通过后才可以保存",
+      "testAuthFail": "鉴权失败：请检查密钥或授权方式",
+      "testTimeout": "连接超时：请确认端点可达",
+      "testProtocolFail": "协议不支持：请检查传输方式 / 版本与端点匹配",
+      "mustTestFirst": "请先通过连接测试",
+      "btnNext": "下一步：上架信息",
+      "btnPrev": "上一步：连接配置",
+      "btnSave": "保存",
+      "btnSubmit": "提交审核",
+      "saveSuccess": "资产已保存并进入「在线」",
+      "cancel": "取消",
+      "fieldDescription": "服务描述",
+      "fieldDescriptionPlaceholder": "描述该资产提供的工具 / 能力与适用场景（20-2000 字符）",
+      "fieldCategory": "分类",
+      "fieldCategoryPlaceholder": "选择分类（可选）",
+      "fieldScope": "可见范围",
+      "scopePublic": "公开",
+      "scopePrivate": "私有（仅自己可见）",
+      "scopeTeam": "指定用户 / 密钥组",
+      "fieldPriceType": "价格类型",
+      "priceFree": "免费",
+      "pricePaid": "付费",
+      "fieldBilling": "计费模式",
+      "billingOnce": "一次性买断",
+      "billingSub": "订阅（按周期）",
+      "billingPerCall": "按次调用",
+      "fieldPrice": "价格（CNY）",
+      "fieldUnitPrice": "按次单价（CNY）",
+      "detailTitle": "资产详情",
+      "backToDetail": "返回列表",
+      "ovStatus": "状态",
+      "ovVisibility": "可见范围",
+      "ovEndpoint": "端点地址",
+      "ovProtocol": "协议 / 版本",
+      "ovAuth": "鉴权方式",
+      "ovTools": "工具 / 能力数",
+      "ovLastTest": "最近测试",
+      "ovCreated": "创建时间",
+      "btnTestAgain": "重新测试",
+      "toggleLabel": "启用资产",
+      "statsTitle": "调用观测",
+      "statsDesc": "近 24 小时指标",
+      "statRequests": "总请求",
+      "statSuccess": "成功率",
+      "statP50": "P50 延迟",
+      "statP95": "P95 延迟",
+      "statErrors": "错误次数",
+      "logsTitle": "最近调用日志",
+      "logsDesc": "全量记录（当前为模拟数据）",
+      "logTime": "时间",
+      "logCaller": "调用方",
+      "logMethod": "方法 / 工具",
+      "logStatus": "结果",
+      "logLatency": "延迟",
+      "logCost": "费用",
+      "logEmpty": "暂无调用记录",
+      "authTitle": "授权与可见性",
+      "authDesc": "控制谁能调用该资产",
+      "authPublicDesc": "所有已登录用户可调用",
+      "authPrivateDesc": "仅自己能调用",
+      "authTeamDesc": "指定用户或密钥组可调用",
+      "grantedTitle": "已授权调用方",
+      "grantSearch": "输入用户名或密钥标识",
+      "sandboxTitle": "沙箱模拟调用",
+      "sandboxDesc": "发送一条请求，预览网关与资产之间的往返。",
+      "sandboxPlaceholder": "输入要发送给资产的消息…",
+      "sandboxRun": "运行",
+      "sandboxRunning": "运行中…",
+      "sandboxResultTitle": "返回结果",
+      "resultOk": "成功",
+      "resultErr": "失败",
+      "deleteConfirmTitle": "确认删除该资产？",
+      "deleteConfirmDesc": "删除后网关将立即使其不可调用，且不可恢复。",
+      "rejectReason": "驳回原因",
+      "authOauthClient": "OAuth2 Client Credentials",
+      "engagement": "浏览 {views} · 下载/调用 {downloads}"
+    },
+    "sidebar": {
+      "workspace": "工作台",
+      "usage": "使用",
+      "publish": "发布",
+      "account": "账户",
+      "recharge": "余额与充值",
+      "onboarding": "入驻与收款",
+      "profile": "个人资料",
+      "security": "安全与登录"
+    },
+    "usage": {
+      "title": "用量与花费",
+      "description": "查看调用、下载与充值等用量明细",
+      "comingSoon": "用量明细页即将完善",
+      "summary": {
+        "monthSpend": "本月花费",
+        "callCount": "本月调用",
+        "downloadCount": "本月下载"
+      },
+      "filters": {
+        "dateRange": "日期范围",
+        "type": "类型",
+        "allTypes": "全部类型"
+      },
+      "table": {
+        "time": "时间",
+        "resource": "资源",
+        "type": "类型",
+        "quantity": "数量",
+        "amount": "金额",
+        "status": "状态",
+        "empty": "暂无用量记录"
+      },
+      "types": {
+        "mcp_call": "MCP 调用",
+        "a2a_call": "A2A 调用",
+        "skill_download": "技能下载",
+        "skill_purchase": "技能购买",
+        "recharge": "充值"
+      },
+      "loadFailed": "加载用量失败",
+      "retry": "重试"
+    },
+    "monthlyBilling": {
+      "title": "月度账单",
+      "description": "按月汇总用量与花费",
+      "comingSoon": "月度账单页即将完善",
+      "table": {
+        "month": "月份",
+        "total": "合计",
+        "calls": "调用",
+        "downloads": "下载",
+        "actions": "操作",
+        "viewDetail": "查看明细",
+        "empty": "暂无月度账单"
+      },
+      "loadFailed": "加载月度账单失败",
+      "retry": "重试"
+    },
+    "earnings": {
+      "title": "收益与打款",
+      "description": "查看技能销售、网关调用收益与提现申请",
+      "comingSoon": "收益中心即将完善",
+      "notProvider": "您还不是 Provider，请先完成入驻",
+      "goOnboarding": "前往入驻",
+      "tabs": {
+        "skills": "技能销售",
+        "gateway": "网关调用收益",
+        "payouts": "提现申请"
+      },
+      "stats": {
+        "calls30": "近30天调用",
+        "income30": "近30天收益（元）",
+        "callsTotal": "累计调用",
+        "incomeTotal": "累计收益（元）"
+      },
+      "chart": {
+        "title": "近30天收入与调用趋势",
+        "calls": "调用次数",
+        "income": "收益（元）",
+        "empty": "暂无收入数据"
+      },
+      "overview": {
+        "title": "收益概览",
+        "perCall": "平均单次调用收入"
+      },
+      "loadFailed": "加载失败",
+      "retry": "重试",
+      "payoutAccount": "收款账号",
+      "payoutAccountHint": "绑定微信 / 支付宝账号以便平台汇款",
+      "managePayoutAccount": "管理收款账户",
+      "statusLabel": "状态：{status}",
+      "payReady": "已绑定，可申请提现",
+      "payNotReady": "未绑定 — 提现前请先完成绑定",
+      "skillsShareTitle": "技能销售分成",
+      "skillsShareDescription": "付费技能售出后按 {share}% 计入可提现余额（平台抽成 {fee}%）",
+      "requestPayout": "申请提现",
+      "requesting": "提交中…",
+      "summary": {
+        "payable": "可提现",
+        "paid": "已结算",
+        "total": "累计净收入"
+      },
+      "skillsTable": {
+        "skill": "技能",
+        "gross": "成交额",
+        "platformFee": "平台费",
+        "net": "净收入",
+        "status": "状态",
+        "createdAt": "时间",
+        "empty": "暂无技能销售记录"
+      },
+      "payouts": {
+        "title": "提现申请",
+        "amount": "金额",
+        "channel": "渠道",
+        "status": "状态",
+        "createdAt": "时间",
+        "note": "备注",
+        "empty": "—"
+      },
+      "channel": {
+        "wechat": "微信",
+        "alipay": "支付宝",
+        "unknown": "—"
+      },
+      "status": {
+        "payable": "可提现",
+        "paid": "已结算",
+        "pending": "待确认",
+        "approved": "已批准",
+        "rejected": "已驳回",
+        "unknown": "未知"
+      },
+      "toast": {
+        "requested": "提现申请已提交",
+        "requestFailed": "申请提现失败",
+        "payAccountRequired": "请先绑定微信 / 支付宝收款账户"
+      }
+    },
+    "organization": {
+      "title": "企业主体",
+      "description": "管理企业认证与主体信息",
+      "comingSoon": "企业主体页即将完善",
+      "individualHint": "个人账户可升级为企业主体以获取更多能力",
+      "goCompanyOnboarding": "企业入驻",
+      "companyTitle": "企业认证信息",
+      "verificationStatus": "认证状态",
+      "companyName": "企业名称",
+      "contactName": "联系人",
+      "documentationUrl": "证件 / 材料链接",
+      "idNumber": "统一社会信用代码",
+      "save": "保存",
+      "saving": "保存中...",
+      "saveSuccess": "企业资料已保存",
+      "saveFailed": "保存失败"
+    },
+    "invoice": {
+      "title": "发票信息",
+      "description": "保存开票抬头与税务信息（暂不对接开票接口）",
+      "comingSoon": "发票信息页即将完善",
+      "profileTitle": "开票资料",
+      "profileHint": "仅保存抬头信息，暂不对接真实开票接口",
+      "fields": {
+        "title": "发票抬头",
+        "taxId": "税号",
+        "address": "地址",
+        "bank": "开户行及账号",
+        "phone": "电话"
+      },
+      "save": "保存",
+      "saving": "保存中...",
+      "saveSuccess": "发票资料已保存",
+      "saveFailed": "保存失败",
+      "requestsTitle": "开票申请",
+      "requestsHint": "开票申请能力即将开放（当前为占位）",
+      "requests": {
+        "date": "日期",
+        "amount": "金额",
+        "status": "状态",
+        "empty": "暂无开票申请（草稿占位）"
+      }
+    }
+  },
+  "PricingPage": {
+    "title": "价格",
+    "description": "选择最适合您的付费计划",
+    "subtitle": "选择最适合您的付费计划",
+    "monthly": "月付",
+    "yearly": "年付",
+    "PricingCard": {
+      "freePrice": "$0",
+      "perMonth": "/月",
+      "perYear": "/年",
+      "popular": "热门",
+      "currentPlan": "当前方案",
+      "yourCurrentPlan": "您的当前方案",
+      "getStartedForFree": "开始免费使用",
+      "getLifetimeAccess": "开启终身会员",
+      "getStarted": "开始免费试用",
+      "notAvailable": "不可用",
+      "daysTrial": "{days} 天试用期"
+    },
+    "CheckoutButton": {
+      "loading": "加载中...",
+      "checkoutFailed": "打开结账页面失败"
+    }
+  },
+  "PricePlans": {
+    "free": {
+      "name": "免费版",
+      "description": "适用于个人使用的基本功能",
+      "features": {
+        "feature-1": "最多3个项目",
+        "feature-2": "1GB存储空间",
+        "feature-3": "基础分析功能",
+        "feature-4": "社区支持"
+      },
+      "limits": {
+        "limit-1": "不支持自定义域名",
+        "limit-2": "不支持自定义品牌",
+        "limit-3": "不支持终身更新"
+      }
+    },
+    "pro": {
+      "name": "专业版",
+      "description": "专业人士的高级功能",
+      "features": {
+        "feature-1": "无限项目",
+        "feature-2": "10GB存储空间",
+        "feature-3": "高级分析功能",
+        "feature-4": "优先支持",
+        "feature-5": "自定义域名"
+      },
+      "limits": {
+        "limit-1": "不支持自定义品牌",
+        "limit-2": "不支持终身更新"
+      }
+    },
+    "lifetime": {
+      "name": "终身版",
+      "description": "一次性付款获得所有高级功能",
+      "features": {
+        "feature-1": "所有专业版功能",
+        "feature-2": "100GB存储空间",
+        "feature-3": "专属支持",
+        "feature-4": "企业级安全",
+        "feature-5": "高级集成",
+        "feature-6": "自定义域名",
+        "feature-7": "自定义品牌",
+        "feature-8": "终身更新"
+      }
+    }
+  },
+  "AuthPage": {
+    "login": {
+      "title": "登录",
+      "welcomeBack": "欢迎回来",
+      "email": "邮箱",
+      "password": "密码",
+      "signIn": "登录",
+      "signUpHint": "没有账号？注册",
+      "forgotPassword": "忘记密码？",
+      "signInWithGoogle": "使用 Google 登录",
+      "signInWithGitHub": "使用 GitHub 登录",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "or": "或以社媒账号登录",
+      "emailRequired": "请输入邮箱",
+      "passwordRequired": "请输入密码",
+      "switchToPhone": "使用手机号登录"
+    },
+    "phoneLogin": {
+      "title": "手机号登录",
+      "welcomeBack": "欢迎回来",
+      "description": "请输入您的手机号登录",
+      "phoneNumber": "手机号",
+      "verificationCode": "验证码",
+      "sendCode": "发送验证码",
+      "resendCode": "重新发送",
+      "signIn": "登录",
+      "signUpHint": "没有账号？注册",
+      "switchToEmail": "使用邮箱登录",
+      "phoneRequired": "请输入手机号",
+      "codeRequired": "请输入验证码",
+      "invalidPhone": "请输入正确的手机号",
+      "codeSent": "验证码已发送",
+      "countdown": "{seconds}秒后重新发送",
+      "autoCreateAccount": "手机号不存在时将自动创建账号",
+      "captchaTitle": "安全验证",
+      "captchaHint": "请完成拼图验证",
+      "captchaLoading": "加载中...",
+      "captchaVerifying": "验证中...",
+      "captchaChallengeFailed": "加载验证码失败",
+      "captchaVerifyFailed": "验证失败",
+      "captchaMismatch": "滑块位置不匹配，请重试",
+      "captchaTooManyAttempts": "尝试次数过多，请稍后再试",
+      "sendCodeFailed": "验证码发送失败",
+      "verifySuccess": "登录成功",
+      "verifyFailed": "验证失败，请检查验证码"
+    },
+    "register": {
+      "title": "注册",
+      "createAccount": "创建账号",
+      "name": "姓名",
+      "email": "邮箱",
+      "password": "密码",
+      "signUp": "注册",
+      "signInHint": "已经有账号？登录",
+      "checkEmail": "请检查您的邮箱",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "nameRequired": "请输入姓名",
+      "emailRequired": "请输入邮箱",
+      "passwordRequired": "请输入密码"
+    },
+    "forgotPassword": {
+      "title": "忘记密码",
+      "email": "邮箱",
+      "send": "发送重置密码链接",
+      "backToLogin": "返回登录",
+      "checkEmail": "请检查您的邮箱",
+      "emailRequired": "请输入邮箱",
+      "description": "输入你的邮箱，我们会发送重置链接"
+    },
+    "resetPassword": {
+      "title": "重置密码",
+      "password": "密码",
+      "reset": "重置密码",
+      "backToLogin": "返回登录",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "minLength": "密码必须至少包含 8 个字符",
+      "confirmPassword": "确认密码",
+      "passwordsDoNotMatch": "两次输入的密码不一致",
+      "description": "为你的账户设置新密码",
+      "missingToken": "重置链接无效或已过期，请重新申请"
+    },
+    "error": {
+      "title": "哎呀！出错了！",
+      "tryAgain": "请重试",
+      "backToLogin": "返回登录",
+      "checkEmail": "请检查您的邮箱"
+    },
+    "common": {
+      "termsOfService": "服务条款",
+      "privacyPolicy": "隐私政策",
+      "byClickingContinue": "继续即表示您同意我们的 ",
+      "and": " 和 "
+    }
+  },
+  "HomePage": {
+    "title": "OpenMCP",
+    "description": "发现、分享和下载 AI 技能、MCP 工具与 A2A 智能体。获取 AI 驱动的能力分析，优化您的智能体。",
+    "hero": {
+      "badge": "Skills / MCP / A2A 市场",
+      "badgeSuffix": " · 发现、安装、发布",
+      "titleLead": "发现、安装、发布",
+      "titleHighlight": "Agent 技能",
+      "subtitle": "浏览货架、下载 Skill 包、接入 MCP / A2A；Provider 可入驻上架并可选变现。",
+      "ctaBrowse": "浏览 Skills",
+      "ctaPublish": "发布 Skill",
+      "copyPrompt": "复制给 AI 安装",
+      "runtimes": {
+        "agent": "通用 Agent"
+      },
+      "installLead": "根据",
+      "installTrail": "安装 OpenMCP 商店",
+      "stepsLead": "详细步骤见"
+    },
+    "carousel": {
+      "ariaLabel": "装进你的 Agent",
+      "eyebrow": "Agent Marketplace",
+      "title": "装进你的 Agent，找到合适的业务能力",
+      "subtitle": "Skills 即装即用，A2A / MCP 服务按需接入——Codex / Hermes / OpenCode / DeepSeek Harness 通用。",
+      "sampleLabel": "找到即用 · 示例数据",
+      "updatedSuffix": " · 实时更新",
+      "prevAria": "上一张",
+      "nextAria": "下一张",
+      "shelves": {
+        "skill": {
+          "title": "找到合适的 Skills",
+          "description": "按业务场景检索 SKILL.md 技能，复制提示词即可装进 Codex / Hermes / OpenCode / DeepSeek Harness，即装即用。",
+          "cta": "浏览技能",
+          "total": "50+ 认证 Skills"
+        },
+        "mcp": {
+          "title": "找到 MCP 服务",
+          "description": "数据与工具服务按协议注册、独立密钥治理，找到即可直连 Agent，按次 / 订阅计费透明。",
+          "cta": "浏览工具",
+          "total": "100+ MCP 服务"
+        },
+        "a2a": {
+          "title": "找到 A2A 智能体",
+          "description": "法务、财会、研发等智能体按需调用，多 Agent 协作把业务闭环跑起来，按次 / 会话 / 订阅计费。",
+          "cta": "浏览智能体",
+          "total": "10+ A2A 智能体"
+        },
+        "items": {
+          "bid": {
+            "name": "投标方案助手",
+            "tag": "免费"
+          },
+          "finance": {
+            "name": "企业财务月结",
+            "tag": "买断 ¥99"
+          },
+          "compliance": {
+            "name": "跨境合规审查",
+            "tag": "免费"
+          },
+          "invoice": {
+            "name": "发票查验 API",
+            "tag": "¥0.01/次"
+          },
+          "quotes": {
+            "name": "实时行情数据",
+            "tag": "订阅 ¥29/月"
+          },
+          "erp": {
+            "name": "企业 ERP 网关",
+            "tag": "私有部署"
+          },
+          "legal": {
+            "name": "法务尽调 Agent",
+            "tag": "按次"
+          },
+          "support": {
+            "name": "客服坐席 Agent",
+            "tag": "订阅 ¥199/月"
+          },
+          "analytics": {
+            "name": "数据分析 Agent",
+            "tag": "按会话"
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "title": "统一注册：Skills、MCP、A2A",
+      "subtitle": "个人或公司提交资产；用户搜索、安装；付费资产按实际使用结算。",
+      "cta": "提交注册服务",
+      "revenueBadge": "提供者分成",
+      "revenueValue": "90%",
+      "revenueText": "创作者分成 90%，平台负责审核与分发。",
+      "ctaSubmitSkill": "提交 Skill",
+      "ctaProviderOnboarding": "公司入驻",
+      "items": {
+        "protocol": {
+          "title": "协议标准",
+          "description": "SKILL.md / MCP / A2A 开放兼容，不被锁死"
+        },
+        "registry": {
+          "title": "统一注册与发现",
+          "description": "一次提交，全局可搜、即用即装"
+        },
+        "security": {
+          "title": "安全审核",
+          "description": "上架扫描 + 内容指纹 + 数字签名"
+        },
+        "metering": {
+          "title": "计量计费",
+          "description": "按次 / 订阅 / 坐席，用量实时可见"
+        },
+        "keys": {
+          "title": "密钥治理",
+          "description": "每服务独立虚拟密钥，按通道隔离"
+        },
+        "settlement": {
+          "title": "实时结算",
+          "description": "微信 / 支付宝，被调用即分账"
+        },
+        "runtimes": {
+          "title": "多运行时兼容",
+          "description": "Codex / Hermes / OpenCode / DeepSeek Harness"
+        },
+        "api": {
+          "title": "开放 API",
+          "description": "提交、注册、计量全部程序化"
+        }
+      }
+    },
+    "protocols": {
+      "eyebrow": "货架",
+      "title": "Skills / MCP / A2A，同一货架",
+      "subtitle": "浏览货架、下载 Skill 包或接入 MCP / A2A；Provider 提交后上架。",
+      "ctaBrowse": "浏览 Skills / MCP / A2A",
+      "ctaProvider": "成为 Provider",
+      "ctaCopy": "复制给 AI 安装",
+      "footerNote": "三轨同源注册 · 浏览获取 · 可选发布变现",
+      "items": {
+        "skill": {
+          "name": "技能即标准",
+          "description": "原子技能，跨运行时安装（Codex / Hermes / OpenCode / DeepSeek Harness 等）",
+          "badge": "可安装"
+        },
+        "mcp": {
+          "name": "工具与数据服务",
+          "description": "Server 化注册，http / stdio 双形态直连 Agent",
+          "badge": "可调用"
+        },
+        "a2a": {
+          "name": "智能体互联",
+          "description": "Agent Card 声明，跨平台编排成一单工作流",
+          "badge": "可获取"
+        }
+      }
+    },
+    "publish": {
+      "eyebrow": "信任与分发",
+      "title": "提交资产，经审核后上架",
+      "subtitle": "个人与公司均可提交：完成认证与安全审核后进入货架；被安装或调用时可结算。",
+      "tabs": {
+        "personal": "个人提交",
+        "enterprise": "公司提交"
+      },
+      "ctaPersonal": "提交个人 Skill",
+      "ctaEnterprise": "提交公司服务",
+      "personal": {
+        "s1": {
+          "title": "实名认证",
+          "description": "建立可信提供者身份，获得认证标识"
+        },
+        "s2": {
+          "title": "自动安全审核",
+          "description": "上架扫描 + 内容指纹，识别并拦截风险"
+        },
+        "s3": {
+          "title": "一键提交三轨",
+          "description": "Skills / MCP / A2A 一次提交，全端可用"
+        },
+        "s4": {
+          "title": "90% 分成结算",
+          "description": "下载、调用、订阅实时计量，到账即分账"
+        }
+      },
+      "enterprise": {
+        "s1": {
+          "title": "团队注册与认证",
+          "description": "公司资质核验，开通组织空间与成员管理"
+        },
+        "s2": {
+          "title": "平台 + 管理员双审核",
+          "description": "自动化安全审核叠加人工复核"
+        },
+        "s3": {
+          "title": "安全准入与发布范围",
+          "description": "对内共享或对外分发，指定范围与渠道"
+        },
+        "s4": {
+          "title": "内容指纹与数字签名",
+          "description": "防篡改、可溯源，保障持续分发"
+        }
+      },
+      "cards": {
+        "credentials": {
+          "title": "资质认证",
+          "description": "个人实名 / 企业资质，可信身份标识"
+        },
+        "security": {
+          "title": "安全审核",
+          "description": "自动化扫描 + 人工复核，识别并拦截风险"
+        },
+        "fingerprint": {
+          "title": "内容指纹与签名",
+          "description": "防篡改、可溯源，持续分发有保障"
+        },
+        "settlement": {
+          "title": "计量与分成结算",
+          "description": "调用即计量，结算实时到账"
+        }
+      }
+    },
+    "metrics": {
+      "skills": {
+        "label": "认证 Skills",
+        "caption": "上架即过审"
+      },
+      "mcp": {
+        "label": "MCP 服务",
+        "caption": "中心化注册"
+      },
+      "a2a": {
+        "label": "A2A 智能体",
+        "caption": "协议级互联"
+      },
+      "share": {
+        "label": "创作者分成",
+        "caption": "实时结算"
+      }
+    },
+    "revenue": {
+      "eyebrow": "Provider · 发布与曝光",
+      "title": "上架到货架",
+      "titleBreak": "被发现、被安装，可选变现",
+      "subtitle": "提交 Skills，注册 MCP / A2A，进入统一目录。结算是上架后的可选路径。",
+      "ctaProvider": "成为 Provider",
+      "ctaBrowse": "浏览市场",
+      "chartLabel": "示例 · 本月被安装 / 调用",
+      "chartValue": "12.8 万次",
+      "chartBadge": "示例数据",
+      "earningsLabel": "可选收益（示例）",
+      "earningsValue": "¥3.19 万",
+      "earningsNote": "发布优先 · 结算可选"
+    },
+    "openpay": {
+      "eyebrow": "OpenPay · 可选付费与结算",
+      "title": "先被发现与安装",
+      "titleBreak": "付费获取为可选项",
+      "subtitle": "主线是浏览并安装 Skills / MCP / A2A。需要时再用 OpenPay 做付费与按次结算。",
+      "ctaBrowse": "先去浏览市场",
+      "ctaLearn": "了解 OpenPay",
+      "panelLabel": "示例 · 付费调用",
+      "panelValue": "按需启用，不打断主流程",
+      "panelBadge": "可选能力",
+      "footerLeft": "微信支付 / 支付宝",
+      "footerRight": "免费与付费并存",
+      "lines": {
+        "earnings": {
+          "label": "财报解读智能体",
+          "amount": "¥0.5"
+        },
+        "stocks": {
+          "label": "股票行情深度解读",
+          "amount": "¥0.3"
+        },
+        "meeting": {
+          "label": "会议纪要 · 任务自动分派",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "audience": {
+      "eyebrow": "两类角色",
+      "title": "一个平台，让使用与提供双向流动",
+      "subtitle": "Agent 使用者找到能力、实现业务；个人与公司提交服务、获得收益——同一套协议标准与注册中心。",
+      "consumer": {
+        "eyebrowLabel": "使用 · Agent Harness",
+        "title": "找到能力，装进 Agent",
+        "steps": {
+          "s1": "按业务场景找到合适的 Skills",
+          "s2": "复制提示词，装进 Codex / Hermes / OpenCode / DeepSeek Harness",
+          "s3": "接入 A2A / MCP 服务，把业务跑起来"
+        },
+        "primary": "浏览全部能力",
+        "secondaryMcp": "MCP 服务",
+        "secondaryA2a": "A2A 智能体"
+      },
+      "provider": {
+        "eyebrowLabel": "提供 · 个人与公司",
+        "title": "提交服务，让专业能力被使用",
+        "steps": {
+          "s1": "提交 Skills，注册 MCP / A2A 服务",
+          "s2": "完成认证与安全审核后上架市场",
+          "s3": "被发现与调用；可选开启付费与结算"
+        },
+        "primary": "提交 Skill",
+        "secondaryProvider": "公司入驻"
+      }
+    },
+    "onboarding": {
+      "corner": "发现 · 安装 · 发布",
+      "eyebrow": "OpenMCP 市场",
+      "title": "安装 Skill 包，或上架你的资产",
+      "subtitle": "浏览并安装 Skills / MCP / A2A；Provider 提交经审核后上架。变现为可选能力。",
+      "ctaBrowse": "浏览 Skills / MCP / A2A",
+      "ctaProvider": "成为 Provider"
+    }
+  },
+  "McpPage": {
+    "meta": {
+      "title": "MCP 工具市场 - 浏览 MCP Server",
+      "description": "发现可复用的 MCP Server，为你的 Agent 接入原生的工具调用能力",
+      "notFoundTitle": "服务未找到",
+      "notFoundDescription": "抱歉，找不到该 MCP 服务的信息。",
+      "detailTitleSuffix": "MCP Server",
+      "detailFallbackDescription": "查看并接入 {name} MCP Server"
+    },
+    "hero": {
+      "title": "MCP 工具市场",
+      "subtitle": "发现并接入可复用的 MCP Server。每个 Server 提供一套原生工具调用能力，让 Agent 触达任意外部系统。",
+      "searchPlaceholder": "搜索 MCP Server 名称或描述",
+      "searchAction": "搜索"
+    },
+    "list": {
+      "loadError": "加载失败，请稍后重试",
+      "emptyTitle": "暂无上架的 MCP Server",
+      "emptyHint": "成为第一个提供者，发布你的 MCP 工具",
+      "emptySearchTitle": "没有找到匹配的 MCP Server",
+      "emptySearchHint": "试试更换关键词，或发布你的第一个 MCP Server",
+      "publish": "发布 MCP Server",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {page} / {total} 页"
+    },
+    "card": {
+      "noDescription": "暂无描述",
+      "calls": "{count} 次调用",
+      "free": "免费"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/次",
+      "subscription": "订阅 · ¥{amount}",
+      "oneTime": "买断 · ¥{amount}",
+      "free": "免费"
+    },
+    "detail": {
+      "notFoundHeading": "MCP 服务未找到",
+      "noDescription": "该服务暂时还没有描述。",
+      "overview": "服务介绍",
+      "tools": "工具列表",
+      "toolsCount": "{count} 个工具",
+      "author": "提供者",
+      "category": "分类",
+      "transport": "传输协议",
+      "auth": "认证方式",
+      "hosting": "托管方式",
+      "scope": "可见范围",
+      "endpoint": "端点地址",
+      "pricing": "计费方式",
+      "stats": "数据统计",
+      "views": "浏览量",
+      "downloads": "调用量",
+      "created": "创建时间",
+      "updated": "更新时间",
+      "certified": "平台认证",
+      "safeDefault": "安全",
+      "billingModel": "计费模式",
+      "free": "免费"
+    }
+  },
+  "A2APage": {
+    "meta": {
+      "title": "A2A Agent 市场 - 浏览智能体",
+      "description": "发现可互操作的 AI 智能体，通过 Agent Card 调用第三方能力",
+      "notFoundTitle": "智能体未找到",
+      "notFoundDescription": "抱歉，找不到该 A2A 智能体的信息。",
+      "detailTitleSuffix": "A2A Agent",
+      "detailFallbackDescription": "查看并调用 {name} A2A Agent"
+    },
+    "hero": {
+      "title": "A2A Agent 市场",
+      "subtitle": "发现并调用可互操作的 AI 智能体。每个 Agent 通过 Agent Card 声明自己的能力边界，供其他 AI 代理发现与调用。",
+      "searchPlaceholder": "搜索智能体名称或描述",
+      "searchAction": "搜索"
+    },
+    "list": {
+      "loadError": "加载失败，请稍后重试",
+      "emptyTitle": "暂无上架的 A2A 智能体",
+      "emptyHint": "成为第一个提供者，发布你的智能体",
+      "emptySearchTitle": "没有找到匹配的智能体",
+      "emptySearchHint": "试试更换关键词，或发布你的第一个 A2A Agent",
+      "publish": "发布 A2A Agent",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {page} / {total} 页"
+    },
+    "card": {
+      "noDescription": "暂无描述",
+      "calls": "{count} 次调用",
+      "protocol": "A2A {version}",
+      "free": "免费"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/次",
+      "subscription": "订阅 · ¥{amount}",
+      "oneTime": "买断 · ¥{amount}",
+      "free": "免费"
+    },
+    "detail": {
+      "notFoundHeading": "智能体未找到",
+      "noDescription": "该智能体暂无描述。",
+      "overview": "描述",
+      "agentCard": "Agent Card",
+      "skillsCount": "{count} 个技能",
+      "author": "提供者",
+      "category": "分类",
+      "protocol": "协议版本",
+      "auth": "认证方式",
+      "scope": "可见性",
+      "pricing": "定价",
+      "stats": "统计",
+      "views": "浏览",
+      "downloads": "调用",
+      "created": "创建时间",
+      "updated": "更新时间",
+      "certified": "平台认证",
+      "safeDefault": "安全",
+      "billingModel": "计费方式",
+      "free": "免费",
+      "idLabel": "Agent ID",
+      "copyId": "复制 Agent ID",
+      "idCopied": "Agent ID 已复制",
+      "copyCardUrl": "复制 Agent Card URL",
+      "cardUrlCopied": "Agent Card URL 已复制"
+    }
+  },
+  "Newsletter": {
+    "title": "邮件列表",
+    "subtitle": "邮件速订，快讯直达",
+    "description": "订阅邮件列表，及时获取 OpenMCP 最新消息和更新",
+    "daily": {
+      "tagline": "AI 每日快讯",
+      "title": "每日一条 AI 应用技巧",
+      "description": "实用技巧让您的 AI Agent 更智能、更高效。免费、无垃圾邮件，随时退订。",
+      "subscribeClaw": "订阅更新",
+      "browsePastIssues": "浏览往期"
+    },
+    "form": {
+      "email": "邮箱",
+      "subscribe": "订阅",
+      "subscribing": "订阅中...",
+      "success": "订阅成功",
+      "fail": "订阅失败",
+      "emailValidation": "请输入有效的邮箱地址"
+    }
+  },
+  "Landing": {
+    "cta": {
+      "browse": "浏览市场",
+      "provider": "成为创作者",
+      "submitSkill": "发布个人 Skill",
+      "providerJoin": "企业发布",
+      "skills": "浏览 Skills",
+      "mcp": "MCP 服务",
+      "a2a": "A2A 智能体"
+    },
+    "hero": {
+      "badge": "Skills / MCP / A2A 统一市场",
+      "badgeSuffix": " · 面向中国 Agent",
+      "titleLead": "发现、安装、发布 ",
+      "titleHighlight": "Agent 技能",
+      "subtitle": "按业务场景检索 SKILL.md 技能包，或接入 MCP / A2A 服务。个人与公司均可提交上架，付费与结算为可选项。",
+      "copyPrompt": "复制给 AI 安装",
+      "stepsPrefix": "详细步骤见 ",
+      "runtimeCompat": "同一份 SKILL.md 通用于 {runtimes}，以及任何支持安装本地技能目录的 Agent。",
+      "installPrompt": "根据 <path>/install/openmcp.md</path> 安装 OpenMCP 商店"
+    },
+    "carousel": {
+      "ariaLabel": "三类可获取的能力",
+      "eyebrow": "Agent Marketplace",
+      "title": "三类能力，同一套标准",
+      "subtitle": "Skills 即装即用，MCP 服务按需调用，A2A 智能体跨平台编排——共用一个注册中心与一套计费结算。",
+      "sampleLabel": "找到即用 · 示例数据",
+      "updatedSuffix": " · 实时更新",
+      "prevAria": "上一张",
+      "nextAria": "下一张",
+      "skills": {
+        "title": "Skills：可安装的技能包",
+        "description": "按业务场景检索技能，复制提示词即可装进 {runtimes}，即装即用。",
+        "total": "50+ 认证 Skills",
+        "items": {
+          "1": {
+            "name": "投标方案助手",
+            "tag": "免费"
+          },
+          "2": {
+            "name": "企业财务月结",
+            "tag": "买断 ¥99"
+          },
+          "3": {
+            "name": "跨境合规审查",
+            "tag": "免费"
+          }
+        }
+      },
+      "mcp": {
+        "title": "MCP：工具与数据服务",
+        "description": "数据与工具服务按协议注册、独立密钥治理，找到即可直连 Agent，按次 / 订阅计费透明。",
+        "total": "100+ MCP 服务",
+        "items": {
+          "1": {
+            "name": "发票查验 API",
+            "tag": "¥0.01/次"
+          },
+          "2": {
+            "name": "实时行情数据",
+            "tag": "订阅 ¥29/月"
+          },
+          "3": {
+            "name": "企业 ERP 网关",
+            "tag": "私有部署"
+          }
+        }
+      },
+      "a2a": {
+        "title": "A2A：可编排的智能体",
+        "description": "法务、财会、研发等智能体按需调用，多 Agent 协作把业务闭环跑起来，按次 / 会话 / 订阅计费。",
+        "total": "10+ A2A 智能体",
+        "items": {
+          "1": {
+            "name": "法务尽调 Agent",
+            "tag": "按次"
+          },
+          "2": {
+            "name": "客服坐席 Agent",
+            "tag": "订阅 ¥199/月"
+          },
+          "3": {
+            "name": "数据分析 Agent",
+            "tag": "按会话"
+          }
+        }
+      }
+    },
+    "platform": {
+      "eyebrow": "平台底座",
+      "title": "一个注册中心，撑起三类资产",
+      "description": "个人或公司提交资产后统一入库：用户搜索、安装，付费资产按实际使用结算。想要程序化接入，可以直接走开放 API。",
+      "cta": "查看接入文档",
+      "capabilities": {
+        "protocol": {
+          "title": "协议标准",
+          "description": "SKILL.md / MCP / A2A 开放兼容，不被锁死"
+        },
+        "registry": {
+          "title": "统一注册与发现",
+          "description": "一次提交，全局可搜、即用即装"
+        },
+        "metering": {
+          "title": "计量计费",
+          "description": "按次 / 订阅 / 坐席，用量实时可见"
+        },
+        "keys": {
+          "title": "密钥治理",
+          "description": "每服务独立虚拟密钥，按通道隔离"
+        },
+        "settlement": {
+          "title": "实时结算",
+          "description": "微信 / 支付宝，被调用即分账"
+        },
+        "api": {
+          "title": "开放 API",
+          "description": "提交、注册、计量全部程序化"
+        }
+      }
+    },
+    "publish": {
+      "ariaLabel": "从提交到被调用的发布链路",
+      "eyebrow": "发布流程",
+      "titleLead": "从提交到被调用，",
+      "titleAccent": "每一步都可追溯",
+      "description": "个人与企业两条通道，共用同一套实名认证、安全审核与分发保障。",
+      "personal": {
+        "label": "个人发布",
+        "milestones": {
+          "1": {
+            "title": "实名认证",
+            "stat": "实名认证后发布",
+            "caption": "建立可信发布身份",
+            "description": "实名后方可发布 Skill。平台通过人脸核身完成身份验证，信息加密存储、仅用于身份核实，不作他用，全程合规合法。"
+          },
+          "2": {
+            "title": "安全与内容审核",
+            "stat": "24h",
+            "caption": "自动化审核平均时长 · 示例数据",
+            "description": "平台对所有发布内容进行多维度自动审核：关键词过滤结合 AI 语义理解，识别违规与低质内容，保障 Skill 生态的安全与可信。"
+          },
+          "3": {
+            "title": "强制安全准入",
+            "stat": "100%",
+            "caption": "Skill 强制安全准入",
+            "description": "每个 Skill 上架前都必须通过三线并行的安全审核流水线——内容合规过滤、深度漏洞扫描、AI 模型安全评估，全部通过才能自动上架。"
+          },
+          "4": {
+            "title": "网页、CLI 与 Agent 发布",
+            "stat": "多种发布方式",
+            "caption": "网页 / CLI 命令行 / Agent 自动化部署",
+            "description": "支持网页可视化发布、CLI 命令行一键推送与 Agent 自动化部署三种方式，版本全程可追溯，随时回滚。"
+          }
+        }
+      },
+      "enterprise": {
+        "label": "企业发布",
+        "milestones": {
+          "1": {
+            "title": "组织身份核验",
+            "stat": "企业实名后发布",
+            "caption": "建立可信组织身份",
+            "description": "完成企业主体与联系人核验后开通组织空间，成员可协作管理资产，认证标识在所有分发渠道可见。"
+          },
+          "2": {
+            "title": "平台 + 管理员双审核",
+            "stat": "2 道",
+            "caption": "自动审核 + 组织管理员复核",
+            "description": "自动化安全审核之上叠加组织管理员人工复核，核心资产需双人确认后才进入对外分发，审核记录全程留痕。"
+          },
+          "3": {
+            "title": "安全准入与发布范围",
+            "stat": "100%",
+            "caption": "对外分发强制安全准入",
+            "description": "资产可设为对内共享或对外分发，按团队、项目与渠道指定可见范围；安全准入未通过的版本一律拦截，不进入市场。"
+          },
+          "4": {
+            "title": "私有化分发与签名追溯",
+            "stat": "私有化交付",
+            "caption": "私有仓库 / 内网 CLI / Agent 部署",
+            "description": "支持私有仓库同步、内网 CLI 推送与 Agent 自动化部署；内容指纹与数字签名防篡改、可溯源，满足企业内控与合规要求。"
+          }
+        }
+      },
+      "visual": {
+        "verified": "已认证",
+        "submit": "提交审核",
+        "reviewTitle": "审核流水线",
+        "gateTitle": "安全准入 · 三线并行",
+        "blocked": "拦截 1",
+        "passed": "通过",
+        "reviewStages": {
+          "1": "内容合规过滤",
+          "2": "AI 语义审核",
+          "3": "低质内容识别"
+        },
+        "gateStages": {
+          "1": "内容合规过滤",
+          "2": "深度漏洞扫描",
+          "3": "AI 模型安全评估"
+        },
+        "ways": {
+          "web": {
+            "label": "网页发布",
+            "caption": "可视化表单上传 SKILL.md"
+          },
+          "agent": {
+            "label": "Agent发布",
+            "caption": "Agent 读取凭据后自动部署"
+          },
+          "cli": {
+            "label": "CLI发布",
+            "caption": "命令行一键推送"
+          }
+        }
+      }
+    },
+    "providerCta": {
+      "eyebrow": "创作者 · 发布与变现",
+      "titleLead": "上架到 OpenMCP",
+      "titleAccent": "被发现、被安装，分成 90%",
+      "description": "提交 Skills，注册 MCP / A2A，进入统一目录。收益来自被安装与被调用，付费与结算是上架之后的可选项。",
+      "existingPrefix": "已有资产？先看 ",
+      "stepsLink": "上架步骤",
+      "openpayLink": "OpenPay 计费说明",
+      "installsLabel": "示例 · 本月被安装 / 调用",
+      "installsValue": "12.8 万次",
+      "sampleBadge": "示例数据",
+      "revenueLabel": "可选收益（示例）",
+      "revenueValue": "¥3.19 万",
+      "revenueNote": "发布优先 · 结算可选",
+      "payLabel": "示例 · 付费调用",
+      "payValue": "由 OpenPay 承接，按需启用",
+      "payBadge": "可选能力",
+      "payFootLeft": "微信支付 / 支付宝",
+      "payFootRight": "免费与付费并存",
+      "orders": {
+        "1": {
+          "name": "财报解读智能体",
+          "amount": "¥0.5"
+        },
+        "2": {
+          "name": "股票行情深度解读",
+          "amount": "¥0.3"
+        },
+        "3": {
+          "name": "会议纪要 · 任务自动分派",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "metrics": {
+      "skills": {
+        "label": "认证 Skills",
+        "caption": "上架即过审"
+      },
+      "mcp": {
+        "label": "MCP 服务",
+        "caption": "中心化注册"
+      },
+      "a2a": {
+        "label": "A2A 智能体",
+        "caption": "协议级互联"
+      },
+      "revenue": {
+        "label": "创作者分成",
+        "caption": "实时结算"
+      }
+    },
+    "onboarding": {
+      "corner": "发现 · 安装 · 发布",
+      "eyebrow": "OpenMCP 市场",
+      "title": "安装 Skill 包，或上架你的资产",
+      "description": "浏览并安装 Skills / MCP / A2A；创作者提交经审核后上架。变现为可选能力。",
+      "ctaBrowse": "浏览 Skills / MCP / A2A",
+      "ctaProvider": "成为创作者"
+    }
+  },
+  "Marketing": {
+    "navbar": {
+      "personas": {
+        "title": "Personas"
+      },
+      "openpay": {
+        "title": "OpenPay"
+      },
+      "skills": {
+        "title": "Skills"
+      },
+      "a2a": {
+        "title": "A2A"
+      },
+      "mcp": {
+        "title": "MCP"
+      },
+      "clawsourcing": {
+        "title": "OpenClaw 定制"
+      },
+      "workflows": {
+        "title": "工作流"
+      },
+      "categories": {
+        "title": "分类"
+      },
+      "authors": {
+        "title": "作者"
+      },
+      "models": {
+        "title": "模型"
+      },
+      "rankings": {
+        "title": "排行"
+      },
+      "features": {
+        "title": "功能"
+      },
+      "pricing": {
+        "title": "价格"
+      },
+      "blog": {
+        "title": "教程"
+      },
+      "docs": {
+        "title": "文档"
+      },
+      "chat": {
+        "title": "聊天"
+      },
+      "pages": {
+        "title": "页面",
+        "items": {
+          "about": {
+            "title": "关于我们",
+            "description": "进一步了解我们的公司、使命与价值观"
+          },
+          "contact": {
+            "title": "联系我们",
+            "description": "就支持或咨询事宜与我们的团队取得联系"
+          },
+          "waitlist": {
+            "title": "等候名单",
+            "description": "加入等候名单，第一时间获取最新动态"
+          },
+          "changelog": {
+            "title": "更新日志",
+            "description": "查看我们产品的最新更新"
+          },
+          "roadmap": {
+            "title": "路线图",
+            "description": "了解我们未来的规划与即将上线的功能"
+          },
+          "cookiePolicy": {
+            "title": "Cookie 政策",
+            "description": "了解我们如何使用网站上的 Cookie"
+          },
+          "privacyPolicy": {
+            "title": "隐私政策",
+            "description": "了解我们如何保护与处理您的数据"
+          },
+          "termsOfService": {
+            "title": "服务条款",
+            "description": "您与我们公司之间的法律协议"
+          }
+        }
+      }
+    },
+    "footer": {
+      "tagline": "MCP / A2A / Skills 资产市场：发现可信能力、装进 Agent；Provider 发布上架，可选付费与结算。",
+      "product": {
+        "title": "产品",
+        "items": {
+          "features": "功能",
+          "pricing": "价格",
+          "workflows": "工作流",
+          "faq": "常见问题",
+          "skills": "Skills",
+          "clawsourcing": "OpenClaw 定制",
+          "personas": "Personas",
+          "rankings": "排行",
+          "categories": "分类",
+          "authors": "创作者",
+          "mcp": "MCP",
+          "a2a": "A2A",
+          "start": "起步指南"
+        }
+      },
+      "resources": {
+        "title": "资源",
+        "items": {
+          "blog": "教程",
+          "docs": "文档",
+          "changelog": "更新日志",
+          "roadmap": "路线图"
+        }
+      },
+      "company": {
+        "title": "公司",
+        "items": {
+          "about": "关于我们",
+          "contact": "联系我们",
+          "waitlist": "邮件列表"
+        }
+      },
+      "legal": {
+        "title": "法律",
+        "items": {
+          "cookiePolicy": "Cookie政策",
+          "privacyPolicy": "隐私政策",
+          "termsOfService": "服务条款"
+        }
+      },
+      "disclaimer": {
+        "contentSource": "内容来源：本站部分 Skill 内容来源于公开渠道、认证企业或由用户自主发布，使用前请注意甄别风险，内容版权归原作者所有。",
+        "infringement": "侵权投诉：如 Skill 涉及版权问题，请发送邮件至 <link>service@openmcp.cn</link>，我们将在收到通知后及时核实并予以下架处理。",
+        "copyright": "Copyright ©2025-Present 天津聚链科技有限公司版权所有",
+        "icp": "津ICP备2023007973号"
+      }
+    },
+    "avatar": {
+      "dashboard": "工作台",
+      "billing": "账单",
+      "settings": "设置"
+    }
+  },
+  "ClawsourcingPage": {
+    "qa": {
+      "title": "常见问题",
+      "faqs": {
+        "q0": {
+          "question": "这和我自己搭建 OpenClaw 有什么不同？",
+          "answer": "就像买服务器和雇系统管理员的区别。你可以自己来。但每位 Clawsourced 员工都自带久经考验的记忆系统（多数 AI 配置会忘掉一切，我们的不会）、精选工具栈、定制人设，以及来自 OpenMCP（负责我们公司的 AI）的持续支持。此外我们每月都会主动维护和升级你的配置。你得到的是现成员工，而不是课后作业。"
+        },
+        "q1": {
+          "question": "咨询真的免费吗？",
+          "answer": "是的。我们会审阅你的工作流、做需求访谈，并给你一份具体的范围方案——不收费、无承诺。只有在你决定推进搭建时才需要付费。"
+        },
+        "q2": {
+          "question": "我需要准备什么？",
+          "answer": "一个 OpenRoute.cn 虚拟密钥（按量计费，我们会发你配置视频）以及我们问卷的回复。就这些，其余我们处理。"
+        },
+        "q3": {
+          "question": "我的 Claw 多久能上线？",
+          "answer": "多数在范围确认后一周内上线，部分可在 48 小时内。"
+        },
+        "q4": {
+          "question": "每月 ￥500 包含什么？",
+          "answer": "托管、监控、修 bug、技能更新和持续优化。我们不只是维持运行——会根据你的反馈以及我们管理的其他 Claw 的经验，每月让你的 Claw 变得更好。"
+        },
+        "q5": {
+          "question": "可以取消吗？",
+          "answer": "按月付费，无长期合同。若你离开，我们会移交所有文件、配置和系统组件，零锁定。"
+        },
+        "q6": {
+          "question": "我的数据安全吗？",
+          "answer": "你的 Claw 运行在独立基础设施上，客户之间不共享任何内容。数据、配置和系统都归你所有。"
+        },
+        "q7": {
+          "question": "你们能看到我的业务数据吗？",
+          "answer": "不能。我们只维护 AI 层——技能、提示词、记忆架构和配置。你的 API 密钥以加密环境变量存储，我们在配置完成后不会读取。业务数据（邮件、CRM、客户信息）仅经你的 Claw 运行时处理，我们不会记录、存储或访问。可以类比托管 IT 服务商：我们维护系统，不读你的文件。"
+        },
+        "q8": {
+          "question": "如果不想让你们从我的配置中学习呢？",
+          "answer": "完全可以——我们可以把你排除在跨客户学习之外。但会双向生效：我们既不会把你的 Claw 的模式用到别人身上，也不会把其他客户的改进推送到你这儿。多数人希望获得升级，但选择权在你。"
+        }
+      }
+    }
+  },
+  "AboutPage": {
+    "title": "关于我们",
+    "description": "OpenMCP 是一个开放的 AI Agent 基础设施，帮助您发现、发布和分享 AI 技能、MCP 工具与 A2A 智能体。如果您有任何问题，欢迎联系我们。",
+    "authorName": "OpenMCP",
+    "authorBio": "您的 AI Agent 基础设施",
+    "introduction": "👋 欢迎来到 **OpenMCP**！\n\n我们是**开放中立的多智能体协作基础设施**，连接全球 AI Agent 开发者社区。\n\n## 我们的使命\n\n我们的使命是通过提供数千个**经过认证的 AI 技能与资产**，让每个 AI Agent 都能轻松获得扩展能力。您可以：\n\n- **发现**适合您需求的 AI 技能、MCP 工具与 A2A 智能体\n- **下载**即用的扩展能力\n- **定制**资产以满足您的特定用例\n- **分享**您自己的创作与社区\n\n## AI 驱动分析\n\n我们提供**AI 驱动的技能分析**功能，帮助您：\n\n- 优化性能\n- 识别瓶颈\n- 提高效率\n\n## 加入我们的社区\n\n无论您是初学者还是专家，加入我们的社区可以：\n\n- 分享知识\n- 向他人学习\n- 共同构建更好的 AI Agent 解决方案\n\n如果您有任何问题或建议，我们非常乐意听取您的意见！",
+    "talkWithMe": "联系我们",
+    "contactWeChat": "微信联系",
+    "followMe": "关注我们"
+  },
+  "ChangelogPage": {
+    "title": "版本说明",
+    "description": "查看我们产品的最新动态",
+    "subtitle": "查看我们产品的最新动态"
+  },
+  "ContactPage": {
+    "title": "联系我们",
+    "description": "我们帮助您找到合适的计划",
+    "subtitle": "我们帮助您找到合适的计划",
+    "form": {
+      "title": "联系我们",
+      "description": "如果您有任何问题或反馈，请随时联系我们的团队",
+      "name": "姓名",
+      "email": "邮箱",
+      "message": "消息",
+      "submit": "提交",
+      "submitting": "提交中...",
+      "success": "消息发送成功",
+      "fail": "消息发送失败",
+      "nameMinLength": "姓名必须至少包含 3 个字符",
+      "nameMaxLength": "姓名必须不超过 30 个字符",
+      "emailValidation": "请输入有效的邮箱地址",
+      "messageMinLength": "消息必须至少包含 10 个字符",
+      "messageMaxLength": "消息必须不超过 500 个字符"
+    },
+    "wechat": {
+      "title": "微信联系",
+      "description": "扫描二维码添加微信",
+      "contactWeChat": "微信联系",
+      "openDialog": "打开微信联系对话框",
+      "qrCodeAlt": "微信二维码",
+      "qrCodePlaceholder": "二维码加载失败",
+      "wechatId": "微信号",
+      "copy": "复制",
+      "copied": "已复制",
+      "copySuccess": "微信号已复制到剪贴板",
+      "copyFailed": "复制失败，请手动复制",
+      "supportNote": "这是我们的技术支持微信，随时为您服务",
+      "instruction1": "请使用微信扫描上方二维码"
+    }
+  },
+  "WaitlistPage": {
+    "title": "等待队列",
+    "description": "加入等待队列，及时获取最新消息和更新",
+    "subtitle": "加入等待队列，及时获取最新消息和更新",
+    "form": {
+      "title": "加入等待队列",
+      "description": "我们将在产品发布时及时通知您",
+      "email": "邮箱",
+      "subscribe": "加入等待队列",
+      "subscribing": "加入等待队列中...",
+      "success": "加入等待队列成功",
+      "fail": "加入等待队列失败",
+      "emailValidation": "请输入有效的邮箱地址"
+    }
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "edit": "编辑",
+    "delete": "删除",
+    "copy": "复制",
+    "copied": "已复制",
+    "close": "关闭",
+    "back": "返回",
+    "backToChat": "返回聊天",
+    "next": "下一步",
+    "previous": "上一步",
+    "submit": "提交",
+    "search": "搜索",
+    "filter": "筛选",
+    "sort": "排序",
+    "refresh": "刷新",
+    "retry": "重试",
+    "connect": "连接",
+    "connecting": "连接中...",
+    "disconnect": "断开连接",
+    "signIn": "登录",
+    "signUp": "注册",
+    "signOut": "退出登录",
+    "profile": "个人资料",
+    "settings": "设置",
+    "help": "帮助",
+    "about": "关于",
+    "contact": "联系我们",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "switchTheme": "切换主题",
+    "and": "和",
+    "appName": "OpenMCP",
+    "feedback": "反馈"
+  },
+  "navigation": {
+    "home": "首页",
+    "chat": "聊天",
+    "dashboard": "仪表板",
+    "models": "模型",
+    "settings": "设置",
+    "profile": "个人资料",
+    "help": "帮助",
+    "blog": "教程",
+    "docs": "文档",
+    "aiApps": "AI应用",
+    "aiText": "AI文本",
+    "aiTextDescription": "智能文本生成和处理",
+    "aiImage": "AI图片",
+    "aiImageDescription": "AI图像生成和编辑",
+    "aiVideo": "AI视频",
+    "aiVideoDescription": "AI视频生成和处理",
+    "aiAudio": "AI音频",
+    "aiAudioDescription": "AI音频生成和处理",
+    "externalAiTools": "外部AI工具",
+    "externalAiToolsDescription": "访问外部AI工具平台"
+  },
+  "forms": {
+    "forgotPassword": {
+      "title": "忘记密码",
+      "description": "输入您的邮箱以重置密码",
+      "email": "邮箱",
+      "emailPlaceholder": "m@example.com",
+      "resetPassword": "重置密码",
+      "passwordResetEmailSent": "密码重置邮件已发送",
+      "dontHaveAccount": "没有账户？",
+      "signUp": "注册"
+    },
+    "login": {
+      "title": "欢迎回来",
+      "description": "使用您的GitHub账户登录",
+      "loginWithGoogle": "使用Google登录",
+      "loginWithGithub": "使用GitHub登录",
+      "lastUsed": "最近使用",
+      "orContinueWith": "或继续使用",
+      "email": "邮箱",
+      "emailPlaceholder": "m@example.com",
+      "password": "密码",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "忘记密码？",
+      "login": "登录",
+      "dontHaveAccount": "没有账户？",
+      "signUp": "注册"
+    },
+    "resetPassword": {
+      "title": "重置密码",
+      "description": "输入您的新密码",
+      "password": "密码",
+      "confirmPassword": "确认密码",
+      "resetPassword": "重置密码",
+      "passwordResetSuccess": "密码重置成功",
+      "passwordsDoNotMatch": "密码不匹配",
+      "dontHaveAccount": "没有账户？",
+      "signUp": "注册"
+    },
+    "signup": {
+      "title": "欢迎回来",
+      "description": "使用您的GitHub账户注册",
+      "signupWithGoogle": "使用Google注册",
+      "signupWithGithub": "使用GitHub注册",
+      "orContinueWith": "或继续使用",
+      "username": "用户名",
+      "usernamePlaceholder": "shadcn",
+      "email": "邮箱",
+      "emailPlaceholder": "m@example.com",
+      "password": "密码",
+      "passwordPlaceholder": "********",
+      "forgotPassword": "忘记密码？",
+      "signup": "注册",
+      "alreadyHaveAccount": "已有账户？",
+      "login": "登录",
+      "pleaseCheckEmail": "请检查您的邮箱进行验证。"
+    },
+    "common": {
+      "agreeToTerms": "点击继续，您同意我们的",
+      "termsOfService": "服务条款",
+      "privacyPolicy": "隐私政策",
+      "cancel": "取消"
+    }
+  },
+  "BlogPage": {
+    "title": "教程",
+    "description": "来自我们的团队最新新闻和更新",
+    "subtitle": "来自我们的团队最新新闻和更新",
+    "author": "创作者",
+    "categories": "分类",
+    "tableOfContents": "目录",
+    "readTime": "{minutes} 分钟阅读",
+    "all": "全部",
+    "noPostsFound": "没有找到文章",
+    "allPosts": "全部文章",
+    "pagination": {
+      "previousPage": "上一页",
+      "nextPage": "下一页",
+      "page": "第 {page} 页",
+      "goToPage": "跳转到第 {page} 页",
+      "currentPage": "当前页：{page}",
+      "totalPages": "共 {totalPages} 页"
+    },
+    "morePosts": "更多文章"
+  },
+  "DocsPage": {
+    "toc": "目录",
+    "search": "搜索文档",
+    "lastUpdate": "最后更新于",
+    "searchNoResult": "没有结果",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
+    "chooseLanguage": "选择语言",
+    "title": "OpenMCP 文档",
+    "homepage": "首页",
+    "blog": "教程",
+    "workflows": "工作流",
+    "models": "模型",
+    "chat": "聊天"
+  },
+  "Fumadocs": {
+    "chat": {
+      "newChat": "新聊天",
+      "regenerate": "重新生成",
+      "delete": "清空聊天",
+      "description": "AI 可能会生成错误的文档，请仔细甄别。",
+      "thinking": "思考中...",
+      "generating": "生成中...",
+      "typeMessage": "输入消息...",
+      "stop": "停止",
+      "close": "关闭",
+      "you": "你",
+      "assistant": "OpenMCP",
+      "source": "来源",
+      "askAI": "AI问答"
+    }
+  },
+  "Mail": {
+    "common": {
+      "team": "{name} 团队",
+      "copyright": "©️ {year} 版权所有。"
+    },
+    "verifyEmail": {
+      "title": "你好，{name}。",
+      "body": "请点击下面的链接验证您的邮箱地址。",
+      "confirmEmail": "确认邮箱",
+      "subject": "验证您的邮箱"
+    },
+    "forgotPassword": {
+      "title": "你好，{name}。",
+      "body": "请点击下面的链接重置您的密码。",
+      "resetPassword": "重置密码",
+      "subject": "重置您的密码"
+    },
+    "subscribeNewsletter": {
+      "body": "感谢您订阅我们的邮件列表，我们将为您提供最新的新闻和更新。",
+      "subject": "感谢您的订阅"
+    },
+    "contactMessage": {
+      "name": "姓名: {name}",
+      "email": "邮箱: {email}",
+      "message": "消息: {message}",
+      "subject": "来自网站的联系消息"
+    }
+  },
+  "time": {
+    "now": "现在",
+    "justNow": "刚刚",
+    "minutesAgo": "{count} 分钟前",
+    "hoursAgo": "{count} 小时前",
+    "daysAgo": "{count} 天前",
+    "weeksAgo": "{count} 周前",
+    "monthsAgo": "{count} 个月前",
+    "yearsAgo": "{count} 年前",
+    "today": "今天",
+    "yesterday": "昨天",
+    "tomorrow": "明天",
+    "thisWeek": "本周",
+    "lastWeek": "上周",
+    "nextWeek": "下周",
+    "thisMonth": "本月",
+    "lastMonth": "上月",
+    "nextMonth": "下月",
+    "thisYear": "今年",
+    "lastYear": "去年",
+    "nextYear": "明年"
+  },
+  "NotFoundPage": {
+    "title": "404",
+    "message": "抱歉，您正在寻找的页面不存在",
+    "backToHome": "返回首页"
+  },
+  "ErrorPage": {
+    "title": "哎呀！出错了！",
+    "tryAgain": "重试",
+    "backToHome": "返回首页"
+  },
+  "AuthorsPage": {
+    "title": "技能创作者",
+    "description": "发现由我们的 OpenMCP AI 专家社区创建的能力资产。",
+    "totalAuthors": "{count} 位创作者",
+    "authors": "创作者",
+    "searchPlaceholder": "搜索创作者...",
+    "skills": "个Skills",
+    "loadingMore": "加载更多创作者...",
+    "allLoaded": "所有创作者已加载",
+    "noAuthors": "未找到创作者",
+    "loading": "加载中...",
+    "pagination": {
+      "previousPage": "上一页",
+      "nextPage": "下一页"
+    },
+    "notFound": {
+      "title": "创作者未找到",
+      "description": "抱歉，找不到该创作者的信息。"
+    },
+    "authorDetailContentTypeTitle": "内容类型",
+    "authorDetail": {
+      "contentTypeTitle": "内容类型",
+      "tabSkills": "技能",
+      "tabWorkflows": "工作流",
+      "tabPersonas": "角色",
+      "statSkills": "技能",
+      "statWorkflows": "工作流",
+      "statPersonas": "角色",
+      "hasLinksNote": "包含外部链接"
+    },
+    "workflows": "工作流"
+  },
+  "CategoriesPage": {
+    "title": "技能分类",
+    "description": "按分类浏览技能，找到您需要的内容。",
+    "backToCatalog": "返回目录",
+    "skill": "个Skills",
+    "skills": "个Skills",
+    "notFound": {
+      "title": "分类未找到",
+      "description": "抱歉，找不到该分类的信息。"
+    },
+    "loadError": "加载分类失败，请稍后重试",
+    "workflow": "工作流",
+    "workflows": "工作流"
+  },
+  "Workflows": {
+    "workflowCount": "{count, plural, =0 {个工作流} =1 {个工作流} other {个工作流}}",
+    "workflows": "工作流",
+    "workflow": "工作流",
+    "categories": "分类",
+    "category": "分类",
+    "complexity": {
+      "beginner": "初级",
+      "intermediate": "中级",
+      "advanced": "高级"
+    },
+    "priceType": {
+      "free": "免费",
+      "paid": "付费"
+    },
+    "status": {
+      "draft": "草稿",
+      "published": "已发布",
+      "archived": "已归档",
+      "rejected": "已拒绝"
+    },
+    "views": "浏览",
+    "downloads": "下载",
+    "likes": "点赞",
+    "comments": "评论",
+    "verifications": "验证",
+    "author": "创作者",
+    "publishedAt": "发布时间",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "certified": "已认证",
+    "notCertified": "未认证",
+    "download": "下载",
+    "viewDetails": "查看详情",
+    "relatedWorkflows": "相关工作流",
+    "noWorkflows": "暂无工作流",
+    "loading": "加载中...",
+    "error": "加载失败",
+    "retry": "重试",
+    "filters": {
+      "nodeTypes": "节点类型",
+      "supportAuthor": "支持作者",
+      "supportTitle": "感谢您的支持",
+      "supportDescription": "如果您觉得这个项目对您有帮助，欢迎通过微信扫码进行捐助。您的支持是我持续改进和更新的动力！",
+      "supportQrAlt": "微信支付二维码",
+      "supportHint": "请使用微信扫描上方二维码进行捐助，感谢您的慷慨支持！"
+    },
+    "grid": {
+      "loadError": "加载工作流失败，请稍后重试",
+      "empty": "没有找到符合条件的工作流",
+      "emptyHint": "请尝试调整筛选条件",
+      "showing": "显示 {from}-{to} 个工作流，共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "activeFilters": {
+      "selected": "已选条件:",
+      "search": "搜索",
+      "sortLabel": "排序",
+      "remove": "移除",
+      "clearAll": "清除所有",
+      "certified": "已认证",
+      "timePeriod": {
+        "7d": "最近7天",
+        "1m": "最近1个月",
+        "3m": "最近3个月",
+        "all": "全部时间"
+      },
+      "priceType": {
+        "free": "免费",
+        "paid": "付费"
+      },
+      "complexity": {
+        "beginner": "初级",
+        "intermediate": "中级",
+        "advanced": "高级"
+      },
+      "sort": {
+        "dateDesc": "最新发布",
+        "dateAsc": "最早发布",
+        "downloadsDesc": "下载最多",
+        "viewsDesc": "浏览最多",
+        "popularityDesc": "热度最高"
+      }
+    },
+    "hero": {
+      "title": "工作流库 - 发现并分享强大的自动化工作流",
+      "countSuffix": "个可用工作流",
+      "subtitle": "探索即用型自动化工作流，优化您的工作流程",
+      "searchPlaceholder": "搜索工作流..."
+    },
+    "related": {
+      "title": "相关推荐工作流",
+      "description": "发现更多优秀的自动化解决方案"
+    },
+    "share": {
+      "title": "分享您的工作流",
+      "description": "有优秀的工作流想要分享吗？加入创作者中心，帮助社区发展！",
+      "submitCta": "提交您的模板",
+      "howTo": "如何提交",
+      "footnote": "加入数百位创作者，分享您的自动化工作流"
+    },
+    "detail": {
+      "description": "描述",
+      "expandDescription": "展开描述",
+      "collapseDescription": "折叠描述",
+      "markdown": "Markdown 内容",
+      "expandMarkdown": "展开 Markdown 内容",
+      "collapseMarkdown": "折叠 Markdown 内容",
+      "copyMarkdown": "复制 Markdown",
+      "copied": "已复制!",
+      "home": "首页",
+      "workflows": "工作流",
+      "nodes": "节点",
+      "categories": "分类",
+      "website": "网站",
+      "copyId": "复制工作流 ID",
+      "viewOnN8n": "在 n8n.io 查看",
+      "downloading": "下载中...",
+      "downloadWorkflow": "下载工作流",
+      "downloadSuccess": "下载成功",
+      "downloadError": "下载失败",
+      "missingId": "无法获取工作流 ID",
+      "certifiedTitle": "平台认证工作流",
+      "certifiedDescription": "此工作流已通过官方质量审核",
+      "signInRequired": "请先登录",
+      "signIn": "登录"
+    },
+    "notFound": {
+      "title": "工作流未找到",
+      "description": "抱歉，找不到该工作流的信息。"
+    }
+  },
+  "StartPage": {
+    "title": "把 OpenMCP 装进 Agent",
+    "description": "复制短提示词，让 Agent 按 /install/openmcp.md 安装商店；再下载 Skill 包到本地 skills 目录。",
+    "badge": "OpenMCP · 起步",
+    "heading": "安装 Skill 包，接入 OpenMCP 商店",
+    "intro": "先复制「给 AI 安装」提示词（指向 install/openmcp.md），再浏览货架下载 Zip 或经 Store MCP 安装。MCP / A2A 仅走平台网关。",
+    "promptHint": "复制下方短提示词发给 Agent，即可按文档完成商店与技能包安装。",
+    "copyPrompt": "复制给 AI 安装",
+    "cta": {
+      "browse": "浏览 Skills / MCP / A2A",
+      "provider": "成为 Provider"
+    },
+    "stepsHeading": "三步起步",
+    "steps": {
+      "one": {
+        "title": "复制提示词，安装 OpenMCP 商店",
+        "body": "复制本页「给 AI 安装」提示词，粘贴到 Cursor / Claude Code / Codex。Agent 会读取 /install/openmcp.md 并注册 Store MCP 或下载 Helper Skill 包。"
+      },
+      "two": {
+        "title": "下载 Skill Zip 并解压到本地",
+        "body": "打开 Skills 货架，在详情页「下载 Zip 包安装」，解压到 ~/.cursor/skills、~/.claude/skills 或 Codex skills 目录。"
+      },
+      "three": {
+        "title": "按需接入 MCP / A2A（平台网关）",
+        "body": "在 MCP / A2A 详情复制网关配置与 API Key 占位。勿使用 Provider 直连。可选成为 Provider 上架资产。"
+      }
+    },
+    "future": {
+      "badge": "已上线 · Store MCP",
+      "title": "OpenMCP Store MCP",
+      "body": "平台托管 Store MCP（search_assets / get_asset / install_asset）。用 Dashboard API Key 注册到 Cursor / Claude Code / Codex。",
+      "bullets": {
+        "one": "Agent 调用 search_assets / get_asset / install_asset",
+        "two": "按 Runtime 返回文件列表或网关 mcp.json / A2A Card",
+        "three": "付费资产校验 entitlement；仅平台网关 URL"
+      },
+      "note": "Store MCP 已可用：本页与详情「装进 Agent」含「添加 OpenMCP Store MCP」片段。端点 /api/mcp/store。"
+    }
+  },
+  "Skills": {
+    "hero": {
+      "title": "全部技能",
+      "subtitle": "快速发现专家技能，让 AI 从通用走向专用",
+      "searchPlaceholder": "搜索技能",
+      "searchButton": "搜索",
+      "countSeparator": "共",
+      "countSuffix": "个技能",
+      "categoryLabel": "所在分类",
+      "allCategories": "所有场景分类",
+      "priceLabel": "全部价格",
+      "allPrices": "全部价格",
+      "free": "免费",
+      "paid": "付费",
+      "certLabel": "认证状态",
+      "certAll": "不限认证",
+      "certified": "已认证",
+      "sortLabel": "排序",
+      "tabs": {
+        "all": "全部",
+        "rising": "近期飙升",
+        "downloads": "下载量",
+        "newest": "最近上新"
+      },
+      "sorts": {
+        "dateDesc": "最新发布",
+        "dateAsc": "最早发布",
+        "downloadsDesc": "下载最多",
+        "viewsDesc": "浏览最多",
+        "popularityDesc": "热度最高"
+      }
+    },
+    "list": {
+      "loadError": "加载技能列表失败，请稍后重试",
+      "noMatch": "没有找到符合条件的技能",
+      "adjustFilters": "请尝试调整筛选条件",
+      "totalPrefix": "共",
+      "totalSuffix": "个技能",
+      "listView": "列表视图",
+      "gridView": "网格视图",
+      "showingRange": "显示",
+      "ofTotal": "共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "grid": {
+      "loadError": "加载技能列表失败，请稍后重试",
+      "noMatch": "没有找到符合条件的技能",
+      "adjustFilters": "请尝试调整筛选条件",
+      "showingRange": "显示 {from}-{to} 个技能，共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "card": {
+      "safe": "安全",
+      "caution": "⚠️ 谨慎",
+      "certified": "已认证",
+      "iconAlt": "{title} 图标"
+    },
+    "row": {
+      "certified": "已认证",
+      "iconAlt": "{title} 图标"
+    },
+    "category": {
+      "details": "详细信息",
+      "type": "类型",
+      "category": "分类",
+      "price": "价格",
+      "schemaVersion": "协议版本",
+      "billing": "计费方式"
+    },
+    "price": {
+      "free": "免费",
+      "paid": "付费"
+    }
+  },
+  "Personas": {
+    "hero": {
+      "title": "SOUL 广场",
+      "subtitle": "给你的 Agent 挑一副会说话的灵魂：先逛逛哪张卡最对味，再把这套 SOUL 装进自己的 AI 搭子。",
+      "testCta": "测试我的 SOUL",
+      "installCta": "搭配专家包安装",
+      "countSuffix": "个可用角色"
+    },
+    "grid": {
+      "loadError": "加载角色列表失败，请稍后重试",
+      "noMatch": "没有找到符合条件的角色",
+      "adjustFilters": "请尝试调整筛选条件",
+      "helper": "拿不准谁最合拍？先做个小测试摸摸气场。已经一眼心动的话，点开卡片详情，就能看到人设解读和安装说明。",
+      "galleryAria": "SOUL 人格库",
+      "showingRange": "显示 {from}-{to} 个角色，共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "card": {
+      "ariaLabel": "{code}・{title} 人设详情",
+      "shortReview": "人格短评",
+      "viewDetail": "查看详情"
+    },
+    "price": {
+      "free": "免费",
+      "paid": "付费"
+    }
+  },
+  "Authors": {
+    "workflows": {
+      "showingRange": "显示 {from}-{to} 个工作流，共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "price": {
+      "free": "免费",
+      "paid": "付费"
+    },
+    "periods": {
+      "7d": "最近7天",
+      "1m": "最近1个月",
+      "3m": "最近3个月"
+    },
+    "sorts": {
+      "dateAsc": "最早发布",
+      "downloadsDesc": "下载最多",
+      "viewsDesc": "浏览最多",
+      "popularityDesc": "热度最高",
+      "likesDesc": "点赞最多"
+    },
+    "loading": "加载中...",
+    "activeFilters": "已选条件:",
+    "removeFilter": "移除 {label}",
+    "clearAll": "清除所有",
+    "sortPrefix": "排序: {value}"
+  },
+  "RechargePage": {
+    "title": "钱包充值",
+    "subtitle": "为钱包充值后即可购买付费 Skill，支付成功后余额立即到账。",
+    "balanceLabel": "可用余额",
+    "balanceHint": "购买付费 Skill 时将从此余额扣除。",
+    "tabOnline": "微信 / 支付宝",
+    "tabBank": "对公转账",
+    "chooseAmount": "选择充值金额",
+    "customAmount": "自定义金额",
+    "customAmountHint": "请输入在最小值与最大值之间的金额。",
+    "createOrder": "创建订单",
+    "creating": "创建中…",
+    "scanToPay": "扫码支付",
+    "scanHint": "请打开钱包 App 扫码，或点击支付链接。",
+    "openPayLink": "打开支付链接",
+    "paySucceeded": "支付成功",
+    "paySucceededHint": "余额已更新。",
+    "payPending": "等待支付",
+    "payFailed": "支付失败",
+    "payExpired": "订单已过期",
+    "payClosed": "订单已关闭",
+    "balanceNow": "当前余额",
+    "viewHistory": "充值记录",
+    "historyEmpty": "暂无充值记录。",
+    "historyDate": "时间",
+    "historyAmount": "金额",
+    "historyStatus": "状态",
+    "refresh": "刷新",
+    "bankTitle": "对公转账",
+    "bankIntro": "请向我们的对公账户转账，并填写汇款码以便我们核对。管理员确认到账后余额才会充值。",
+    "bankAccountName": "账户名称",
+    "bankAccountNumber": "银行账号",
+    "bankName": "开户银行",
+    "bankBranch": "开户支行",
+    "bankNotConfigured": "对公转账尚未配置，请使用微信或支付宝支付。",
+    "remittanceLabel": "汇款码",
+    "remittanceHint": "请在转账附言/用途栏填写此汇款码，这是我们核对到账的依据。",
+    "payerNameLabel": "付款方户名（选填）",
+    "payerNameHint": "填写后可加快我们核对到账的速度。",
+    "createBankOrder": "生成汇款码",
+    "bankAwaiting": "等待核对",
+    "bankAwaitingHint": "订单已提交，管理员确认到账后余额将自动充值。",
+    "bankRejected": "转账未匹配",
+    "bankRejectedHint": "未能匹配到账记录，请携带汇款码联系客服。",
+    "copy": "复制",
+    "copied": "已复制",
+    "statusPending": "待支付",
+    "statusPendingTransfer": "待核对",
+    "statusPaid": "已支付",
+    "statusExpired": "已过期",
+    "statusClosed": "已关闭",
+    "statusFailed": "支付失败",
+    "signInRequired": "登录后即可为钱包充值。",
+    "simulationBanner": "开发模式：支付为模拟流程，不会产生真实扣款。",
+    "simulatePay": "模拟支付成功",
+    "simulateDecline": "模拟支付失败",
+    "simulateHint": "仅在本地开发环境可用，走的是与真实支付回调完全相同的入账流程。",
+    "errorAmountInvalid": "该金额不可用。",
+    "errorAmountRange": "金额需在最小值与最大值之间。",
+    "errorGeneric": "操作失败，请重试。"
+  },
+  "AdminBankTransfer": {
+    "title": "对公转账核销台",
+    "subtitle": "将到账的对公转账与银行流水核对后确认或驳回。确认后即为用户钱包充值。",
+    "filterStatus": "状态",
+    "filterSearch": "搜索",
+    "filterSearchPlaceholder": "汇款码或订单号",
+    "statusAll": "全部",
+    "statusPending": "待核对",
+    "statusConfirmed": "已确认",
+    "statusRejected": "已驳回",
+    "empty": "暂无转账记录。",
+    "colCode": "汇款码",
+    "colAmount": "金额",
+    "colPayer": "付款方",
+    "colDate": "创建时间",
+    "colStatus": "状态",
+    "colActions": "操作",
+    "confirm": "确认到账",
+    "reject": "驳回",
+    "rejectReason": "驳回原因",
+    "rejectReasonPlaceholder": "说明该笔转账为何无法匹配",
+    "confirmReject": "确认驳回",
+    "cancel": "取消",
+    "prev": "上一页",
+    "next": "下一页",
+    "pageInfo": "第 {page} / {totalPages} 页",
+    "errorGeneric": "操作失败，请重试。"
+  },
+  "OpenPayPage": {
+    "meta": {
+      "title": "OpenPay - 付费技能变现平台",
+      "description": "把专业能力封装为付费技能，接上微信/支付宝支付，Agent 调用一次收一次钱，按次计费、实时结算。"
+    },
+    "hero": {
+      "eyebrow": "OpenPay · 付费能力变现",
+      "titleLine1": "上架付费技能",
+      "titleLine2": "实现 AI 能力变现",
+      "subtitle": "把专业服务封装为可调用、可支付的技能。接上微信与支付宝，Agent 每次调用都变成你的收入——按次计费、实时结算。",
+      "ctaPrimary": "立即上架付费技能",
+      "ctaSecondary": "查看接入流程",
+      "highlights": {
+        "channels": "微信支付 / 支付宝双渠道",
+        "billing": "按次计费 · 实时结算",
+        "inflow": "支付确认留在任务流程内"
+      }
+    },
+    "comparison": {
+      "eyebrow": "普通技能 vs 付费技能",
+      "title": "一样的能力，完全不同的收入模型",
+      "free": {
+        "title": "普通技能",
+        "items": {
+          "download": "免费下载、源码交付",
+          "exposure": "依赖平台商店的曝光",
+          "noContact": "安装后与提供者失联"
+        },
+        "earningsLabel": "收益",
+        "earningsValue": "一次交付，之后全靠口碑"
+      },
+      "paid": {
+        "badge": "升级为付费技能",
+        "title": "付费技能（Pay Skill）",
+        "items": {
+          "collect": "微信支付 / 支付宝收款，扫码即付",
+          "models": "按次 / 订阅 / 包月灵活计费",
+          "inflow": "支付确认留在 Agent 任务流程内"
+        },
+        "earningsLabel": "收益",
+        "earningsValue": "每次真实调用，实时结算"
+      }
+    },
+    "capabilities": {
+      "eyebrow": "从技能上架到分发，一站式服务",
+      "title": "把能力变成一件可售的产品",
+      "items": {
+        "wallet": {
+          "title": "微信、支付宝双渠道接入",
+          "description": "打通微信支付与支付宝收款，扫码即付，无需自建支付系统，结算对账一目了然。"
+        },
+        "migrate": {
+          "title": "已有技能平滑转为付费技能",
+          "description": "已上架技能无需重构，一键开启计费，历史用户与安装记录无缝迁移，不打断现有使用。"
+        },
+        "inflow": {
+          "title": "支付确认留在任务流程内完成",
+          "description": "用户在 Agent 对话里直接完成下单、支付与确认，不跳出任务链路，流失率更低。"
+        },
+        "distribute": {
+          "title": "OpenMCP 统一连接多个入口",
+          "description": "一个付费技能同步分发到多个 Agent 平台，SKILL.md / MCP / A2A 一处上架、全端可购。"
+        }
+      }
+    },
+    "cases": {
+      "eyebrow": "已入驻企业",
+      "title": "他们把专业能力，变成了持续收入",
+      "items": {
+        "workRally": {
+          "name": "Work Rally",
+          "scene": "会议纪要 · 任务自动分派",
+          "price": "订阅 ¥29/月"
+        },
+        "trip": {
+          "name": "携程旅行",
+          "scene": "行程信息智能汇总",
+          "price": "按次 ¥0.2/次"
+        },
+        "luckin": {
+          "name": "瑞幸咖啡",
+          "scene": "门店经营数据速报",
+          "price": "订阅 ¥19/月"
+        },
+        "wind": {
+          "name": "万得",
+          "scene": "金融数据实时检索",
+          "price": "按次 ¥0.5/次"
+        },
+        "tencent": {
+          "name": "腾讯自选股",
+          "scene": "股票行情深度解读",
+          "price": "按次 ¥0.3/次"
+        },
+        "tongdaxin": {
+          "name": "通达信",
+          "scene": "技术指标智能识别",
+          "price": "按次 ¥0.4/次"
+        }
+      },
+      "disclaimer": "以上为接入 OpenPay 的付费技能示例。"
+    },
+    "steps": {
+      "eyebrow": "三步接入",
+      "title": "如何接入 OpenPay",
+      "tabWechat": "微信接入",
+      "tabAlipay": "支付宝接入",
+      "contentWechat": "全程走官方直连：微信支付商户号一次绑定，扫码即收，凭结算周期自动分账。",
+      "contentAlipay": "企业支付宝授权后接入开放平台，付款码 / 网页支付双形态，费用明细实时可查。",
+      "items": {
+        "verify": {
+          "title": "完成企业认证，接入收款渠道",
+          "description": "提交企业资料完成认证，审核通过后绑定微信支付或支付宝，开通按次 / 订阅收款能力。"
+        },
+        "package": {
+          "title": "把专业能力封装为付费技能",
+          "description": "在 Skills 上架技能并开启计费：设置按次、订阅价格，配置能力描述与调用参数。"
+        },
+        "launch": {
+          "title": "发布上线，Agent 调用即变现",
+          "description": "通过安全审核后进入中心化目录，Agent 调用即计量计费，收益实时结算到账。"
+        }
+      },
+      "ctaPrimary": "开始入驻",
+      "ctaSecondary": "先上架一个免费技能",
+      "support": "全程人工客服支持"
+    },
+    "faq": {
+      "eyebrow": "常见问题",
+      "title": "接入前你可能想确认的几件事",
+      "items": {
+        "difference": {
+          "question": "付费技能和免费技能有什么区别？",
+          "answer": "免费技能靠下载分发，提供者一次交付；付费技能（Pay Skill）把专业能力封装成可调用、可计费的服务，按次 / 按订阅收取费用。能力被 Agent 调用得越多，收入越高。"
+        },
+        "qualification": {
+          "question": "上架付费技能需要什么资质？",
+          "answer": "个人或企业均可入驻。建议完成企业认证以获得更高的结算额度和更低的费率；个人开发者也可以直接上架，收款渠道绑定本人实名支付账户。"
+        },
+        "bothChannels": {
+          "question": "可以同时接入微信和支付宝吗？",
+          "answer": "可以。一个付费技能可同时绑定微信支付与支付宝，用户侧自动按偏好选择支付方式，两个渠道的费用明细与结算流水统一在 OpenPay 后台查看。"
+        },
+        "payout": {
+          "question": "什么时候能结算收益？",
+          "answer": "按次计费与订阅收入在结算周期（默认 T+1）自动汇总并打款到绑定的收款账户，同时提供实时可查的调用与到账流水，对账一目了然。"
+        },
+        "migrate": {
+          "question": "已有技能转成付费技能会影响现有用户吗？",
+          "answer": "不会。转换是平滑的：历史安装与使用记录保留，旧的免费入口继续可用，新增付费调用走新的计费通道，你可以在后台随时开关计费。"
+        }
+      }
+    },
+    "cta": {
+      "title": "现在接入 OpenPay",
+      "subtitle": "让专业能力按真实调用变成持续收入——上架付费技能，接上微信与支付宝，Agent 每调用一次，你多赚一笔。",
+      "ctaPrimary": "立即上架付费技能",
+      "ctaSecondary": "浏览技能市场",
+      "note": "OpenMCP. Bridging AI capability and real-world application."
+    }
+  },
+  "PersonaPage": {
+    "meta": {
+      "notFoundTitle": "角色未找到 - Personas",
+      "notFoundDescription": "抱歉，找不到该角色信息。",
+      "detailTitleSuffix": "虚拟员工角色",
+      "detailFallbackDescription": "查看并安装 {name} 虚拟员工角色"
+    },
+    "detail": {
+      "notFoundHeading": "角色未找到",
+      "notFoundHint": "抱歉，找不到该角色信息。",
+      "description": "描述",
+      "noDescription": "暂无描述",
+      "noImage": "该角色暂无封面图",
+      "verified": "已认证作者",
+      "certified": "认证",
+      "priceFree": "免费",
+      "pricePaid": "付费",
+      "viewsCount": "{count} 次浏览",
+      "downloadsCount": "{count} 次下载",
+      "soul": {
+        "taglineHeading": "人格短评",
+        "noTagline": "暂无短评",
+        "profileHeading": "人设解读",
+        "noProfile": "暂无人设解读",
+        "installHeading": "一键安装 SOUL 人设",
+        "viaChat": "通过对话安装",
+        "viaChatHint": "复制下方提示词，发送给任意 AI 助手（如 Lighthouse、OpenClaw、WorkBuddy、QClaw、Kimi、Claude 等），即可让对方的 AI 搭子拥有 {name} 的灵魂。",
+        "installPrompt": "请根据 {doc}，安装 {code}。",
+        "copyPrompt": "复制提示词",
+        "zipTitle": "Zip 包安装",
+        "zipHint": "Zip 包安装方式即将上线，敬请期待。"
+      }
+    }
+  },
+  "ProviderPage": {
+    "authGate": {
+      "loading": "加载中..."
+    },
+    "submit": {
+      "progress": "发布进度",
+      "steps": {
+        "login": "登录",
+        "verify": "实名认证",
+        "upload": "上传/设置"
+      }
+    },
+    "gate": {
+      "loading": "正在获取入驻状态...",
+      "statusErrorTitle": "无法获取入驻状态",
+      "statusErrorHint": "请稍后重试",
+      "retry": "重新加载",
+      "needVerifyTitle": "请先完成实名认证",
+      "needVerifyHint": "发布 MCP / A2A / Skills 前需完成个人或企业实名（KYC）。认证通过后即可上传与配置资产。",
+      "rejectedTitle": "实名认证未通过",
+      "rejectionReason": "驳回原因",
+      "goVerify": "前往实名认证",
+      "pendingTitle": "实名认证审核中",
+      "pendingHint": "我们正在审核你的入驻资料，通常 1-3 个工作日完成。审核通过后即可在此页提交资产。",
+      "viewStatus": "查看入驻状态",
+      "payMissingTitle": "收款账户未绑定",
+      "payMissingHint": "免费资产可先提交；发布付费资产前请绑定微信 / 支付宝收款账号，便于平台打款。",
+      "bindPayout": "去绑定收款账户",
+      "verifiedLabel": "实名已通过",
+      "payChannels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      }
+    },
+    "notLogin": {
+      "eyebrow": "提供者入驻",
+      "headline": "将你的技能上架到 OpenMCP 市场",
+      "subheadline": "AI 时代的应用商店。发布 MCP 工具、A2A 智能体与 SKILLS，触达中国 AI 开发者社区，并实时获得分成收入。",
+      "steps": {
+        "account": {
+          "title": "1. 登录账户",
+          "description": "使用手机号或邮箱快速注册登录"
+        },
+        "onboard": {
+          "title": "2. 完成入驻",
+          "description": "填写主体与收款信息（个人/企业）"
+        },
+        "payout": {
+          "title": "3. 接入收款",
+          "description": "绑定微信 / 支付宝收款通道"
+        },
+        "publish": {
+          "title": "4. 发布上架",
+          "description": "提交 MCP / A2A / Skill 等待审核"
+        }
+      },
+      "whyTitle": "为什么入驻 OpenMCP？",
+      "benefits": {
+        "shelves": "发布 MCP Server / A2A Agent / AI Skill 三大货架",
+        "pricing": "设置免费或付费资产，实时结算到你的账户",
+        "revenue": "平台抽成仅 0-5%，所见即所得",
+        "review": "接入安全审核与合规预检，用户更信任"
+      },
+      "ctaTitle": "登录后开始入驻",
+      "ctaHint": "完成入驻后即可在 MCP / A2A / Skills 三大货架发布你的资产",
+      "ctaButton": "登录并开始入驻",
+      "ctaFootnote": "还没有账户？登录页面可以快速注册",
+      "enterpriseTitle": "企业认证 / 对公结算是企业版功能",
+      "enterpriseHint": "个人主体支持微信 / 支付宝收款；企业主体支持对公结算与发票。"
+    },
+    "kyc": {
+      "meta": {
+        "title": "提供者入驻 - OpenMCP",
+        "description": "完成实名认证，即可在 OpenMCP 市场发布 MCP Server、A2A Agent 与 Skill。"
+      },
+      "pageTitle": "提供者入驻",
+      "pageDescription": "完成实名认证后即可在 OpenMCP 发布资产。",
+      "entry": {
+        "title": "选择认证主体",
+        "description": "请选择个人或企业实名认证。两者需要提交的材料不同，也决定了可用的收款与开票方式。",
+        "individual": {
+          "title": "个人实名认证",
+          "description": "面向个人开发者，使用身份证完成实名，并通过微信 / 支付宝收款。",
+          "detail": "适合独立开发者、自由职业者"
+        },
+        "company": {
+          "title": "企业实名认证",
+          "description": "面向团队 / 机构，使用营业执照完成实名，支持对公结算与发票。",
+          "detail": "适合团队、公司、机构主体"
+        }
+      },
+      "individual": {
+        "pageTitle": "个人实名认证",
+        "pageDescription": "完成实名并选择收款通道，审核通常需要 1-3 个工作日。",
+        "meta": {
+          "title": "个人实名认证 - OpenMCP",
+          "description": "完成个人实名认证，即可在 OpenMCP 市场发布资产。"
+        }
+      },
+      "company": {
+        "pageTitle": "企业实名认证",
+        "pageDescription": "完成企业实名并选择收款通道，审核通常需要 1-3 个工作日。",
+        "meta": {
+          "title": "企业实名认证 - OpenMCP",
+          "description": "完成企业实名认证，即可在 OpenMCP 市场发布资产。"
+        }
+      },
+      "steps": {
+        "entity": "选主体",
+        "details": "填资料",
+        "pending": "审核中",
+        "verified": "已通过"
+      },
+      "status": {
+        "unverified": {
+          "title": "未提交",
+          "body": "尚未提交实名认证资料，请填写并上传所需证件。"
+        },
+        "pending": {
+          "title": "审核中",
+          "body": "资料正在审核中并已锁定，通常 1-3 个工作日完成审核。"
+        },
+        "verified": {
+          "title": "已通过",
+          "body": "实名认证已通过，可正常发布资产并收款。如需更新资料可重新提交审核。"
+        },
+        "rejected": {
+          "title": "未通过",
+          "body": "实名认证未通过，请根据下方驳回原因修改资料后重新提交。"
+        },
+        "note": "审核备注"
+      },
+      "lock": {
+        "title": "审核期间资料已锁定",
+        "body": "审核期间无法修改已提交的资料，审核通过或驳回后可再次编辑。"
+      },
+      "docs": {
+        "idCardFront": "身份证人像面",
+        "idCardBack": "身份证国徽面",
+        "businessLicense": "营业执照",
+        "legalPersonIdFront": "法人身份证人像面",
+        "legalPersonIdBack": "法人身份证国徽面",
+        "authorizationFile": "授权文件",
+        "authorizationFileHint": "由法人签署，授权账户操作人代表企业进行操作。",
+        "authorizerIdFront": "授权人身份证人像面",
+        "authorizerIdBack": "授权人身份证国徽面"
+      },
+      "upload": {
+        "choose": "选择文件",
+        "uploading": "上传中...",
+        "done": "已上传",
+        "remove": "移除文件",
+        "failed": "上传失败，请重试。"
+      },
+      "fields": {
+        "companyName": "企业名称",
+        "companyNamePlaceholder": "与营业执照一致",
+        "contactName": "联系人姓名",
+        "contactNamePlaceholder": "请填写真实姓名",
+        "idNumber": "证件号码",
+        "idNumberPlaceholder": "身份证号 / 统一社会信用代码",
+        "idNumberHint": "企业请填写统一社会信用代码，仅用于实名审核。",
+        "payChannel": "收款通道",
+        "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
+        "agreedTerms": "我已阅读并同意《提供者服务协议》与市场规则。",
+        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。"
+      },
+      "payChannels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      },
+      "validation": {
+        "contactName": "请填写联系人姓名",
+        "idNumber": "请填写证件号码",
+        "companyName": "请填写企业名称",
+        "payChannelType": "请选择收款通道",
+        "idCardDocs": "请上传身份证正反面",
+        "businessLicense": "请上传营业执照",
+        "authorizerId": "请上传授权人身份证正反面",
+        "authorizationFile": "请上传授权文件，或勾选“由法人本人作为账户操作人”",
+        "agreedTerms": "请先同意服务协议再提交"
+      },
+      "serverErrors": {
+        "locked": "实名认证审核中，资料已锁定，请等待审核通过或驳回后再修改。",
+        "idCardMissing": "请上传身份证人像面与国徽面照片。",
+        "businessLicenseMissing": "企业实名必须上传营业执照。",
+        "companyDocsMissing": "请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）。",
+        "authorizerIdMissing": "请补全授权人身份证正反面。",
+        "entityMissing": "请先选择认证主体类型。",
+        "detailsIncomplete": "请完善实名资料（联系人、证件号、收款通道）后再提交。",
+        "saveFailed": "保存入驻信息失败，请重试。",
+        "userMissing": "账户不存在。"
+      },
+      "submit": {
+        "label": "提交审核",
+        "sending": "提交中..."
+      },
+      "actions": {
+        "refresh": "刷新状态"
+      }
+    },
+    "payout": {
+      "meta": {
+        "title": "收款账户 - OpenMCP",
+        "description": "绑定平台向你结算付费资产时使用的微信 / 支付宝收款账户。"
+      },
+      "pageTitle": "收款账户",
+      "pageDescription": "绑定平台向你打款的账户。发布付费资产前必须绑定收款账户。",
+      "title": "收款账户绑定",
+      "description": "填写平台向你汇款的微信 / 支付宝账号。可同时绑定两个通道，并指定默认结算方式。此处仅为账户绑定，不接入微信或支付宝商户号。",
+      "channels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      },
+      "ready": {
+        "title": "收款通道已就绪（默认：{channel}）",
+        "defaultBadge": "默认",
+        "body": "可发布付费资产。如需更换或绑定其他通道，请在下方编辑。"
+      },
+      "notReady": {
+        "title": "尚未完成账号绑定",
+        "body": "免费资产可先提交；发布付费 MCP / A2A / Skills 前必须至少绑定一个收款账号。"
+      },
+      "loadError": {
+        "title": "无法加载收款信息",
+        "body": "请稍后重试",
+        "retry": "重新加载"
+      },
+      "onboardingRequired": {
+        "title": "请先完成入驻",
+        "body": "绑定收款账户前需先提交实名认证资料。",
+        "cta": "前往实名认证"
+      },
+      "fields": {
+        "account": "账号",
+        "accountPlaceholder": "手机号或账号 ID",
+        "accountHint": {
+          "wechat": "可填写微信号或微信绑定的手机号。",
+          "alipay": "可填写支付宝绑定的邮箱或手机号。"
+        },
+        "accountName": "账户名",
+        "accountNamePlaceholder": "收款账户的开户名",
+        "qrCode": "收款二维码",
+        "willBecomeDefault": "保存后将把该通道设为默认结算通道。"
+      },
+      "upload": {
+        "choose": "上传收款二维码",
+        "uploading": "上传中...",
+        "remove": "移除二维码"
+      },
+      "validation": {
+        "accountRequired": "请至少填写收款账号或上传收款二维码"
+      },
+      "submit": {
+        "label": "保存收款账户",
+        "sending": "保存中..."
+      },
+      "toast": {
+        "saved": "收款账户已保存",
+        "failed": "保存收款账户失败"
+      },
+      "serverErrors": {
+        "onboardingRequired": "请先完成提供者入驻再绑定收款账户。",
+        "accountRequired": "请至少填写收款账号或上传收款二维码。",
+        "saveFailed": "保存收款账户失败，请重试。"
+      }
+    },
+    "imageUpload": {
+      "choose": "选择图片",
+      "uploading": "上传中…",
+      "done": "已上传",
+      "remove": "移除图片",
+      "failed": "上传失败",
+      "tooLarge": "文件过大，最大支持 {max}。",
+      "notImage": "仅支持图片文件。"
+    }
+  },
+  "McpSubmit": {
+    "meta": {
+      "title": "发布 MCP Server",
+      "description": "接入你的 MCP 端点，完成连接测试后发布到 OpenMCP 市场，供 Claude、Codex 等 AI 客户端调用。"
+    },
+    "cardTitle": "发布 MCP Server",
+    "cardDescription": "先接入并测通端点，再补充上架信息。",
+    "step1": "1. 接入端点",
+    "step2": "2. 上架信息",
+    "url": {
+      "label": "端点 URL",
+      "placeholder": "https://example.com/mcp"
+    },
+    "discover": {
+      "button": "一键发现",
+      "successTitle": "自动发现成功",
+      "failedTitle": "自动发现失败",
+      "summary": "发现成功：{count} 个工具",
+      "nameLabel": "服务名称",
+      "toolCountLabel": "工具数量",
+      "protocolLabel": "协议",
+      "toastSuccess": "自动发现成功"
+    },
+    "assetName": {
+      "label": "资产标识（slug）",
+      "placeholder": "例如 order-query-server",
+      "hint": "小写字母开头，仅 a-z / 0-9 / -（网关 ID：你的用户名/{assetName}）",
+      "checking": "正在检查是否可用…",
+      "available": "该标识可以使用。",
+      "taken": "该标识已被占用。",
+      "invalid": "需以小写字母或数字开头，仅包含小写字母、数字和中划线。"
+    },
+    "displayName": {
+      "label": "显示名称",
+      "placeholder": "例如 电商订单查询 MCP"
+    },
+    "transport": {
+      "label": "传输协议",
+      "streamable": "Streamable HTTP",
+      "sse": "SSE"
+    },
+    "auth": {
+      "label": "鉴权方式",
+      "none": "无需认证",
+      "apiKey": "API Key",
+      "bearer": "Bearer Token",
+      "basic": "Basic Auth",
+      "oauthClient": "Client Credentials（OAuth2）",
+      "secret": "密钥",
+      "secretPlaceholder": "用于连接测试的密钥",
+      "basicLabel": "凭据",
+      "basicPlaceholder": "username:password",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://example.com/oauth/token",
+      "oauthHint": "凭据会加密存储，客户端调用时由平台使用它换取 access token。"
+    },
+    "test": {
+      "button": "连接测试",
+      "running": "测试中…",
+      "success": "连接成功：{count} 个工具，耗时 {ms}ms",
+      "failed": "连接测试未通过。",
+      "steps": {
+        "handshake": "端点可达",
+        "auth": "身份认证",
+        "tools": "工具列表",
+        "protocol": "协议版本"
+      },
+      "pass": "通过",
+      "fail": "失败",
+      "pending": "未检查"
+    },
+    "step1Confirm": "继续填写上架信息",
+    "description": {
+      "label": "服务描述",
+      "placeholder": "描述该 MCP 提供哪些工具、适用场景与接入方式。",
+      "hint": "至少 {min} 个字符。"
+    },
+    "logo": {
+      "label": "服务 Logo",
+      "hint": "建议正方形图片，最大 {max}。"
+    },
+    "cover": {
+      "label": "封面图片",
+      "hint": "建议尺寸 1200x630，最大 {max}。"
+    },
+    "category": {
+      "label": "分类",
+      "placeholder": "选择分类",
+      "none": "不选择"
+    },
+    "scope": {
+      "label": "可见范围",
+      "public": "公开",
+      "private": "私有",
+      "team": "团队"
+    },
+    "priceType": {
+      "label": "价格类型",
+      "free": "免费",
+      "paid": "付费"
+    },
+    "billingModel": {
+      "label": "计费模式",
+      "placeholder": "选择计费模式",
+      "none": "请选择",
+      "oneTime": "一次性购买",
+      "subscription": "订阅",
+      "payPerCall": "按次计费"
+    },
+    "priceAmount": {
+      "label": "价格（元）",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "单次单价（元）",
+      "placeholder": "0.01"
+    },
+    "payoutWarning": "发布付费上架需先绑定收款账户，免费上架可以现在提交。",
+    "step2Back": "上一步",
+    "step2Submit": "提交上架",
+    "submitting": "提交中…",
+    "upload": {
+      "choose": "选择图片",
+      "uploading": "上传中…",
+      "replace": "重新上传",
+      "remove": "移除",
+      "done": "已上传",
+      "failed": "上传失败",
+      "tooLarge": "文件过大，最大支持 {max}。",
+      "notImage": "仅支持图片文件。"
+    },
+    "error": {
+      "urlRequired": "请先填写端点 URL。",
+      "discoverFailed": "自动发现失败，请手动填写。",
+      "testFailed": "连接测试失败。",
+      "testRequired": "请先通过连接测试。",
+      "descriptionTooShort": "描述至少 {min} 个字符。",
+      "billingModelRequired": "付费上架必须选择计费模式。",
+      "priceRequired": "付费上架请填写价格。",
+      "priceInvalid": "请输入大于等于 0 的价格。",
+      "connectFailed": "接入端点失败。",
+      "publishFailed": "提交上架失败。",
+      "submitFailed": "提交失败。"
+    },
+    "success": {
+      "title": "MCP 服务已提交",
+      "description": "连接测试已通过，资产已进入审核队列。",
+      "manage": "管理我的资产"
+    }
+  },
+  "SkillSubmit": {
+    "meta": {
+      "title": "提交 Skill",
+      "description": "通过 GitHub 仓库地址或 ZIP 包提交你的 Skill，经安全扫描与审核后收录到 OpenMCP Skills 仓库。"
+    },
+    "cardTitle": "提交 Skill",
+    "cardDescription": "通过 GitHub 仓库或 ZIP 包接入，平台完成安全扫描后可上架到 Skills 仓库。",
+    "mode": {
+      "label": "接入方式",
+      "github": "GitHub 仓库",
+      "zip": "ZIP 包上传"
+    },
+    "github": {
+      "heading": "GitHub 仓库",
+      "urlLabel": "仓库地址",
+      "urlPlaceholder": "https://github.com/owner/skill-name",
+      "check": "校验",
+      "hint": "由平台侧抓取同步，无需你跳转 GitHub 提 PR。",
+      "valid": "仓库地址有效"
+    },
+    "zip": {
+      "heading": "上传 ZIP",
+      "dropzone": "拖拽 ZIP 到此处，或",
+      "browse": "点击选择",
+      "hint": "仅支持 .zip，最大 {max}；需包含 skill.yaml 或 SKILL.md。",
+      "remove": "移除",
+      "uploading": "上传中…",
+      "selected": "{name}（{size}）",
+      "failed": "ZIP 上传失败",
+      "tooLarge": "ZIP 超过 {max} 上限。"
+    },
+    "name": {
+      "label": "Skill 名称",
+      "placeholder": "例如 pdf-report"
+    },
+    "description": {
+      "label": "补充说明",
+      "placeholder": "用途、适用场景、依赖说明等。",
+      "hint": "可选，最多 {max} 个字符。"
+    },
+    "image": {
+      "label": "Logo / 封面图",
+      "hint": "可选，最大 {max}。"
+    },
+    "category": {
+      "label": "分类",
+      "placeholder": "选择分类",
+      "none": "不选择"
+    },
+    "scope": {
+      "label": "可见范围",
+      "public": "公开",
+      "private": "私有",
+      "team": "团队"
+    },
+    "priceType": {
+      "label": "价格类型",
+      "free": "免费",
+      "paid": "付费"
+    },
+    "billingModel": {
+      "label": "计费模式",
+      "placeholder": "选择计费模式",
+      "none": "请选择",
+      "oneTime": "一次性购买",
+      "subscription": "订阅",
+      "payPerCall": "按次计费"
+    },
+    "priceAmount": {
+      "label": "价格（元）",
+      "placeholder": "9.90"
+    },
+    "unitPrice": {
+      "label": "单次单价（元）",
+      "placeholder": "0.01"
+    },
+    "requirements": {
+      "title": "提交要求",
+      "metaFile": "仓库或包中需包含 skill.yaml / SKILL.md 元信息",
+      "readme": "提供完整 README，说明用法与配置",
+      "noSecrets": "不包含 API Key、密码等敏感信息",
+      "payout": "发布付费 Skill 前需先绑定微信 / 支付宝收款账户"
+    },
+    "submitGithub": "从 GitHub 接入",
+    "submitZip": "上传并接入",
+    "submitting": "提交中…",
+    "payoutWarning": "发布付费上架需先绑定收款账户，免费上架可以现在提交。",
+    "error": {
+      "invalidRepoUrl": "请输入有效的 GitHub 仓库地址。",
+      "zipRequired": "请先选择 ZIP 文件。",
+      "billingModelRequired": "付费 Skill 必须选择计费模式。",
+      "priceRequired": "付费上架请填写价格。",
+      "priceInvalid": "请输入大于等于 0 的价格。",
+      "connectGithubFailed": "接入 GitHub Skill 失败。",
+      "submitFailed": "提交失败。"
+    },
+    "success": {
+      "title": "Skill 已接入",
+      "githubDescription": "安全扫描已排队，可在「我的资产」查看进度。",
+      "zipDescription": "已完成解析与安全扫描，可在「我的资产」查看。",
+      "manage": "管理我的资产"
+    }
+  },
+  "A2ASubmit": {
+    "meta": {
+      "title": "发布 A2A Agent",
+      "description": "接入 A2A 智能体端点，验证 Agent Card 后上架到市场"
+    },
+    "cardTitle": "发布 A2A Agent",
+    "cardDescription": "填写智能体端点，验证 Agent Card，再决定如何展示与定价。",
+    "step1": "接入",
+    "step2": "上架信息",
+    "url": {
+      "label": "端点地址",
+      "placeholder": "https://your-agent.example.com"
+    },
+    "discover": {
+      "button": "自动发现",
+      "successTitle": "已读取 Agent Card",
+      "failedTitle": "无法读取 Agent Card",
+      "nameLabel": "智能体名称",
+      "skillCountLabel": "技能数",
+      "protocolLabel": "协议版本",
+      "toastSuccess": "Agent Card 发现成功"
+    },
+    "assetName": {
+      "label": "资产名称",
+      "placeholder": "my-agent",
+      "hint": "资产将发布在 {assetName}",
+      "checking": "正在检查可用性…",
+      "available": "该名称可用",
+      "taken": "该名称已被占用",
+      "invalid": "只能使用小写字母、数字和连字符"
+    },
+    "displayName": {
+      "label": "展示名称",
+      "placeholder": "我的智能体"
+    },
+    "protocol": {
+      "label": "Agent Card 协议",
+      "v03": "0.3（旧版）",
+      "v10": "1.0"
+    },
+    "auth": {
+      "label": "认证方式",
+      "none": "无",
+      "apiKey": "API Key",
+      "bearer": "Bearer Token",
+      "basic": "Basic 认证",
+      "oauthClient": "OAuth 客户端凭证",
+      "secret": "API Key 或 Token",
+      "secretPlaceholder": "粘贴 Key 或 Token",
+      "basicLabel": "用户名:密码",
+      "basicPlaceholder": "username:password",
+      "oauthHint": "网关会在每次调用前用这些凭证换取令牌。",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "tokenUrl": "Token 地址",
+      "tokenUrlPlaceholder": "https://auth.example.com/oauth/token"
+    },
+    "test": {
+      "button": "测试连接",
+      "running": "测试中…",
+      "success": "连接通过，耗时 {ms} 毫秒，共 {count} 个技能",
+      "failed": "连接测试失败",
+      "steps": {
+        "handshake": "端点可达",
+        "auth": "认证",
+        "tools": "Agent Card 解析",
+        "protocol": "协议版本匹配"
+      }
+    },
+    "step1Confirm": "继续填写上架信息",
+    "step2Back": "返回接入配置",
+    "step2Submit": "发布智能体",
+    "submitting": "提交中…",
+    "payoutWarning": "付费智能体需要先绑定收款账户才能发布。",
+    "listing": {
+      "description": {
+        "label": "描述",
+        "placeholder": "说明该智能体能做什么、适合在什么场景调用",
+        "hint": "至少 {min} 个字符"
+      },
+      "logo": {
+        "label": "Logo",
+        "hint": "正方形图片，最大 {max}"
+      },
+      "cover": {
+        "label": "封面图",
+        "hint": "宽幅图片，最大 {max}"
+      },
+      "category": {
+        "label": "分类",
+        "placeholder": "选择分类",
+        "none": "不设置分类"
+      },
+      "scope": {
+        "label": "可见性",
+        "public": "公开",
+        "private": "私密",
+        "team": "团队"
+      },
+      "priceType": {
+        "label": "定价方式",
+        "free": "免费",
+        "paid": "付费"
+      },
+      "billingModel": {
+        "label": "计费方式",
+        "placeholder": "选择计费方式",
+        "oneTime": "买断",
+        "subscription": "订阅",
+        "payPerCall": "按次计费"
+      },
+      "priceAmount": {
+        "label": "价格",
+        "placeholder": "0.00"
+      },
+      "unitPrice": {
+        "label": "单次调用价格",
+        "placeholder": "0.00"
+      }
+    },
+    "error": {
+      "urlRequired": "请填写智能体端点地址",
+      "discoverFailed": "无法从该端点读取 Agent Card",
+      "testFailed": "连接测试失败",
+      "connectFailed": "无法将智能体接入网关",
+      "publishFailed": "提交上架失败",
+      "submitFailed": "发布过程中出现异常",
+      "testRequired": "请先通过连接测试",
+      "descriptionTooShort": "描述至少需要 {min} 个字符",
+      "billingModelRequired": "付费智能体需要选择计费方式",
+      "priceRequired": "请填写价格",
+      "priceInvalid": "价格格式不正确"
+    },
+    "success": {
+      "title": "智能体已提交审核",
+      "description": "可在 Dashboard 查看审核状态。",
+      "manage": "管理我的智能体"
+    }
+  },
+  "ModelsPage": {
+    "title": "模型市场",
+    "description": "浏览并对比各类 AI 模型",
+    "metadata": {
+      "title": "AI 模型市场 | 海量认证模型 | OpenMCP",
+      "description": "浏览来自领先厂商的数千个认证 AI 模型，为你的项目找到合适的模型。"
+    },
+    "provider": {
+      "metadata": {
+        "title": "模型供应商 | OpenMCP",
+        "description": "浏览 OpenMCP 上已认证的 AI 模型供应商。"
+      }
+    },
+    "model": {
+      "metadata": {
+        "title": "{name} | OpenMCP",
+        "description": "{description}"
+      }
+    },
+    "searchPlaceholder": "搜索模型...",
+    "showFilters": "显示筛选",
+    "hideFilters": "隐藏筛选",
+    "loading": "加载中...",
+    "error": {
+      "title": "加载模型失败",
+      "retry": "重试"
+    },
+    "noResults": "没有找到匹配的模型",
+    "filters": {
+      "type": "类型",
+      "provider": "供应商",
+      "price": "价格",
+      "context": "上下文长度",
+      "specs": "规格"
+    },
+    "filterOptions": {
+      "chat": "对话",
+      "completion": "补全",
+      "text": "文本",
+      "embedding": "嵌入",
+      "image": "图像",
+      "audio": "音频",
+      "vision": "视觉",
+      "free": "免费",
+      "paid": "付费"
+    },
+    "badges": {
+      "new": "最新",
+      "popular": "热门",
+      "free": "免费"
+    }
+  }
+}
