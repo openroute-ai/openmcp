@@ -35,6 +35,7 @@ import {
 } from "@workspace/ui/components/tabs"
 import type { Rankings } from "@/lib/github/service/rankings"
 import type { RisingStarsReport } from "@/lib/github/service/rising-stars"
+import { RisingStarCategoriesDialog } from "@/components/rankings/rising-star-categories-dialog"
 import { useTRPC } from "@/lib/trpc/client"
 
 /** Padded so a month value sorts and reads the same as a two-digit one. */
@@ -256,7 +257,7 @@ export function RankingsContent() {
   const [tab, setTab] = React.useState("weekly")
 
   const periods = useQuery(trpc.rankings.periods.queryOptions())
-  const rising = useQuery(trpc.rankings.risingStars.queryOptions({}))
+  const risingYears = useQuery(trpc.rankings.risingStarYears.queryOptions())
 
   /**
    * The newest period on record is the default, and it is the same one the
@@ -293,6 +294,26 @@ export function RankingsContent() {
   const [weekYear, weekNumber] = week.split("-").map(Number)
   const [monthYear, monthNumber] = month.split("-").map(Number)
 
+  // The Rising Stars report covers a whole calendar year rather than a swept
+  // period, so it gets a plain year choice. The list is the years that hold
+  // star history, have a stored category configuration, or were already built —
+  // anything else would render empty for a reason the operator cannot see.
+  const yearOptions = React.useMemo(
+    () =>
+      (risingYears.data ?? []).map((entry) => ({
+        value: String(entry.year),
+        label: String(entry.year),
+      })),
+    [risingYears.data]
+  )
+  const [risingChoice, setRisingChoice] = React.useState<string | null>(null)
+  const risingYear = resolvePeriod(risingChoice, yearOptions)
+  const rising = useQuery(
+    trpc.rankings.risingStars.queryOptions(
+      risingYear ? { year: Number(risingYear) } : {}
+    )
+  )
+
   const weekly = useQuery(
     trpc.rankings.weekly.queryOptions(
       // Year and week are only meaningful together: passing a bare week would
@@ -314,7 +335,11 @@ export function RankingsContent() {
   const monthLabel = monthly.data?.month
     ? formatMonth(monthly.data.year, monthly.data.month)
     : t("lastCompleteMonth")
-  const yearLabel = String(new Date().getFullYear() - 1)
+  // The year the report was actually built for, not a calendar guess: an empty
+  // selection falls back to whatever the builder chose, and the heading has to
+  // name the same year the rows below belong to.
+  const yearLabel =
+    rising.data && risingYear ? risingYear : t("risingDefaultYear")
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
@@ -367,6 +392,21 @@ export function RankingsContent() {
       </TabsContent>
 
       <TabsContent value="rising" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <PeriodSelect
+            id="rankings-rising-year"
+            value={risingYear}
+            options={yearOptions}
+            fallbackLabel={t("risingDefaultYear")}
+            pending={risingYears.isPending}
+            onChange={setRisingChoice}
+          />
+          {/* Present only once a year is chosen, because editing a year that
+              does not exist yet is how an accidental configuration is written. */}
+          {risingYear ? (
+            <RisingStarCategoriesDialog year={Number(risingYear)} />
+          ) : null}
+        </div>
         <RankingCard
           title={t("risingStars")}
           description={t("risingDescription", { year: yearLabel })}

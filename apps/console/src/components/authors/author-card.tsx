@@ -1,0 +1,334 @@
+"use client"
+
+import * as React from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
+import { toast } from "sonner"
+import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { Switch } from "@workspace/ui/components/switch"
+import { Textarea } from "@workspace/ui/components/textarea"
+import { IconPencil, IconRefresh } from "@tabler/icons-react"
+import { useTRPC } from "@/lib/trpc/client"
+
+/** The author fields this card and its editor work with. */
+export type AuthorRow = {
+  username: string
+  name: string
+  bio: string | null
+  homepage: string | null
+  twitter: string | null
+  linkedin: string | null
+  github: string | null
+  avatarUrl: string | null
+  followers: number | null
+  verified: boolean
+  npmUsername: string | null
+  npmPackageCount: number | null
+}
+
+/**
+ * The two things an operator can do about an author.
+ *
+ * A refresh is one GraphQL request and rewrites whatever GitHub says, so it is
+ * a button rather than something the page does for you — and it is the only
+ * way to get followers, a bio or a display name at all, since a repository
+ * knows only the login. The editor is for what GitHub does not carry: a LinkedIn
+ * handle and npm details have no profile field to refresh from, and a curated
+ * directory can only show them if a human writes them down.
+ */
+export function AuthorActions({ author }: { author: AuthorRow }) {
+  const t = useTranslations("Author")
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+
+  const refresh = useMutation(
+    trpc.authors.refresh.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("refreshed", { name: author.name }))
+        void queryClient.invalidateQueries()
+      },
+      onError: (error) => {
+        toast.error(t("refreshFailed"), { description: error.message })
+      },
+    })
+  )
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={t("refresh", { name: author.name })}
+        title={t("refresh", { name: author.name })}
+        disabled={refresh.isPending}
+        onClick={() => refresh.mutate({ username: author.username })}
+      >
+        {refresh.isPending ? <Spinner /> : <IconRefresh />}
+        <span className="sr-only">{t("refresh", { name: author.name })}</span>
+      </Button>
+      <AuthorEditDialog author={author} />
+    </div>
+  )
+}
+
+/** Edits the fields no profile fetch can supply. */
+function AuthorEditDialog({ author }: { author: AuthorRow }) {
+  const t = useTranslations("Author")
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+
+  const [open, setOpen] = React.useState(false)
+  const [name, setName] = React.useState(author.name)
+  const [bio, setBio] = React.useState(author.bio ?? "")
+  const [homepage, setHomepage] = React.useState(author.homepage ?? "")
+  const [twitter, setTwitter] = React.useState(author.twitter ?? "")
+  const [linkedin, setLinkedin] = React.useState(author.linkedin ?? "")
+  const [npmUsername, setNpmUsername] = React.useState(author.npmUsername ?? "")
+  const [npmCount, setNpmCount] = React.useState(
+    author.npmPackageCount == null ? "" : String(author.npmPackageCount)
+  )
+  const [verified, setVerified] = React.useState(author.verified)
+
+  const reset = React.useCallback(() => {
+    setName(author.name)
+    setBio(author.bio ?? "")
+    setHomepage(author.homepage ?? "")
+    setTwitter(author.twitter ?? "")
+    setLinkedin(author.linkedin ?? "")
+    setNpmUsername(author.npmUsername ?? "")
+    setNpmCount(
+      author.npmPackageCount == null ? "" : String(author.npmPackageCount)
+    )
+    setVerified(author.verified)
+  }, [author])
+
+  const update = useMutation(
+    trpc.authors.update.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("saved"))
+        setOpen(false)
+        void queryClient.invalidateQueries()
+      },
+      onError: (error) => {
+        toast.error(t("saveFailed"), { description: error.message })
+      },
+    })
+  )
+
+  function save() {
+    const count = Number(npmCount)
+    update.mutate({
+      username: author.username,
+      name: name.trim(),
+      bio: bio.trim() === "" ? null : bio.trim(),
+      homepage: homepage.trim() === "" ? null : homepage.trim(),
+      twitter: twitter.trim() === "" ? null : twitter.trim(),
+      linkedin: linkedin.trim() === "" ? null : linkedin.trim(),
+      npmUsername: npmUsername.trim() === "" ? null : npmUsername.trim(),
+      npmPackageCount: npmCount.trim() === "" || Number.isNaN(count) ? null : count,
+      verified,
+    })
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) reset()
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label={t("edit", { name: author.name })}
+          title={t("edit", { name: author.name })}
+        >
+          <IconPencil />
+          <span className="sr-only">{t("edit", { name: author.name })}</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!update.isPending && name.trim() !== "") save()
+          }}
+          className="grid gap-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t("editTitle", { name: author.name })}</DialogTitle>
+            <DialogDescription>{t("editDescription")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            <Label htmlFor="author-name">{t("field.name")}</Label>
+            <Input
+              id="author-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="author-bio">{t("field.bio")}</Label>
+            <Textarea
+              id="author-bio"
+              value={bio}
+              rows={3}
+              onChange={(event) => setBio(event.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="author-homepage">{t("field.homepage")}</Label>
+            <Input
+              id="author-homepage"
+              value={homepage}
+              onChange={(event) => setHomepage(event.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="author-twitter">{t("field.twitter")}</Label>
+              <Input
+                id="author-twitter"
+                value={twitter}
+                onChange={(event) => setTwitter(event.target.value)}
+              />
+            </div>
+            {/* LinkedIn and npm are not on the GitHub profile, so a refresh can
+                never fill them. That is what these two fields are for. */}
+            <div className="grid gap-2">
+              <Label htmlFor="author-linkedin">{t("field.linkedin")}</Label>
+              <Input
+                id="author-linkedin"
+                value={linkedin}
+                onChange={(event) => setLinkedin(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="author-npm-username">
+                {t("field.npmUsername")}
+              </Label>
+              <Input
+                id="author-npm-username"
+                value={npmUsername}
+                onChange={(event) => setNpmUsername(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="author-npm-count">
+                {t("field.npmPackageCount")}
+              </Label>
+              <Input
+                id="author-npm-count"
+                type="number"
+                min={0}
+                value={npmCount}
+                onChange={(event) => setNpmCount(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Switch
+              id="author-verified"
+              checked={verified}
+              onCheckedChange={setVerified}
+            />
+            <Label htmlFor="author-verified">{t("field.verified")}</Label>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                {t("cancel")}
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={update.isPending || name.trim() === ""}>
+              {update.isPending ? <Spinner /> : null}
+              {t("save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The author card, as the project page shows it. */
+export function AuthorCard({ author }: { author: AuthorRow }) {
+  const t = useTranslations("ProjectDetail")
+  const a = useTranslations("Author")
+
+  return (
+    <li className="flex items-start gap-3">
+      <Avatar className="size-9 shrink-0">
+        {author.avatarUrl ? (
+          <AvatarImage src={author.avatarUrl} alt={author.name} />
+        ) : null}
+        <AvatarFallback>
+          {author.name.slice(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="grid min-w-0 flex-1 gap-0.5 text-sm">
+        <div className="flex items-center gap-1">
+          {author.github ? (
+            <a
+              className="underline underline-offset-4"
+              href={author.github}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {author.name}
+            </a>
+          ) : (
+            <span className="font-medium">{author.name}</span>
+          )}
+          {author.verified ? (
+            <Badge variant="outline">{t("verified")}</Badge>
+          ) : null}
+          {author.npmPackageCount != null ? (
+            <span className="text-xs text-muted-foreground">
+              {a("npmPackages", { count: author.npmPackageCount })}
+            </span>
+          ) : null}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          @{author.username}
+          {author.followers == null
+            ? ""
+            : ` · ${t("followers", { count: author.followers })}`}
+        </span>
+        {author.bio ? (
+          <span className="line-clamp-2 text-xs text-muted-foreground">
+            {author.bio}
+          </span>
+        ) : null}
+      </div>
+      <AuthorActions author={author} />
+    </li>
+  )
+}

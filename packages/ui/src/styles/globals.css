@@ -3,6 +3,12 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Set on <html> for one frame around a theme change, so colours swap without
+   animating every element on the page. See apps/console theme-provider.tsx. */
+.theme-transition-none * {
+  transition: none !important;
+}
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../../../components/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";

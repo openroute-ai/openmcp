@@ -9,6 +9,7 @@
  * the same-minute guard applies to a webhook run like any other.
  */
 
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { db, pool } from "@/db/client"
 import { taskDefinitions, taskExecutions } from "@/db/schema"
@@ -142,10 +143,13 @@ describe.skipIf(!hasDatabase)("inbound trigger webhook (integration)", () => {
 
       const disabled = await call("build-weekly-rankings", "Bearer s3cret")
       expect(disabled.status).toBe(409)
+      // `reason` is the prose a caller reads; `reasonCode` is additive so one
+      // that renders this can use its own language.
       expect(await disabled.json()).toEqual({
         task: "build-weekly-rankings",
         status: "skipped",
         reason: "task is disabled",
+        reasonCode: SKIP_CODES.taskDisabled,
       })
     })
 
@@ -179,6 +183,7 @@ describe.skipIf(!hasDatabase)("inbound trigger webhook (integration)", () => {
         task: "build-weekly-rankings",
         status: "skipped",
         reason: "already ran this minute",
+        reasonCode: SKIP_CODES.alreadyRanThisMinute,
       })
     })
   })

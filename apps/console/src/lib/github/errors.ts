@@ -62,7 +62,10 @@ export class GitHubRateLimitError extends GitHubError {
 
 /** Network failure, DNS error, or a response that could not be parsed. */
 export class GitHubTransportError extends GitHubError {
-  constructor(message: string, options: { cause?: unknown; status?: number } = {}) {
+  constructor(
+    message: string,
+    options: { cause?: unknown; status?: number } = {}
+  ) {
     super(message, options)
     this.name = "GitHubTransportError"
   }

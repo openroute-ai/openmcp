@@ -57,7 +57,9 @@ function toNumber(value: MetaValue): number {
  * `true` counts as one so a task can report "how many needed updating"
  * without also tracking a separate number for the same thing.
  */
-export function aggregateMeta(results: Iterable<ItemResult<unknown>>): MetaTotals {
+export function aggregateMeta(
+  results: Iterable<ItemResult<unknown>>
+): MetaTotals {
   const totals: Record<string, number> = {}
 
   for (const result of results) {
@@ -126,7 +128,8 @@ export async function processItems<T, R>(
       try {
         results[index] = await mapper(item, index)
       } catch (error) {
-        const failure = error instanceof Error ? error : new Error(String(error))
+        const failure =
+          error instanceof Error ? error : new Error(String(error))
         errors.push(failure)
         options.logger.error(
           `error processing ${options.label} #${index + 1}`,
@@ -149,7 +152,9 @@ export async function processItems<T, R>(
 
   options.logger.info(
     `processed ${items.length} ${options.label}(s) in ${durationMs}ms` +
-      (items.length > 0 ? ` (avg ${Math.round(durationMs / items.length)}ms)` : "")
+      (items.length > 0
+        ? ` (avg ${Math.round(durationMs / items.length)}ms)`
+        : "")
   )
 
   return { meta: aggregateMeta(results), data, errors, durationMs }

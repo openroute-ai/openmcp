@@ -30,9 +30,9 @@ const TIMESTAMP = String(NOW.getTime() / 1000)
  * so the recorded calls come back typed and nothing unused is declared.
  */
 function okFetch(): MockedFunction<typeof fetch> {
-  return vi.fn(async () => new Response("", { status: 200 })) as unknown as MockedFunction<
-    typeof fetch
-  >
+  return vi.fn(
+    async () => new Response("", { status: 200 })
+  ) as unknown as MockedFunction<typeof fetch>
 }
 
 describe("signPayload", () => {
@@ -70,7 +70,12 @@ describe("verifySignature", () => {
 
   it("accepts a signature it produced", () => {
     expect(
-      verifySignature(body, TIMESTAMP, SECRET, signPayload(body, TIMESTAMP, SECRET))
+      verifySignature(
+        body,
+        TIMESTAMP,
+        SECRET,
+        signPayload(body, TIMESTAMP, SECRET)
+      )
     ).toBe(true)
   })
 
@@ -82,7 +87,9 @@ describe("verifySignature", () => {
 
   it("rejects a body modified after signing", () => {
     const signature = signPayload(body, TIMESTAMP, SECRET)
-    expect(verifySignature(`${body} `, TIMESTAMP, SECRET, signature)).toBe(false)
+    expect(verifySignature(`${body} `, TIMESTAMP, SECRET, signature)).toBe(
+      false
+    )
   })
 
   it("rejects the wrong secret", () => {
@@ -93,7 +100,9 @@ describe("verifySignature", () => {
   it("rejects a signature of the wrong length without throwing", () => {
     // timingSafeEqual throws on a length mismatch, so the guard has to come
     // first or a truncated header turns into a 500 instead of a rejection.
-    expect(() => verifySignature(body, TIMESTAMP, SECRET, "sha256=abc")).not.toThrow()
+    expect(() =>
+      verifySignature(body, TIMESTAMP, SECRET, "sha256=abc")
+    ).not.toThrow()
     expect(verifySignature(body, TIMESTAMP, SECRET, "sha256=abc")).toBe(false)
   })
 
@@ -146,11 +155,15 @@ describe("sign then verify", () => {
     headers: Record<string, string>
   }> {
     const fetchImpl = okFetch()
-    await sendWebhook(["https://a.test/hook"], { event_type: "repo_updated" }, {
-      secret: SECRET,
-      fetchImpl,
-      now: () => NOW,
-    })
+    await sendWebhook(
+      ["https://a.test/hook"],
+      { event_type: "repo_updated" },
+      {
+        secret: SECRET,
+        fetchImpl,
+        now: () => NOW,
+      }
+    )
 
     const [, init] = fetchImpl.mock.calls[0]!
     return {
@@ -165,7 +178,12 @@ describe("sign then verify", () => {
     const { body, headers } = await sendAndCapture()
 
     expect(
-      verifySignature(body, headers[SIGNATURE_HEADER]!, SECRET, headers[SIGNATURE_SECRET_HEADER])
+      verifySignature(
+        body,
+        headers[SIGNATURE_HEADER]!,
+        SECRET,
+        headers[SIGNATURE_SECRET_HEADER]
+      )
     ).toBe(true)
     expect(isFreshTimestamp(headers[SIGNATURE_HEADER]!, NOW)).toBe(true)
   })
@@ -176,10 +194,18 @@ describe("sign then verify", () => {
     // Still a valid signature: the HMAC does not expire on its own, which is
     // exactly why the receiver has to bound the timestamp itself.
     expect(
-      verifySignature(body, headers[SIGNATURE_HEADER]!, SECRET, headers[SIGNATURE_SECRET_HEADER])
+      verifySignature(
+        body,
+        headers[SIGNATURE_HEADER]!,
+        SECRET,
+        headers[SIGNATURE_SECRET_HEADER]
+      )
     ).toBe(true)
     expect(
-      isFreshTimestamp(headers[SIGNATURE_HEADER]!, new Date(NOW.getTime() + 3600_000))
+      isFreshTimestamp(
+        headers[SIGNATURE_HEADER]!,
+        new Date(NOW.getTime() + 3600_000)
+      )
     ).toBe(false)
   })
 })
@@ -193,14 +219,23 @@ describe("sendWebhook", () => {
 
   it("signs the exact body it sends", async () => {
     const fetchImpl = okFetch()
-    await sendWebhook(["https://a.test/hook"], { a: 1 }, { secret: SECRET, fetchImpl, now: () => NOW })
+    await sendWebhook(
+      ["https://a.test/hook"],
+      { a: 1 },
+      { secret: SECRET, fetchImpl, now: () => NOW }
+    )
 
     const [, init] = fetchImpl.mock.calls[0]!
     const headers = init!.headers as Record<string, string>
 
     expect(headers[SIGNATURE_HEADER]).toBe(TIMESTAMP)
     expect(
-      verifySignature(init!.body as string, TIMESTAMP, SECRET, headers[SIGNATURE_SECRET_HEADER])
+      verifySignature(
+        init!.body as string,
+        TIMESTAMP,
+        SECRET,
+        headers[SIGNATURE_SECRET_HEADER]
+      )
     ).toBe(true)
   })
 
@@ -210,15 +245,25 @@ describe("sendWebhook", () => {
     const fetchImpl = okFetch()
     await sendWebhook(["https://a.test/hook"], { a: 1 }, { fetchImpl })
 
-    const headers = fetchImpl.mock.calls[0]![1]!.headers as Record<string, string>
+    const headers = fetchImpl.mock.calls[0]![1]!.headers as Record<
+      string,
+      string
+    >
     expect(headers[SIGNATURE_SECRET_HEADER]).toBeUndefined()
   })
 
   it("sends a bearer token when one is configured", async () => {
     const fetchImpl = okFetch()
-    await sendWebhook(["https://a.test/hook"], { a: 1 }, { token: "t0ken", fetchImpl })
+    await sendWebhook(
+      ["https://a.test/hook"],
+      { a: 1 },
+      { token: "t0ken", fetchImpl }
+    )
 
-    const headers = fetchImpl.mock.calls[0]![1]!.headers as Record<string, string>
+    const headers = fetchImpl.mock.calls[0]![1]!.headers as Record<
+      string,
+      string
+    >
     expect(headers.authorization).toBe("Bearer t0ken")
   })
 
@@ -247,10 +292,15 @@ describe("sendWebhook", () => {
 
   it("reports a non-2xx response as a failure", async () => {
     const fetchImpl = vi.fn(
-      async () => new Response("nope", { status: 503, statusText: "Unavailable" })
+      async () =>
+        new Response("nope", { status: 503, statusText: "Unavailable" })
     )
 
-    const [result] = await sendWebhook(["https://a.test/hook"], { a: 1 }, { fetchImpl })
+    const [result] = await sendWebhook(
+      ["https://a.test/hook"],
+      { a: 1 },
+      { fetchImpl }
+    )
 
     expect(result?.success).toBe(false)
     expect(result?.status).toBe(503)
@@ -261,14 +311,20 @@ describe("sendWebhook", () => {
     const fetchImpl = vi.fn(
       (_url: string, init: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          init.signal?.addEventListener("abort", () => reject(new Error("aborted")))
+          init.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted"))
+          )
         })
     )
 
-    const [result] = await sendWebhook(["https://a.test/hook"], { a: 1 }, {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      timeoutMs: 10,
-    })
+    const [result] = await sendWebhook(
+      ["https://a.test/hook"],
+      { a: 1 },
+      {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        timeoutMs: 10,
+      }
+    )
 
     expect(result?.success).toBe(false)
     expect(result?.error).toBe("aborted")

@@ -17,6 +17,7 @@ import { buildRisingStarsForYear } from "@/lib/github/service/rising-stars"
 import { ossClient } from "@/lib/oss/client"
 import type { RankingsStore } from "@/lib/tasks/tasks/build-rankings"
 import type { Task } from "@/lib/tasks/runner"
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
 export interface BuildRisingStarsOptions {
   /** Defaults to the last complete year. */
@@ -50,6 +51,7 @@ export function createBuildRisingStarsTask(
           count: 0,
           published: false,
           reason: "no data for year",
+          reasonCode: SKIP_CODES.noDataForYear,
         }
       }
 

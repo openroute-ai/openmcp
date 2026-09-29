@@ -8,7 +8,6 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -26,9 +25,6 @@ import { useTranslations } from "next-intl"
 import { authClient } from "@/lib/auth-client"
 import {
   IconDotsVertical,
-  IconUserCircle,
-  IconCreditCard,
-  IconNotification,
   IconLogout,
 } from "@tabler/icons-react"
 
@@ -110,21 +106,6 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                {t("account")}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                {t("billing")}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                {t("notifications")}
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

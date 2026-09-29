@@ -37,7 +37,9 @@ describe("toGitHubError", () => {
     expect(error).toBeInstanceOf(GitHubRateLimitError)
     expect(error).not.toBeInstanceOf(GitHubForbiddenError)
     expect(isRetryableGitHubError(error)).toBe(true)
-    expect((error as GitHubRateLimitError).retryAfterSeconds()).toBeGreaterThan(0)
+    expect((error as GitHubRateLimitError).retryAfterSeconds()).toBeGreaterThan(
+      0
+    )
   })
 
   it("classifies a 403 with budget left as forbidden", () => {
@@ -91,9 +93,7 @@ describe("GitHubGraphQLError", () => {
     ])
 
     expect(graphqlErrorType(error)).toBe("NOT_FOUND")
-    expect(graphqlErrorMessage(error)).toBe(
-      "Could not resolve to a Repository"
-    )
+    expect(graphqlErrorMessage(error)).toBe("Could not resolve to a Repository")
     expect(error.message).toContain("NOT_FOUND")
   })
 

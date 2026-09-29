@@ -223,7 +223,8 @@ export function summarise(results: WebhookResult[]): string {
   if (results.length === 0) return "no endpoints configured"
 
   const accepted = results.filter((result) => result.success).length
-  if (accepted === results.length) return `${accepted}/${results.length} accepted`
+  if (accepted === results.length)
+    return `${accepted}/${results.length} accepted`
 
   const failures = results
     .filter((result) => !result.success)

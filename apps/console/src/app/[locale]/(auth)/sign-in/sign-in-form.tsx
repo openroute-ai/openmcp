@@ -32,6 +32,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
+import { authErrorMessage } from "@/lib/auth/auth-error"
 
 const PHONE_REGEX = /^1[3-9]\d{9}$/
 
@@ -77,7 +78,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           router.refresh()
         },
         onError: (ctx) => {
-          setError(ctx.error.message)
+          setError(authErrorMessage(ctx.error, t, t("signInFailed")))
         },
       }
     )
@@ -98,7 +99,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           }
         )
         if (err) {
-          setError(err.message || t("codeSendFailed"))
+          setError(authErrorMessage(err, t, t("codeSendFailed")))
         } else {
           setCodeSent(true)
           setCountdown(60)
@@ -126,7 +127,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
         code,
       })
       if (err) {
-        setCodeError(err.message || t("codeWrong"))
+        setCodeError(authErrorMessage(err, t, t("codeWrong")))
       } else {
         toast.success(t("signInSuccess"))
         router.push("/dashboard")

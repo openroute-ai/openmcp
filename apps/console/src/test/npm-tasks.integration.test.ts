@@ -98,13 +98,14 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
       })
 
       const npm = fakeNpmClient({
-        fetchPackageInfo: async () => ({ name: "unchanged-pkg", version: "1.0.0" }),
+        fetchPackageInfo: async () => ({
+          name: "unchanged-pkg",
+          version: "1.0.0",
+        }),
         fetchMonthlyDownloadCount: async () => 9876,
       })
 
-      const result = await createUpdatePackageDataTask(npm).run(
-        fakeContext(db)
-      )
+      const result = await createUpdatePackageDataTask(npm).run(fakeContext(db))
 
       expect(result).toMatchObject({ processed: 1, versionChanged: 0 })
       const stored = await getPackage(db, "unchanged-pkg")
@@ -123,7 +124,10 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
 
       await createUpdatePackageDataTask(
         fakeNpmClient({
-          fetchPackageInfo: async () => ({ name: "zeroed-pkg", version: "1.0.0" }),
+          fetchPackageInfo: async () => ({
+            name: "zeroed-pkg",
+            version: "1.0.0",
+          }),
           fetchMonthlyDownloadCount: async () => 0,
         })
       ).run(fakeContext(db))
@@ -143,7 +147,10 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
 
       const result = await createUpdatePackageDataTask(
         fakeNpmClient({
-          fetchPackageInfo: async () => ({ name: "flaky-pkg", version: "2.0.0" }),
+          fetchPackageInfo: async () => ({
+            name: "flaky-pkg",
+            version: "2.0.0",
+          }),
           fetchMonthlyDownloadCount: async () => {
             throw new Error("downloads API is down")
           },
@@ -218,7 +225,10 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
 
       const result = await createUpdatePackageDataTask(
         fakeNpmClient({
-          fetchPackageInfo: async () => ({ name: "orphan-pkg", version: "1.0.0" }),
+          fetchPackageInfo: async () => ({
+            name: "orphan-pkg",
+            version: "1.0.0",
+          }),
           fetchMonthlyDownloadCount: async () => 3,
         })
       ).run(fakeContext(db))
@@ -231,11 +241,18 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
   describe("update-bundle-size", () => {
     it("measures a package with no stored bundle", async () => {
       const projectId = await seedProject("unmeasured")
-      await upsertPackage(db, projectId, { name: "fresh-pkg", version: "1.0.0" })
+      await upsertPackage(db, projectId, {
+        name: "fresh-pkg",
+        version: "1.0.0",
+      })
 
       const result = await createUpdateBundleSizeTask(
         fakeNpmClient({
-          fetchBundleData: async () => ({ size: 100, gzip: 40, version: "1.0.0" }),
+          fetchBundleData: async () => ({
+            size: 100,
+            gzip: 40,
+            version: "1.0.0",
+          }),
         })
       ).run(fakeContext(db))
 
@@ -277,7 +294,9 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
       const projectId = await seedProject("timed-out")
       await upsertPackage(db, projectId, { name: "slow-pkg", version: "1.0.0" })
       await createUpdateBundleSizeTask(
-        fakeNpmClient({ fetchBundleData: async () => ({ error: "timeout" as const }) })
+        fakeNpmClient({
+          fetchBundleData: async () => ({ error: "timeout" as const }),
+        })
       ).run(fakeContext(db))
 
       expect((await getBundle(db, "slow-pkg"))?.errorMessage).toBe("timeout")
@@ -302,9 +321,9 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
         fetchBundleData: async () => ({ error: "not-browser-bundle" as const }),
       })
 
-      expect(await createUpdateBundleSizeTask(failing).run(fakeContext(db))).toMatchObject(
-        { updated: 0, "not-browser-bundle": 1 }
-      )
+      expect(
+        await createUpdateBundleSizeTask(failing).run(fakeContext(db))
+      ).toMatchObject({ updated: 0, "not-browser-bundle": 1 })
       expect((await getBundle(db, "cli-pkg"))?.errorMessage).toBe(
         "not-browser-bundle"
       )
@@ -315,19 +334,27 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
           throw new Error("should not be called")
         },
       })
-      expect(await createUpdateBundleSizeTask(counting).run(fakeContext(db))).toMatchObject(
-        { measured: 0 }
-      )
+      expect(
+        await createUpdateBundleSizeTask(counting).run(fakeContext(db))
+      ).toMatchObject({ measured: 0 })
     })
 
     it("retries a terminal failure once the version moves", async () => {
       const projectId = await seedProject("new-version")
-      await upsertPackage(db, projectId, { name: "moved-pkg", version: "1.0.0" })
+      await upsertPackage(db, projectId, {
+        name: "moved-pkg",
+        version: "1.0.0",
+      })
       await createUpdateBundleSizeTask(
-        fakeNpmClient({ fetchBundleData: async () => ({ error: "not-found" as const }) })
+        fakeNpmClient({
+          fetchBundleData: async () => ({ error: "not-found" as const }),
+        })
       ).run(fakeContext(db))
 
-      await upsertPackage(db, projectId, { name: "moved-pkg", version: "2.0.0" })
+      await upsertPackage(db, projectId, {
+        name: "moved-pkg",
+        version: "2.0.0",
+      })
 
       const result = await createUpdateBundleSizeTask(
         fakeNpmClient({
@@ -340,7 +367,10 @@ describe.skipIf(!hasDatabase)("npm tasks (integration)", () => {
 
     it("skips packages of deprecated projects", async () => {
       const projectId = await seedProject("withdrawn", "deprecated")
-      await upsertPackage(db, projectId, { name: "stale-pkg", version: "1.0.0" })
+      await upsertPackage(db, projectId, {
+        name: "stale-pkg",
+        version: "1.0.0",
+      })
 
       const result = await createUpdateBundleSizeTask(
         fakeNpmClient({

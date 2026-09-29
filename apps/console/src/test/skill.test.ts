@@ -58,7 +58,9 @@ describe("parseSkillMd", () => {
   it("accepts a top-level version as well as a nested one", () => {
     // The skill format has used both placements across revisions, so reading
     // only one would silently report a version as absent.
-    const nested = parseSkillMd("---\nname: a\nmetadata:\n  version: 2.0.0\n---\nbody")
+    const nested = parseSkillMd(
+      "---\nname: a\nmetadata:\n  version: 2.0.0\n---\nbody"
+    )
     const topLevel = parseSkillMd("---\nname: a\nversion: 2.0.0\n---\nbody")
 
     expect(nested.version).toBe("2.0.0")

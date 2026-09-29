@@ -8,7 +8,12 @@
 
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import { projects, repos, type ProjectStatus, type ProjectType } from "@/db/schema"
+import {
+  projects,
+  repos,
+  type ProjectStatus,
+  type ProjectType,
+} from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 
 type ProjectRow = typeof projects.$inferSelect
@@ -265,7 +270,9 @@ export async function syncProjectFromRepo(db: Db, id: string): Promise<void> {
   })
   if (!project) throw new Error(`Project not found: ${id}`)
 
-  const changes: Partial<typeof projects.$inferInsert> = { updatedAt: new Date() }
+  const changes: Partial<typeof projects.$inferInsert> = {
+    updatedAt: new Date(),
+  }
 
   if (!project.overrideDescription && project.repo.description) {
     changes.description = project.repo.description

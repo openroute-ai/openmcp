@@ -64,9 +64,7 @@ describe("accumulateStarsByMonth", () => {
       stamp("2026-01-06T00:00:00Z"),
     ])
 
-    expect(result).toEqual([
-      { yearMonth: { year: 2026, month: 1 }, stars: 2 },
-    ])
+    expect(result).toEqual([{ yearMonth: { year: 2026, month: 1 }, stars: 2 }])
   })
 
   it("returns nothing for an empty sweep", () => {
@@ -106,9 +104,13 @@ describe("mergeMonth", () => {
       { year: 2026, month: 3 },
       { totalDownloads: 50_000 }
     )
-    const withStars = mergeMonth(withDownloads, { year: 2026, month: 3 }, {
-      stars: 120,
-    })
+    const withStars = mergeMonth(
+      withDownloads,
+      { year: 2026, month: 3 },
+      {
+        stars: 120,
+      }
+    )
 
     expect(withStars[0]).toEqual({
       year: 2026,
@@ -120,9 +122,13 @@ describe("mergeMonth", () => {
 
   it("does not let a download run erase recorded stars", () => {
     const withStars = mergeMonth([], { year: 2026, month: 3 }, { stars: 120 })
-    const withDownloads = mergeMonth(withStars, { year: 2026, month: 3 }, {
-      totalDownloads: 50_000,
-    })
+    const withDownloads = mergeMonth(
+      withStars,
+      { year: 2026, month: 3 },
+      {
+        totalDownloads: 50_000,
+      }
+    )
 
     expect(withDownloads[0]?.stars).toBe(120)
     expect(withDownloads[0]?.totalDownloads).toBe(50_000)

@@ -18,16 +18,12 @@
  */
 
 import { syncEnv } from "@/lib/env"
-import {
-  listSkillsNeedingPushJoined,
-  recordPushFailure,
-  recordPushSuccess,
-} from "@/lib/github/service/skill"
+import { listSkillsNeedingPushJoined } from "@/lib/github/service/skill"
+import { pushSkill } from "@/lib/github/service/push-skill"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task } from "@/lib/tasks/runner"
-import { buildSkillWebhookPayload } from "@/lib/webhook/skill-webhook"
+import { sendWebhook } from "@/lib/webhook/client"
 import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
-import { hasAccepted, sendWebhook, summarise } from "@/lib/webhook/client"
 
 export interface PushSkillsOptions {
   sender?: WebhookSender
@@ -64,50 +60,33 @@ export function createPushSkillsTask(options: PushSkillsOptions = {}): Task {
 
       const results = await processItems(
         pending,
-        async ({ skill, project, repo }) => {
-          const payload = buildSkillWebhookPayload({
-            repoOwner: repo.owner,
-            repoName: repo.name,
-            skillDir: skill.skillDir,
-            name: skill.name,
-            description: skill.description,
-            descriptionZh: skill.descriptionZh,
-            readme: skill.readme,
-            readmeZh: skill.readmeZh,
-            version: skill.version,
-          })
+        async ({ skill }) => {
+          // The same call the console's per-skill retry makes, so a manual
+          // push and the scheduled one cannot diverge in payload or bookkeeping.
+          const result = await pushSkill(
+            db,
+            { projectId: skill.projectId, skillDir: skill.skillDir },
+            { webhookUrl, secret, token, sender, now }
+          )
 
-          const sent = await sender([webhookUrl], payload, { secret, token })
-          const accepted = hasAccepted(sent)
-          const at = now()
-
-          if (accepted) {
-            await recordPushSuccess(db, skill.projectId, skill.skillDir, at)
+          if (result.pushed) {
             logger.info(
-              `pushed ${repo.owner}/${repo.name} (${skill.skillDir}): ` +
-                summarise(sent)
+              `pushed ${result.fullName} (${result.skillDir}): ${result.summary}`
             )
           } else {
-            await recordPushFailure(
-              db,
-              skill.projectId,
-              skill.skillDir,
-              summarise(sent),
-              at
-            )
             logger.error(
-              `failed ${repo.owner}/${repo.name} (${skill.skillDir}): ` +
-                `recorded for retry — ${summarise(sent)}`
+              `failed ${result.fullName} (${result.skillDir}): ` +
+                `recorded for retry — ${result.summary}`
             )
           }
 
           return {
-            meta: { processed: 1, pushed: accepted ? 1 : 0 },
+            meta: { processed: 1, pushed: result.pushed ? 1 : 0 },
             data: {
-              slug: project.slug,
-              full_name: `${repo.owner}/${repo.name}`,
-              skill_dir: skill.skillDir,
-              pushed: accepted,
+              slug: result.slug,
+              full_name: result.fullName,
+              skill_dir: result.skillDir,
+              pushed: result.pushed,
             },
           }
         },

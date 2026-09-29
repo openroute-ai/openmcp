@@ -37,6 +37,7 @@ import {
   runTaskByName,
   setTaskRegistry,
 } from "@/lib/tasks/runner"
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
 
@@ -124,7 +125,9 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
         isDaily: false,
       })
 
-      expect((await getTaskDefinitionByName(db, "cleared"))?.isDaily).toBe(false)
+      expect((await getTaskDefinitionByName(db, "cleared"))?.isDaily).toBe(
+        false
+      )
     })
 
     it("toggles a task off and on", async () => {
@@ -135,7 +138,9 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
       )
 
       await setTaskEnabled(db, definition.id, true)
-      expect((await getTaskDefinitionByName(db, "toggle"))?.isEnabled).toBe(true)
+      expect((await getTaskDefinitionByName(db, "toggle"))?.isEnabled).toBe(
+        true
+      )
     })
   })
 
@@ -264,7 +269,9 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
 
       await failExecution(db, execution.id, "just a string")
 
-      expect((await getExecution(db, execution.id))?.error).toBe("just a string")
+      expect((await getExecution(db, execution.id))?.error).toBe(
+        "just a string"
+      )
     })
 
     it("lists a task's executions newest first", async () => {
@@ -396,7 +403,9 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
       const definition = await seedTask("exec-cascade")
       const execution = await createExecution(db, definition.id)
 
-      await db.delete(taskDefinitions).where(eq(taskDefinitions.id, definition.id))
+      await db
+        .delete(taskDefinitions)
+        .where(eq(taskDefinitions.id, definition.id))
       expect(await getExecution(db, execution.id)).toBeUndefined()
     })
   })
@@ -405,7 +414,10 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
     it("runs a task and records the result", async () => {
       setTaskRegistry(
         new Map([
-          ["runner-ok", { name: "runner-ok", run: async () => ({ processed: 7 }) }],
+          [
+            "runner-ok",
+            { name: "runner-ok", run: async () => ({ processed: 7 }) },
+          ],
         ])
       )
       const definition = await seedTask("runner-ok")
@@ -424,7 +436,10 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
     it("skips a disabled task", async () => {
       setTaskRegistry(
         new Map([
-          ["runner-disabled", { name: "runner-disabled", run: async () => ({}) }],
+          [
+            "runner-disabled",
+            { name: "runner-disabled", run: async () => ({}) },
+          ],
         ])
       )
       const created = await seedTask("runner-disabled")
@@ -449,14 +464,18 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
       const outcome = await runTask(db, definition)
       expect(outcome.status).toBe("skipped")
       if (outcome.status === "skipped") {
+        // The prose is what a log or a webhook response shows; the code is
+        // what an interface translates, so both are part of the contract.
         expect(outcome.reason).toContain("already running")
+        expect(outcome.reasonCode).toBe(SKIP_CODES.taskAlreadyRunning)
       }
 
       // A lost race must not leave a pending row, which would later be
       // reclaimed as an abandoned run.
       const live = await listLiveExecutions(db)
-      expect(live.filter((row) => row.taskDefinitionId === definition.id))
-        .toHaveLength(0)
+      expect(
+        live.filter((row) => row.taskDefinitionId === definition.id)
+      ).toHaveLength(0)
       const attempts = await listExecutions(db, definition.id)
       expect(attempts).toHaveLength(1)
       expect(attempts[0]?.status).toBe("cancelled")
@@ -509,7 +528,9 @@ describe.skipIf(!hasDatabase)("task engine (integration)", () => {
       )
       await seedTask("runner-by-name")
 
-      expect((await runTaskByName(db, "runner-by-name")).status).toBe("completed")
+      expect((await runTaskByName(db, "runner-by-name")).status).toBe(
+        "completed"
+      )
     })
 
     it("skips an unknown task name", async () => {

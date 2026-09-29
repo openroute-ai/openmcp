@@ -21,6 +21,7 @@ import {
   projectToWeWorkArticle,
 } from "@/lib/webhook/wework"
 import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
 const NUMBER_OF_PROJECTS = 5
 
@@ -46,6 +47,7 @@ export function createNotifyDailyTask(options: NotifyDailyOptions = {}): Task {
         return {
           sent: false,
           reason: "no WEWORK_WEBHOOK_URL configured",
+          reasonCode: SKIP_CODES.missingNotifyWebhook,
         }
       }
 

@@ -145,7 +145,12 @@ export function createSnapshotStarsTask(
           )
 
           return {
-            meta: { swept: 1, months: byMonth.length, weeks, stars: stamps.length },
+            meta: {
+              swept: 1,
+              months: byMonth.length,
+              weeks,
+              stars: stamps.length,
+            },
             data: null,
           }
         },

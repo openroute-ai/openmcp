@@ -23,6 +23,7 @@ import {
   deleteProject,
   getProjectById,
 } from "@/lib/github/service/project"
+import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { upsertRepo } from "@/lib/github/service/repo"
 import {
   getSkill,
@@ -38,7 +39,6 @@ import {
 } from "@/lib/github/service/skill"
 import {
   getAuthor,
-  githubAvatarUrl,
   linkAuthorToProject,
   listAuthors,
   listAuthorsForProject,
@@ -115,121 +115,127 @@ describe.skipIf(!hasDatabase)("catalog services (integration)", () => {
   })
 
   describe("packages and bundles", () => {
-  it("stores a package and reads it back", async () => {
-    const project = await seedProject("pkg", "one")
-    await upsertPackage(db, project.id, {
-      name: "one",
-      version: "1.0.0",
-      dependencies: { react: "^18.0.0" },
+    it("stores a package and reads it back", async () => {
+      const project = await seedProject("pkg", "one")
+      await upsertPackage(db, project.id, {
+        name: "one",
+        version: "1.0.0",
+        dependencies: { react: "^18.0.0" },
+      })
+
+      const stored = await getPackage(db, "one")
+      expect(stored?.version).toBe("1.0.0")
+      expect(stored?.dependencies).toEqual(["react@^18.0.0"])
+      expect(stored?.projectId).toBe(project.id)
     })
 
-    const stored = await getPackage(db, "one")
-    expect(stored?.version).toBe("1.0.0")
-    expect(stored?.dependencies).toEqual(["react@^18.0.0"])
-    expect(stored?.projectId).toBe(project.id)
-  })
+    it("updates a package in place rather than duplicating it", async () => {
+      const project = await seedProject("pkg", "two")
+      await upsertPackage(db, project.id, { name: "two", version: "1.0.0" })
+      await upsertPackage(db, project.id, { name: "two", version: "2.0.0" })
 
-  it("updates a package in place rather than duplicating it", async () => {
-    const project = await seedProject("pkg", "two")
-    await upsertPackage(db, project.id, { name: "two", version: "1.0.0" })
-    await upsertPackage(db, project.id, { name: "two", version: "2.0.0" })
-
-    const all = await listPackagesForProject(db, project.id)
-    expect(all).toHaveLength(1)
-    expect(all[0]?.version).toBe("2.0.0")
-  })
-
-  it("records a deprecation from npm's message form", async () => {
-    await upsertPackage(db, null, {
-      name: "deprecated-pkg",
-      version: "1.0.0",
-      deprecated: "use something-else instead",
+      const all = await listPackagesForProject(db, project.id)
+      expect(all).toHaveLength(1)
+      expect(all[0]?.version).toBe("2.0.0")
     })
 
-    expect((await getPackage(db, "deprecated-pkg"))?.deprecated).toBe(true)
-  })
+    it("records a deprecation from npm's message form", async () => {
+      await upsertPackage(db, null, {
+        name: "deprecated-pkg",
+        version: "1.0.0",
+        deprecated: "use something-else instead",
+      })
 
-  it("stores a failed bundle measurement with its outcome", async () => {
-    // A bundle row references its package, so the package must exist first.
-    await upsertPackage(db, null, { name: "timeout-pkg", version: "1.0.0" })
-    await upsertBundle(db, {
-      name: "timeout-pkg",
-      version: "1.0.0",
-      size: null,
-      gzip: null,
-      errorMessage: bundleErrorFor("timeout"),
+      expect((await getPackage(db, "deprecated-pkg"))?.deprecated).toBe(true)
     })
 
-    const bundle = await getBundle(db, "timeout-pkg")
-    expect(bundle?.errorMessage).toBe("timeout")
-    expect(bundle?.size).toBeNull()
-  })
+    it("stores a failed bundle measurement with its outcome", async () => {
+      // A bundle row references its package, so the package must exist first.
+      await upsertPackage(db, null, { name: "timeout-pkg", version: "1.0.0" })
+      await upsertBundle(db, {
+        name: "timeout-pkg",
+        version: "1.0.0",
+        size: null,
+        gzip: null,
+        errorMessage: bundleErrorFor("timeout"),
+      })
 
-  it("clears a previous error when a measurement succeeds", async () => {
-    await upsertPackage(db, null, { name: "retry-pkg", version: "1.0.0" })
-    await upsertBundle(db, { name: "retry-pkg", errorMessage: "timeout" })
-    await upsertBundle(db, {
-      name: "retry-pkg",
-      version: "1.0.0",
-      size: 900,
-      gzip: 200,
+      const bundle = await getBundle(db, "timeout-pkg")
+      expect(bundle?.errorMessage).toBe("timeout")
+      expect(bundle?.size).toBeNull()
     })
 
-    const bundle = await getBundle(db, "retry-pkg")
-    expect(bundle?.errorMessage).toBeNull()
-    expect(bundle?.size).toBe(900)
-  })
+    it("clears a previous error when a measurement succeeds", async () => {
+      await upsertPackage(db, null, { name: "retry-pkg", version: "1.0.0" })
+      await upsertBundle(db, { name: "retry-pkg", errorMessage: "timeout" })
+      await upsertBundle(db, {
+        name: "retry-pkg",
+        version: "1.0.0",
+        size: 900,
+        gzip: 200,
+      })
 
-  it("cascades a bundle away when its package is deleted", async () => {
-    await upsertPackage(db, null, { name: "orphan-pkg", version: "1.0.0" })
-    await upsertBundle(db, { name: "orphan-pkg", version: "1.0.0", size: 1 })
-
-    await db.delete(packages).where(eq(packages.name, "orphan-pkg"))
-    expect(await getBundle(db, "orphan-pkg")).toBeUndefined()
-  })
-
-  it("lists a package with no bundle alongside ones that have one", async () => {
-    const project = await seedProject("pkg", "mixed")
-    await upsertPackage(db, project.id, {
-      name: "with-bundle",
-      version: "1.0.0",
+      const bundle = await getBundle(db, "retry-pkg")
+      expect(bundle?.errorMessage).toBeNull()
+      expect(bundle?.size).toBe(900)
     })
-    await upsertPackage(db, project.id, { name: "no-bundle", version: "1.0.0" })
-    await upsertBundle(db, { name: "with-bundle", version: "1.0.0", size: 5 })
 
-    const rows = await listPackagesWithBundles(db)
-    const forProject = rows.filter((r) => r.project.id === project.id)
-    expect(forProject).toHaveLength(2)
-    expect(
-      forProject.find((r) => r.package.name === "no-bundle")?.bundle
-    ).toBeUndefined()
-  })
+    it("cascades a bundle away when its package is deleted", async () => {
+      await upsertPackage(db, null, { name: "orphan-pkg", version: "1.0.0" })
+      await upsertBundle(db, { name: "orphan-pkg", version: "1.0.0", size: 1 })
 
-  it("excludes a deprecated project from the bundling sweep", async () => {
-    const repo = await seedRepo("pkg", "dead")
-    slugSuffix += 1
-    const project = await createProject(db, {
-      repoId: repo.id,
-      name: "dead",
-      owner: "pkg",
-      slug: `pkg-dead-${slugSuffix}`,
-      status: "deprecated",
+      await db.delete(packages).where(eq(packages.name, "orphan-pkg"))
+      expect(await getBundle(db, "orphan-pkg")).toBeUndefined()
     })
-    await upsertPackage(db, project.id, { name: "dead-pkg", version: "1.0.0" })
 
-    const rows = await listPackagesWithBundles(db)
-    expect(rows.some((r) => r.project.id === project.id)).toBe(false)
-  })
+    it("lists a package with no bundle alongside ones that have one", async () => {
+      const project = await seedProject("pkg", "mixed")
+      await upsertPackage(db, project.id, {
+        name: "with-bundle",
+        version: "1.0.0",
+      })
+      await upsertPackage(db, project.id, {
+        name: "no-bundle",
+        version: "1.0.0",
+      })
+      await upsertBundle(db, { name: "with-bundle", version: "1.0.0", size: 5 })
 
-  it("returns nothing for an empty bundle lookup", async () => {
-    expect(await listBundles(db, [])).toEqual([])
-  })
+      const rows = await listPackagesWithBundles(db)
+      const forProject = rows.filter((r) => r.project.id === project.id)
+      expect(forProject).toHaveLength(2)
+      expect(
+        forProject.find((r) => r.package.name === "no-bundle")?.bundle
+      ).toBeUndefined()
+    })
 
-  it("lists every package name for a sweep", async () => {
-    await upsertPackage(db, null, { name: "listed-pkg", version: "1.0.0" })
-    expect(await listPackageNames(db)).toContain("listed-pkg")
+    it("excludes a deprecated project from the bundling sweep", async () => {
+      const repo = await seedRepo("pkg", "dead")
+      slugSuffix += 1
+      const project = await createProject(db, {
+        repoId: repo.id,
+        name: "dead",
+        owner: "pkg",
+        slug: `pkg-dead-${slugSuffix}`,
+        status: "deprecated",
+      })
+      await upsertPackage(db, project.id, {
+        name: "dead-pkg",
+        version: "1.0.0",
+      })
+
+      const rows = await listPackagesWithBundles(db)
+      expect(rows.some((r) => r.project.id === project.id)).toBe(false)
+    })
+
+    it("returns nothing for an empty bundle lookup", async () => {
+      expect(await listBundles(db, [])).toEqual([])
+    })
+
+    it("lists every package name for a sweep", async () => {
+      await upsertPackage(db, null, { name: "listed-pkg", version: "1.0.0" })
+      expect(await listPackageNames(db)).toContain("listed-pkg")
+    })
   })
-})
 
   describe("hall of fame", () => {
     it("adds an author", async () => {
@@ -244,13 +250,58 @@ describe.skipIf(!hasDatabase)("catalog services (integration)", () => {
     it("refreshes derived fields without erasing curated ones", async () => {
       // A repository sync must not wipe the bio and followers that a separate
       // profile fetch recorded.
-      await upsertAuthor(db, { username: "grace" }, { bio: "Compiler pioneer", followers: 900 })
-      await upsertAuthor(db, { username: "grace" }, { homepage: "https://example.com" })
+      await upsertAuthor(
+        db,
+        { username: "grace" },
+        { bio: "Compiler pioneer", followers: 900 }
+      )
+      await upsertAuthor(
+        db,
+        { username: "grace" },
+        { homepage: "https://example.com" }
+      )
 
       const author = await getAuthor(db, "grace")
       expect(author?.bio).toBe("Compiler pioneer")
       expect(author?.followers).toBe(900)
       expect(author?.homepage).toBe("https://example.com")
+    })
+
+    it("does not let a repository refresh undo a fetched profile", async () => {
+      // Every project refresh records the repository owner, and a repository
+      // knows only the login. If that path were allowed to overwrite, a
+      // scheduled author refresh would be undone by the next project sync.
+      await upsertAuthor(
+        db,
+        { username: "margaret" },
+        { name: "Margaret Hamilton", followers: 1200 }
+      )
+      await upsertAuthorFromRepo(db, {
+        owner: "margaret",
+        ownerId: "2",
+        homepage: "https://example.com",
+      })
+
+      const author = await getAuthor(db, "margaret")
+      expect(author?.name).toBe("Margaret Hamilton")
+      expect(author?.followers).toBe(1200)
+      // The repository's homepage is a guess, and a guess fills a blank rather
+      // than replacing what is already there.
+      expect(author?.homepage).toBe("https://example.com")
+    })
+
+    it("leaves the display fields alone when only one is edited", async () => {
+      await upsertAuthor(
+        db,
+        { username: "barbara" },
+        { name: "Barbara Liskov", bio: "Substitution principle" }
+      )
+      await upsertAuthor(db, { username: "barbara" }, { linkedin: "https://linkedin.com/in/barbara" })
+
+      const author = await getAuthor(db, "barbara")
+      expect(author?.name).toBe("Barbara Liskov")
+      expect(author?.bio).toBe("Substitution principle")
+      expect(author?.linkedin).toBe("https://linkedin.com/in/barbara")
     })
 
     it("adds an author from a repository owner", async () => {
@@ -267,7 +318,11 @@ describe.skipIf(!hasDatabase)("catalog services (integration)", () => {
     })
 
     it("skips a repository with no owner rather than writing a blank author", async () => {
-      await upsertAuthorFromRepo(db, { owner: "", ownerId: null, homepage: null })
+      await upsertAuthorFromRepo(db, {
+        owner: "",
+        ownerId: null,
+        homepage: null,
+      })
       expect(await listAuthors(db)).not.toContainEqual(
         expect.objectContaining({ username: "" })
       )
@@ -315,10 +370,18 @@ describe.skipIf(!hasDatabase)("catalog services (integration)", () => {
     })
 
     it("builds an avatar URL from the numeric owner id", () => {
-      expect(githubAvatarUrl(42)).toContain("/u/42")
+      // The builder lives in `avatar-url.ts` now: it prefers the id because the
+      // CDN honours a size, where the login redirect drops it. The login is
+      // still the fallback, since a repository whose id was never parsed still
+      // has an owner.
+      expect(githubAvatarUrl("octocat", { ownerId: 42 })).toContain("/u/42")
+      expect(githubAvatarUrl("octocat", { ownerId: 42 })).toContain("s=48")
       expect(githubAvatarUrl(null)).toBeNull()
+      expect(githubAvatarUrl("octocat", { ownerId: Number("nope") })).toContain(
+        "octocat"
+      )
     })
-})
+  })
 
   describe("skills", () => {
     it("stores a parsed skill", async () => {
@@ -413,20 +476,20 @@ describe.skipIf(!hasDatabase)("catalog services (integration)", () => {
         readme: "r",
       })
 
-    const at = new Date("2026-03-01T00:00:00Z")
-    await recordPushSuccess(db, project.id, "pdf", at)
+      const at = new Date("2026-03-01T00:00:00Z")
+      await recordPushSuccess(db, project.id, "pdf", at)
 
-    const stored = await getSkill(db, project.id, "pdf")
-    expect(stored?.syncedToWebAt?.toISOString()).toBe(at.toISOString())
-    expect(stored?.lastSyncError).toBeNull()
+      const stored = await getSkill(db, project.id, "pdf")
+      expect(stored?.syncedToWebAt?.toISOString()).toBe(at.toISOString())
+      expect(stored?.lastSyncError).toBeNull()
 
-    // Scoped to this skill, since other tests in this suite also have a
-    // "pdf" skill that has deliberately never been pushed.
-    const unpushed = await listUnpushedSkills(db)
-    expect(
-      unpushed.some((s) => s.projectId === project.id && s.skillDir === "pdf")
-    ).toBe(false)
-  })
+      // Scoped to this skill, since other tests in this suite also have a
+      // "pdf" skill that has deliberately never been pushed.
+      const unpushed = await listUnpushedSkills(db)
+      expect(
+        unpushed.some((s) => s.projectId === project.id && s.skillDir === "pdf")
+      ).toBe(false)
+    })
 
     it("keeps a failed skill visible for retry", async () => {
       const project = await seedProject("skill", "six", "skill")

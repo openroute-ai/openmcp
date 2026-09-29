@@ -29,6 +29,7 @@ import {
 } from "@/lib/github/snapshot-dates"
 import { ossClient } from "@/lib/oss/client"
 import type { Task } from "@/lib/tasks/runner"
+import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
 export interface RankingsStore {
   saveJSON(json: unknown, fileName: string): Promise<string | undefined>
@@ -69,6 +70,7 @@ export function createBuildRankingsTask(
           trending: 0,
           byRelativeGrowth: 0,
           reason: "no data for period",
+          reasonCode: SKIP_CODES.noDataForPeriod,
         }
       }
 

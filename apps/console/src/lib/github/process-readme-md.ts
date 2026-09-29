@@ -86,18 +86,18 @@ export async function processReadMeMd(
     readme = await mirrorImages(readme, repo, branch)
 
     // In-page anchors: <a href="#quick-start"> => absolute
-    readme = readme.replace(/<a href="#([^"]+)">/gi, (_match, anchor: string) => {
-      return `<a href="${root}#${anchor}">`
-    })
-
-    // Links to files in the repository.
     readme = readme.replace(
-      /href="\/?(.+?)"/gi,
-      (match, path: string) => {
-        if (path.startsWith("http")) return match
-        return `href="${root}/blob/${branch}/${path}"`
+      /<a href="#([^"]+)">/gi,
+      (_match, anchor: string) => {
+        return `<a href="${root}#${anchor}">`
       }
     )
+
+    // Links to files in the repository.
+    readme = readme.replace(/href="\/?(.+?)"/gi, (match, path: string) => {
+      if (path.startsWith("http")) return match
+      return `href="${root}/blob/${branch}/${path}"`
+    })
 
     // Markdown links to repository files, e.g. [docs](./docs/GUIDE.md) or
     // [docs](docs/GUIDE.md). The leading `./` or `/` is optional because
@@ -182,11 +182,7 @@ async function mirrorSafely(
 }
 
 /** Resolves a relative image reference to a raw.githubusercontent.com URL. */
-function toAbsoluteImageUrl(
-  url: string,
-  repo: string,
-  branch: string
-): string {
+function toAbsoluteImageUrl(url: string, repo: string, branch: string): string {
   if (url.startsWith("http")) return url
   const root = `https://raw.githubusercontent.com/${repo}`
   const path = url.startsWith("./") ? url.slice(2) : url

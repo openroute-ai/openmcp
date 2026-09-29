@@ -45,7 +45,9 @@ export type BundleResult =
   | { error: "timeout" | "not-browser-bundle" | "not-found" | "error" }
 
 export interface NpmClient {
-  fetchPackageInfo(packageName: string): Promise<z.infer<typeof packageJsonSchema>>
+  fetchPackageInfo(
+    packageName: string
+  ): Promise<z.infer<typeof packageJsonSchema>>
   fetchMonthlyDownloadCount(packageName: string): Promise<number>
   fetchBundleData(packageName: string): Promise<BundleResult>
 }
@@ -104,7 +106,9 @@ export function createNpmClient(
 
       const body = (await response.json()) as Record<string, unknown>
       if (typeof body.error === "string") {
-        throw new Error(`npm downloads API error for ${packageName}: ${body.error}`)
+        throw new Error(
+          `npm downloads API error for ${packageName}: ${body.error}`
+        )
       }
 
       return monthlyDownloadsSchema.parse(body).downloads

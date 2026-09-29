@@ -1,9 +1,14 @@
 import { defineRouting } from "next-intl/routing"
 
-import { i18n } from "@/lib/config/i18n"
+import { i18n, type Locale } from "@/lib/config/i18n"
 
 export const DEFAULT_LOCALE = i18n.defaultLocale
-export const LOCALES = Object.keys(i18n.locales)
+/**
+ * `Object.keys` widens to `string[]`, which would erase the locale union and
+ * leave `useLocale()` typed as `string`. The assertion restores the union the
+ * config already guarantees, so a locale that has no entry cannot be named.
+ */
+export const LOCALES = Object.keys(i18n.locales) as Locale[]
 
 /** The cookie next-intl reads to remember a chosen locale. */
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE"

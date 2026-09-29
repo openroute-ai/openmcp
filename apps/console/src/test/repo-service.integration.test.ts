@@ -91,7 +91,7 @@ describe.skipIf(!hasDatabase)("repo service (integration)", () => {
     expect(second.description).toBe("The React Framework, updated")
 
     const { rows } = await db.execute(
-      'select count(*)::int as count from repos where owner = \'vercel\' and name = \'next.js\''
+      "select count(*)::int as count from repos where owner = 'vercel' and name = 'next.js'"
     )
     expect(Number((rows[0] as { count: number }).count)).toBe(1)
   })

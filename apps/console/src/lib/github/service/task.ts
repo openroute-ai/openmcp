@@ -158,7 +158,9 @@ export async function listTaskDefinitions(
   return db
     .select()
     .from(taskDefinitions)
-    .where(options.onlyEnabled ? eq(taskDefinitions.isEnabled, true) : undefined)
+    .where(
+      options.onlyEnabled ? eq(taskDefinitions.isEnabled, true) : undefined
+    )
     .orderBy(taskDefinitions.name)
 }
 
@@ -538,11 +540,7 @@ export async function releaseLocksForExecutions(
   executions: TaskExecutionRow[]
 ): Promise<void> {
   for (const execution of executions) {
-    await releaseTaskLock(
-      db,
-      execution.taskDefinitionId,
-      execution.id
-    )
+    await releaseTaskLock(db, execution.taskDefinitionId, execution.id)
   }
 }
 

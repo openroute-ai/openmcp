@@ -249,9 +249,9 @@ export async function listReposByOwner(db: Db): Promise<OwnerRepos[]> {
     // The join emits one row per project, and a project with no id here is a
     // repository that is not curated at all.
     if (row.projectId) {
-      entry.repos.find((candidate) => candidate.id === row.repo.id)?.projectIds.push(
-        row.projectId
-      )
+      entry.repos
+        .find((candidate) => candidate.id === row.repo.id)
+        ?.projectIds.push(row.projectId)
     }
   }
 
@@ -267,10 +267,7 @@ export async function setContributorCount(
   id: string,
   contributorCount: number
 ): Promise<void> {
-  await db
-    .update(repos)
-    .set({ contributorCount })
-    .where(eq(repos.id, id))
+  await db.update(repos).set({ contributorCount }).where(eq(repos.id, id))
 }
 
 /** Stores the processed README for a repository. */

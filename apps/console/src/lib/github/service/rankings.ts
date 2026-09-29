@@ -110,7 +110,13 @@ export async function buildRankingsForWeek(
     // Nothing was recorded for the week, so publishing would overwrite a good
     // ranking with one claiming the world stood still. The build task keys its
     // "keep the previous file" decision off an empty result.
-    return { period: "week", year: yearWeek.year, week: yearWeek.week, trending: [], byRelativeGrowth: [] }
+    return {
+      period: "week",
+      year: yearWeek.year,
+      week: yearWeek.week,
+      trending: [],
+      byRelativeGrowth: [],
+    }
   }
 
   const anchored = new Set(
@@ -212,7 +218,8 @@ export async function buildRankingsForMonth(
       (a, b) => a.year - b.year || a.month - b.month
     )
     const index = ordered.findIndex(
-      (month) => month.year === yearMonth.year && month.month === yearMonth.month
+      (month) =>
+        month.year === yearMonth.year && month.month === yearMonth.month
     )
     if (index === -1) continue
 
@@ -388,9 +395,7 @@ async function assemble(
 
   return {
     ...header,
-    trending: [...ranked]
-      .sort((a, b) => b.delta - a.delta)
-      .slice(0, limit),
+    trending: [...ranked].sort((a, b) => b.delta - a.delta).slice(0, limit),
     byRelativeGrowth: [...ranked]
       .sort((a, b) => (b.relativeGrowth ?? -1) - (a.relativeGrowth ?? -1))
       .slice(0, limit),

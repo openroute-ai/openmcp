@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
@@ -28,6 +28,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { IconCirclePlusFilled } from "@tabler/icons-react"
 import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
+import { useLocaleRouter } from "@/i18n/navigation"
+import { parseGithubRepoUrl } from "@/lib/github/repo-url"
 
 // The values are the wire format; the labels are translated, so the list is
 // values only and the label comes from the `Type` namespace.
@@ -53,15 +55,29 @@ export function CreateProjectDialog({
   const typeLabel = useEnumLabel("Type")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const router = useLocaleRouter()
 
   const [open, setOpen] = React.useState(false)
   const [url, setUrl] = React.useState("")
   const [type, setType] = React.useState<string>("application")
 
   const trimmed = url.trim()
-  // Cheap local check so the obvious typo does not cost a round trip. The
-  // server parses it again; this is a hint, not the authority.
-  const looksValid = /^[^/\s]+\/[^/\s]+$/.test(trimmed)
+
+  // The preview is a server question — it has to know whether this repository
+  // is already curated — so it runs against the endpoint rather than the local
+  // parser. The pause matters more here than for a filter: each keystroke would
+  // otherwise be a database round trip and a cache entry per prefix.
+  const preview = useQuery({
+    ...trpc.projects.parseUrl.queryOptions({ url: trimmed || " " }),
+    enabled: open && trimmed.length > 0,
+    staleTime: 30_000,
+  })
+  const previewData = preview.data ?? null
+  // Reuse the exact same parser the server uses, so the local check accepts
+  // every valid shape (full https URL, ssh remote, bare owner/repo, `.git`
+  // suffix, trailing paths) and never shows the error for a URL the server
+  // would happily accept.
+  const looksValid = parseGithubRepoUrl(trimmed) !== null
 
   const reset = () => {
     setUrl("")
@@ -93,6 +109,14 @@ export function CreateProjectDialog({
 
         setOpen(false)
         reset()
+
+        // Straight to what was just created. A project exists to be filled in —
+        // description, status, tags — and every one of those lives on its own
+        // page, so closing the dialog onto the list throws the operator back to
+        // the row they were already looking at. An existing project navigates
+        // too: the request was the same one, and the page is where its state
+        // can be read.
+        router.push(`/dashboard/projects/${result.project.id}`)
       },
       onError: (error) => {
         toast.error(t("couldNotCreate"), {
@@ -145,6 +169,23 @@ export function CreateProjectDialog({
             />
             {url.length > 0 && !looksValid ? (
               <p className="text-sm text-destructive">{t("urlError")}</p>
+            ) : null}
+            {/* Where the URL actually points, and whether it is already
+                curated. Creation is idempotent but only says so after the
+                round trip and the GitHub fetch, so this is what lets an
+                operator change their mind before clicking. */}
+            {looksValid && !preview.isPending ? (
+              previewData ? (
+                <p className="text-sm text-muted-foreground">
+                  {previewData.exists
+                    ? t("previewExisting", {
+                        fullName: `${previewData.owner}/${previewData.name}`,
+                      })
+                    : t("previewNew", {
+                        fullName: `${previewData.owner}/${previewData.name}`,
+                      })}
+                </p>
+              ) : null
             ) : null}
           </div>
 

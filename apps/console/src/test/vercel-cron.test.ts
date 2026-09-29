@@ -10,10 +10,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { TASK_SEEDS, matchesCron } from "@/lib/tasks/definitions"
-import {
-  VERCEL_CRON_PATH,
-  VERCEL_CRON_SCHEDULE,
-} from "@/lib/tasks/vercel-cron"
+import { VERCEL_CRON_PATH, VERCEL_CRON_SCHEDULE } from "@/lib/tasks/vercel-cron"
 
 const vercel = JSON.parse(
   readFileSync(join(process.cwd(), "vercel.json"), "utf8")
