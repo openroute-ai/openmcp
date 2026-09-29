@@ -12,6 +12,13 @@ A standalone shadcn dashboard app.
   rewired to read live data from this app's database; the starter demo tables
   (`sections`, `traffic`) were dropped once nothing read them.
 
+## Layout
+
+Application code lives under `src/`: the App Router in `src/app`, the UI in
+`src/components`, and the domain in `src/db`, `src/hooks`, `src/lib` and
+`src/proxy.ts`. Tests sit in `src/test`. Only build and tool configuration
+stays at the app root, and `@/` resolves to `src/`.
+
 ## Routes
 
 | Route                     | Description                                           |
@@ -77,10 +84,10 @@ so local development that skips Redis is safe by default.
 
 ## Data model
 
-`db/schema.ts` re-uses the Better Auth tables from `@workspace/db/schema` so
+`src/db/schema.ts` re-uses the Better Auth tables from `@workspace/db/schema` so
 there is a single source of truth, but they are created in **this app's own
 database**. On top of those it defines the migrated GitHub-sync domain in
-`db/schema/github.ts`:
+`src/db/schema/github.ts`:
 
 - `repos` — repository statistics, plus the README, its translation, the icon
   and the OSS image URLs written by their own tasks.
@@ -94,10 +101,10 @@ database**. On top of those it defines the migrated GitHub-sync domain in
 - `snapshots`, `repo_weekly_stars`, `rising_star_*` — the ranking inputs.
 
 Task definitions are **seeded from code**, not from a migration
-(`lib/tasks/seed.ts`), so adding a task is a code change. Seeding is
+(`src/lib/tasks/seed.ts`), so adding a task is a code change. Seeding is
 insert-only, so an operator's schedule or enable flag is never reverted.
 
-tRPC routers live in `lib/trpc/routers`:
+tRPC routers live in `src/lib/trpc/routers`:
 
 - `overview.snapshot` — counts and the most recent executions
 - `tasks.list`, `tasks.executions`, `tasks.setEnabled`, `tasks.runNow`
@@ -145,8 +152,8 @@ pnpm --filter console dev
 bare `npx drizzle-kit` commands work from `apps/console`:
 
 ```bash
-npx drizzle-kit generate   # writes db/drizzle; needs no database
-npx drizzle-kit migrate    # applies db/drizzle
+npx drizzle-kit generate   # writes src/db/drizzle; needs no database
+npx drizzle-kit migrate    # applies src/db/drizzle
 npx drizzle-kit push       # dev only: diff the schema straight onto the database
 npx drizzle-kit studio
 ```

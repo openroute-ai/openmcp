@@ -17,8 +17,8 @@ for (const path of [".env", "../../.env"]) {
 const url = process.env.CONSOLE_DATABASE_URL ?? ""
 
 export default defineConfig({
-  schema: "./db/schema.ts",
-  out: "./db/drizzle",
+  schema: "./src/db/schema.ts",
+  out: "./src/db/drizzle",
   dialect: "postgresql",
   dbCredentials: { url },
   strict: true,
