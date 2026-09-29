@@ -2743,5 +2743,200 @@
     "next": "Next",
     "pageInfo": "Page {page} of {totalPages}",
     "errorGeneric": "Something went wrong. Please try again."
+  },
+  "OpenPayPage": {
+    "meta": {
+      "title": "OpenPay - Monetize Every Skill You Ship",
+      "description": "Package your expertise as payable skills, accept WeChat Pay and Alipay, and get paid on every Agent call."
+    },
+    "hero": {
+      "eyebrow": "OpenPay · Monetize your capabilities",
+      "titleLine1": "Ship paid skills",
+      "titleLine2": "Turn AI capability into revenue",
+      "subtitle": "Package your professional services as callable, payable skills. Connect WeChat Pay and Alipay, and every Agent call becomes revenue — pay per call, settled in real time.",
+      "ctaPrimary": "Start publishing paid skills",
+      "ctaSecondary": "See how it works",
+      "highlights": {
+        "channels": "WeChat Pay and Alipay",
+        "billing": "Pay per call · real-time settlement",
+        "inflow": "Payment confirmed inside the task flow"
+      }
+    },
+    "comparison": {
+      "eyebrow": "Free skill vs paid skill",
+      "title": "Same capability, a completely different revenue model",
+      "free": {
+        "title": "Free skill",
+        "items": {
+          "download": "Free download, source delivered",
+          "exposure": "Exposure depends on the platform store",
+          "noContact": "No contact with the provider after install"
+        },
+        "earningsLabel": "Earnings",
+        "earningsValue": "One delivery, then word of mouth only"
+      },
+      "paid": {
+        "badge": "Upgrade to a paid skill",
+        "title": "Paid skill (Pay Skill)",
+        "items": {
+          "collect": "WeChat Pay and Alipay, pay by scanning",
+          "models": "Per-call, subscription or monthly billing",
+          "inflow": "Payment confirmed inside the Agent task flow"
+        },
+        "earningsLabel": "Earnings",
+        "earningsValue": "Every real call settles in real time"
+      }
+    },
+    "capabilities": {
+      "eyebrow": "From listing to distribution, one platform",
+      "title": "Turn a capability into a product you can sell",
+      "items": {
+        "wallet": {
+          "title": "WeChat Pay and Alipay out of the box",
+          "description": "Connect WeChat Pay and Alipay collection, get paid by scanning a code, and skip building a payment system of your own. Settlement and reconciliation stay readable."
+        },
+        "migrate": {
+          "title": "Move existing skills to paid billing",
+          "description": "Listed skills need no rework. Switch on billing in one step, and existing users and install records migrate seamlessly without interrupting current usage."
+        },
+        "inflow": {
+          "title": "Payment confirmed inside the task flow",
+          "description": "Users place orders, pay and confirm directly in the Agent conversation, without leaving the task chain. Fewer drop-offs."
+        },
+        "distribute": {
+          "title": "One OpenMCP connection, many entry points",
+          "description": "A single paid skill distributes to multiple Agent platforms at once. SKILL.md, MCP and A2A list in one place and sell everywhere."
+        }
+      }
+    },
+    "cases": {
+      "eyebrow": "Companies on OpenPay",
+      "title": "They turned expertise into recurring revenue",
+      "items": {
+        "workRally": {
+          "name": "Work Rally",
+          "scene": "Meeting minutes with automatic task assignment",
+          "price": "Subscription ¥29/mo"
+        },
+        "trip": {
+          "name": "Trip.com",
+          "scene": "Intelligent itinerary summaries",
+          "price": "¥0.2 per call"
+        },
+        "luckin": {
+          "name": "Luckin Coffee",
+          "scene": "Store operations data briefings",
+          "price": "Subscription ¥19/mo"
+        },
+        "wind": {
+          "name": "Wind",
+          "scene": "Real-time financial data retrieval",
+          "price": "¥0.5 per call"
+        },
+        "tencent": {
+          "name": "Tencent Stock",
+          "scene": "In-depth equity market analysis",
+          "price": "¥0.3 per call"
+        },
+        "tongdaxin": {
+          "name": "Tongdaxin",
+          "scene": "Technical indicator recognition",
+          "price": "¥0.4 per call"
+        }
+      },
+      "disclaimer": "Illustrative examples of paid skills listed on OpenPay."
+    },
+    "steps": {
+      "eyebrow": "Three steps to integrate",
+      "title": "How to get started with OpenPay",
+      "tabWechat": "WeChat Pay",
+      "tabAlipay": "Alipay",
+      "contentWechat": "Official direct connection throughout: bind your WeChat Pay merchant ID once, get paid by scanning, and revenue is split automatically on the settlement cycle.",
+      "contentAlipay": "Authorize your corporate Alipay account to connect to the open platform. Both payment code and web pay are supported, with fees queryable in real time.",
+      "items": {
+        "verify": {
+          "title": "Complete verification and connect a payout channel",
+          "description": "Submit your company details for verification, then bind WeChat Pay or Alipay once approved to enable per-call and subscription collection."
+        },
+        "package": {
+          "title": "Package your expertise as a paid skill",
+          "description": "List the skill on Skills and switch on billing: set per-call or subscription pricing, then describe the capability and its parameters."
+        },
+        "launch": {
+          "title": "Go live and earn on every Agent call",
+          "description": "After passing review the skill joins the central directory, calls are metered and billed, and earnings settle in real time."
+        }
+      },
+      "ctaPrimary": "Start onboarding",
+      "ctaSecondary": "Publish a free skill first",
+      "support": "Human support throughout"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "A few things worth confirming before you start",
+      "items": {
+        "difference": {
+          "question": "How do paid skills differ from free skills?",
+          "answer": "Free skills are distributed by download, and the provider delivers once. A paid skill (Pay Skill) packages expertise into a callable, billable service charged per call or per subscription. The more an Agent calls it, the more you earn."
+        },
+        "qualification": {
+          "question": "What do I need to list a paid skill?",
+          "answer": "Individuals and companies can both join. Completing company verification unlocks higher settlement limits and lower fees, but individual developers can list right away and bind a payout account in their own name."
+        },
+        "bothChannels": {
+          "question": "Can I accept both WeChat Pay and Alipay?",
+          "answer": "Yes. A single paid skill can bind WeChat Pay and Alipay at once, and users are routed to the method they prefer. Fees and settlement records for both channels stay in one OpenPay dashboard."
+        },
+        "payout": {
+          "question": "When do I get paid?",
+          "answer": "Per-call and subscription revenue is aggregated and paid out automatically on the settlement cycle (T+1 by default), alongside a real-time view of calls and payouts for straightforward reconciliation."
+        },
+        "migrate": {
+          "question": "Will converting an existing skill affect current users?",
+          "answer": "No. The move is seamless: install and usage history are preserved and the free entry point keeps working, while new paid calls use a new billing channel you can switch on or off at any time."
+        }
+      }
+    },
+    "cta": {
+      "title": "Get started with OpenPay",
+      "subtitle": "Let your expertise earn on real usage — list a paid skill, connect WeChat Pay and Alipay, and every Agent call adds to your income.",
+      "ctaPrimary": "Publish a paid skill",
+      "ctaSecondary": "Browse the skill market",
+      "note": "OpenMCP. Bridging AI capability and real-world application."
+    }
+  },
+  "PersonaPage": {
+    "meta": {
+      "notFoundTitle": "Persona Not Found",
+      "notFoundDescription": "Sorry, this persona could not be found.",
+      "detailTitleSuffix": "Persona",
+      "detailFallbackDescription": "View and install the {name} persona"
+    },
+    "detail": {
+      "notFoundHeading": "Persona not found",
+      "notFoundHint": "Sorry, this persona could not be found.",
+      "description": "Description",
+      "noDescription": "No description yet",
+      "noImage": "No cover image for this persona",
+      "verified": "Verified author",
+      "certified": "Certified",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "viewsCount": "{count} views",
+      "downloadsCount": "{count} downloads",
+      "soul": {
+        "taglineHeading": "Personality blurb",
+        "noTagline": "No blurb yet",
+        "profileHeading": "Character profile",
+        "noProfile": "No character profile yet",
+        "installHeading": "Install this SOUL",
+        "viaChat": "Install via chat",
+        "viaChatHint": "Copy the prompt below and send it to any AI assistant (e.g. Lighthouse, OpenClaw, WorkBuddy, QClaw, Kimi, Claude) to give your AI companion the soul of {name}.",
+        "installPrompt": "Please install {code} by following {doc}.",
+        "copyPrompt": "Copy prompt",
+        "zipTitle": "Zip package",
+        "zipHint": "Zip package installation is coming soon."
+      }
+    }
   }
 }

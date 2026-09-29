@@ -2671,5 +2671,200 @@
     "next": "下一页",
     "pageInfo": "第 {page} / {totalPages} 页",
     "errorGeneric": "操作失败，请重试。"
+  },
+  "OpenPayPage": {
+    "meta": {
+      "title": "OpenPay - 付费技能变现平台",
+      "description": "把专业能力封装为付费技能，接上微信/支付宝支付，Agent 调用一次收一次钱，按次计费、实时结算。"
+    },
+    "hero": {
+      "eyebrow": "OpenPay · 付费能力变现",
+      "titleLine1": "上架付费技能",
+      "titleLine2": "实现 AI 能力变现",
+      "subtitle": "把专业服务封装为可调用、可支付的技能。接上微信与支付宝，Agent 每次调用都变成你的收入——按次计费、实时结算。",
+      "ctaPrimary": "立即上架付费技能",
+      "ctaSecondary": "查看接入流程",
+      "highlights": {
+        "channels": "微信支付 / 支付宝双渠道",
+        "billing": "按次计费 · 实时结算",
+        "inflow": "支付确认留在任务流程内"
+      }
+    },
+    "comparison": {
+      "eyebrow": "普通技能 vs 付费技能",
+      "title": "一样的能力，完全不同的收入模型",
+      "free": {
+        "title": "普通技能",
+        "items": {
+          "download": "免费下载、源码交付",
+          "exposure": "依赖平台商店的曝光",
+          "noContact": "安装后与提供者失联"
+        },
+        "earningsLabel": "收益",
+        "earningsValue": "一次交付，之后全靠口碑"
+      },
+      "paid": {
+        "badge": "升级为付费技能",
+        "title": "付费技能（Pay Skill）",
+        "items": {
+          "collect": "微信支付 / 支付宝收款，扫码即付",
+          "models": "按次 / 订阅 / 包月灵活计费",
+          "inflow": "支付确认留在 Agent 任务流程内"
+        },
+        "earningsLabel": "收益",
+        "earningsValue": "每次真实调用，实时结算"
+      }
+    },
+    "capabilities": {
+      "eyebrow": "从技能上架到分发，一站式服务",
+      "title": "把能力变成一件可售的产品",
+      "items": {
+        "wallet": {
+          "title": "微信、支付宝双渠道接入",
+          "description": "打通微信支付与支付宝收款，扫码即付，无需自建支付系统，结算对账一目了然。"
+        },
+        "migrate": {
+          "title": "已有技能平滑转为付费技能",
+          "description": "已上架技能无需重构，一键开启计费，历史用户与安装记录无缝迁移，不打断现有使用。"
+        },
+        "inflow": {
+          "title": "支付确认留在任务流程内完成",
+          "description": "用户在 Agent 对话里直接完成下单、支付与确认，不跳出任务链路，流失率更低。"
+        },
+        "distribute": {
+          "title": "OpenMCP 统一连接多个入口",
+          "description": "一个付费技能同步分发到多个 Agent 平台，SKILL.md / MCP / A2A 一处上架、全端可购。"
+        }
+      }
+    },
+    "cases": {
+      "eyebrow": "已入驻企业",
+      "title": "他们把专业能力，变成了持续收入",
+      "items": {
+        "workRally": {
+          "name": "Work Rally",
+          "scene": "会议纪要 · 任务自动分派",
+          "price": "订阅 ¥29/月"
+        },
+        "trip": {
+          "name": "携程旅行",
+          "scene": "行程信息智能汇总",
+          "price": "按次 ¥0.2/次"
+        },
+        "luckin": {
+          "name": "瑞幸咖啡",
+          "scene": "门店经营数据速报",
+          "price": "订阅 ¥19/月"
+        },
+        "wind": {
+          "name": "万得",
+          "scene": "金融数据实时检索",
+          "price": "按次 ¥0.5/次"
+        },
+        "tencent": {
+          "name": "腾讯自选股",
+          "scene": "股票行情深度解读",
+          "price": "按次 ¥0.3/次"
+        },
+        "tongdaxin": {
+          "name": "通达信",
+          "scene": "技术指标智能识别",
+          "price": "按次 ¥0.4/次"
+        }
+      },
+      "disclaimer": "以上为接入 OpenPay 的付费技能示例。"
+    },
+    "steps": {
+      "eyebrow": "三步接入",
+      "title": "如何接入 OpenPay",
+      "tabWechat": "微信接入",
+      "tabAlipay": "支付宝接入",
+      "contentWechat": "全程走官方直连：微信支付商户号一次绑定，扫码即收，凭结算周期自动分账。",
+      "contentAlipay": "企业支付宝授权后接入开放平台，付款码 / 网页支付双形态，费用明细实时可查。",
+      "items": {
+        "verify": {
+          "title": "完成企业认证，接入收款渠道",
+          "description": "提交企业资料完成认证，审核通过后绑定微信支付或支付宝，开通按次 / 订阅收款能力。"
+        },
+        "package": {
+          "title": "把专业能力封装为付费技能",
+          "description": "在 Skills 上架技能并开启计费：设置按次、订阅价格，配置能力描述与调用参数。"
+        },
+        "launch": {
+          "title": "发布上线，Agent 调用即变现",
+          "description": "通过安全审核后进入中心化目录，Agent 调用即计量计费，收益实时结算到账。"
+        }
+      },
+      "ctaPrimary": "开始入驻",
+      "ctaSecondary": "先上架一个免费技能",
+      "support": "全程人工客服支持"
+    },
+    "faq": {
+      "eyebrow": "常见问题",
+      "title": "接入前你可能想确认的几件事",
+      "items": {
+        "difference": {
+          "question": "付费技能和免费技能有什么区别？",
+          "answer": "免费技能靠下载分发，提供者一次交付；付费技能（Pay Skill）把专业能力封装成可调用、可计费的服务，按次 / 按订阅收取费用。能力被 Agent 调用得越多，收入越高。"
+        },
+        "qualification": {
+          "question": "上架付费技能需要什么资质？",
+          "answer": "个人或企业均可入驻。建议完成企业认证以获得更高的结算额度和更低的费率；个人开发者也可以直接上架，收款渠道绑定本人实名支付账户。"
+        },
+        "bothChannels": {
+          "question": "可以同时接入微信和支付宝吗？",
+          "answer": "可以。一个付费技能可同时绑定微信支付与支付宝，用户侧自动按偏好选择支付方式，两个渠道的费用明细与结算流水统一在 OpenPay 后台查看。"
+        },
+        "payout": {
+          "question": "什么时候能结算收益？",
+          "answer": "按次计费与订阅收入在结算周期（默认 T+1）自动汇总并打款到绑定的收款账户，同时提供实时可查的调用与到账流水，对账一目了然。"
+        },
+        "migrate": {
+          "question": "已有技能转成付费技能会影响现有用户吗？",
+          "answer": "不会。转换是平滑的：历史安装与使用记录保留，旧的免费入口继续可用，新增付费调用走新的计费通道，你可以在后台随时开关计费。"
+        }
+      }
+    },
+    "cta": {
+      "title": "现在接入 OpenPay",
+      "subtitle": "让专业能力按真实调用变成持续收入——上架付费技能，接上微信与支付宝，Agent 每调用一次，你多赚一笔。",
+      "ctaPrimary": "立即上架付费技能",
+      "ctaSecondary": "浏览技能市场",
+      "note": "OpenMCP. Bridging AI capability and real-world application."
+    }
+  },
+  "PersonaPage": {
+    "meta": {
+      "notFoundTitle": "角色未找到 - Personas",
+      "notFoundDescription": "抱歉，找不到该角色信息。",
+      "detailTitleSuffix": "虚拟员工角色",
+      "detailFallbackDescription": "查看并安装 {name} 虚拟员工角色"
+    },
+    "detail": {
+      "notFoundHeading": "角色未找到",
+      "notFoundHint": "抱歉，找不到该角色信息。",
+      "description": "描述",
+      "noDescription": "暂无描述",
+      "noImage": "该角色暂无封面图",
+      "verified": "已认证作者",
+      "certified": "认证",
+      "priceFree": "免费",
+      "pricePaid": "付费",
+      "viewsCount": "{count} 次浏览",
+      "downloadsCount": "{count} 次下载",
+      "soul": {
+        "taglineHeading": "人格短评",
+        "noTagline": "暂无短评",
+        "profileHeading": "人设解读",
+        "noProfile": "暂无人设解读",
+        "installHeading": "一键安装 SOUL 人设",
+        "viaChat": "通过对话安装",
+        "viaChatHint": "复制下方提示词，发送给任意 AI 助手（如 Lighthouse、OpenClaw、WorkBuddy、QClaw、Kimi、Claude 等），即可让对方的 AI 搭子拥有 {name} 的灵魂。",
+        "installPrompt": "请根据 {doc}，安装 {code}。",
+        "copyPrompt": "复制提示词",
+        "zipTitle": "Zip 包安装",
+        "zipHint": "Zip 包安装方式即将上线，敬请期待。"
+      }
+    }
   }
 }
