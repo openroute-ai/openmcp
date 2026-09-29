@@ -2938,5 +2938,207 @@
         "zipHint": "Zip package installation is coming soon."
       }
     }
+  },
+  "ProviderPage": {
+    "authGate": {
+      "loading": "Loading..."
+    },
+    "submit": {
+      "progress": "Publishing progress",
+      "steps": {
+        "login": "Sign in",
+        "verify": "Verification",
+        "upload": "Upload / configure"
+      }
+    },
+    "gate": {
+      "loading": "Loading your provider status...",
+      "statusErrorTitle": "Could not load your provider status",
+      "statusErrorHint": "Please try again in a moment.",
+      "retry": "Reload",
+      "needVerifyTitle": "Complete verification first",
+      "needVerifyHint": "Before publishing MCP servers, A2A agents or skills you need to complete identity verification (KYC) as an individual or a company. Once approved you can upload and configure your assets.",
+      "rejectedTitle": "Verification was not approved",
+      "rejectionReason": "Rejection reason",
+      "goVerify": "Go to verification",
+      "pendingTitle": "Verification under review",
+      "pendingHint": "We are reviewing your provider details, which usually takes 1-3 business days. You can submit assets here once it is approved.",
+      "viewStatus": "View provider status",
+      "payMissingTitle": "No payout account bound",
+      "payMissingHint": "You can submit free assets first. Bind a WeChat Pay or Alipay account before publishing paid assets so the platform can pay you out.",
+      "bindPayout": "Bind a payout account",
+      "verifiedLabel": "Verification approved",
+      "payChannels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      }
+    },
+    "notLogin": {
+      "eyebrow": "Provider onboarding",
+      "headline": "List your skills on the OpenMCP marketplace",
+      "subheadline": "The app store for the AI era. Publish MCP tools, A2A agents and skills, reach the developer community, and earn revenue in real time.",
+      "steps": {
+        "account": {
+          "title": "1. Sign in",
+          "description": "Register quickly with your email or phone number"
+        },
+        "onboard": {
+          "title": "2. Complete onboarding",
+          "description": "Fill in your entity and payout details (individual or company)"
+        },
+        "payout": {
+          "title": "3. Connect payouts",
+          "description": "Bind a WeChat Pay or Alipay channel"
+        },
+        "publish": {
+          "title": "4. Publish",
+          "description": "Submit an MCP server, A2A agent or skill for review"
+        }
+      },
+      "whyTitle": "Why onboard with OpenMCP?",
+      "benefits": {
+        "shelves": "Publish to the MCP server, A2A agent and AI skill shelves",
+        "pricing": "Price assets as free or paid and settle revenue in real time",
+        "revenue": "Low platform fees, and what you see is what you earn",
+        "review": "Security review and compliance checks that users trust"
+      },
+      "ctaTitle": "Sign in to start onboarding",
+      "ctaHint": "Once onboarding is complete you can publish to the MCP, A2A and Skills shelves",
+      "ctaButton": "Sign in and start onboarding",
+      "ctaFootnote": "No account yet? The sign-in page can register you in a moment",
+      "enterpriseTitle": "Company verification and corporate settlement are enterprise features",
+      "enterpriseHint": "Individual providers accept WeChat Pay and Alipay; company providers support corporate settlement and invoicing."
+    },
+    "kyc": {
+      "meta": {
+        "title": "Provider onboarding - OpenMCP",
+        "description": "Complete identity verification to publish MCP servers, A2A agents and skills on the OpenMCP marketplace."
+      },
+      "pageTitle": "Provider onboarding",
+      "pageDescription": "Complete identity verification to start publishing on OpenMCP.",
+      "entry": {
+        "title": "Choose your verification type",
+        "description": "Pick individual or company verification. The documents you need to provide differ, and the choice decides which payout and invoicing options are available.",
+        "individual": {
+          "title": "Individual verification",
+          "description": "For independent developers. Verify with your ID card and receive payouts to WeChat Pay or Alipay.",
+          "detail": "Best for freelancers and solo developers"
+        },
+        "company": {
+          "title": "Company verification",
+          "description": "For teams and organisations. Verify with a business licence and support corporate settlement and invoicing.",
+          "detail": "Best for teams, companies and institutions"
+        }
+      },
+      "individual": {
+        "pageTitle": "Individual verification",
+        "pageDescription": "Verify your identity and choose a payout channel. Review usually takes 1-3 business days.",
+        "meta": {
+          "title": "Individual verification - OpenMCP",
+          "description": "Complete individual identity verification to publish on the OpenMCP marketplace."
+        }
+      },
+      "company": {
+        "pageTitle": "Company verification",
+        "pageDescription": "Verify your company and choose a payout channel. Review usually takes 1-3 business days.",
+        "meta": {
+          "title": "Company verification - OpenMCP",
+          "description": "Complete company identity verification to publish on the OpenMCP marketplace."
+        }
+      },
+      "steps": {
+        "entity": "Choose entity",
+        "details": "Add details",
+        "pending": "Under review",
+        "verified": "Approved"
+      },
+      "status": {
+        "unverified": {
+          "title": "Not submitted",
+          "body": "You have not submitted verification details yet. Fill in the form and upload the required documents."
+        },
+        "pending": {
+          "title": "Under review",
+          "body": "Your details are being reviewed and are locked while the review runs, which usually takes 1-3 business days."
+        },
+        "verified": {
+          "title": "Approved",
+          "body": "Your verification is approved, so you can publish assets and receive payouts. Submit again if your details change."
+        },
+        "rejected": {
+          "title": "Not approved",
+          "body": "Verification was not approved. Update your details as noted below and submit again."
+        },
+        "note": "Review note"
+      },
+      "lock": {
+        "title": "Details are locked while under review",
+        "body": "We cannot change submitted details during the review. You can edit them again once it is approved or rejected."
+      },
+      "docs": {
+        "idCardFront": "ID card, photo side",
+        "idCardBack": "ID card, emblem side",
+        "businessLicense": "Business licence",
+        "legalPersonIdFront": "Legal person's ID, photo side",
+        "legalPersonIdBack": "Legal person's ID, emblem side",
+        "authorizationFile": "Authorisation letter",
+        "authorizationFileHint": "Signed by the legal person, authorising the account operator to act on the company's behalf.",
+        "authorizerIdFront": "Authoriser's ID, photo side",
+        "authorizerIdBack": "Authoriser's ID, emblem side"
+      },
+      "upload": {
+        "choose": "Choose file",
+        "uploading": "Uploading...",
+        "done": "Uploaded",
+        "remove": "Remove file",
+        "failed": "Upload failed. Please try again."
+      },
+      "fields": {
+        "companyName": "Registered company name",
+        "companyNamePlaceholder": "As shown on the business licence",
+        "contactName": "Contact name",
+        "contactNamePlaceholder": "Full legal name",
+        "idNumber": "ID number",
+        "idNumberPlaceholder": "ID or unified social credit code",
+        "idNumberHint": "For companies this is the unified social credit code, used only for verification.",
+        "payChannel": "Payout channel",
+        "payChannelHint": "Tells the platform where to send your earnings. You can bind the account or QR code itself after verification is approved.",
+        "agreedTerms": "I have read and agree to the provider agreement and the marketplace terms.",
+        "legalPersonIsAuthorizer": "The legal person is the account operator, so no separate authorisation letter is needed."
+      },
+      "payChannels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      },
+      "validation": {
+        "contactName": "Enter the contact name",
+        "idNumber": "Enter the ID number",
+        "companyName": "Enter the registered company name",
+        "payChannelType": "Choose a payout channel",
+        "idCardDocs": "Upload both sides of your ID card",
+        "businessLicense": "Upload the business licence",
+        "authorizerId": "Upload both sides of the authoriser's ID",
+        "authorizationFile": "Upload the authorisation letter, or confirm that the legal person is the account operator",
+        "agreedTerms": "You must accept the agreement before submitting"
+      },
+      "serverErrors": {
+        "locked": "Verification is under review and your details are locked until it is approved or rejected.",
+        "idCardMissing": "Upload both sides of your ID card.",
+        "businessLicenseMissing": "Company verification requires a business licence.",
+        "companyDocsMissing": "Upload the legal person's ID, or an authorisation letter together with the authoriser's ID.",
+        "authorizerIdMissing": "Add both sides of the authoriser's ID.",
+        "entityMissing": "Choose a verification type first.",
+        "detailsIncomplete": "Complete your contact name, ID number and payout channel before submitting.",
+        "saveFailed": "Could not save your onboarding details. Please try again.",
+        "userMissing": "Account not found."
+      },
+      "submit": {
+        "label": "Submit for review",
+        "sending": "Submitting..."
+      },
+      "actions": {
+        "refresh": "Refresh status"
+      }
+    }
   }
 }

@@ -2866,5 +2866,207 @@
         "zipHint": "Zip 包安装方式即将上线，敬请期待。"
       }
     }
+  },
+  "ProviderPage": {
+    "authGate": {
+      "loading": "加载中..."
+    },
+    "submit": {
+      "progress": "发布进度",
+      "steps": {
+        "login": "登录",
+        "verify": "实名认证",
+        "upload": "上传/设置"
+      }
+    },
+    "gate": {
+      "loading": "正在获取入驻状态...",
+      "statusErrorTitle": "无法获取入驻状态",
+      "statusErrorHint": "请稍后重试",
+      "retry": "重新加载",
+      "needVerifyTitle": "请先完成实名认证",
+      "needVerifyHint": "发布 MCP / A2A / Skills 前需完成个人或企业实名（KYC）。认证通过后即可上传与配置资产。",
+      "rejectedTitle": "实名认证未通过",
+      "rejectionReason": "驳回原因",
+      "goVerify": "前往实名认证",
+      "pendingTitle": "实名认证审核中",
+      "pendingHint": "我们正在审核你的入驻资料，通常 1-3 个工作日完成。审核通过后即可在此页提交资产。",
+      "viewStatus": "查看入驻状态",
+      "payMissingTitle": "收款账户未绑定",
+      "payMissingHint": "免费资产可先提交；发布付费资产前请绑定微信 / 支付宝收款账号，便于平台打款。",
+      "bindPayout": "去绑定收款账户",
+      "verifiedLabel": "实名已通过",
+      "payChannels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      }
+    },
+    "notLogin": {
+      "eyebrow": "提供者入驻",
+      "headline": "将你的技能上架到 OpenMCP 市场",
+      "subheadline": "AI 时代的应用商店。发布 MCP 工具、A2A 智能体与 SKILLS，触达中国 AI 开发者社区，并实时获得分成收入。",
+      "steps": {
+        "account": {
+          "title": "1. 登录账户",
+          "description": "使用手机号或邮箱快速注册登录"
+        },
+        "onboard": {
+          "title": "2. 完成入驻",
+          "description": "填写主体与收款信息（个人/企业）"
+        },
+        "payout": {
+          "title": "3. 接入收款",
+          "description": "绑定微信 / 支付宝收款通道"
+        },
+        "publish": {
+          "title": "4. 发布上架",
+          "description": "提交 MCP / A2A / Skill 等待审核"
+        }
+      },
+      "whyTitle": "为什么入驻 OpenMCP？",
+      "benefits": {
+        "shelves": "发布 MCP Server / A2A Agent / AI Skill 三大货架",
+        "pricing": "设置免费或付费资产，实时结算到你的账户",
+        "revenue": "平台抽成仅 0-5%，所见即所得",
+        "review": "接入安全审核与合规预检，用户更信任"
+      },
+      "ctaTitle": "登录后开始入驻",
+      "ctaHint": "完成入驻后即可在 MCP / A2A / Skills 三大货架发布你的资产",
+      "ctaButton": "登录并开始入驻",
+      "ctaFootnote": "还没有账户？登录页面可以快速注册",
+      "enterpriseTitle": "企业认证 / 对公结算是企业版功能",
+      "enterpriseHint": "个人主体支持微信 / 支付宝收款；企业主体支持对公结算与发票。"
+    },
+    "kyc": {
+      "meta": {
+        "title": "提供者入驻 - OpenMCP",
+        "description": "完成实名认证，即可在 OpenMCP 市场发布 MCP Server、A2A Agent 与 Skill。"
+      },
+      "pageTitle": "提供者入驻",
+      "pageDescription": "完成实名认证后即可在 OpenMCP 发布资产。",
+      "entry": {
+        "title": "选择认证主体",
+        "description": "请选择个人或企业实名认证。两者需要提交的材料不同，也决定了可用的收款与开票方式。",
+        "individual": {
+          "title": "个人实名认证",
+          "description": "面向个人开发者，使用身份证完成实名，并通过微信 / 支付宝收款。",
+          "detail": "适合独立开发者、自由职业者"
+        },
+        "company": {
+          "title": "企业实名认证",
+          "description": "面向团队 / 机构，使用营业执照完成实名，支持对公结算与发票。",
+          "detail": "适合团队、公司、机构主体"
+        }
+      },
+      "individual": {
+        "pageTitle": "个人实名认证",
+        "pageDescription": "完成实名并选择收款通道，审核通常需要 1-3 个工作日。",
+        "meta": {
+          "title": "个人实名认证 - OpenMCP",
+          "description": "完成个人实名认证，即可在 OpenMCP 市场发布资产。"
+        }
+      },
+      "company": {
+        "pageTitle": "企业实名认证",
+        "pageDescription": "完成企业实名并选择收款通道，审核通常需要 1-3 个工作日。",
+        "meta": {
+          "title": "企业实名认证 - OpenMCP",
+          "description": "完成企业实名认证，即可在 OpenMCP 市场发布资产。"
+        }
+      },
+      "steps": {
+        "entity": "选主体",
+        "details": "填资料",
+        "pending": "审核中",
+        "verified": "已通过"
+      },
+      "status": {
+        "unverified": {
+          "title": "未提交",
+          "body": "尚未提交实名认证资料，请填写并上传所需证件。"
+        },
+        "pending": {
+          "title": "审核中",
+          "body": "资料正在审核中并已锁定，通常 1-3 个工作日完成审核。"
+        },
+        "verified": {
+          "title": "已通过",
+          "body": "实名认证已通过，可正常发布资产并收款。如需更新资料可重新提交审核。"
+        },
+        "rejected": {
+          "title": "未通过",
+          "body": "实名认证未通过，请根据下方驳回原因修改资料后重新提交。"
+        },
+        "note": "审核备注"
+      },
+      "lock": {
+        "title": "审核期间资料已锁定",
+        "body": "审核期间无法修改已提交的资料，审核通过或驳回后可再次编辑。"
+      },
+      "docs": {
+        "idCardFront": "身份证人像面",
+        "idCardBack": "身份证国徽面",
+        "businessLicense": "营业执照",
+        "legalPersonIdFront": "法人身份证人像面",
+        "legalPersonIdBack": "法人身份证国徽面",
+        "authorizationFile": "授权文件",
+        "authorizationFileHint": "由法人签署，授权账户操作人代表企业进行操作。",
+        "authorizerIdFront": "授权人身份证人像面",
+        "authorizerIdBack": "授权人身份证国徽面"
+      },
+      "upload": {
+        "choose": "选择文件",
+        "uploading": "上传中...",
+        "done": "已上传",
+        "remove": "移除文件",
+        "failed": "上传失败，请重试。"
+      },
+      "fields": {
+        "companyName": "企业名称",
+        "companyNamePlaceholder": "与营业执照一致",
+        "contactName": "联系人姓名",
+        "contactNamePlaceholder": "请填写真实姓名",
+        "idNumber": "证件号码",
+        "idNumberPlaceholder": "身份证号 / 统一社会信用代码",
+        "idNumberHint": "企业请填写统一社会信用代码，仅用于实名审核。",
+        "payChannel": "收款通道",
+        "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
+        "agreedTerms": "我已阅读并同意《提供者服务协议》与市场规则。",
+        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。"
+      },
+      "payChannels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      },
+      "validation": {
+        "contactName": "请填写联系人姓名",
+        "idNumber": "请填写证件号码",
+        "companyName": "请填写企业名称",
+        "payChannelType": "请选择收款通道",
+        "idCardDocs": "请上传身份证正反面",
+        "businessLicense": "请上传营业执照",
+        "authorizerId": "请上传授权人身份证正反面",
+        "authorizationFile": "请上传授权文件，或勾选“由法人本人作为账户操作人”",
+        "agreedTerms": "请先同意服务协议再提交"
+      },
+      "serverErrors": {
+        "locked": "实名认证审核中，资料已锁定，请等待审核通过或驳回后再修改。",
+        "idCardMissing": "请上传身份证人像面与国徽面照片。",
+        "businessLicenseMissing": "企业实名必须上传营业执照。",
+        "companyDocsMissing": "请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）。",
+        "authorizerIdMissing": "请补全授权人身份证正反面。",
+        "entityMissing": "请先选择认证主体类型。",
+        "detailsIncomplete": "请完善实名资料（联系人、证件号、收款通道）后再提交。",
+        "saveFailed": "保存入驻信息失败，请重试。",
+        "userMissing": "账户不存在。"
+      },
+      "submit": {
+        "label": "提交审核",
+        "sending": "提交中..."
+      },
+      "actions": {
+        "refresh": "刷新状态"
+      }
+    }
   }
 }

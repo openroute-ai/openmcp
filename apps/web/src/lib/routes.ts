@@ -89,6 +89,8 @@ export enum Routes {
   SettingsOrganization = '/settings/organization',
   SettingsInvoice = '/settings/invoice',
   ProviderOnboarding = '/provider/onboarding',
+  ProviderOnboardingIndividual = '/provider/onboarding/individual',
+  ProviderOnboardingCompany = '/provider/onboarding/company',
   ProviderPayout = '/provider/payout',
 
   CMSDocs = '/admin/docs',
