@@ -10,6 +10,7 @@ export enum Routes {
   Root = '/',
   Workflows = '/workflows',
   Skills = '/skills',
+  SkillSubmit = '/skills/submit',
   Personas = '/personas',
   A2A = '/a2a',
   MCP = '/mcp',

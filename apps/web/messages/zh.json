@@ -28,7 +28,8 @@
     "saving": "保存中...",
     "loading": "加载中...",
     "cancel": "取消",
-    "logoutFailed": "退出失败"
+    "logoutFailed": "退出失败",
+    "copied": "已复制"
   },
   "Dashboard": {
     "activityChart": {
@@ -1380,310 +1381,318 @@
     "title": "OpenMCP",
     "description": "发现、分享和下载 AI 技能、MCP 工具与 A2A 智能体。获取 AI 驱动的能力分析，优化您的智能体。",
     "hero": {
-      "title": "发现并分享强大的 OpenMCP AI Agent 资产",
-      "description": "加入全球开发者社区，探索数千个经过认证的 AI 技能、MCP 工具与 A2A 智能体。上传您的创作，下载他人的智慧，共同构建更智能的 Agent 世界。",
-      "introduction": "发现并分享强大的 OpenMCP AI Agent 资产",
-      "primary": "浏览技能",
-      "secondary": "加入社区",
-      "contact": "联系我们"
+      "badge": "Skills / MCP / A2A 市场",
+      "badgeSuffix": " · 发现、安装、发布",
+      "titleLead": "发现、安装、发布",
+      "titleHighlight": "Agent 技能",
+      "subtitle": "浏览货架、下载 Skill 包、接入 MCP / A2A；Provider 可入驻上架并可选变现。",
+      "ctaBrowse": "浏览 Skills",
+      "ctaPublish": "发布 Skill",
+      "copyPrompt": "复制给 AI 安装",
+      "runtimes": {
+        "agent": "通用 Agent"
+      },
+      "installLead": "根据",
+      "installTrail": "安装 OpenMCP 商店",
+      "stepsLead": "详细步骤见"
     },
-    "logocloud": {
-      "title": "您最爱公司都是我们的合作伙伴",
-      "poweredBy": "支持所有主流 OpenMCP AI Agent 技能提供商"
-    },
-    "integration": {
-      "title": "集成",
-      "subtitle": "与您最喜欢的工具集成",
-      "description": "无缝连接流行的平台和服务，以增强您的工作流。",
-      "learnMore": "了解更多",
-      "items": {
-        "item-1": {
-          "title": "Google Gemini",
-          "description": "这里是Google Gemini的描述，详细介绍Google Gemini的功能和优势。"
+    "carousel": {
+      "ariaLabel": "装进你的 Agent",
+      "eyebrow": "Agent Marketplace",
+      "title": "装进你的 Agent，找到合适的业务能力",
+      "subtitle": "Skills 即装即用，A2A / MCP 服务按需接入——Codex / Hermes / OpenCode / DeepSeek Harness 通用。",
+      "sampleLabel": "找到即用 · 示例数据",
+      "updatedSuffix": " · 实时更新",
+      "prevAria": "上一张",
+      "nextAria": "下一张",
+      "shelves": {
+        "skill": {
+          "title": "找到合适的 Skills",
+          "description": "按业务场景检索 SKILL.md 技能，复制提示词即可装进 Codex / Hermes / OpenCode / DeepSeek Harness，即装即用。",
+          "cta": "浏览技能",
+          "total": "50+ 认证 Skills"
         },
-        "item-2": {
-          "title": "Replit",
-          "description": "这里是Replit的描述，详细介绍Replit的功能和优势。"
+        "mcp": {
+          "title": "找到 MCP 服务",
+          "description": "数据与工具服务按协议注册、独立密钥治理，找到即可直连 Agent，按次 / 订阅计费透明。",
+          "cta": "浏览工具",
+          "total": "100+ MCP 服务"
         },
-        "item-3": {
-          "title": "MagicUI",
-          "description": "这里是MagicUI的描述，详细介绍MagicUI的功能和优势。"
+        "a2a": {
+          "title": "找到 A2A 智能体",
+          "description": "法务、财会、研发等智能体按需调用，多 Agent 协作把业务闭环跑起来，按次 / 会话 / 订阅计费。",
+          "cta": "浏览智能体",
+          "total": "10+ A2A 智能体"
         },
-        "item-4": {
-          "title": "VSCodium",
-          "description": "这里是VSCodium的描述，详细介绍VSCodium的功能和优势。"
-        },
-        "item-5": {
-          "title": "MediaWiki",
-          "description": "这里是MediaWiki的描述，详细介绍MediaWiki的功能和优势。"
-        },
-        "item-6": {
-          "title": "Google PaLM",
-          "description": "这里是Google PaLM的描述，详细介绍Google PaLM的功能和优势。"
-        }
-      }
-    },
-    "integration2": {
-      "title": "与您最喜欢的工具集成",
-      "description": "无缝连接流行的平台和服务，以增强您的工作流程。",
-      "primaryButton": "开始使用",
-      "secondaryButton": "查看演示"
-    },
-    "features": {
-      "title": "核心功能",
-      "subtitle": "AI Agent 基础设施",
-      "description": "发现、部署和发布 AI 技能、MCP 工具与 A2A 智能体，内置审核、计费与计量关箱即用。",
-      "items": {
-        "item-1": {
-          "title": "下载与分享技能",
-          "description": "访问数千个经过认证的 AI 技能与 MCP 工具。部署即用能力，或与社区分享您的创作。"
-        },
-        "item-2": {
-          "title": "提交与认证",
-          "description": "提交您的资产进行审核认证。让您的能力获得验证并在社区中展示。"
-        },
-        "item-3": {
-          "title": "AI 能力分析",
-          "description": "获取 AI 驱动的技能与智能体分析。优化性能，识别瓶颈，提高效率。"
-        },
-        "item-4": {
-          "title": "社区协作",
-          "description": "与全球 AI 专家建立联系。向他人学习，分享知识，共同构建更好的智能体。"
-        }
-      }
-    },
-    "features2": {
-      "title": "OpenMCP 平台",
-      "subtitle": "为 AI Agent 基础设施而生",
-      "description": "打造属于你自己的 AI 能力交易市场所需的一切。",
-      "feature-1": "上架审核与内容治理",
-      "feature-2": "中国支付开箱即用",
-      "feature-3": "用量计量与计费",
-      "feature-4": "多协议统一目录"
-    },
-    "features3": {
-      "title": "为什么选择 OpenMCP",
-      "subtitle": "智能体经济的基础设施",
-      "description": "以 A2A / Skills / MCP 开放协议为底座，中心化注册、安全审核、开箱结算。",
-      "items": {
-        "item-1": {
-          "title": "Skills",
-          "description": "发布、审核与变现可复用的 AI 技能，版本管理与自动更新直达买家。"
-        },
-        "item-2": {
-          "title": "MCP 工具",
-          "description": "经官方审核的 MCP Server，智能体可通过统一网关发现与调用。"
-        },
-        "item-3": {
-          "title": "A2A 智能体",
-          "description": "基于 A2A 协议注册并互相协作，实现真正的多智能体协同。"
-        },
-        "item-4": {
-          "title": "支付与计费",
-          "description": "中国支付通道、订阅与按次计费，收益直达提供者钱包。"
-        },
-        "item-5": {
-          "title": "审核与信任",
-          "description": "认证徽章、排行榜与透明度，在买家与提供者之间建立信任。"
-        },
-        "item-6": {
-          "title": "品牌与社区",
-          "description": "创作者主页、粉丝关系与数据分析，帮助提供者持续增长。"
-        }
-      }
-    },
-    "pricing": {
-      "title": "价格",
-      "subtitle": "价格",
-      "description": "选择最适合您的付费计划"
-    },
-    "complexityComparison": {
-      "title": "停止从零开始，使用经过验证的技能",
-      "description": "让OpenMCP加速您的 AI 智能化之旅",
-      "traditional": {
-        "title": "传统方式",
         "items": {
-          "item-1": "每次都从零开始构建技能",
-          "item-2": "花费数小时研究最佳实践",
-          "item-3": "独自排查技能问题",
-          "item-4": "无法了解技能性能"
-        }
-      },
-      "openroute": {
-        "title": "OpenMCP方式",
-        "recommended": "推荐",
-        "items": {
-          "item-1": "即时下载经过认证的技能",
-          "item-2": "学习社区最佳实践",
-          "item-3": "获取AI驱动的技能分析",
-          "item-4": "与专家分享和协作"
-        }
-      },
-      "cta": "立即开始，发现有效的技能"
-    },
-    "faqs": {
-      "title": "常见问题",
-      "subtitle": "如果您有任何问题，请随时联系我们",
-      "items": {
-        "item-1": {
-          "question": "你们提供免费试用吗？",
-          "answer": "是的，我们提供7天的免费试用。"
-        },
-        "item-2": {
-          "question": "如何取消我的订阅？",
-          "answer": "您可以通过访问账单页面取消您的订阅。"
-        },
-        "item-3": {
-          "question": "我可以更改我的计划吗？",
-          "answer": "是的，您可以随时通过访问账单页面更改您的计划。"
-        },
-        "item-4": {
-          "question": "你们的退款政策是什么？",
-          "answer": "是的，我们提供30天的退款保证。"
-        },
-        "item-5": {
-          "question": "找不到您想问的问题？",
-          "answer": "请联系我们的客户支持团队，邮箱地址：support@openmcp.cn 或提交您的资产需求。"
+          "bid": {
+            "name": "投标方案助手",
+            "tag": "免费"
+          },
+          "finance": {
+            "name": "企业财务月结",
+            "tag": "买断 ¥99"
+          },
+          "compliance": {
+            "name": "跨境合规审查",
+            "tag": "免费"
+          },
+          "invoice": {
+            "name": "发票查验 API",
+            "tag": "¥0.01/次"
+          },
+          "quotes": {
+            "name": "实时行情数据",
+            "tag": "订阅 ¥29/月"
+          },
+          "erp": {
+            "name": "企业 ERP 网关",
+            "tag": "私有部署"
+          },
+          "legal": {
+            "name": "法务尽调 Agent",
+            "tag": "按次"
+          },
+          "support": {
+            "name": "客服坐席 Agent",
+            "tag": "订阅 ¥199/月"
+          },
+          "analytics": {
+            "name": "数据分析 Agent",
+            "tag": "按会话"
+          }
         }
       }
     },
-    "testimonials": {
-      "title": "客户评价",
-      "subtitle": "我们的客户对我们的评价",
+    "capabilities": {
+      "title": "统一注册：Skills、MCP、A2A",
+      "subtitle": "个人或公司提交资产；用户搜索、安装；付费资产按实际使用结算。",
+      "cta": "提交注册服务",
+      "revenueBadge": "提供者分成",
+      "revenueValue": "90%",
+      "revenueText": "创作者分成 90%，平台负责审核与分发。",
+      "ctaSubmitSkill": "提交 Skill",
+      "ctaProviderOnboarding": "公司入驻",
       "items": {
-        "item-1": {
-          "name": "Jonathan Yombo",
-          "role": "软件工程师",
-          "image": "https://randomuser.me/api/portraits/men/1.jpg",
-          "quote": "OpenMCP 非常出色且实用，无需费心，一个真正的金矿。"
+        "protocol": {
+          "title": "协议标准",
+          "description": "SKILL.md / MCP / A2A 开放兼容，不被锁死"
         },
-        "item-2": {
-          "name": "Yves Kalume",
-          "role": "Android GDE",
-          "image": "https://randomuser.me/api/portraits/men/6.jpg",
-          "quote": "没有网页设计经验，我只需几分钟就可以用 Tailwindcss 重新设计我的整个网站，感谢 OpenMCP。"
+        "registry": {
+          "title": "统一注册与发现",
+          "description": "一次提交，全局可搜、即用即装"
         },
-        "item-3": {
-          "name": "Yucel Faruksahan",
-          "role": "Tailkits 创建者",
-          "image": "https://randomuser.me/api/portraits/men/7.jpg",
-          "quote": "OpenMCP 模板做得很好，这是我见过最好的 SaaS 模板，没有之一 :)"
+        "security": {
+          "title": "安全审核",
+          "description": "上架扫描 + 内容指纹 + 数字签名"
         },
-        "item-4": {
-          "name": "Anonymous author",
-          "role": "产品经理",
-          "image": "https://randomuser.me/api/portraits/men/8.jpg",
-          "quote": "我不熟悉 Tailwind，我想自己做一些页面，我在网上搜索了很多英雄页面和区块。然而，大多数都没有给我一个清晰的想法，或者需要一些 HTML/CSS 编码背景来从原始文件中做一些更改，或者太贵了。我下载了其中一个 OpenMCP 模板，它非常容易理解，你可以在开始时修改代码/区块以完美地适应你的页面目的。"
+        "metering": {
+          "title": "计量计费",
+          "description": "按次 / 订阅 / 坐席，用量实时可见"
         },
-        "item-5": {
-          "name": "Shekinah Tshiokufila",
-          "role": "高级软件工程师",
-          "image": "https://randomuser.me/api/portraits/men/4.jpg",
-          "quote": "OpenMCP 正在重新定义网页设计标准，这些区块为那些喜欢美丽但可能缺乏时间实现它的人提供了简单且高效的方式。我只能推荐这个不可思议的奇迹。"
+        "keys": {
+          "title": "密钥治理",
+          "description": "每服务独立虚拟密钥，按通道隔离"
         },
-        "item-6": {
-          "name": "Oketa Fred",
-          "role": "全栈开发工程师",
-          "image": "https://randomuser.me/api/portraits/men/2.jpg",
-          "quote": "我绝对喜欢 OpenMCP！这些组件区块设计精美且易于使用，使创建一个出色的网站变得轻而易举。"
+        "settlement": {
+          "title": "实时结算",
+          "description": "微信 / 支付宝，被调用即分账"
         },
-        "item-7": {
-          "name": "Zeki",
-          "role": "ChatExtend 创始人",
-          "image": "https://randomuser.me/api/portraits/men/5.jpg",
-          "quote": "使用 OpenMCP 就像解锁了一个秘密的设计超能力。它是简单性和多功能性的完美融合，使我们能够创建既令人惊叹又用户友好的界面。"
+        "runtimes": {
+          "title": "多运行时兼容",
+          "description": "Codex / Hermes / OpenCode / DeepSeek Harness"
         },
-        "item-8": {
-          "name": "Joseph Kitheka",
-          "role": "全栈开发工程师",
-          "image": "https://randomuser.me/api/portraits/men/9.jpg",
-          "quote": "OpenMCP 改变了我的网页开发方式。他们的 UI 组件、区块和模板极大地加速了我的工作流程。定制每个方面的灵活性使我能够创建独特的用户体验。OpenMCP 是现代网页开发的游戏规则改变者！"
-        },
-        "item-9": {
-          "name": "Khatab Wedaa",
-          "role": "MerakiUI 创建者",
-          "image": "https://randomuser.me/api/portraits/men/10.jpg",
-          "quote": "OpenMCP 是一个优雅、干净且响应式的 SaaS 模板，它非常有助于快速开始您的项目。"
-        },
-        "item-10": {
-          "name": "Rodrigo Aguilar",
-          "role": "TailwindAwesome 创建者",
-          "image": "https://randomuser.me/api/portraits/men/11.jpg",
-          "quote": "我爱 OpenMCP ❤️。这些组件区块结构良好，易于使用，设计精美。它使创建一个出色的网站变得非常容易。"
-        },
-        "item-11": {
-          "name": "Eric Ampire",
-          "role": "Google 开发者专家",
-          "image": "https://randomuser.me/api/portraits/men/12.jpg",
-          "quote": "OpenMCP 模板是任何想要创建一个美丽且功能齐全的网站但没有网页设计经验的人的完美解决方案。这些模板易于使用，可定制，并且响应迅速。我强烈推荐 OpenMCP 模板给任何想要创建网站的人。"
-        },
-        "item-12": {
-          "name": "Roland Tubonge",
-          "role": "软件工程师",
-          "image": "https://randomuser.me/api/portraits/men/13.jpg",
-          "quote": "OpenMCP 设计得如此出色，即使没有网页设计经验，您也可以创造奇迹。让自己被吸引！"
+        "api": {
+          "title": "开放 API",
+          "description": "提交、注册、计量全部程序化"
         }
       }
     },
-    "stats": {
-      "title": "统计数据",
-      "subtitle": "OpenMCP的影响力",
-      "description": "全球领先的 AI Agent 基础设施",
+    "protocols": {
+      "eyebrow": "货架",
+      "title": "Skills / MCP / A2A，同一货架",
+      "subtitle": "浏览货架、下载 Skill 包或接入 MCP / A2A；Provider 提交后上架。",
+      "ctaBrowse": "浏览 Skills / MCP / A2A",
+      "ctaProvider": "成为 Provider",
+      "ctaCopy": "复制给 AI 安装",
+      "footerNote": "三轨同源注册 · 浏览获取 · 可选发布变现",
       "items": {
-        "item-1": {
-          "title": "技能总数"
+        "skill": {
+          "name": "技能即标准",
+          "description": "原子技能，跨运行时安装（Codex / Hermes / OpenCode / DeepSeek Harness 等）",
+          "badge": "可安装"
         },
-        "item-2": {
-          "title": "全球用户数"
+        "mcp": {
+          "name": "工具与数据服务",
+          "description": "Server 化注册，http / stdio 双形态直连 Agent",
+          "badge": "可调用"
         },
-        "item-3": {
-          "title": "资产下载量"
-        },
-        "item-4": {
-          "title": "社区贡献者"
+        "a2a": {
+          "name": "智能体互联",
+          "description": "Agent Card 声明，跨平台编排成一单工作流",
+          "badge": "可获取"
         }
       }
     },
-    "gettingStarted": {
-      "title": "三个简单步骤，开始使用 AI Agent 基础设施",
-      "description": "无需复杂设置，几分钟内即可发现和部署能力",
-      "steps": {
-        "step1": {
-          "title": "注册账户",
-          "description": "创建账户开始使用。加入数千名开发者与 AI 爱好者。",
-          "action": "立即注册"
+    "publish": {
+      "eyebrow": "信任与分发",
+      "title": "提交资产，经审核后上架",
+      "subtitle": "个人与公司均可提交：完成认证与安全审核后进入货架；被安装或调用时可结算。",
+      "tabs": {
+        "personal": "个人提交",
+        "enterprise": "公司提交"
+      },
+      "ctaPersonal": "提交个人 Skill",
+      "ctaEnterprise": "提交公司服务",
+      "personal": {
+        "s1": {
+          "title": "实名认证",
+          "description": "建立可信提供者身份，获得认证标识"
         },
-        "step2": {
-          "title": "浏览与搜索技能",
-          "description": "探索数千个经过认证的 AI 技能、MCP 工具与 A2A 智能体。按分类、复杂度或使用场景筛选。",
-          "action": "浏览技能"
+        "s2": {
+          "title": "自动安全审核",
+          "description": "上架扫描 + 内容指纹，识别并拦截风险"
         },
-        "step3": {
-          "title": "部署或提交",
-          "description": "部署即用能力，或提交您的创作进行认证和分享。",
-          "action": "开始使用"
+        "s3": {
+          "title": "一键提交三轨",
+          "description": "Skills / MCP / A2A 一次提交，全端可用"
+        },
+        "s4": {
+          "title": "90% 分成结算",
+          "description": "下载、调用、订阅实时计量，到账即分账"
         }
       },
-      "noSubscription": "免费浏览、部署和分享"
+      "enterprise": {
+        "s1": {
+          "title": "团队注册与认证",
+          "description": "公司资质核验，开通组织空间与成员管理"
+        },
+        "s2": {
+          "title": "平台 + 管理员双审核",
+          "description": "自动化安全审核叠加人工复核"
+        },
+        "s3": {
+          "title": "安全准入与发布范围",
+          "description": "对内共享或对外分发，指定范围与渠道"
+        },
+        "s4": {
+          "title": "内容指纹与数字签名",
+          "description": "防篡改、可溯源，保障持续分发"
+        }
+      },
+      "cards": {
+        "credentials": {
+          "title": "资质认证",
+          "description": "个人实名 / 企业资质，可信身份标识"
+        },
+        "security": {
+          "title": "安全审核",
+          "description": "自动化扫描 + 人工复核，识别并拦截风险"
+        },
+        "fingerprint": {
+          "title": "内容指纹与签名",
+          "description": "防篡改、可溯源，持续分发有保障"
+        },
+        "settlement": {
+          "title": "计量与分成结算",
+          "description": "调用即计量，结算实时到账"
+        }
+      }
     },
-    "calltoaction": {
-      "title": "停止从零开始，使用经过验证的能力",
-      "description": "加入最大的 AI Agent 社区，加速您的智能化进程",
-      "primaryButton": "浏览技能",
-      "secondaryButton": "了解更多"
+    "metrics": {
+      "skills": {
+        "label": "认证 Skills",
+        "caption": "上架即过审"
+      },
+      "mcp": {
+        "label": "MCP 服务",
+        "caption": "中心化注册"
+      },
+      "a2a": {
+        "label": "A2A 智能体",
+        "caption": "协议级互联"
+      },
+      "share": {
+        "label": "创作者分成",
+        "caption": "实时结算"
+      }
     },
-    "creatorApi": {
-      "label": "创作者 API",
-      "title": "从终端发布技能",
-      "description": "构建技能或角色后，通过一次 API 调用即可发布到 OpenMCP。您的 AI 助手可以创建列表、上传包并管理版本——全部通过程序完成。",
-      "feature1Title": "一条命令即可发布",
-      "feature1Text": "几秒钟内创建列表并上传您的包",
-      "feature2Title": "AI 原生发布",
-      "feature2Text": "您的 AI 助手可自动构建并发布技能",
-      "feature3Title": "版本管理",
-      "feature3Text": "推送更新后，买家将自动获得",
-      "cta": "获取 API 密钥",
-      "terminalLabel": "终端"
+    "revenue": {
+      "eyebrow": "Provider · 发布与曝光",
+      "title": "上架到货架",
+      "titleBreak": "被发现、被安装，可选变现",
+      "subtitle": "提交 Skills，注册 MCP / A2A，进入统一目录。结算是上架后的可选路径。",
+      "ctaProvider": "成为 Provider",
+      "ctaBrowse": "浏览市场",
+      "chartLabel": "示例 · 本月被安装 / 调用",
+      "chartValue": "12.8 万次",
+      "chartBadge": "示例数据",
+      "earningsLabel": "可选收益（示例）",
+      "earningsValue": "¥3.19 万",
+      "earningsNote": "发布优先 · 结算可选"
+    },
+    "openpay": {
+      "eyebrow": "OpenPay · 可选付费与结算",
+      "title": "先被发现与安装",
+      "titleBreak": "付费获取为可选项",
+      "subtitle": "主线是浏览并安装 Skills / MCP / A2A。需要时再用 OpenPay 做付费与按次结算。",
+      "ctaBrowse": "先去浏览市场",
+      "ctaLearn": "了解 OpenPay",
+      "panelLabel": "示例 · 付费调用",
+      "panelValue": "按需启用，不打断主流程",
+      "panelBadge": "可选能力",
+      "footerLeft": "微信支付 / 支付宝",
+      "footerRight": "免费与付费并存",
+      "lines": {
+        "earnings": {
+          "label": "财报解读智能体",
+          "amount": "¥0.5"
+        },
+        "stocks": {
+          "label": "股票行情深度解读",
+          "amount": "¥0.3"
+        },
+        "meeting": {
+          "label": "会议纪要 · 任务自动分派",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "audience": {
+      "eyebrow": "两类角色",
+      "title": "一个平台，让使用与提供双向流动",
+      "subtitle": "Agent 使用者找到能力、实现业务；个人与公司提交服务、获得收益——同一套协议标准与注册中心。",
+      "consumer": {
+        "eyebrowLabel": "使用 · Agent Harness",
+        "title": "找到能力，装进 Agent",
+        "steps": {
+          "s1": "按业务场景找到合适的 Skills",
+          "s2": "复制提示词，装进 Codex / Hermes / OpenCode / DeepSeek Harness",
+          "s3": "接入 A2A / MCP 服务，把业务跑起来"
+        },
+        "primary": "浏览全部能力",
+        "secondaryMcp": "MCP 服务",
+        "secondaryA2a": "A2A 智能体"
+      },
+      "provider": {
+        "eyebrowLabel": "提供 · 个人与公司",
+        "title": "提交服务，让专业能力被使用",
+        "steps": {
+          "s1": "提交 Skills，注册 MCP / A2A 服务",
+          "s2": "完成认证与安全审核后上架市场",
+          "s3": "被发现与调用；可选开启付费与结算"
+        },
+        "primary": "提交 Skill",
+        "secondaryProvider": "公司入驻"
+      }
+    },
+    "onboarding": {
+      "corner": "发现 · 安装 · 发布",
+      "eyebrow": "OpenMCP 市场",
+      "title": "安装 Skill 包，或上架你的资产",
+      "subtitle": "浏览并安装 Skills / MCP / A2A；Provider 提交经审核后上架。变现为可选能力。",
+      "ctaBrowse": "浏览 Skills / MCP / A2A",
+      "ctaProvider": "成为 Provider"
     }
   },
   "Newsletter": {

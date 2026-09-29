@@ -28,7 +28,8 @@
     "save": "Save",
     "loading": "Loading...",
     "cancel": "Cancel",
-    "logoutFailed": "Failed to log out"
+    "logoutFailed": "Failed to log out",
+    "copied": "Copied"
   },
   "Dashboard": {
     "cards": {
@@ -1298,310 +1299,318 @@
     "title": "OpenMCP",
     "description": "Discover, share, and deploy AI skills, MCP tools and A2A agents. Get AI-powered capability analysis to optimize your agents.",
     "hero": {
-      "title": "Discover and Share Powerful OpenMCP AI Agent Assets",
-      "description": "Join the global developer community to explore thousands of certified AI skills, MCP tools and A2A agents. Upload your creations, download others' wisdom, and build a smarter agent world together.",
-      "introduction": "Discover and Share Powerful OpenMCP AI Agent Assets",
-      "primary": "Browse Skills",
-      "secondary": "Join Community",
-      "contact": "Contact Us"
+      "badge": "Skills / MCP / A2A Marketplace",
+      "badgeSuffix": " · discover, install, publish",
+      "titleLead": "Discover, install and publish",
+      "titleHighlight": "Agent skills",
+      "subtitle": "Browse the catalog, download Skill packages and wire up MCP / A2A. Providers can list their work and monetize when they choose.",
+      "ctaBrowse": "Browse Skills",
+      "ctaPublish": "Publish a Skill",
+      "copyPrompt": "Copy prompt for AI install",
+      "runtimes": {
+        "agent": "any Agent harness"
+      },
+      "installLead": "Install the OpenMCP store via",
+      "installTrail": "",
+      "stepsLead": "Full setup in"
     },
-    "logocloud": {
-      "title": "Your favorite companies are our partners",
-      "poweredBy": "Powered by leading OpenMCP AI agent providers"
-    },
-    "integration": {
-      "title": "Integrations",
-      "subtitle": "Integrate with your favorite tools",
-      "description": "Connect seamlessly with popular platforms and services to enhance your workflow.",
-      "learnMore": "Learn More",
-      "items": {
-        "item-1": {
-          "title": "Google Gemini",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+    "carousel": {
+      "ariaLabel": "Load into your Agent",
+      "eyebrow": "Agent Marketplace",
+      "title": "Load into your Agent and find the right business capability",
+      "subtitle": "Skills work the moment they are installed; A2A and MCP services connect on demand. Compatible with Codex, Hermes, OpenCode and DeepSeek harnesses.",
+      "sampleLabel": "Sample data",
+      "updatedSuffix": " · updated live",
+      "prevAria": "Previous",
+      "nextAria": "Next",
+      "shelves": {
+        "skill": {
+          "title": "Find the right Skills",
+          "description": "Search SKILL.md skills by business scenario, then copy the prompt to load it into a Codex, Hermes, OpenCode or DeepSeek harness.",
+          "cta": "Browse skills",
+          "total": "50+ certified Skills"
         },
-        "item-2": {
-          "title": "Replit",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        "mcp": {
+          "title": "Find MCP services",
+          "description": "Data and tool services register under the protocol with their own key governance. Connect them straight to an Agent with transparent per-call or subscription billing.",
+          "cta": "Browse tools",
+          "total": "100+ MCP services"
         },
-        "item-3": {
-          "title": "MagicUI",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
+        "a2a": {
+          "title": "Find A2A agents",
+          "description": "Legal, finance and engineering agents callable on demand. Multi-agent collaboration closes the loop, billed per call, per session or by subscription.",
+          "cta": "Browse agents",
+          "total": "10+ A2A agents"
         },
-        "item-4": {
-          "title": "VSCodium",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
-        },
-        "item-5": {
-          "title": "MediaWiki",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
-        },
-        "item-6": {
-          "title": "Google PaLM",
-          "description": "Amet praesentium deserunt ex commodi tempore fuga voluptatem."
-        }
-      }
-    },
-    "integration2": {
-      "title": "Integrate with your favorite tools",
-      "description": "Connect seamlessly with popular platforms and services to enhance your workflow.",
-      "primaryButton": "Get Started",
-      "secondaryButton": "See Demo"
-    },
-    "features": {
-      "title": "Core Features",
-      "subtitle": "AI Agent Infrastructure",
-      "description": "Discover, deploy and publish AI skills, MCP tools and A2A agents, with built-in review, billing and metering.",
-      "items": {
-        "item-1": {
-          "title": "Download & Share Skills",
-          "description": "Access thousands of certified AI skills and MCP tools. Deploy ready-to-use capabilities or share your own creations with the community."
-        },
-        "item-2": {
-          "title": "Submit & Get Certified",
-          "description": "Submit your assets for review and certification. Get your capabilities verified and featured in our community."
-        },
-        "item-3": {
-          "title": "AI-Powered Analysis",
-          "description": "Get AI-powered analysis of your skills and agents. Optimize performance, identify bottlenecks, and improve efficiency."
-        },
-        "item-4": {
-          "title": "Community Collaboration",
-          "description": "Connect with AI experts worldwide. Learn from others, share knowledge, and build better agents together."
-        }
-      }
-    },
-    "features2": {
-      "title": "OpenMCP Platform",
-      "subtitle": "Built for AI Agent Infrastructure",
-      "description": "Everything you need to launch and operate your own AI agent capacity marketplace.",
-      "feature-1": "Listing review and moderation",
-      "feature-2": "China payments built in",
-      "feature-3": "Usage metering and billing",
-      "feature-4": "Multi-protocol catalog"
-    },
-    "features3": {
-      "title": "Why OpenMCP",
-      "subtitle": "The infrastructure for the agent economy",
-      "description": "Open protocols for A2A / Skills / MCP, with centralized registration, trusted review and built-in settlement.",
-      "items": {
-        "item-1": {
-          "title": "Skills",
-          "description": "Publish, review and monetize reusable AI skills with versioning and auto-updates for buyers."
-        },
-        "item-2": {
-          "title": "MCP Tools",
-          "description": "Officially curated and reviewed MCP servers that agents can discover and invoke through one gateway."
-        },
-        "item-3": {
-          "title": "A2A Agents",
-          "description": "Register and interoperate agents across the A2A protocol for true multi-agent collaboration."
-        },
-        "item-4": {
-          "title": "Payments & Billing",
-          "description": "China payment channels, subscriptions and pay-per-call billing that settle revenue to providers."
-        },
-        "item-5": {
-          "title": "Reviews & Trust",
-          "description": "Certified badges, ranking and transparency that build trust between buyers and providers."
-        },
-        "item-6": {
-          "title": "Brand & Community",
-          "description": "Author profiles, follower relationships and analytics so providers can grow their audience."
-        }
-      }
-    },
-    "pricing": {
-      "title": "Pricing",
-      "subtitle": "Pricing",
-      "description": "Choose the plan that works best for you"
-    },
-    "complexityComparison": {
-      "title": "Stop Building from Scratch, Start with Proven Skills",
-      "description": "Let OpenMCP accelerate your AI agent journey",
-      "traditional": {
-        "title": "Traditional Approach",
         "items": {
-          "item-1": "Build every skill from scratch",
-          "item-2": "Spend hours researching best practices",
-          "item-3": "Troubleshoot issues alone",
-          "item-4": "No insights into skill performance"
-        }
-      },
-      "openroute": {
-        "title": "OpenMCP Approach",
-        "recommended": "Recommended",
-        "items": {
-          "item-1": "Deploy certified capabilities instantly",
-          "item-2": "Learn from community best practices",
-          "item-3": "Get AI-powered skill analysis",
-          "item-4": "Share and collaborate with experts"
-        }
-      },
-      "cta": "Start immediately, discover capabilities that work"
-    },
-    "faqs": {
-      "title": "FAQ",
-      "subtitle": "Frequently Asked Questions",
-      "items": {
-        "item-1": {
-          "question": "Do you offer a free trial?",
-          "answer": "Yes, we offer a 7-day free trial."
-        },
-        "item-2": {
-          "question": "How do I cancel my subscription?",
-          "answer": "You can cancel your subscription by visiting the billing page."
-        },
-        "item-3": {
-          "question": "Can I change my plan?",
-          "answer": "Yes, you can change your plan at any time by visiting the billing page."
-        },
-        "item-4": {
-          "question": "What is the refund policy?",
-          "answer": "We offer a 30-day money-back guarantee if you are not happy with our product."
-        },
-        "item-5": {
-          "question": "Can't find what you're looking for?",
-          "answer": "Please contact our customer support team at support@openmcp.cn or submit your asset request."
+          "bid": {
+            "name": "Bid proposal assistant",
+            "tag": "Free"
+          },
+          "finance": {
+            "name": "Monthly finance close",
+            "tag": "¥99 one-off"
+          },
+          "compliance": {
+            "name": "Cross-border compliance review",
+            "tag": "Free"
+          },
+          "invoice": {
+            "name": "Invoice verification API",
+            "tag": "¥0.01/call"
+          },
+          "quotes": {
+            "name": "Live market data",
+            "tag": "¥29/month"
+          },
+          "erp": {
+            "name": "Enterprise ERP gateway",
+            "tag": "Private deploy"
+          },
+          "legal": {
+            "name": "Legal due diligence agent",
+            "tag": "Per call"
+          },
+          "support": {
+            "name": "Support desk agent",
+            "tag": "¥199/month"
+          },
+          "analytics": {
+            "name": "Data analysis agent",
+            "tag": "Per session"
+          }
         }
       }
     },
-    "testimonials": {
-      "title": "Testimonials",
-      "subtitle": "What our customers are saying",
+    "capabilities": {
+      "title": "One registry for Skills, MCP and A2A",
+      "subtitle": "Individuals and companies submit assets; users search and install them; paid assets settle on actual usage.",
+      "cta": "Submit a service",
+      "revenueBadge": "Provider revenue share",
+      "revenueValue": "90%",
+      "revenueText": "Creators keep 90%. The platform handles review and distribution.",
+      "ctaSubmitSkill": "Submit a Skill",
+      "ctaProviderOnboarding": "Company onboarding",
       "items": {
-        "item-1": {
-          "name": "Jonathan Yombo",
-          "role": "Software Engineer",
-          "image": "https://randomuser.me/api/portraits/men/1.jpg",
-          "quote": "OpenMCP is really extraordinary and very practical, no need to break your head. A real gold mine."
+        "protocol": {
+          "title": "Open protocols",
+          "description": "SKILL.md / MCP / A2A, no lock-in"
         },
-        "item-2": {
-          "name": "Yves Kalume",
-          "role": "GDE - Android",
-          "image": "https://randomuser.me/api/portraits/men/6.jpg",
-          "quote": "With no experience in web design I just redesigned my entire website in a few minutes with tailwindcss thanks to OpenMCP."
+        "registry": {
+          "title": "Unified registry",
+          "description": "Submit once, searchable and installable everywhere"
         },
-        "item-3": {
-          "name": "Yucel Faruksahan",
-          "role": "Tailkits Creator",
-          "image": "https://randomuser.me/api/portraits/men/7.jpg",
-          "quote": "Great work on OpenMCP template. This is one of the best personal website that I have seen so far :)"
+        "security": {
+          "title": "Security review",
+          "description": "Listing scans, content fingerprinting and digital signatures"
         },
-        "item-4": {
-          "name": "Anonymous author",
-          "role": "Product Manager",
-          "image": "https://randomuser.me/api/portraits/men/8.jpg",
-          "quote": "I downloaded the one of OpenMCP template which is very clear to understand at the start and you could modify the codes/blocks to fit perfectly on your purpose of the page."
+        "metering": {
+          "title": "Metered billing",
+          "description": "Per call, subscription or seat, with usage visible in real time"
         },
-        "item-5": {
-          "name": "Shekinah Tshiokufila",
-          "role": "Senior Software Engineer",
-          "image": "https://randomuser.me/api/portraits/men/4.jpg",
-          "quote": "OpenMCP is redefining the standard of web design, with these blocks it provides an easy and efficient way for those who love beauty but may lack the time to implement it."
+        "keys": {
+          "title": "Key governance",
+          "description": "A dedicated virtual key per service, isolated per channel"
         },
-        "item-6": {
-          "name": "Oketa Fred",
-          "role": "Fullstack Developer",
-          "image": "https://randomuser.me/api/portraits/men/2.jpg",
-          "quote": "I absolutely love OpenMCP! The component blocks are beautifully designed and easy to use, which makes creating a great-looking website a breeze."
+        "settlement": {
+          "title": "Instant settlement",
+          "description": "WeChat and Alipay, split on every call"
         },
-        "item-7": {
-          "name": "Zeki",
-          "role": "Founder of ChatExtend",
-          "image": "https://randomuser.me/api/portraits/men/5.jpg",
-          "quote": "OpenMCP is the perfect fusion of simplicity and versatility, enabling us to create UIs that are as stunning as they are user-friendly."
+        "runtimes": {
+          "title": "Multi-runtime",
+          "description": "Codex / Hermes / OpenCode / DeepSeek harnesses"
         },
-        "item-8": {
-          "name": "Joseph Kitheka",
-          "role": "Fullstack Developer",
-          "image": "https://randomuser.me/api/portraits/men/9.jpg",
-          "quote": "OpenMCP has transformed the way I develop web applications. Their extensive collection of UI components, blocks, and templates has significantly accelerated my workflow."
-        },
-        "item-9": {
-          "name": "Khatab Wedaa",
-          "role": "MerakiUI Creator",
-          "image": "https://randomuser.me/api/portraits/men/10.jpg",
-          "quote": "OpenMCP is an elegant, clean, and responsive tailwind css components it's very helpful to start fast with your project."
-        },
-        "item-10": {
-          "name": "Rodrigo Aguilar",
-          "role": "TailwindAwesome Creator",
-          "image": "https://randomuser.me/api/portraits/men/11.jpg",
-          "quote": "I love OpenMCP ❤️. The component blocks are well-structured, simple to use, and beautifully designed. It makes it really easy to have a good-looking website in no time."
-        },
-        "item-11": {
-          "name": "Eric Ampire",
-          "role": "@GoogleDevExpert for Android",
-          "image": "https://randomuser.me/api/portraits/men/12.jpg",
-          "quote": "OpenMCP templates are the perfect solution for anyone who wants to create a beautiful and functional website without any web design experience."
-        },
-        "item-12": {
-          "name": "Roland Tubonge",
-          "role": "Software Engineer",
-          "image": "https://randomuser.me/api/portraits/men/13.jpg",
-          "quote": "OpenMCP is so well designed that even with a very poor knowledge of web design you can do miracles. Let yourself be seduced!"
+        "api": {
+          "title": "Open API",
+          "description": "Submit, register and meter programmatically"
         }
       }
     },
-    "stats": {
-      "title": "Statistics",
-      "subtitle": "OpenMCP Impact",
-      "description": "Global leading AI Agent infrastructure",
+    "protocols": {
+      "eyebrow": "Catalog",
+      "title": "Skills, MCP and A2A on one shelf",
+      "subtitle": "Browse the catalog, download Skill packages or connect MCP / A2A. Providers list after review.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a provider",
+      "ctaCopy": "Copy prompt for AI install",
+      "footerNote": "Three tracks, one registry · browse and get · optional monetization",
       "items": {
-        "item-1": {
-          "title": "Total Skills"
+        "skill": {
+          "name": "Skills as a standard",
+          "description": "Atomic skills that install across runtimes (Codex, Hermes, OpenCode, DeepSeek)",
+          "badge": "Installable"
         },
-        "item-2": {
-          "title": "Global Users"
+        "mcp": {
+          "name": "Tools and data services",
+          "description": "Registered as servers, connecting to Agents over http or stdio",
+          "badge": "Callable"
         },
-        "item-3": {
-          "title": "Asset Downloads"
-        },
-        "item-4": {
-          "title": "Community Contributors"
+        "a2a": {
+          "name": "Agent interoperability",
+          "description": "Declared with an Agent Card, orchestrated across platforms into one workflow",
+          "badge": "Obtainable"
         }
       }
     },
-    "gettingStarted": {
-      "title": "Three simple steps to start building with AI agents",
-      "description": "No complex setup required, discover and deploy capabilities in minutes",
-      "steps": {
-        "step1": {
-          "title": "Sign Up",
-          "description": "Create an account to get started. Join thousands of developers and AI enthusiasts.",
-          "action": "Sign Up Now"
+    "publish": {
+      "eyebrow": "Trust and distribution",
+      "title": "Submit assets, publish after review",
+      "subtitle": "Individuals and companies can both submit. Once verified and security-reviewed, assets enter the catalog and can settle on install or usage.",
+      "tabs": {
+        "personal": "Individual",
+        "enterprise": "Company"
+      },
+      "ctaPersonal": "Submit a personal Skill",
+      "ctaEnterprise": "Submit a company service",
+      "personal": {
+        "s1": {
+          "title": "Identity verification",
+          "description": "Establish a trusted provider identity and earn the verified badge"
         },
-        "step2": {
-          "title": "Browse & Search Skills",
-          "description": "Explore thousands of certified AI skills, MCP tools and A2A agents. Filter by category, complexity, or use case.",
-          "action": "Browse Skills"
+        "s2": {
+          "title": "Automated security review",
+          "description": "Listing scans and content fingerprinting identify and block risk"
         },
-        "step3": {
-          "title": "Deploy or Submit",
-          "description": "Deploy ready-to-use capabilities or submit your own for certification and sharing.",
-          "action": "Get Started"
+        "s3": {
+          "title": "Submit to all three tracks",
+          "description": "Skills, MCP and A2A in one submission, usable everywhere"
+        },
+        "s4": {
+          "title": "90% revenue share",
+          "description": "Downloads, calls and subscriptions metered in real time, split on settlement"
         }
       },
-      "noSubscription": "Free to browse, deploy and share"
+      "enterprise": {
+        "s1": {
+          "title": "Team registration and verification",
+          "description": "Company credentials checked, org space and member management enabled"
+        },
+        "s2": {
+          "title": "Platform plus admin review",
+          "description": "Automated security review layered with human verification"
+        },
+        "s3": {
+          "title": "Controlled access and scope",
+          "description": "Share internally or distribute externally, with scope and channels you set"
+        },
+        "s4": {
+          "title": "Content fingerprinting and signing",
+          "description": "Tamper-evident and traceable, protecting ongoing distribution"
+        }
+      },
+      "cards": {
+        "credentials": {
+          "title": "Verified credentials",
+          "description": "Personal ID or company credentials for a trusted identity"
+        },
+        "security": {
+          "title": "Security review",
+          "description": "Automated scanning plus human review to identify and block risk"
+        },
+        "fingerprint": {
+          "title": "Fingerprinting and signing",
+          "description": "Tamper-evident and traceable, keeping distribution trustworthy"
+        },
+        "settlement": {
+          "title": "Metering and revenue share",
+          "description": "Metered on every call, settled in real time"
+        }
+      }
     },
-    "calltoaction": {
-      "title": "Stop building from scratch, start with proven capabilities",
-      "description": "Join the largest AI agent community and accelerate your intelligence",
-      "primaryButton": "Browse Skills",
-      "secondaryButton": "Learn More"
+    "metrics": {
+      "skills": {
+        "label": "Certified Skills",
+        "caption": "Reviewed before listing"
+      },
+      "mcp": {
+        "label": "MCP services",
+        "caption": "Centrally registered"
+      },
+      "a2a": {
+        "label": "A2A agents",
+        "caption": "Protocol-level interop"
+      },
+      "share": {
+        "label": "Creator share",
+        "caption": "Settled in real time"
+      }
     },
-    "creatorApi": {
-      "label": "Creator API",
-      "title": "Publish skills from your terminal",
-      "description": "Build a skill or persona, then ship it to OpenMCP with a single API call. Your AI assistant can create listings, upload packages, and manage versions — all programmatically.",
-      "feature1Title": "One command to publish",
-      "feature1Text": "Create a listing and upload your package in seconds",
-      "feature2Title": "AI-native publishing",
-      "feature2Text": "Your AI assistant can build and publish skills autonomously",
-      "feature3Title": "Version management",
-      "feature3Text": "Push updates and your buyers get them automatically",
-      "cta": "Get your API key",
-      "terminalLabel": "terminal"
+    "revenue": {
+      "eyebrow": "Provider · publish and get exposure",
+      "title": "List on the catalog",
+      "titleBreak": "get discovered and installed, monetize optionally",
+      "subtitle": "Submit Skills, register MCP / A2A, and enter one unified directory. Settlement is an optional path after you list.",
+      "ctaProvider": "Become a provider",
+      "ctaBrowse": "Browse the market",
+      "chartLabel": "Sample · installs and calls this month",
+      "chartValue": "128k",
+      "chartBadge": "Sample data",
+      "earningsLabel": "Optional earnings (sample)",
+      "earningsValue": "¥31.9k",
+      "earningsNote": "Publishing first, settlement optional"
+    },
+    "openpay": {
+      "eyebrow": "OpenPay · optional payments and settlement",
+      "title": "Get discovered and installed first",
+      "titleBreak": "monetization is an option",
+      "subtitle": "The main path is browsing and installing Skills, MCP and A2A. Use OpenPay for payments and per-call settlement when you need it.",
+      "ctaBrowse": "Browse the market first",
+      "ctaLearn": "Learn about OpenPay",
+      "panelLabel": "Sample · paid calls",
+      "panelValue": "Enabled on demand, never in the way",
+      "panelBadge": "Optional",
+      "footerLeft": "WeChat Pay / Alipay",
+      "footerRight": "Free and paid side by side",
+      "lines": {
+        "earnings": {
+          "label": "Earnings report agent",
+          "amount": "¥0.5"
+        },
+        "stocks": {
+          "label": "In-depth market commentary",
+          "amount": "¥0.3"
+        },
+        "meeting": {
+          "label": "Meeting notes and task routing",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "audience": {
+      "eyebrow": "Two roles",
+      "title": "One platform, both sides moving",
+      "subtitle": "Agent users find capabilities and run their business; individuals and companies submit services and earn. One set of protocol standards and one registry.",
+      "consumer": {
+        "eyebrowLabel": "Use · agent harness",
+        "title": "Find a capability, load it into your Agent",
+        "steps": {
+          "s1": "Find the right Skill for your business scenario",
+          "s2": "Copy the prompt and load it into a Codex, Hermes, OpenCode or DeepSeek harness",
+          "s3": "Connect A2A and MCP services to get the business running"
+        },
+        "primary": "Browse all capabilities",
+        "secondaryMcp": "MCP services",
+        "secondaryA2a": "A2A agents"
+      },
+      "provider": {
+        "eyebrowLabel": "Provide · individuals and companies",
+        "title": "Submit services and get your expertise used",
+        "steps": {
+          "s1": "Submit Skills and register MCP / A2A services",
+          "s2": "List on the market once verified and security-reviewed",
+          "s3": "Get discovered and called, with optional payments and settlement"
+        },
+        "primary": "Submit a Skill",
+        "secondaryProvider": "Company onboarding"
+      }
+    },
+    "onboarding": {
+      "corner": "discover · install · publish",
+      "eyebrow": "OpenMCP market",
+      "title": "Install a Skill package, or list your own asset",
+      "subtitle": "Browse and install Skills, MCP and A2A. Providers are listed after review. Monetization is optional.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a provider"
     }
   },
   "Newsletter": {
