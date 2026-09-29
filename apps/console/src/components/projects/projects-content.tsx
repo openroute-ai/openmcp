@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import {
   Card,
   CardContent,
@@ -21,10 +22,14 @@ import {
 } from "@workspace/ui/components/table"
 import { SyncStatusBadge } from "@/components/status-badge"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 import { formatRelative } from "@/lib/format"
 
 export function ProjectsContent() {
+  const t = useTranslations("Projects")
+  const typeLabel = useEnumLabel("Type")
+  const statusLabel = useEnumLabel("Status")
   const trpc = useTRPC()
   const [search, setSearch] = React.useState("")
 
@@ -47,19 +52,16 @@ export function ProjectsContent() {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
-            <CardTitle>Projects</CardTitle>
-            <CardDescription>
-              Curated projects, the repository behind each, and the last sync
-              job
-            </CardDescription>
+            <CardTitle>{t("title")}</CardTitle>
+            <CardDescription>{t("description")}</CardDescription>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, owner, description…"
+              placeholder={t("searchPlaceholder")}
               className="w-full sm:w-64"
-              aria-label="Search projects"
+              aria-label={t("searchLabel")}
             />
             <CreateProjectDialog />
           </div>
@@ -69,18 +71,22 @@ export function ProjectsContent() {
         {isPending ? (
           <Skeleton className="h-32 w-full" />
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No projects match.</p>
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Stars</TableHead>
-                <TableHead className="text-right">Skills</TableHead>
-                <TableHead>Pushed</TableHead>
-                <TableHead>Last sync</TableHead>
+                <TableHead>{t("column.project")}</TableHead>
+                <TableHead>{t("column.type")}</TableHead>
+                <TableHead>{t("column.status")}</TableHead>
+                <TableHead className="text-right">
+                  {t("column.stars")}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t("column.skills")}
+                </TableHead>
+                <TableHead>{t("column.pushed")}</TableHead>
+                <TableHead>{t("column.lastSync")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -97,19 +103,19 @@ export function ProjectsContent() {
                       >
                         {project.owner}
                       </a>{" "}
-                      · {project.type}
+                      · {typeLabel(project.type)}
                     </div>
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground">
-                      {project.type}
+                      {typeLabel(project.type)}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className="capitalize">{project.status}</span>
+                    <span>{statusLabel(project.status)}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {project.stars?.toLocaleString("en-US") ?? "—"}
+                    {project.stars?.toLocaleString() ?? "\u2014"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {project.skillCount}
@@ -126,7 +132,9 @@ export function ProjectsContent() {
                         </span>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">never</span>
+                      <span className="text-muted-foreground">
+                        {t("lastSyncNever")}
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>

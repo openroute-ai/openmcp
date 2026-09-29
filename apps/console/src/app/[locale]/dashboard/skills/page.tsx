@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 
 export default function SkillsPage() {
   return (
-    <DashboardLayout title="Skills">
+    <DashboardLayout titleKey="Skills.title">
       <SkillsContent />
     </DashboardLayout>
   )

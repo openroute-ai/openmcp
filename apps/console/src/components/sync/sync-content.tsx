@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import {
   Card,
   CardContent,
@@ -17,11 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 import { formatRelative } from "@/lib/format"
 import { SyncStatusBadge } from "@/components/status-badge"
 
 export function SyncContent() {
+  const t = useTranslations("Sync")
+  const none = useTranslations("Common")("none")
+  const kindLabel = useEnumLabel("Kind")
+  const triggerLabel = useEnumLabel("Trigger")
   const trpc = useTRPC()
   const { data = [], isPending } = useQuery(
     trpc.sync.list.queryOptions({ limit: 100 })
@@ -30,39 +36,37 @@ export function SyncContent() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sync jobs</CardTitle>
-        <CardDescription>
-          Project sync jobs and README sync jobs from the last runs
-        </CardDescription>
+        <CardTitle>{t("title")}</CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent>
         {isPending ? (
           <Skeleton className="h-24 w-full" />
         ) : data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No sync jobs yet.</p>
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kind</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Trigger</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead>Completed</TableHead>
-                <TableHead>Error</TableHead>
+                <TableHead>{t("column.kind")}</TableHead>
+                <TableHead>{t("column.target")}</TableHead>
+                <TableHead>{t("column.status")}</TableHead>
+                <TableHead>{t("column.trigger")}</TableHead>
+                <TableHead>{t("column.started")}</TableHead>
+                <TableHead>{t("column.completed")}</TableHead>
+                <TableHead>{t("column.error")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.map((job) => (
                 <TableRow key={`${job.kind}-${job.id}`}>
-                  <TableCell className="capitalize">{job.kind}</TableCell>
+                  <TableCell>{kindLabel(job.kind)}</TableCell>
                   <TableCell className="font-medium">{job.ref}</TableCell>
                   <TableCell>
                     <SyncStatusBadge status={job.status} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {job.triggeredBy}
+                    {triggerLabel(job.triggeredBy)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatRelative(job.startedAt)}
@@ -79,7 +83,7 @@ export function SyncContent() {
                         {job.errorMessage}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">{none}</span>
                     )}
                   </TableCell>
                 </TableRow>

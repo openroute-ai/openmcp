@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import { useFormatter, useTranslations } from "next-intl"
 import {
   Card,
   CardContent,
@@ -18,6 +19,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { TaskStatusBadge } from "@/components/status-badge"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 import { formatDuration, formatRelative } from "@/lib/format"
 
@@ -28,7 +30,8 @@ function StatCard({
   pending,
 }: {
   title: string
-  value?: number
+  /** Already formatted, so the caller's locale decides the grouping. */
+  value?: string
   hint?: string
   pending: boolean
 }) {
@@ -41,9 +44,7 @@ function StatCard({
         {pending ? (
           <Skeleton className="h-8 w-16" />
         ) : (
-          <div className="text-2xl font-semibold">
-            {value?.toLocaleString("en-US") ?? "0"}
-          </div>
+          <div className="text-2xl font-semibold">{value ?? "0"}</div>
         )}
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
@@ -52,43 +53,65 @@ function StatCard({
 }
 
 export function OverviewContent() {
+  const t = useTranslations("Overview")
+  // A namespaced translator cannot reach another namespace with a dotted key,
+  // so the execution table borrows the `Tasks` one instead.
+  const tasksT = useTranslations("Tasks")
+  const format = useFormatter()
+  const triggerLabel = useEnumLabel("Trigger")
+  const statusLabel = useEnumLabel("Status")
   const trpc = useTRPC()
   const { data, isPending } = useQuery(trpc.overview.snapshot.queryOptions())
 
   const skills = data?.skills
   const tasks = data?.tasks
 
+  // `undefined` stays `undefined` so the card still shows its skeleton rather
+  // than a zero that looks like a real count.
+  const count = (value?: number) =>
+    value === undefined ? undefined : format.number(value)
+
+  // Built through the message rather than concatenated, so the word order is
+  // the translator's to decide and a language that does not put the count
+  // first is not forced into doing so.
   const skillsHint = skills
-    ? `${skills.synced} synced · ${skills.pending} pending · ${skills.failed} failed`
+    ? t("skillsHint", {
+        synced: skills.synced,
+        pending: skills.pending,
+        failed: skills.failed,
+      })
     : undefined
   const tasksHint = tasks
-    ? `${tasks.enabled} enabled · ${tasks.running} running now`
+    ? t("scheduledTasksHint", {
+        enabled: tasks.enabled,
+        running: tasks.running,
+      })
     : undefined
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Repositories"
-          value={data?.repos}
-          hint="Tracked on GitHub"
+          title={t("repositories")}
+          value={count(data?.repos)}
+          hint={t("repositoriesHint")}
           pending={isPending}
         />
         <StatCard
-          title="Projects"
-          value={data?.projects}
-          hint="Curated on the site"
+          title={t("projects")}
+          value={count(data?.projects)}
+          hint={t("projectsHint")}
           pending={isPending}
         />
         <StatCard
-          title="Skills"
-          value={skills?.total}
+          title={t("skills")}
+          value={count(skills?.total)}
           hint={skillsHint}
           pending={isPending}
         />
         <StatCard
-          title="Scheduled tasks"
-          value={tasks?.total}
+          title={t("scheduledTasks")}
+          value={count(tasks?.total)}
           hint={tasksHint}
           pending={isPending}
         />
@@ -96,10 +119,8 @@ export function OverviewContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Today</CardTitle>
-          <CardDescription>
-            Task executions and sync jobs started in the last 24 hours
-          </CardDescription>
+          <CardTitle>{t("today")}</CardTitle>
+          <CardDescription>{t("todayDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (
@@ -108,43 +129,46 @@ export function OverviewContent() {
             <div className="grid gap-6 text-sm sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <span className="font-medium text-muted-foreground">
-                  Task executions
+                  {t("taskExecutions")}
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                   <Bucket
-                    label="Completed"
+                    label={statusLabel("completed")}
                     value={data?.executionsToday.completed ?? 0}
                   />
                   <Bucket
-                    label="Failed"
+                    label={statusLabel("failed")}
                     value={data?.executionsToday.failed ?? 0}
                   />
                   <Bucket
-                    label="Running"
+                    label={statusLabel("running")}
                     value={data?.executionsToday.running ?? 0}
                   />
                   <Bucket
-                    label="Pending"
+                    label={statusLabel("pending")}
                     value={data?.executionsToday.pending ?? 0}
                   />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
                 <span className="font-medium text-muted-foreground">
-                  Sync jobs
+                  {t("syncJobs")}
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                   <Bucket
-                    label="Succeeded"
+                    label={statusLabel("success")}
                     value={data?.jobsToday.success ?? 0}
                   />
-                  <Bucket label="Failed" value={data?.jobsToday.failed ?? 0} />
                   <Bucket
-                    label="Running"
+                    label={statusLabel("failed")}
+                    value={data?.jobsToday.failed ?? 0}
+                  />
+                  <Bucket
+                    label={statusLabel("running")}
                     value={data?.jobsToday.running ?? 0}
                   />
                   <Bucket
-                    label="Pending"
+                    label={statusLabel("pending")}
                     value={data?.jobsToday.pending ?? 0}
                   />
                 </div>
@@ -156,23 +180,27 @@ export function OverviewContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent task executions</CardTitle>
-          <CardDescription>The last scheduled or manual runs</CardDescription>
+          <CardTitle>{t("recentExecutions")}</CardTitle>
+          <CardDescription>{t("recentExecutionsDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (
             <Skeleton className="h-24 w-full" />
           ) : (data?.recentExecutions.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">No runs yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noRuns")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Started</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead>Trigger</TableHead>
+                  <TableHead>{tasksT("executionColumn.task")}</TableHead>
+                  <TableHead>{tasksT("executionColumn.status")}</TableHead>
+                  <TableHead className="text-right">
+                    {tasksT("executionColumn.started")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {tasksT("executionColumn.duration")}
+                  </TableHead>
+                  <TableHead>{tasksT("executionColumn.trigger")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -189,7 +217,7 @@ export function OverviewContent() {
                       {formatDuration(run.duration)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {run.triggeredBy}
+                      {triggerLabel(run.triggeredBy)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,6 +1,8 @@
 "use client"
 
-import Link from "next/link"
+import { useTranslations } from "next-intl"
+import { LocaleLink } from "@/i18n/navigation"
+import type { defaultMessages } from "@/i18n/messages"
 import { Button } from "@workspace/ui/components/button"
 import {
   SidebarGroup,
@@ -12,15 +14,20 @@ import {
 import { IconCirclePlusFilled, IconMail } from "@tabler/icons-react"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 
+/** A key of the `Nav` messages, so a missing label fails the build. */
+export type NavKey = keyof (typeof defaultMessages)["Nav"]
+
 export function NavMain({
   items,
 }: {
   items: {
-    title: string
+    key: NavKey
     url: string
     icon?: React.ReactNode
   }[]
 }) {
+  const t = useTranslations("Nav")
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -29,11 +36,11 @@ export function NavMain({
             <CreateProjectDialog
               trigger={
                 <SidebarMenuButton
-                  tooltip="Quick Create"
+                  tooltip={t("quickCreate")}
                   className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
                 >
                   <IconCirclePlusFilled />
-                  <span>Quick Create</span>
+                  <span>{t("quickCreate")}</span>
                 </SidebarMenuButton>
               }
             />
@@ -43,24 +50,24 @@ export function NavMain({
               variant="outline"
             >
               <IconMail />
-              <span className="sr-only">Inbox</span>
+              <span className="sr-only">{t("inbox")}</span>
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.key}>
               {item.url && item.url !== "#" ? (
-                <SidebarMenuButton tooltip={item.title} asChild>
-                  <Link href={item.url}>
+                <SidebarMenuButton tooltip={t(item.key)} asChild>
+                  <LocaleLink href={item.url}>
                     {item.icon}
-                    <span>{item.title}</span>
-                  </Link>
+                    <span>{t(item.key)}</span>
+                  </LocaleLink>
                 </SidebarMenuButton>
               ) : (
-                <SidebarMenuButton tooltip={item.title}>
+                <SidebarMenuButton tooltip={t(item.key)}>
                   {item.icon}
-                  <span>{item.title}</span>
+                  <span>{t(item.key)}</span>
                 </SidebarMenuButton>
               )}
             </SidebarMenuItem>

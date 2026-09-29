@@ -1,4 +1,5 @@
 import { Badge } from "@workspace/ui/components/badge"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { IconLoader } from "@tabler/icons-react"
 
 const taskStatusClass: Record<string, string> = {
@@ -21,19 +22,23 @@ function RunningIcon() {
 }
 
 export function TaskStatusBadge({ status }: { status: string }) {
+  const label = useEnumLabel("Status")
+
   return (
     <Badge variant="outline" className={taskStatusClass[status] ?? undefined}>
       {status === "running" && <RunningIcon />}
-      {status}
+      {label(status)}
     </Badge>
   )
 }
 
 export function SyncStatusBadge({ status }: { status: string }) {
+  const label = useEnumLabel("Status")
+
   return (
     <Badge variant="outline" className={syncStatusClass[status] ?? undefined}>
       {status === "running" && <RunningIcon />}
-      {status}
+      {label(status)}
     </Badge>
   )
 }

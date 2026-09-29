@@ -1,9 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import {
   IconAt,
   IconDeviceMobile,
@@ -11,6 +10,7 @@ import {
   IconPhone,
   IconSend,
 } from "@tabler/icons-react"
+import { LocaleLink, useLocaleRouter } from "@/i18n/navigation"
 import { authClient } from "@/lib/auth-client"
 import { SmsSliderCaptcha } from "@workspace/sms-captcha/client"
 import { AuthDivider, GitHubButton } from "@/components/github-button"
@@ -36,7 +36,8 @@ import { cn } from "@workspace/ui/lib/utils"
 const PHONE_REGEX = /^1[3-9]\d{9}$/
 
 export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
-  const router = useRouter()
+  const t = useTranslations("Auth")
+  const router = useLocaleRouter()
   const [mode, setMode] = useState<"email" | "phone">("email")
   const [error, setError] = useState<string | null>(null)
 
@@ -71,7 +72,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
       { email, password },
       {
         onSuccess: () => {
-          toast.success("Signed in successfully")
+          toast.success(t("signInSuccess"))
           router.push("/dashboard")
           router.refresh()
         },
@@ -97,19 +98,19 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           }
         )
         if (err) {
-          setError(err.message || "验证码发送失败")
+          setError(err.message || t("codeSendFailed"))
         } else {
           setCodeSent(true)
           setCountdown(60)
-          toast.success("验证码已发送")
+          toast.success(t("codeSent"))
         }
       } catch {
-        setError("验证码发送失败")
+        setError(t("codeSendFailed"))
       } finally {
         setSending(false)
       }
     },
-    [phone]
+    [phone, t]
   )
 
   async function handlePhoneSubmit(e: React.FormEvent) {
@@ -125,25 +126,16 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
         code,
       })
       if (err) {
-        setCodeError(err.message || "验证码错误或已过期")
+        setCodeError(err.message || t("codeWrong"))
       } else {
-        toast.success("登录成功")
+        toast.success(t("signInSuccess"))
         router.push("/dashboard")
         router.refresh()
       }
     } catch {
-      setCodeError("登录失败，请重试")
+      setCodeError(t("signInFailed"))
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleGithub() {
-    setError(null)
-    try {
-      await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard" })
-    } catch {
-      setError("GitHub 登录失败，请重试")
     }
   }
 
@@ -152,10 +144,8 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sign In</CardTitle>
-        <CardDescription>
-          Enter your credentials to access the console.
-        </CardDescription>
+        <CardTitle>{t("signInTitle")}</CardTitle>
+        <CardDescription>{t("signInDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 pb-0">
         {githubEnabled && (
@@ -180,7 +170,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
             )}
           >
             <IconAt className="size-4" />
-            邮箱
+            {t("emailTab")}
           </button>
           <button
             type="button"
@@ -196,21 +186,21 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
             )}
           >
             <IconPhone className="size-4" />
-            手机号
+            {t("phoneTab")}
           </button>
         </div>
       </CardContent>
 
       {mode === "email" ? (
         <form onSubmit={handleEmailSubmit}>
-          <CardContent className="pb-6 pt-4">
+          <CardContent className="pt-4 pb-6">
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t("emailPlaceholder")}
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -219,11 +209,11 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Your password"
+                  placeholder={t("passwordPlaceholder")}
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -237,22 +227,22 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Spinner />}
-              Sign In
+              {t("signIn")}
             </Button>
           </CardFooter>
         </form>
       ) : (
         <form onSubmit={handlePhoneSubmit}>
-          <CardContent className="flex flex-col gap-4 pb-6 pt-4">
+          <CardContent className="flex flex-col gap-4 pt-4 pb-6">
             <Field>
-              <FieldLabel htmlFor="phone">手机号</FieldLabel>
+              <FieldLabel htmlFor="phone">{t("phone")}</FieldLabel>
               <div className="relative">
                 <IconDeviceMobile className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="phone"
                   type="tel"
                   inputMode="numeric"
-                  placeholder="请输入 11 位手机号"
+                  placeholder={t("phonePlaceholder")}
                   autoComplete="tel-national"
                   value={phone}
                   onChange={(e) => {
@@ -267,14 +257,14 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
               {phoneError && <FieldError>{phoneError}</FieldError>}
             </Field>
             <Field>
-              <FieldLabel htmlFor="code">验证码</FieldLabel>
+              <FieldLabel htmlFor="code">{t("code")}</FieldLabel>
               <div className="flex items-center gap-4">
                 <Input
                   id="code"
                   type="text"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="6 位验证码"
+                  placeholder={t("codePlaceholder")}
                   autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => {
@@ -290,7 +280,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
                   disabled={!canSendCode && !sending}
                   onClick={() => {
                     if (!validPhone) {
-                      setPhoneError("请输入有效的 11 位手机号")
+                      setPhoneError(t("phoneInvalid"))
                       return
                     }
                     setCaptchaOpen(true)
@@ -300,11 +290,11 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
                   {sending ? (
                     <IconLoader2 className="size-4 animate-spin" />
                   ) : countdown > 0 ? (
-                    `${countdown}s`
+                    t("countdown", { count: countdown })
                   ) : (
                     <>
                       <IconSend className="size-4" />
-                      发送验证码
+                      {t("sendCode")}
                     </>
                   )}
                 </Button>
@@ -320,7 +310,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
               disabled={loading || !codeSent || !code}
             >
               {loading && <Spinner />}
-              Sign In
+              {t("signIn")}
             </Button>
           </CardFooter>
         </form>
@@ -328,13 +318,13 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
 
       <CardFooter className="flex flex-col gap-1">
         <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link
+          {t("noAccount")}{" "}
+          <LocaleLink
             href="/sign-up"
             className="text-primary underline underline-offset-4 hover:text-primary/80"
           >
-            Sign up
-          </Link>
+            {t("signUp")}
+          </LocaleLink>
         </p>
       </CardFooter>
 
@@ -343,9 +333,9 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           open={captchaOpen}
           onOpenChange={setCaptchaOpen}
           i18n={{
-            title: "安全验证",
-            hint: "拖动滑块把拼图移到缺口位置",
-            codeSent: "验证通过",
+            title: t("captchaTitle"),
+            hint: t("captchaHint"),
+            codeSent: t("codeVerified"),
           }}
           onVerified={handleCaptchaVerified}
         />

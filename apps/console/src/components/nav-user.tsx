@@ -20,7 +20,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
-import { useRouter } from "next/navigation"
+import { useLocaleRouter } from "@/i18n/navigation"
+import { useTranslations } from "next-intl"
+
 import { authClient } from "@/lib/auth-client"
 import {
   IconDotsVertical,
@@ -39,8 +41,9 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const t = useTranslations("Nav")
   const { isMobile } = useSidebar()
-  const router = useRouter()
+  const router = useLocaleRouter()
 
   const initials = (user.name || user.email || "?")
     .split(/\s+/)
@@ -111,15 +114,15 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <IconUserCircle />
-                Account
+                {t("account")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <IconCreditCard />
-                Billing
+                {t("billing")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <IconNotification />
-                Notifications
+                {t("notifications")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -131,7 +134,7 @@ export function NavUser({
               }}
             >
               <IconLogout />
-              Log out
+              {t("logOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

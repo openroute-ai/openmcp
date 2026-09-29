@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useFormatter, useTranslations } from "next-intl"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -36,28 +37,22 @@ import type { Rankings } from "@/lib/github/service/rankings"
 import type { RisingStarsReport } from "@/lib/github/service/rising-stars"
 import { useTRPC } from "@/lib/trpc/client"
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-]
-
 /** Padded so a month value sorts and reads the same as a two-digit one. */
 function monthValue(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`
 }
 
-function formatMonth(year: number, month: number): string {
-  return `${MONTH_NAMES[month - 1] ?? month} ${year}`
+/**
+ * The month name comes from the reader's locale, so this formats rather than
+ * indexing an English array.
+ */
+function useFormatMonth() {
+  const format = useFormatter()
+  return (year: number, month: number) =>
+    format.dateTime(new Date(year, month - 1, 1), {
+      year: "numeric",
+      month: "long",
+    })
 }
 
 /** The chosen period, or the newest one available when nothing is chosen. */
@@ -107,21 +102,28 @@ function risingRows(rows: RisingStarsReport["projects"]): Row[] {
   }))
 }
 
-function formatStars(value: number): string {
-  return value.toLocaleString("en-US")
-}
-
-function formatDelta(value: number): string {
-  return `+${value.toLocaleString("en-US")}`
-}
-
-function formatGrowth(value: number | null): string {
-  if (value === null) return "—"
-  return `${(value * 100).toFixed(1)}%`
+function useFormatNumbers() {
+  const format = useFormatter()
+  return {
+    stars: (value: number) => format.number(value),
+    delta: (value: number) => `+${format.number(value)}`,
+    // `Intl` already localises the decimal separator, so a percentage needs
+    // no translation of its own.
+    growth: (value: number | null) =>
+      value === null
+        ? "—"
+        : format.number(value * 100, {
+            style: "percent",
+            maximumFractionDigits: 1,
+          }),
+  }
 }
 
 function TagsCell({ tags }: { tags: string[] }) {
-  if (tags.length === 0) return <span className="text-muted-foreground">—</span>
+  const common = useTranslations("Common")
+  if (tags.length === 0) {
+    return <span className="text-muted-foreground">{common("none")}</span>
+  }
   return (
     <div className="flex flex-wrap gap-1">
       {tags.map((tag) => (
@@ -134,24 +136,23 @@ function TagsCell({ tags }: { tags: string[] }) {
 }
 
 function RankingsTable({ rows }: { rows: Row[] }) {
+  const t = useTranslations("Rankings")
+  const numbers = useFormatNumbers()
+
   if (rows.length === 0) {
-    return (
-      <p className="px-4 text-sm text-muted-foreground">
-        No ranked projects for this period.
-      </p>
-    )
+    return <p className="px-4 text-sm text-muted-foreground">{t("noRanked")}</p>
   }
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">#</TableHead>
-          <TableHead>Name</TableHead>
-          <TableHead className="text-right">Stars</TableHead>
-          <TableHead className="text-right">Delta</TableHead>
-          <TableHead className="text-right">Growth</TableHead>
-          <TableHead>Tags</TableHead>
+          <TableHead className="w-12">{t("column.rank")}</TableHead>
+          <TableHead>{t("column.name")}</TableHead>
+          <TableHead className="text-right">{t("column.stars")}</TableHead>
+          <TableHead className="text-right">{t("column.delta")}</TableHead>
+          <TableHead className="text-right">{t("column.growth")}</TableHead>
+          <TableHead>{t("column.tags")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -165,13 +166,13 @@ function RankingsTable({ rows }: { rows: Row[] }) {
               </div>
             </TableCell>
             <TableCell className="text-right">
-              {formatStars(row.stars)}
+              {numbers.stars(row.stars)}
             </TableCell>
             <TableCell className="text-right text-emerald-600">
-              {formatDelta(row.delta)}
+              {numbers.delta(row.delta)}
             </TableCell>
             <TableCell className="text-right">
-              {formatGrowth(row.relativeGrowth)}
+              {numbers.growth(row.relativeGrowth)}
             </TableCell>
             <TableCell>
               <TagsCell tags={row.tags} />
@@ -227,9 +228,11 @@ function PeriodSelect({
   pending: boolean
   onChange: (value: string) => void
 }) {
+  const t = useTranslations("Rankings")
+
   return (
     <div className="grid w-full gap-2 sm:w-56">
-      <Label htmlFor={id}>Period</Label>
+      <Label htmlFor={id}>{t("period")}</Label>
       <Select value={value} onValueChange={onChange} disabled={pending}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={fallbackLabel} />
@@ -247,6 +250,8 @@ function PeriodSelect({
 }
 
 export function RankingsContent() {
+  const t = useTranslations("Rankings")
+  const formatMonth = useFormatMonth()
   const trpc = useTRPC()
   const [tab, setTab] = React.useState("weekly")
 
@@ -262,9 +267,9 @@ export function RankingsContent() {
     () =>
       (periods.data?.weeks ?? []).map((week) => ({
         value: `${week.year}-${week.week}`,
-        label: `Week ${week.week}, ${week.year}`,
+        label: t("weekOption", { week: week.week, year: week.year }),
       })),
-    [periods.data]
+    [periods.data, t]
   )
   const monthOptions = React.useMemo(
     () =>
@@ -272,7 +277,7 @@ export function RankingsContent() {
         value: monthValue(month.year, month.month),
         label: formatMonth(month.year, month.month),
       })),
-    [periods.data]
+    [periods.data, formatMonth]
   )
 
   // `null` means the newest period on record, which is what the ranking
@@ -304,19 +309,19 @@ export function RankingsContent() {
   // `week` and `month` are optional on the type because one ranking carries
   // the other field, so the label falls back rather than printing "undefined".
   const weekLabel = weekly.data?.week
-    ? `Week ${weekly.data.week} of ${weekly.data.year}`
-    : "Last complete week"
+    ? t("weekOf", { week: weekly.data.week, year: weekly.data.year })
+    : t("lastCompleteWeek")
   const monthLabel = monthly.data?.month
     ? formatMonth(monthly.data.year, monthly.data.month)
-    : "Last complete month"
+    : t("lastCompleteMonth")
   const yearLabel = String(new Date().getFullYear() - 1)
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
       <TabsList className="grid w-full max-w-md grid-cols-3">
-        <TabsTrigger value="weekly">Weekly</TabsTrigger>
-        <TabsTrigger value="monthly">Monthly</TabsTrigger>
-        <TabsTrigger value="rising">Rising Stars</TabsTrigger>
+        <TabsTrigger value="weekly">{t("weekly")}</TabsTrigger>
+        <TabsTrigger value="monthly">{t("monthly")}</TabsTrigger>
+        <TabsTrigger value="rising">{t("risingStars")}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="weekly" className="flex flex-col gap-4">
@@ -324,18 +329,18 @@ export function RankingsContent() {
           id="rankings-week"
           value={week}
           options={weekOptions}
-          fallbackLabel="Last complete week"
+          fallbackLabel={t("lastCompleteWeek")}
           pending={periods.isPending}
           onChange={setWeekChoice}
         />
         <RankingCard
-          title="Trending by stargazers gained"
-          description={`${weekLabel} — the most new stargazers.`}
+          title={t("trendingTitle")}
+          description={t("trendingDescription", { period: weekLabel })}
           rows={rankedRows(weekly.data?.trending ?? [])}
         />
         <RankingCard
-          title="By relative growth"
-          description={`${weekLabel} — the fastest growers in percentage terms.`}
+          title={t("growthTitle")}
+          description={t("growthDescription", { period: weekLabel })}
           rows={rankedRows(weekly.data?.byRelativeGrowth ?? [])}
         />
       </TabsContent>
@@ -345,26 +350,26 @@ export function RankingsContent() {
           id="rankings-month"
           value={month}
           options={monthOptions}
-          fallbackLabel="Last complete month"
+          fallbackLabel={t("lastCompleteMonth")}
           pending={periods.isPending}
           onChange={setMonthChoice}
         />
         <RankingCard
-          title="Trending by stargazers gained"
-          description={`${monthLabel} — the most new stargazers.`}
+          title={t("trendingTitle")}
+          description={t("trendingDescription", { period: monthLabel })}
           rows={rankedRows(monthly.data?.trending ?? [])}
         />
         <RankingCard
-          title="By relative growth"
-          description={`${monthLabel} — the fastest growers in percentage terms.`}
+          title={t("growthTitle")}
+          description={t("growthDescription", { period: monthLabel })}
           rows={rankedRows(monthly.data?.byRelativeGrowth ?? [])}
         />
       </TabsContent>
 
       <TabsContent value="rising" className="flex flex-col gap-4">
         <RankingCard
-          title="Rising Stars"
-          description={`${yearLabel} — the fastest risers of the year.`}
+          title={t("risingStars")}
+          description={t("risingDescription", { year: yearLabel })}
           rows={risingRows(rising.data?.projects ?? [])}
         />
       </TabsContent>

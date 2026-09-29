@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import {
   Card,
   CardContent,
@@ -25,6 +26,8 @@ import { formatRelative } from "@/lib/format"
 type SkillStatus = "all" | "pending" | "synced" | "error"
 
 export function SkillsContent() {
+  const t = useTranslations("Skills")
+  const common = useTranslations("Common")
   const trpc = useTRPC()
   const [status, setStatus] = React.useState<SkillStatus>("all")
 
@@ -37,21 +40,18 @@ export function SkillsContent() {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
-            <CardTitle>Skills</CardTitle>
-            <CardDescription>
-              SKILL.md documents synced from repositories, with their
-              translation and push state
-            </CardDescription>
+            <CardTitle>{t("title")}</CardTitle>
+            <CardDescription>{t("description")}</CardDescription>
           </div>
           <Tabs
             value={status}
             onValueChange={(value) => setStatus(value as SkillStatus)}
           >
             <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="synced">Synced</TabsTrigger>
-              <TabsTrigger value="error">Errors</TabsTrigger>
+              <TabsTrigger value="all">{t("tab.all")}</TabsTrigger>
+              <TabsTrigger value="pending">{t("tab.pending")}</TabsTrigger>
+              <TabsTrigger value="synced">{t("tab.synced")}</TabsTrigger>
+              <TabsTrigger value="error">{t("tab.errors")}</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -60,19 +60,17 @@ export function SkillsContent() {
         {isPending ? (
           <Skeleton className="h-32 w-full" />
         ) : skills.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No skills in this view.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Skill</TableHead>
-                <TableHead>Translated</TableHead>
-                <TableHead>Synced to web</TableHead>
-                <TableHead>Last attempt</TableHead>
-                <TableHead>Error</TableHead>
+                <TableHead>{t("column.project")}</TableHead>
+                <TableHead>{t("column.skill")}</TableHead>
+                <TableHead>{t("column.translated")}</TableHead>
+                <TableHead>{t("column.syncedToWeb")}</TableHead>
+                <TableHead>{t("column.lastAttempt")}</TableHead>
+                <TableHead>{t("column.error")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -93,21 +91,23 @@ export function SkillsContent() {
                   <TableCell>
                     {skill.descriptionZh ? (
                       <span className="text-emerald-600 dark:text-emerald-400">
-                        yes
+                        {common("yes")}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">no</span>
+                      <span className="text-muted-foreground">
+                        {common("no")}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {skill.syncedToWebAt
                       ? formatRelative(skill.syncedToWebAt)
-                      : "never"}
+                      : common("never")}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {skill.lastSyncAttemptAt
                       ? formatRelative(skill.lastSyncAttemptAt)
-                      : "—"}
+                      : common("none")}
                   </TableCell>
                   <TableCell>
                     {skill.lastSyncError ? (
@@ -118,7 +118,9 @@ export function SkillsContent() {
                         {skill.lastSyncError}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">
+                        {common("none")}
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>

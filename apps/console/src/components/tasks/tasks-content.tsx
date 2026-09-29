@@ -1,6 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -23,10 +24,16 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { TaskStatusBadge } from "@/components/status-badge"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 import { formatDuration, formatRelative } from "@/lib/format"
 
 export function TasksContent() {
+  const t = useTranslations("Tasks")
+  const common = useTranslations("Common")
+  const statusLabel = useEnumLabel("Status")
+  const taskTypeLabel = useEnumLabel("TaskType")
+  const triggerLabel = useEnumLabel("Trigger")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
@@ -58,7 +65,7 @@ export function TasksContent() {
         if (context?.previous) {
           queryClient.setQueryData(listKey, context.previous)
         }
-        toast.error("Could not update the task")
+        toast.error(t("updateFailed"))
       },
       onSettled: () => {
         void queryClient.invalidateQueries({ queryKey: listKey })
@@ -70,11 +77,11 @@ export function TasksContent() {
     trpc.tasks.runNow.mutationOptions({
       onSuccess: (result, { name }) => {
         if (result.status === "completed") {
-          toast.success(`${name} completed`)
+          toast.success(t("runCompleted", { name }))
         } else if (result.status === "skipped") {
-          toast.info(`${name} skipped: ${result.reason}`)
+          toast.info(t("runSkipped", { name, reason: result.reason }))
         } else {
-          toast.error(`${name} failed: ${result.error}`)
+          toast.error(t("runFailed", { name, error: result.error }))
         }
       },
       onError: (error) => {
@@ -94,30 +101,29 @@ export function TasksContent() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Task definitions</CardTitle>
-          <CardDescription>
-            The scheduler&apos;s catalogue: schedules run in Asia/Shanghai, and
-            disabled tasks are skipped until re-enabled
-          </CardDescription>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
           {isPending ? (
             <Skeleton className="h-32 w-full" />
           ) : tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No task definitions yet.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("empty")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Schedule</TableHead>
-                  <TableHead>Enabled</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead>Next run</TableHead>
-                  <TableHead className="text-right">Last run</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("column.task")}</TableHead>
+                  <TableHead>{t("column.schedule")}</TableHead>
+                  <TableHead>{t("column.enabled")}</TableHead>
+                  <TableHead>{t("column.state")}</TableHead>
+                  <TableHead>{t("column.nextRun")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("column.lastRun")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("column.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -137,7 +143,7 @@ export function TasksContent() {
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <Badge variant="secondary" className="w-fit">
-                            {task.taskType}
+                            {taskTypeLabel(task.taskType)}
                           </Badge>
                           {task.cronExpression ? (
                             <code className="text-xs text-muted-foreground">
@@ -152,20 +158,20 @@ export function TasksContent() {
                           onCheckedChange={(enabled) =>
                             setEnabled.mutate({ name: task.name, enabled })
                           }
-                          aria-label={`Enable ${task.name}`}
+                          aria-label={t("enableTask", { name: task.name })}
                         />
                       </TableCell>
                       <TableCell>
                         {task.isRunning ? (
                           <span className="flex items-center gap-1.5 text-sm text-sky-600 dark:text-sky-400">
                             <Spinner className="size-3" />
-                            running
+                            {statusLabel("running")}
                           </span>
                         ) : lastStatus ? (
                           <TaskStatusBadge status={lastStatus} />
                         ) : (
                           <span className="text-sm text-muted-foreground">
-                            never run
+                            {t("neverRun")}
                           </span>
                         )}
                       </TableCell>
@@ -180,12 +186,12 @@ export function TasksContent() {
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {formatDuration(task.lastExecution.duration)} ·{" "}
-                              {task.lastExecution.triggeredBy}
+                              {triggerLabel(task.lastExecution.triggeredBy)}
                             </span>
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">
-                            —
+                            {common("none")}
                           </span>
                         )}
                       </TableCell>
@@ -199,7 +205,7 @@ export function TasksContent() {
                           {runningNow ? (
                             <Spinner className="size-3" />
                           ) : (
-                            "Run now"
+                            common("runNow")
                           )}
                         </Button>
                       </TableCell>
@@ -214,24 +220,24 @@ export function TasksContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent executions</CardTitle>
-          <CardDescription>
-            The latest 50 runs across every task
-          </CardDescription>
+          <CardTitle>{t("recentExecutions")}</CardTitle>
+          <CardDescription>{t("recentExecutionsDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           {executions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No executions yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noExecutions")}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead>Trigger</TableHead>
-                  <TableHead>Error</TableHead>
+                  <TableHead>{t("column.task")}</TableHead>
+                  <TableHead>{t("executionColumn.status")}</TableHead>
+                  <TableHead>{t("executionColumn.started")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("executionColumn.duration")}
+                  </TableHead>
+                  <TableHead>{t("executionColumn.trigger")}</TableHead>
+                  <TableHead>{t("executionColumn.error")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,7 +254,7 @@ export function TasksContent() {
                       {formatDuration(run.duration)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {run.triggeredBy}
+                      {triggerLabel(run.triggeredBy)}
                     </TableCell>
                     <TableCell>
                       {run.error ? (
@@ -259,7 +265,9 @@ export function TasksContent() {
                           {run.error}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">
+                          {common("none")}
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
+import { LocaleLink } from "@/i18n/navigation"
+import { useLocaleRouter } from "@/i18n/navigation"
 import { authClient } from "@/lib/auth-client"
 import { AuthDivider, GitHubButton } from "@/components/github-button"
 import { Button } from "@workspace/ui/components/button"
@@ -25,7 +26,8 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 
 export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
-  const router = useRouter()
+  const t = useTranslations("Auth")
+  const router = useLocaleRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -41,7 +43,7 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
       { name, email, password },
       {
         onSuccess: () => {
-          toast.success("Account created")
+          toast.success(t("accountCreated"))
           router.push("/dashboard")
           router.refresh()
         },
@@ -57,10 +59,8 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sign Up</CardTitle>
-        <CardDescription>
-          Create an account to access the console.
-        </CardDescription>
+        <CardTitle>{t("signUpTitle")}</CardTitle>
+        <CardDescription>{t("signUpDescription")}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4 pb-6">
@@ -72,10 +72,10 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
           )}
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="name">Name</FieldLabel>
+              <FieldLabel htmlFor="name">{t("name")}</FieldLabel>
               <Input
                 id="name"
-                placeholder="Your name"
+                placeholder={t("namePlaceholder")}
                 autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -84,11 +84,11 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email">{t("email")}</FieldLabel>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("emailPlaceholder")}
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -97,11 +97,11 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <FieldLabel htmlFor="password">{t("password")}</FieldLabel>
               <Input
                 id="password"
                 type="password"
-                placeholder="Your password"
+                placeholder={t("passwordPlaceholder")}
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -116,16 +116,16 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Spinner />}
-            Create account
+            {t("createAccount")}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
+            {t("haveAccount")}{" "}
+            <LocaleLink
               href="/sign-in"
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
-              Sign in
-            </Link>
+              {t("signIn")}
+            </LocaleLink>
           </p>
         </CardFooter>
       </form>

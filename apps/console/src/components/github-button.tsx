@@ -1,13 +1,15 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useLocaleRouter } from "@/i18n/navigation"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { IconBrandGithub } from "@tabler/icons-react"
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@workspace/ui/components/button"
 
 export function GitHubButton() {
-  const router = useRouter()
+  const t = useTranslations("Auth")
+  const router = useLocaleRouter()
 
   async function handleClick() {
     try {
@@ -16,7 +18,7 @@ export function GitHubButton() {
         callbackURL: "/dashboard",
       })
     } catch {
-      toast.error("GitHub 登录失败")
+      toast.error(t("githubFailed"))
     }
     router.refresh()
   }
@@ -29,19 +31,23 @@ export function GitHubButton() {
       onClick={handleClick}
     >
       <IconBrandGithub className="size-4" />
-      <span>使用 GitHub 登录</span>
+      <span>{t("github")}</span>
     </Button>
   )
 }
 
 export function AuthDivider() {
+  const t = useTranslations("Auth")
+
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center">
         <span className="w-full border-t" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-background px-2 text-muted-foreground">or</span>
+        <span className="bg-background px-2 text-muted-foreground">
+          {t("or")}
+        </span>
       </div>
     </div>
   )

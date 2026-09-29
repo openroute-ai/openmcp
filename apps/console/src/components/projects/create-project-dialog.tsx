@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -25,15 +26,12 @@ import {
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { IconCirclePlusFilled } from "@tabler/icons-react"
+import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 
-const TYPES = [
-  { value: "application", label: "Application" },
-  { value: "skill", label: "Skill" },
-  { value: "client", label: "Client" },
-  { value: "server", label: "Server" },
-  { value: "persona", label: "Persona" },
-] as const
+// The values are the wire format; the labels are translated, so the list is
+// values only and the label comes from the `Type` namespace.
+const TYPES = ["application", "skill", "client", "server", "persona"] as const
 
 /**
  * The create-project form.
@@ -51,6 +49,8 @@ export function CreateProjectDialog({
 }: {
   trigger?: React.ReactNode
 }) {
+  const t = useTranslations("CreateProject")
+  const typeLabel = useEnumLabel("Type")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
@@ -76,20 +76,18 @@ export function CreateProjectDialog({
         })
 
         if (result.status === "existing") {
-          toast.info(`${result.project.slug} is already a project`)
+          toast.info(t("alreadyExists", { slug: result.project.slug }))
         } else {
           const synced = [
-            result.readme.synced ? "README fetched" : null,
+            result.readme.synced ? t("readmeFetched") : null,
             result.skills && !result.skills.empty
-              ? `${result.skills.count} skill(s)`
+              ? t("skillsCount", { count: result.skills.count })
               : null,
           ].filter(Boolean)
 
-          toast.success(`Created ${result.project.slug}`, {
+          toast.success(t("created", { slug: result.project.slug }), {
             description:
-              synced.length > 0
-                ? synced.join(" · ")
-                : "Queued for the next sync",
+              synced.length > 0 ? synced.join(" · ") : t("queuedForSync"),
           })
         }
 
@@ -97,7 +95,7 @@ export function CreateProjectDialog({
         reset()
       },
       onError: (error) => {
-        toast.error("Could not create the project", {
+        toast.error(t("couldNotCreate"), {
           description: error.message,
         })
       },
@@ -116,17 +114,14 @@ export function CreateProjectDialog({
         {trigger ?? (
           <Button>
             <IconCirclePlusFilled />
-            New project
+            {t("trigger")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New project</DialogTitle>
-          <DialogDescription>
-            Paste a GitHub repository URL. Its metadata, README and skills are
-            fetched immediately.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <form
@@ -138,33 +133,31 @@ export function CreateProjectDialog({
           className="grid gap-4"
         >
           <div className="grid gap-2">
-            <Label htmlFor="project-url">Repository URL</Label>
+            <Label htmlFor="project-url">{t("urlLabel")}</Label>
             <Input
               id="project-url"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://github.com/owner/repo"
+              placeholder={t("urlPlaceholder")}
               autoComplete="off"
               spellCheck={false}
               aria-invalid={url.length > 0 && !looksValid}
             />
             {url.length > 0 && !looksValid ? (
-              <p className="text-sm text-destructive">
-                Enter an owner and repository, or a full GitHub URL.
-              </p>
+              <p className="text-sm text-destructive">{t("urlError")}</p>
             ) : null}
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="project-type">Type</Label>
+            <Label htmlFor="project-type">{t("typeLabel")}</Label>
             <Select value={type} onValueChange={setType}>
               <SelectTrigger id="project-type" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TYPES.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {TYPES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {typeLabel(value)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -174,7 +167,7 @@ export function CreateProjectDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancel
+                {t("cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -183,7 +176,7 @@ export function CreateProjectDialog({
               className="gap-2"
             >
               {create.isPending ? <Spinner /> : null}
-              Create
+              {t("submit")}
             </Button>
           </DialogFooter>
         </form>

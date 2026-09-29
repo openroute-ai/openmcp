@@ -135,7 +135,9 @@ export const tasksRouter = createTRPCRouter({
       }
 
       if (!definition.isEnabled) {
-        return { status: "skipped", reason: "task is disabled" }
+        // `as const` like the arms below, so the union stays discriminated and
+        // the client can read `.reason` and `.error` without a null check.
+        return { status: "skipped" as const, reason: "task is disabled" }
       }
 
       installTaskRegistry()

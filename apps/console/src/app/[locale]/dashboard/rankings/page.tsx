@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 
 export default function RankingsPage() {
   return (
-    <DashboardLayout title="Rankings">
+    <DashboardLayout titleKey="Nav.rankings">
       <RankingsContent />
     </DashboardLayout>
   )

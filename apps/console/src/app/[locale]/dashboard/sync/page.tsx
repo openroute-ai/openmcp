@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 
 export default function SyncPage() {
   return (
-    <DashboardLayout title="Sync Jobs">
+    <DashboardLayout titleKey="Sync.title">
       <SyncContent />
     </DashboardLayout>
   )

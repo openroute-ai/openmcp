@@ -182,18 +182,25 @@ describe.skipIf(!hasDatabase)("admin webui (integration)", () => {
 
     it("lists the most recent task executions first", async () => {
       const definitionId = await taskId("build-weekly-rankings")
+      // `createdAt` is what the overview orders by, and it defaults to `now()`
+      // for the whole statement, so both rows would tie and PostgreSQL would
+      // break the tie by physical tuple position. That depends on how much
+      // earlier runs left the table, which made this assertion pass or fail
+      // depending on the state of the database rather than on the ordering.
       await db.insert(taskExecutions).values([
         {
           id: "exec-a",
           taskDefinitionId: definitionId,
           status: "completed",
           startedAt: new Date("2026-01-01T00:00:00Z"),
+          createdAt: new Date("2026-01-01T00:00:00Z"),
         },
         {
           id: "exec-b",
           taskDefinitionId: definitionId,
           status: "failed",
           startedAt: new Date("2026-01-02T00:00:00Z"),
+          createdAt: new Date("2026-01-02T00:00:00Z"),
         },
       ])
 

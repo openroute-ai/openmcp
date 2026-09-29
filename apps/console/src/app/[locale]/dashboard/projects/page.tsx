@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 
 export default function ProjectsPage() {
   return (
-    <DashboardLayout title="Projects">
+    <DashboardLayout titleKey="Projects.title">
       <ProjectsContent />
     </DashboardLayout>
   )
