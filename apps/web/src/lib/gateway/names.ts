@@ -21,8 +21,8 @@ export function parseGithubRepoUrl(url: string): { owner: string; name: string; 
   if (!match) match = raw.match(/^([^/\s?#]+)\/([^/\s?#]+)$/)
 
   if (!match) return null
-  let owner = match[1]!.replace(/\/+$/, '')
-  let name = match[2]!.replace(/\.git$/i, '').replace(/\/+$/, '')
+  const owner = match[1]!.replace(/\/+$/, '')
+  const name = match[2]!.replace(/\.git$/i, '').replace(/\/+$/, '')
   if (!owner || !name) return null
   if (!/^[a-z0-9_.-]+$/i.test(owner) || !/^[a-z0-9_.-]+$/i.test(name)) return null
   return { owner, name, fullName: `${owner}/${name}` }

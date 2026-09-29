@@ -79,7 +79,9 @@ export function unzipTextFiles(buffer: Buffer, maxFiles = 200): ZipTextFile[] {
       const raw = method === 0 ? compressed : method === 8 ? inflateRawSync(compressed) : null
       if (!raw) continue
       files.push({ path: name, content: raw.toString('utf8') })
-    } catch {}
+    } catch {
+      // Corrupt or unsupported deflate stream: skip this entry.
+    }
   }
 
   return files

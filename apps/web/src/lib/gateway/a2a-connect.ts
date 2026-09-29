@@ -45,7 +45,9 @@ async function fetchCard(
       if (json && typeof json === 'object') {
         return { status: res.status, card: json, usedUrl }
       }
-    } catch {}
+    } catch {
+      // Non-JSON or unreachable card; fall through to the next candidate URL.
+    }
   }
   return { status: 404, card: null, usedUrl: baseUrl }
 }
