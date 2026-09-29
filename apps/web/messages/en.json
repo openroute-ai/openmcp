@@ -3139,6 +3139,72 @@
       "actions": {
         "refresh": "Refresh status"
       }
+    },
+    "payout": {
+      "meta": {
+        "title": "Payout account - OpenMCP",
+        "description": "Bind the WeChat Pay or Alipay account the platform uses to pay you for paid assets."
+      },
+      "pageTitle": "Payout account",
+      "pageDescription": "Bind where the platform sends your earnings. A payout account is required before you can publish paid assets.",
+      "title": "Payout account binding",
+      "description": "Add the WeChat Pay or Alipay account the platform should use to pay you. You can bind both channels and choose which one settles by default. This is account binding only; it does not connect a WeChat or Alipay merchant account.",
+      "channels": {
+        "wechat": "WeChat Pay",
+        "alipay": "Alipay"
+      },
+      "ready": {
+        "title": "Payout channel ready (default: {channel})",
+        "defaultBadge": "Default",
+        "body": "You can publish paid assets. Edit either channel below to change your details."
+      },
+      "notReady": {
+        "title": "No payout account bound yet",
+        "body": "Free assets can be submitted first, but you must bind at least one payout account before publishing paid MCP servers, A2A agents or skills."
+      },
+      "loadError": {
+        "title": "Could not load your payout details",
+        "body": "Please try again in a moment.",
+        "retry": "Reload"
+      },
+      "onboardingRequired": {
+        "title": "Complete onboarding first",
+        "body": "You need to submit verification details before binding a payout account.",
+        "cta": "Go to verification"
+      },
+      "fields": {
+        "account": "Account",
+        "accountPlaceholder": "Phone number or account ID",
+        "accountHint": {
+          "wechat": "Enter your WeChat ID or the phone number bound to it.",
+          "alipay": "Enter the email or phone number bound to your Alipay account."
+        },
+        "accountName": "Account name",
+        "accountNamePlaceholder": "Name on the account",
+        "qrCode": "Payment QR code",
+        "willBecomeDefault": "Saving this channel makes it your default settlement channel."
+      },
+      "upload": {
+        "choose": "Upload QR code",
+        "uploading": "Uploading...",
+        "remove": "Remove QR code"
+      },
+      "validation": {
+        "accountRequired": "Enter an account or upload a payment QR code"
+      },
+      "submit": {
+        "label": "Save payout account",
+        "sending": "Saving..."
+      },
+      "toast": {
+        "saved": "Payout account saved",
+        "failed": "Could not save your payout account"
+      },
+      "serverErrors": {
+        "onboardingRequired": "Complete provider onboarding before binding a payout account.",
+        "accountRequired": "Enter a payout account or upload a payment QR code.",
+        "saveFailed": "Could not save your payout account. Please try again."
+      }
     }
   }
 }

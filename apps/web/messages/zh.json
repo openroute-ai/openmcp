@@ -3067,6 +3067,72 @@
       "actions": {
         "refresh": "刷新状态"
       }
+    },
+    "payout": {
+      "meta": {
+        "title": "收款账户 - OpenMCP",
+        "description": "绑定平台向你结算付费资产时使用的微信 / 支付宝收款账户。"
+      },
+      "pageTitle": "收款账户",
+      "pageDescription": "绑定平台向你打款的账户。发布付费资产前必须绑定收款账户。",
+      "title": "收款账户绑定",
+      "description": "填写平台向你汇款的微信 / 支付宝账号。可同时绑定两个通道，并指定默认结算方式。此处仅为账户绑定，不接入微信或支付宝商户号。",
+      "channels": {
+        "wechat": "微信",
+        "alipay": "支付宝"
+      },
+      "ready": {
+        "title": "收款通道已就绪（默认：{channel}）",
+        "defaultBadge": "默认",
+        "body": "可发布付费资产。如需更换或绑定其他通道，请在下方编辑。"
+      },
+      "notReady": {
+        "title": "尚未完成账号绑定",
+        "body": "免费资产可先提交；发布付费 MCP / A2A / Skills 前必须至少绑定一个收款账号。"
+      },
+      "loadError": {
+        "title": "无法加载收款信息",
+        "body": "请稍后重试",
+        "retry": "重新加载"
+      },
+      "onboardingRequired": {
+        "title": "请先完成入驻",
+        "body": "绑定收款账户前需先提交实名认证资料。",
+        "cta": "前往实名认证"
+      },
+      "fields": {
+        "account": "账号",
+        "accountPlaceholder": "手机号或账号 ID",
+        "accountHint": {
+          "wechat": "可填写微信号或微信绑定的手机号。",
+          "alipay": "可填写支付宝绑定的邮箱或手机号。"
+        },
+        "accountName": "账户名",
+        "accountNamePlaceholder": "收款账户的开户名",
+        "qrCode": "收款二维码",
+        "willBecomeDefault": "保存后将把该通道设为默认结算通道。"
+      },
+      "upload": {
+        "choose": "上传收款二维码",
+        "uploading": "上传中...",
+        "remove": "移除二维码"
+      },
+      "validation": {
+        "accountRequired": "请至少填写收款账号或上传收款二维码"
+      },
+      "submit": {
+        "label": "保存收款账户",
+        "sending": "保存中..."
+      },
+      "toast": {
+        "saved": "收款账户已保存",
+        "failed": "保存收款账户失败"
+      },
+      "serverErrors": {
+        "onboardingRequired": "请先完成提供者入驻再绑定收款账户。",
+        "accountRequired": "请至少填写收款账号或上传收款二维码。",
+        "saveFailed": "保存收款账户失败，请重试。"
+      }
     }
   }
 }
