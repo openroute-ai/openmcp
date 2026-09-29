@@ -22,7 +22,13 @@ export function NextIntlClientProvider({
   children: ReactNode
 }) {
   return (
-    <IntlClientProvider locale={locale} messages={messages}>
+    <IntlClientProvider
+      locale={locale}
+      messages={messages}
+      // Pinned so server and client format dates/times identically; without
+      // this next-intl falls back to the host timezone and hydration mismatches.
+      timeZone="UTC"
+    >
       {children}
     </IntlClientProvider>
   )

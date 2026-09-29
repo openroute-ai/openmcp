@@ -1,0 +1,73 @@
+'use client'
+
+import { Languages } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { type Locale, useLocale, useTranslations } from 'next-intl'
+import { useEffect, useTransition } from 'react'
+import { Button } from '@workspace/ui/components/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui/components/dropdown-menu'
+import { useLocalePathname, useLocaleRouter } from '@/i18n/navigation'
+import { websiteConfig } from '@/lib/config/website'
+import { useLocaleStore } from '@/lib/stores/locale-store'
+
+/**
+ * LocaleSwitcher component
+ *
+ * Allows users to switch between available locales using a dropdown menu.
+ *
+ * Based on next-intl's useLocaleRouter and useLocalePathname for locale navigation.
+ * https://next-intl.dev/docs/routing/navigation#userouter
+ */
+export default function LocaleSwitcher() {
+  // Return null if there's only one locale available
+  const showLocaleSwitch = Object.keys(websiteConfig.i18n.locales).length > 1
+
+  const router = useLocaleRouter()
+  const pathname = useLocalePathname()
+  const params = useParams()
+  const locale = useLocale()
+  const { currentLocale, setCurrentLocale } = useLocaleStore()
+  const [, startTransition] = useTransition()
+  const t = useTranslations('Common')
+
+  useEffect(() => {
+    setCurrentLocale(locale)
+  }, [locale, setCurrentLocale])
+
+  if (!showLocaleSwitch) {
+    return null
+  }
+
+  const setLocale = (nextLocale: Locale) => {
+    setCurrentLocale(nextLocale)
+
+    startTransition(() => {
+      router.replace(
+        // @ts-expect-error -- TypeScript will validate that only known `params`
+        // are used in combination with a given `pathname`. Since the two will
+        // always match for the current route, we can skip runtime checks.
+        { pathname, params },
+        { locale: nextLocale }
+      )
+    })
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant='ghost' size='sm' className='size-8 cursor-pointer rounded-full border border-border p-0.5'>
+          <Languages className='size-3' />
+          <span className='sr-only'>{t('language')}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end'>
+        {Object.entries(websiteConfig.i18n.locales).map(([localeOption, data]) => (
+          <DropdownMenuItem key={localeOption} onClick={() => setLocale(localeOption)} className='cursor-pointer'>
+            {data.flag && <span className='mr-2 text-md'>{data.flag}</span>}
+            <span className='text-sm'>{data.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

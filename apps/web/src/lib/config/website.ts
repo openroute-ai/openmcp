@@ -11,6 +11,28 @@ export const websiteConfig = {
     description:
       'A marketplace for AI agents: providers publish MCP servers, A2A agents and skills; users install them free or paid. Review, discovery and settlement included.',
     base_url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    theme: {
+      defaultTheme: 'default',
+      enableSwitch: false,
+    },
+    mode: {
+      defaultMode: 'system',
+      enableSwitch: true,
+    },
+    /** Empty entries are treated as "not configured" and hidden by the UI. */
+    social: {
+      github: '',
+      twitter: '',
+      blueSky: '',
+      discord: '',
+      mastodon: '',
+      linkedin: '',
+      youtube: '',
+      telegram: '',
+      tiktok: '',
+      instagram: '',
+      facebook: '',
+    },
   },
   routes: {
     defaultLoginRedirect: '/dashboard',
