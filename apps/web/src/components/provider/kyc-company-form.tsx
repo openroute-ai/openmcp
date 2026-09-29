@@ -8,29 +8,55 @@ import { Input } from '@workspace/ui/components/input'
 import { Label } from '@workspace/ui/components/label'
 import {
   KYC_DOCS_FOR_ENTITY,
+  KYC_DOCS_FOR_REPRESENTATIVE,
   KycDocUpload,
   KycLockNotice,
   KycStatusBanner,
   KycSubmitButton,
   type KycEntityType,
+  type KycRepresentative,
 } from './kyc-shared'
 import { useKycForm } from './use-kyc-form'
 
 const ENTITY: KycEntityType = 'company'
 
+/** The two mutually exclusive branches, in the order they are offered. */
+const REPRESENTATIVES = ['legal_person', 'authorized'] as const satisfies readonly KycRepresentative[]
+
 /**
  * Company KYC.
  *
- * `validateKycDocuments` requires the business licence plus the authoriser's ID
- * in both branches, and only accepts the authorisation letter as a substitute
- * for the legal person's ID. The checkbox below is the UI expression of exactly
- * that rule: when the legal person is the account operator there is no separate
- * authoriser letter to supply.
+ * The business licence is always required. Beyond that there are two mutually
+ * exclusive ways to prove who is acting for the company, and the operator picks
+ * one:
+ *
+ * 1. `legal_person` — the legal person's own ID, front and back.
+ * 2. `authorized` — an authorisation letter plus the agent's ID, front and back.
+ *
+ * Only the selected branch's uploads are shown, and switching branches clears
+ * the other branch's documents. `validateKycDocuments` rejects a payload that
+ * carries both sets, since a reviewer could not tell which party is the actual
+ * counterparty, so leaving stale uploads in place would only fail server-side
+ * with an error the form cannot explain.
  */
 export function KycCompanyForm() {
   const t = useTranslations('ProviderPage.kyc')
-  const [legalPersonIsAuthorizer, setLegalPersonIsAuthorizer] = useState(false)
-  const form = useKycForm({ entityType: ENTITY, legalPersonIsAuthorizer })
+  const [representative, setRepresentative] = useState<KycRepresentative | undefined>(undefined)
+  const form = useKycForm({ entityType: ENTITY, representative })
+
+  const onSelectRepresentative = (next: KycRepresentative) => {
+    setRepresentative(next)
+    // Keep only the newly selected branch, so a half-finished upload on the
+    // other branch is discarded rather than submitted.
+    form.clearDocsExcept(KYC_DOCS_FOR_REPRESENTATIVE[next].map((doc) => doc.key))
+  }
+
+  // The licence is required on every branch; the identity documents come from
+  // the selected branch only, and stay hidden until one is chosen.
+  const visibleDocs = [
+    ...KYC_DOCS_FOR_ENTITY.company.filter((doc) => doc.key === 'businessLicense'),
+    ...(representative ? KYC_DOCS_FOR_REPRESENTATIVE[representative] : []),
+  ]
 
   return (
     <div className='space-y-6'>
@@ -113,34 +139,54 @@ export function KycCompanyForm() {
             )}
           </fieldset>
 
+          <fieldset className='space-y-3'>
+            <legend className='font-medium text-sm'>{t('fields.representative')}</legend>
+            <p className='text-muted-foreground text-xs'>{t('fields.representativeHint')}</p>
+
+            <div className='grid gap-3 sm:grid-cols-2'>
+              {REPRESENTATIVES.map((option) => (
+                <label
+                  key={option}
+                  className='flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm'
+                >
+                  <input
+                    type='radio'
+                    name='kycRepresentative'
+                    className='mt-0.5 size-4'
+                    checked={representative === option}
+                    onChange={() => onSelectRepresentative(option)}
+                  />
+                  <span className='space-y-1'>
+                    <span className='block font-medium'>
+                      {t(`fields.representative${option === 'legal_person' ? 'LegalPerson' : 'Authorized'}`)}
+                    </span>
+                    <span className='block text-muted-foreground text-xs'>
+                      {t(`fields.representative${option === 'legal_person' ? 'LegalPerson' : 'Authorized'}Detail`)}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {form.fieldError('kycDocuments') && (
+              <p className='text-destructive text-xs'>{form.fieldError('kycDocuments')}</p>
+            )}
+          </fieldset>
+
           <div className='grid gap-4 sm:grid-cols-2'>
-            {KYC_DOCS_FOR_ENTITY[ENTITY].map((doc) => {
-              // The authorisation letter is only meaningful when a separate
-              // party signs on the company's behalf.
-              const hidden = doc.key === 'authorizationFile' && legalPersonIsAuthorizer
-              if (hidden) return null
-              return (
-                <KycDocUpload
-                  key={doc.key}
-                  docKey={doc.key}
-                  label={t(doc.labelKey)}
-                  hint={doc.hintKey ? t(doc.hintKey) : undefined}
-                  required
-                  value={form.values.kycDocuments[doc.key]}
-                  onChange={(url) => form.setDoc(doc.key, url)}
-                />
-              )
-            })}
+            {visibleDocs.map((doc) => (
+              <KycDocUpload
+                key={doc.key}
+                docKey={doc.key}
+                label={t(doc.labelKey)}
+                hint={doc.hintKey ? t(doc.hintKey) : undefined}
+                required
+                value={form.values.kycDocuments[doc.key]}
+                onChange={(url) => form.setDoc(doc.key, url)}
+              />
+            ))}
           </div>
 
-          <label className='flex cursor-pointer items-start gap-2 text-sm'>
-            <Checkbox
-              checked={legalPersonIsAuthorizer}
-              onCheckedChange={(checked) => setLegalPersonIsAuthorizer(checked === true)}
-              className='mt-0.5'
-            />
-            <span className='text-muted-foreground'>{t('fields.legalPersonIsAuthorizer')}</span>
-          </label>
+          <p className='text-muted-foreground text-xs'>{t('validation.exclusiveDetail')}</p>
 
           <div className='space-y-2'>
             <label className='flex cursor-pointer items-start gap-2 text-sm'>

@@ -7,15 +7,19 @@ import {
   DollarSignIcon,
   DownloadIcon,
   HeartIcon,
+  InboxIcon,
   KeyIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MonitorIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  UsersIcon,
   WalletIcon,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Routes } from '@/lib/routes'
+import { Routes, adminRoutes } from '@/lib/routes'
 import type { NestedMenuItem } from '@/lib/types'
 
 /**
@@ -149,6 +153,30 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
       authorizeOnly: ['admin'],
       items: [
         {
+          title: t('admin.users.title'),
+          icon: <UsersIcon className='size-4 shrink-0' />,
+          href: Routes.AdminUsers,
+          external: false,
+        },
+        {
+          title: t('admin.sessions.title'),
+          icon: <MonitorIcon className='size-4 shrink-0' />,
+          href: Routes.AdminSessions,
+          external: false,
+        },
+        {
+          title: t('admin.userSubmissions.title'),
+          icon: <InboxIcon className='size-4 shrink-0' />,
+          href: Routes.AdminUserSubmissions,
+          external: false,
+        },
+        {
+          title: t('admin.securityReview.title'),
+          icon: <ShieldAlertIcon className='size-4 shrink-0' />,
+          href: Routes.AdminSecurityReview,
+          external: false,
+        },
+        {
           title: t('admin.rechargeOrders.title'),
           icon: <CreditCardIcon className='size-4 shrink-0' />,
           href: Routes.AdminRechargeOrders,
@@ -205,6 +233,24 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
       ],
     },
   ]
+
+  // Every admin sidebar entry must point at a route in `adminRoutes`. The two
+  // lists are maintained separately (one carries icons and labels, the other is
+  // data the proxy and admin layout rely on), so fail loudly in development if
+  // an admin page lands in one and is forgotten in the other.
+  if (process.env.NODE_ENV === 'development') {
+    const known = new Set<string>(adminRoutes)
+    const missing = links
+      .flatMap((group) => group.items ?? [])
+      .flatMap((item) => (item.href ? [item.href] : []))
+      .filter((href) => !known.has(href))
+    if (missing.length > 0) {
+      console.error(
+        '[sidebar] admin links missing from adminRoutes in lib/routes.ts:',
+        missing.join(', ')
+      )
+    }
+  }
 
   return links
 }

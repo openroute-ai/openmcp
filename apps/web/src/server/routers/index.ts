@@ -16,6 +16,9 @@ import { rechargeOrdersRouter } from '@/web/recharge-orders/router'
 import { adminRechargeRouter } from '@/web/recharge-orders/router-admin'
 import { adminRechargeOrdersRouter } from '@/web/recharge-orders/router-admin-orders'
 import { adminProvidersRouter } from '@/web/providers/router-admin'
+import { adminSkillReviewsRouter } from '@/web/skill-reviews/router-admin'
+import { adminSessionsRouter } from '@/web/sessions/router-admin'
+import { adminUsersRouter } from '@/web/users/router-admin'
 import { skillsRouter } from '@/web/skills/router'
 import { workflowsRouter } from '@/web/workflows/router'
 import { adminWorkflowsRouter } from '@/web/workflows/router-admin'
@@ -60,6 +63,9 @@ export const appRouter = router({
     mcpServers: adminMcpServersRouter,
     recharge: adminRechargeRouter,
     rechargeOrders: adminRechargeOrdersRouter,
+    users: adminUsersRouter,
+    sessions: adminSessionsRouter,
+    securityReview: adminSkillReviewsRouter,
   }),
 })
 

@@ -111,10 +111,45 @@ export enum Routes {
 /** Routes that a signed-in user must not visit. */
 export const routesNotAllowedByLoggedInUsers = [Routes.Login, Routes.Register]
 
-/** Routes that require a session. */
-export const protectedRoutes = [
-  Routes.Dashboard,
+/**
+ * Admin console routes.
+ *
+ * Kept separate from `userConsoleRoutes` because the two consoles have
+ * different gates: a session for the user console, and the `admin` role on top
+ * of it for this list. Merging them into one array is what previously let a
+ * signed-in non-admin reach `/admin/*` and see a console whose every query
+ * 401'd.
+ *
+ * Membership here is not authorization. `adminProcedure` re-checks the role on
+ * every procedure, and the `/admin` layout redirects non-admins to the
+ * dashboard, so this list exists for routing and navigation, not for trust.
+ */
+export const adminRoutes = [
   Routes.AdminUsers,
+  Routes.AdminSessions,
+  Routes.AdminRechargeOrders,
+  Routes.AdminBankTransfers,
+  Routes.AdminPayments,
+  Routes.AdminWorkflows,
+  Routes.AdminAuthors,
+  Routes.AdminCategories,
+  Routes.AdminNewsletterSubscriptions,
+  Routes.AdminUserSubmissions,
+  Routes.AdminProviderApplications,
+  Routes.AdminProviderPayouts,
+  Routes.AdminA2aAgents,
+  Routes.AdminMcpServers,
+  Routes.AdminSecurityReview,
+  Routes.AdminSecurityReviewRejected,
+  Routes.AdminSecurityReviewHistory,
+  Routes.CMSBlog,
+  Routes.CMSBlogCategories,
+  Routes.CMSBlogAuthors,
+]
+
+/** End-user console routes: a session is all these require. */
+export const userConsoleRoutes = [
+  Routes.Dashboard,
   Routes.ApiKeys,
   Routes.SettingsOverview,
   Routes.SettingsProfile,
@@ -131,31 +166,20 @@ export const protectedRoutes = [
   Routes.MyFavorites,
   Routes.MyDownloads,
   Routes.MyInstalls,
-  Routes.AdminRechargeOrders,
-  Routes.AdminBankTransfers,
-  Routes.AdminSessions,
-  Routes.AdminWorkflows,
-  Routes.AdminAuthors,
-  Routes.AdminCategories,
-  Routes.CMSBlog,
-  Routes.CMSBlogCategories,
-  Routes.CMSBlogAuthors,
-  Routes.AdminNewsletterSubscriptions,
-  Routes.AdminPayments,
-  Routes.AdminUserSubmissions,
-  Routes.AdminProviderApplications,
-  Routes.AdminProviderPayouts,
-  Routes.AdminA2aAgents,
-  Routes.AdminMcpServers,
-  Routes.AdminSecurityReview,
-  Routes.AdminSecurityReviewRejected,
-  Routes.AdminSecurityReviewHistory,
   Routes.MyRelations,
   Routes.MyAssetsMCP,
   Routes.MyAssetsA2A,
   Routes.MyAssetsSkills,
   Routes.UserGuide,
 ]
+
+/** Routes that require a session: the user console plus the admin console. */
+export const protectedRoutes = [...userConsoleRoutes, ...adminRoutes]
+
+/** True when `pathname` is, or lives under, any of `routes`. */
+export function matchesRoute(pathname: string, routes: readonly string[]): boolean {
+  return routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+}
 
 /** Where to send the user after signing in. */
 export const DEFAULT_LOGIN_REDIRECT =

@@ -1,19 +1,38 @@
-'use client'
-
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { SidebarInset } from '@workspace/ui/components/sidebar'
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar'
+import { auth } from '@/lib/auth'
+import { Routes } from '@/lib/routes'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * Layout for the admin console (`/admin/*`).
  *
- * Renders the admin sidebar (admin menu only) on the left.
+ * The admin console is a separate surface from the user console: it has its own
+ * sidebar (`type='admin'`) and its own route list (`adminRoutes` in
+ * `lib/routes.ts`), so each side keeps its own navigation and its own gate.
  *
- * No role check lives here: the proxy resolves the session for the whole
- * protected tree, and every admin procedure independently verifies the `admin`
- * role before touching data. Adding a redirect would duplicate that check and
- * would flash a redirect for role changes mid-session.
+ * This layout is the gate. A signed-in non-admin who reaches `/admin` by typing
+ * the URL is sent to the dashboard rather than shown a console whose every
+ * query 401s.
+ *
+ * This is UX, not authorization: `adminProcedure` re-checks the role on every
+ * procedure, so skipping this redirect could not leak data.
  */
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  const role = session?.user ? (session.user as { role?: unknown }).role : undefined
+
+  if (!session?.user) {
+    redirect(Routes.Login)
+  }
+
+  if (role !== 'admin') {
+    redirect(Routes.Dashboard)
+  }
+
   return (
     <>
       <DashboardSidebar variant='inset' type='admin' />

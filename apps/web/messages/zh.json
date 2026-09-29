@@ -3562,7 +3562,13 @@
         "payChannel": "收款通道",
         "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
         "agreedTerms": "我已阅读并同意《提供者服务协议》与市场规则。",
-        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。"
+        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。",
+        "representative": "办理人身份",
+        "representativeHint": "决定需要提交哪一套证件材料。",
+        "representativeLegalPerson": "法人本人办理",
+        "representativeLegalPersonDetail": "上传法人身份证正反面，无需授权文件。",
+        "representativeAuthorized": "授权经办人办理",
+        "representativeAuthorizedDetail": "上传授权文件，并由授权人提供身份证正反面。"
       },
       "payChannels": {
         "wechat": "微信",
@@ -3577,7 +3583,13 @@
         "businessLicense": "请上传营业执照",
         "authorizerId": "请上传授权人身份证正反面",
         "authorizationFile": "请上传授权文件，或勾选“由法人本人作为账户操作人”",
-        "agreedTerms": "请先同意服务协议再提交"
+        "agreedTerms": "请先同意服务协议再提交",
+        "legalPersonId": "请上传法人身份证正反面",
+        "legalPersonOrAuthorized": "请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）",
+        "exclusive": "法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新上传",
+        "exclusiveDetail": "两套材料只能二选一：法人身份证，或授权文件 + 授权人身份证。切换上方选项会清空另一套已上传的文件。",
+        "authorizationFileOnly": "请上传授权文件，并由授权人提供身份证正反面",
+        "representativeRequired": "请先选择办理人身份"
       },
       "serverErrors": {
         "locked": "实名认证审核中，资料已锁定，请等待审核通过或驳回后再修改。",
@@ -3588,7 +3600,10 @@
         "entityMissing": "请先选择认证主体类型。",
         "detailsIncomplete": "请完善实名资料（联系人、证件号、收款通道）后再提交。",
         "saveFailed": "保存入驻信息失败，请重试。",
-        "userMissing": "账户不存在。"
+        "userMissing": "账户不存在。",
+        "legalPersonIdMissing": "请补全法人身份证正反面。",
+        "authorizationFileIncomplete": "已上传授权文件，还需补全授权人身份证正反面。",
+        "docsExclusive": "法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新提交。"
       },
       "submit": {
         "label": "提交审核",

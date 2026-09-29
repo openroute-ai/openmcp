@@ -3614,7 +3614,13 @@
         "payChannel": "Payout channel",
         "payChannelHint": "Tells the platform where to send your earnings. You can bind the account or QR code itself after verification is approved.",
         "agreedTerms": "I have read and agree to the provider agreement and the marketplace terms.",
-        "legalPersonIsAuthorizer": "The legal person is the account operator, so no separate authorisation letter is needed."
+        "legalPersonIsAuthorizer": "The legal person is the account operator, so no separate authorisation letter is needed.",
+        "representative": "Who is signing up",
+        "representativeHint": "This decides which set of documents you need to submit.",
+        "representativeLegalPerson": "The legal person",
+        "representativeLegalPersonDetail": "Upload both sides of the legal person's ID card. No authorisation letter needed.",
+        "representativeAuthorized": "An authorised agent",
+        "representativeAuthorizedDetail": "Upload the authorisation letter and both sides of the agent's ID card."
       },
       "payChannels": {
         "wechat": "WeChat Pay",
@@ -3629,7 +3635,13 @@
         "businessLicense": "Upload the business licence",
         "authorizerId": "Upload both sides of the authoriser's ID",
         "authorizationFile": "Upload the authorisation letter, or confirm that the legal person is the account operator",
-        "agreedTerms": "You must accept the agreement before submitting"
+        "agreedTerms": "You must accept the agreement before submitting",
+        "legalPersonId": "Upload both sides of the legal person's ID card",
+        "legalPersonOrAuthorized": "Upload both sides of the legal person's ID card, or the authorisation letter plus both sides of the authoriser's ID",
+        "exclusive": "Choose either the legal person's ID card or the authorisation letter plus the authoriser's ID, not both",
+        "exclusiveDetail": "The two sets are mutually exclusive. Switching the option above clears the documents uploaded for the other set.",
+        "authorizationFileOnly": "Upload the authorisation letter and both sides of the authoriser's ID",
+        "representativeRequired": "Choose who is signing up for the company"
       },
       "serverErrors": {
         "locked": "Verification is under review and your details are locked until it is approved or rejected.",
@@ -3640,7 +3652,10 @@
         "entityMissing": "Choose a verification type first.",
         "detailsIncomplete": "Complete your contact name, ID number and payout channel before submitting.",
         "saveFailed": "Could not save your onboarding details. Please try again.",
-        "userMissing": "Account not found."
+        "userMissing": "Account not found.",
+        "legalPersonIdMissing": "Upload both sides of the legal person's ID card.",
+        "authorizationFileIncomplete": "An authorisation letter was uploaded; also upload both sides of the authoriser's ID.",
+        "docsExclusive": "Choose either the legal person's ID card or the authorisation letter plus the authoriser's ID, not both."
       },
       "submit": {
         "label": "Submit for review",
