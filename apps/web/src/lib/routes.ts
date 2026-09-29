@@ -13,6 +13,7 @@ export enum Routes {
   SkillSubmit = '/skills/submit',
   Personas = '/personas',
   A2A = '/a2a',
+  A2ASubmit = '/a2a/submit',
   MCP = '/mcp',
   McpSubmit = '/mcp/submit',
   OpenPay = '/openpay',

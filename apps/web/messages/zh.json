@@ -33,6 +33,7 @@
     "breadcrumb": "面包屑导航",
     "home": "首页",
     "mcpMarket": "MCP 市场",
+    "a2aMarket": "A2A 市场",
     "personas": "虚拟员工",
     "openpay": "OpenPay",
     "backTo": "返回{name}"
@@ -1763,6 +1764,72 @@
       "free": "免费"
     }
   },
+  "A2APage": {
+    "meta": {
+      "title": "A2A Agent 市场 - 浏览智能体",
+      "description": "发现可互操作的 AI 智能体，通过 Agent Card 调用第三方能力",
+      "notFoundTitle": "智能体未找到",
+      "notFoundDescription": "抱歉，找不到该 A2A 智能体的信息。",
+      "detailTitleSuffix": "A2A Agent",
+      "detailFallbackDescription": "查看并调用 {name} A2A Agent"
+    },
+    "hero": {
+      "title": "A2A Agent 市场",
+      "subtitle": "发现并调用可互操作的 AI 智能体。每个 Agent 通过 Agent Card 声明自己的能力边界，供其他 AI 代理发现与调用。",
+      "searchPlaceholder": "搜索智能体名称或描述",
+      "searchAction": "搜索"
+    },
+    "list": {
+      "loadError": "加载失败，请稍后重试",
+      "emptyTitle": "暂无上架的 A2A 智能体",
+      "emptyHint": "成为第一个提供者，发布你的智能体",
+      "emptySearchTitle": "没有找到匹配的智能体",
+      "emptySearchHint": "试试更换关键词，或发布你的第一个 A2A Agent",
+      "publish": "发布 A2A Agent",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {page} / {total} 页"
+    },
+    "card": {
+      "noDescription": "暂无描述",
+      "calls": "{count} 次调用",
+      "protocol": "A2A {version}",
+      "free": "免费"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/次",
+      "subscription": "订阅 · ¥{amount}",
+      "oneTime": "买断 · ¥{amount}",
+      "free": "免费"
+    },
+    "detail": {
+      "notFoundHeading": "智能体未找到",
+      "noDescription": "该智能体暂无描述。",
+      "overview": "描述",
+      "agentCard": "Agent Card",
+      "skillsCount": "{count} 个技能",
+      "author": "提供者",
+      "category": "分类",
+      "protocol": "协议版本",
+      "auth": "认证方式",
+      "scope": "可见性",
+      "pricing": "定价",
+      "stats": "统计",
+      "views": "浏览",
+      "downloads": "调用",
+      "created": "创建时间",
+      "updated": "更新时间",
+      "certified": "平台认证",
+      "safeDefault": "安全",
+      "billingModel": "计费方式",
+      "free": "免费",
+      "idLabel": "Agent ID",
+      "copyId": "复制 Agent ID",
+      "idCopied": "Agent ID 已复制",
+      "copyCardUrl": "复制 Agent Card URL",
+      "cardUrlCopied": "Agent Card URL 已复制"
+    }
+  },
   "Newsletter": {
     "title": "邮件列表",
     "subtitle": "邮件速订，快讯直达",
@@ -3397,6 +3464,145 @@
       "githubDescription": "安全扫描已排队，可在「我的资产」查看进度。",
       "zipDescription": "已完成解析与安全扫描，可在「我的资产」查看。",
       "manage": "管理我的资产"
+    }
+  },
+  "A2ASubmit": {
+    "meta": {
+      "title": "发布 A2A Agent",
+      "description": "接入 A2A 智能体端点，验证 Agent Card 后上架到市场"
+    },
+    "cardTitle": "发布 A2A Agent",
+    "cardDescription": "填写智能体端点，验证 Agent Card，再决定如何展示与定价。",
+    "step1": "接入",
+    "step2": "上架信息",
+    "url": {
+      "label": "端点地址",
+      "placeholder": "https://your-agent.example.com"
+    },
+    "discover": {
+      "button": "自动发现",
+      "successTitle": "已读取 Agent Card",
+      "failedTitle": "无法读取 Agent Card",
+      "nameLabel": "智能体名称",
+      "skillCountLabel": "技能数",
+      "protocolLabel": "协议版本",
+      "toastSuccess": "Agent Card 发现成功"
+    },
+    "assetName": {
+      "label": "资产名称",
+      "placeholder": "my-agent",
+      "hint": "资产将发布在 {assetName}",
+      "checking": "正在检查可用性…",
+      "available": "该名称可用",
+      "taken": "该名称已被占用",
+      "invalid": "只能使用小写字母、数字和连字符"
+    },
+    "displayName": {
+      "label": "展示名称",
+      "placeholder": "我的智能体"
+    },
+    "protocol": {
+      "label": "Agent Card 协议",
+      "v03": "0.3（旧版）",
+      "v10": "1.0"
+    },
+    "auth": {
+      "label": "认证方式",
+      "none": "无",
+      "apiKey": "API Key",
+      "bearer": "Bearer Token",
+      "basic": "Basic 认证",
+      "oauthClient": "OAuth 客户端凭证",
+      "secret": "API Key 或 Token",
+      "secretPlaceholder": "粘贴 Key 或 Token",
+      "basicLabel": "用户名:密码",
+      "basicPlaceholder": "username:password",
+      "oauthHint": "网关会在每次调用前用这些凭证换取令牌。",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "tokenUrl": "Token 地址",
+      "tokenUrlPlaceholder": "https://auth.example.com/oauth/token"
+    },
+    "test": {
+      "button": "测试连接",
+      "running": "测试中…",
+      "success": "连接通过，耗时 {ms} 毫秒，共 {count} 个技能",
+      "failed": "连接测试失败",
+      "steps": {
+        "handshake": "端点可达",
+        "auth": "认证",
+        "tools": "Agent Card 解析",
+        "protocol": "协议版本匹配"
+      }
+    },
+    "step1Confirm": "继续填写上架信息",
+    "step2Back": "返回接入配置",
+    "step2Submit": "发布智能体",
+    "submitting": "提交中…",
+    "payoutWarning": "付费智能体需要先绑定收款账户才能发布。",
+    "listing": {
+      "description": {
+        "label": "描述",
+        "placeholder": "说明该智能体能做什么、适合在什么场景调用",
+        "hint": "至少 {min} 个字符"
+      },
+      "logo": {
+        "label": "Logo",
+        "hint": "正方形图片，最大 {max}"
+      },
+      "cover": {
+        "label": "封面图",
+        "hint": "宽幅图片，最大 {max}"
+      },
+      "category": {
+        "label": "分类",
+        "placeholder": "选择分类",
+        "none": "不设置分类"
+      },
+      "scope": {
+        "label": "可见性",
+        "public": "公开",
+        "private": "私密",
+        "team": "团队"
+      },
+      "priceType": {
+        "label": "定价方式",
+        "free": "免费",
+        "paid": "付费"
+      },
+      "billingModel": {
+        "label": "计费方式",
+        "placeholder": "选择计费方式",
+        "oneTime": "买断",
+        "subscription": "订阅",
+        "payPerCall": "按次计费"
+      },
+      "priceAmount": {
+        "label": "价格",
+        "placeholder": "0.00"
+      },
+      "unitPrice": {
+        "label": "单次调用价格",
+        "placeholder": "0.00"
+      }
+    },
+    "error": {
+      "urlRequired": "请填写智能体端点地址",
+      "discoverFailed": "无法从该端点读取 Agent Card",
+      "testFailed": "连接测试失败",
+      "connectFailed": "无法将智能体接入网关",
+      "publishFailed": "提交上架失败",
+      "submitFailed": "发布过程中出现异常",
+      "testRequired": "请先通过连接测试",
+      "descriptionTooShort": "描述至少需要 {min} 个字符",
+      "billingModelRequired": "付费智能体需要选择计费方式",
+      "priceRequired": "请填写价格",
+      "priceInvalid": "价格格式不正确"
+    },
+    "success": {
+      "title": "智能体已提交审核",
+      "description": "可在 Dashboard 查看审核状态。",
+      "manage": "管理我的智能体"
     }
   }
 }

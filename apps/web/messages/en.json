@@ -33,6 +33,7 @@
     "breadcrumb": "Breadcrumb",
     "home": "Home",
     "mcpMarket": "MCP Market",
+    "a2aMarket": "A2A Market",
     "personas": "Personas",
     "openpay": "OpenPay",
     "backTo": "Back to {name}"
@@ -1679,6 +1680,72 @@
       "safeDefault": "Safe",
       "billingModel": "Billing",
       "free": "Free"
+    }
+  },
+  "A2APage": {
+    "meta": {
+      "title": "A2A Agents - Browse the Agent Marketplace",
+      "description": "Discover interoperable AI agents and invoke third-party capabilities via Agent Cards",
+      "notFoundTitle": "Agent Not Found",
+      "notFoundDescription": "Sorry, this A2A agent could not be found.",
+      "detailTitleSuffix": "A2A Agent",
+      "detailFallbackDescription": "View and invoke {name} as an A2A agent"
+    },
+    "hero": {
+      "title": "A2A agent marketplace",
+      "subtitle": "Discover and invoke interoperable AI agents. Each agent publishes an Agent Card that describes the boundaries of what it can do, so other agents can find and call it.",
+      "searchPlaceholder": "Search agent names or descriptions",
+      "searchAction": "Search"
+    },
+    "list": {
+      "loadError": "Could not load the agent list. Please try again later.",
+      "emptyTitle": "No published A2A agents yet",
+      "emptyHint": "Be the first provider and publish your agent",
+      "emptySearchTitle": "No matching A2A agents found",
+      "emptySearchHint": "Try a different keyword, or publish your first A2A agent",
+      "publish": "Publish an A2A Agent",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}"
+    },
+    "card": {
+      "noDescription": "No description yet",
+      "calls": "{count} calls",
+      "protocol": "A2A {version}",
+      "free": "Free"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/call",
+      "subscription": "Subscription · ¥{amount}",
+      "oneTime": "One-time · ¥{amount}",
+      "free": "Free"
+    },
+    "detail": {
+      "notFoundHeading": "A2A agent not found",
+      "noDescription": "This agent has no description yet.",
+      "overview": "Overview",
+      "agentCard": "Agent Card",
+      "skillsCount": "{count} skills",
+      "author": "Provider",
+      "category": "Category",
+      "protocol": "Protocol",
+      "auth": "Auth",
+      "scope": "Visibility",
+      "pricing": "Pricing",
+      "stats": "Stats",
+      "views": "Views",
+      "downloads": "Calls",
+      "created": "Created",
+      "updated": "Updated",
+      "certified": "Certified",
+      "safeDefault": "Safe",
+      "billingModel": "Billing",
+      "free": "Free",
+      "idLabel": "Agent ID",
+      "copyId": "Copy Agent ID",
+      "idCopied": "Agent ID copied",
+      "copyCardUrl": "Copy Agent Card URL",
+      "cardUrlCopied": "Agent Card URL copied"
     }
   },
   "Newsletter": {
@@ -3469,6 +3536,145 @@
       "githubDescription": "A security scan is queued, you can track it under My assets.",
       "zipDescription": "Parsed and scanned, you can find it under My assets.",
       "manage": "Manage your assets"
+    }
+  },
+  "A2ASubmit": {
+    "meta": {
+      "title": "Publish an A2A Agent",
+      "description": "Connect an A2A agent endpoint, verify its Agent Card, and publish it to the marketplace"
+    },
+    "cardTitle": "Publish an A2A Agent",
+    "cardDescription": "Point at your agent endpoint, verify the Agent Card, then decide how it is listed and priced.",
+    "step1": "Connect",
+    "step2": "Listing details",
+    "url": {
+      "label": "Endpoint URL",
+      "placeholder": "https://your-agent.example.com"
+    },
+    "discover": {
+      "button": "Discover",
+      "successTitle": "Agent Card read",
+      "failedTitle": "Could not read the Agent Card",
+      "nameLabel": "Agent name",
+      "skillCountLabel": "Skills",
+      "protocolLabel": "Protocol",
+      "toastSuccess": "Agent Card discovered"
+    },
+    "assetName": {
+      "label": "Asset name",
+      "placeholder": "my-agent",
+      "hint": "Your asset will be published at {assetName}",
+      "checking": "Checking availability...",
+      "available": "This name is available",
+      "taken": "This name is already taken",
+      "invalid": "Use lowercase letters, numbers and hyphens only"
+    },
+    "displayName": {
+      "label": "Display name",
+      "placeholder": "My Agent"
+    },
+    "protocol": {
+      "label": "Agent Card protocol",
+      "v03": "0.3 (legacy)",
+      "v10": "1.0"
+    },
+    "auth": {
+      "label": "Authentication",
+      "none": "None",
+      "apiKey": "API key",
+      "bearer": "Bearer token",
+      "basic": "Basic auth",
+      "oauthClient": "OAuth client credentials",
+      "secret": "API key or token",
+      "secretPlaceholder": "Paste the key or token",
+      "basicLabel": "user:password",
+      "basicPlaceholder": "username:password",
+      "oauthHint": "The gateway exchanges these credentials for a token on every call.",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "tokenUrl": "Token URL",
+      "tokenUrlPlaceholder": "https://auth.example.com/oauth/token"
+    },
+    "test": {
+      "button": "Test connection",
+      "running": "Testing...",
+      "success": "Connection passed in {ms} ms with {count} skills",
+      "failed": "Connection test failed",
+      "steps": {
+        "handshake": "Endpoint reachable",
+        "auth": "Authentication",
+        "tools": "Agent Card parsed",
+        "protocol": "Protocol version match"
+      }
+    },
+    "step1Confirm": "Continue to listing details",
+    "step2Back": "Back to connection",
+    "step2Submit": "Publish agent",
+    "submitting": "Publishing...",
+    "payoutWarning": "Paid agents need a bound payout account before they can be published.",
+    "listing": {
+      "description": {
+        "label": "Description",
+        "placeholder": "Describe what this agent can do and when to call it",
+        "hint": "At least {min} characters"
+      },
+      "logo": {
+        "label": "Logo",
+        "hint": "Square image, up to {max}"
+      },
+      "cover": {
+        "label": "Cover image",
+        "hint": "Wide image, up to {max}"
+      },
+      "category": {
+        "label": "Category",
+        "placeholder": "Select a category",
+        "none": "No category"
+      },
+      "scope": {
+        "label": "Visibility",
+        "public": "Public",
+        "private": "Private",
+        "team": "Team"
+      },
+      "priceType": {
+        "label": "Pricing",
+        "free": "Free",
+        "paid": "Paid"
+      },
+      "billingModel": {
+        "label": "Billing model",
+        "placeholder": "Select a billing model",
+        "oneTime": "One-time",
+        "subscription": "Subscription",
+        "payPerCall": "Pay per call"
+      },
+      "priceAmount": {
+        "label": "Price",
+        "placeholder": "0.00"
+      },
+      "unitPrice": {
+        "label": "Price per call",
+        "placeholder": "0.00"
+      }
+    },
+    "error": {
+      "urlRequired": "Enter the agent endpoint URL",
+      "discoverFailed": "Could not read the Agent Card from this endpoint",
+      "testFailed": "Connection test failed",
+      "connectFailed": "Could not connect this agent to the gateway",
+      "publishFailed": "Could not submit the agent for review",
+      "submitFailed": "Something went wrong while publishing",
+      "testRequired": "Run a passing connection test first",
+      "descriptionTooShort": "Write a description of at least {min} characters",
+      "billingModelRequired": "Select a billing model for paid agents",
+      "priceRequired": "Enter a price",
+      "priceInvalid": "Enter a valid price"
+    },
+    "success": {
+      "title": "Agent submitted for review",
+      "description": "You can track its status from your dashboard.",
+      "manage": "Manage your agents"
     }
   }
 }

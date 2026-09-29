@@ -192,6 +192,7 @@ export const a2aAgentsDataAccess = {
         authType: a2aAgents.authType,
         protocolVersion: a2aAgents.protocolVersion,
         categoryId: a2aAgents.categoryId,
+        visibility: a2aAgents.visibility,
         priceType: a2aAgents.priceType,
         priceAmount: a2aAgents.priceAmount,
         billingModel: a2aAgents.billingModel,
