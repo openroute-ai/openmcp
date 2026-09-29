@@ -47,6 +47,12 @@ export const UPLOAD_SCOPES = {
     contentTypes: ['application/zip', 'application/x-zip-compressed'],
     maxBytes: 50 * 1024 * 1024,
   },
+  /** Profile avatars and author/organisation images. */
+  avatar: {
+    folder: 'avatar',
+    contentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    maxBytes: 5 * 1024 * 1024,
+  },
 } as const
 
 export type UploadScope = keyof typeof UPLOAD_SCOPES

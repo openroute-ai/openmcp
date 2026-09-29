@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { and, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
-import { rechargeOrders } from '@workspace/db'
+import { balances, rechargeOrders, user } from '@workspace/db'
 import { db } from '@/lib/db'
 import { createTRPCRouter, protectedProcedure } from '@/server/routers/trpc'
 import { isSimulationMode, getTopUpGateway, resolveOnlineChannel } from '@/server/payment/gateway'
@@ -72,6 +72,32 @@ const orderView = (order: {
   expiresAt: order.expiresAt,
   paidAt: order.paidAt,
 })
+
+/**
+ * Display labels for the bills table.
+ *
+ * The stored `payment_method` / `status` values are provider and workflow
+ * vocabulary; the table shows a human-readable name. Unknown values pass
+ * through unchanged so a newly added channel is still legible rather than
+ * blank.
+ */
+const BILL_CHANNEL_LABELS: Record<string, string> = {
+  alipay: '支付宝',
+  wechat: '微信支付',
+  bank: '银行卡',
+  bank_transfer: '银行转账',
+  gifted: '平台赠送',
+}
+
+const BILL_STATUS_LABELS: Record<string, string> = {
+  paid: 'completed',
+  pending: 'processing',
+  processing: 'processing',
+  failed: 'failed',
+  expired: 'failed',
+  cancelled: 'failed',
+  refunded: 'failed',
+}
 
 export const rechargeOrdersRouter = createTRPCRouter({
   /** Preset top-up amounts, so the client never hardcodes the price list. */
@@ -207,4 +233,165 @@ export const rechargeOrdersRouter = createTRPCRouter({
       const orders = await listRechargeOrdersByUser(ctx.user.id, input?.limit ?? 20)
       return { success: true as const, data: orders.map(orderView) }
     }),
+
+  /**
+   * Paginated, filterable history for the console billing screens.
+   *
+   * Unlike `history`, which returns a flat list for compact widgets, this is
+   * shaped for the bills table: total count, page slicing and an optional
+   * created-at window.
+   */
+  getRechargeHistory: protectedProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(20),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { page, pageSize, startDate, endDate } = input
+      const offset = (page - 1) * pageSize
+
+      const where = [eq(rechargeOrders.userId, ctx.user.id)]
+      // An unparsable boundary is dropped rather than rejected: the date picker
+      // can hand back a partial string, and that should widen the window, not
+      // throw on every keystroke.
+      if (startDate) {
+        const from = new Date(startDate)
+        if (!Number.isNaN(from.getTime())) where.push(gte(rechargeOrders.createdAt, from))
+      }
+      if (endDate) {
+        const to = new Date(endDate)
+        if (!Number.isNaN(to.getTime())) where.push(lte(rechargeOrders.createdAt, to))
+      }
+
+      const [row] = await db
+        .select({ value: count() })
+        .from(rechargeOrders)
+        .where(and(...where))
+      const total = row?.value ?? 0
+
+      if (total === 0) {
+        return {
+          success: true as const,
+          data: { records: [], total: 0, pageSize, currentPage: page, totalPages: 0 },
+        }
+      }
+
+      const records = await db
+        .select({
+          id: rechargeOrders.id,
+          orderId: rechargeOrders.orderId,
+          amount: rechargeOrders.amount,
+          credits: rechargeOrders.credits,
+          status: rechargeOrders.status,
+          type: rechargeOrders.type,
+          paymentMethod: rechargeOrders.paymentMethod,
+          remark: rechargeOrders.remark,
+          createdAt: rechargeOrders.createdAt,
+          paidAt: rechargeOrders.paidAt,
+        })
+        .from(rechargeOrders)
+        .where(and(...where))
+        .orderBy(desc(rechargeOrders.createdAt))
+        .limit(pageSize)
+        .offset(offset)
+
+      return {
+        success: true as const,
+        data: {
+          // Shaped for the bills table rather than the raw order row: the table
+          // renders pre-localized channel/status labels, so those are resolved
+          // here and the client only supplies the i18n copy for the type.
+          records: records.map((record) => ({
+            id: record.id,
+            orderId: record.orderId,
+            date: record.createdAt,
+            amount: record.amount,
+            credits: record.credits,
+            type: record.type,
+            channel: BILL_CHANNEL_LABELS[record.paymentMethod] ?? record.paymentMethod,
+            status: BILL_STATUS_LABELS[record.status ?? ''] ?? 'failed',
+            remark: record.remark ?? '',
+          })),
+          total,
+          pageSize,
+          currentPage: page,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      }
+    }),
+
+  /**
+   * Wallet snapshot for the console balance widgets.
+   *
+   * The `balances` row is created on first read so a brand-new account has
+   * somewhere to accumulate spend, and a missing row can never surface as a
+   * thrown query error.
+   */
+  getUserBalance: protectedProcedure.input(z.object({})).query(async ({ ctx }) => {
+    const userId = ctx.user.id
+
+    const [profile] = await db
+      .select({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phoneNumber: user.phoneNumber,
+        customerId: user.customerId,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+
+    if (!profile) {
+      return { success: false as const, error: 'User not found' }
+    }
+
+    const readBalance = async () =>
+      (
+        await db
+          .select({
+            amount: balances.amount,
+            credits: balances.credits,
+            amountTotal: balances.amountTotal,
+            creditsTotal: balances.creditsTotal,
+            amountGifted: balances.amountGifted,
+            amountSpend: balances.amountSpend,
+            creditsGifted: balances.creditsGifted,
+            creditsSpend: balances.creditsSpend,
+          })
+          .from(balances)
+          .where(eq(balances.userId, userId))
+          .limit(1)
+      )[0]
+
+    let balance = await readBalance()
+    if (!balance) {
+      // `onConflictDoNothing` keeps this idempotent under concurrent first
+      // reads; the unique index on balances.user_id is what makes it safe.
+      await db
+        .insert(balances)
+        .values({ userId, currency: 'CNY' })
+        .onConflictDoNothing({ target: balances.userId })
+      balance = await readBalance()
+    }
+
+    return {
+      success: true as const,
+      data: {
+        accountBalance: Number(balance?.amountTotal ?? 0),
+        creditsBalance: Number(balance?.creditsTotal ?? 0),
+        amount: Number(balance?.amount ?? 0),
+        credits: Number(balance?.credits ?? 0),
+        amountGifted: Number(balance?.amountGifted ?? 0),
+        amountSpend: Number(balance?.amountSpend ?? 0),
+        creditsGifted: Number(balance?.creditsGifted ?? 0),
+        creditsSpend: Number(balance?.creditsSpend ?? 0),
+        user: profile,
+      },
+    }
+  }),
 })

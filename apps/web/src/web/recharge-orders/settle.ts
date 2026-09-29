@@ -13,7 +13,12 @@ import { balances, rechargeOrders } from '@workspace/db'
  * we return `duplicate` without crediting again.
  */
 
-export type SettleReason = 'wechat_webhook' | 'alipay_webhook' | 'bank_transfer_confirmed' | 'dev_simulated'
+export type SettleReason =
+  | 'wechat_webhook'
+  | 'alipay_webhook'
+  | 'bank_transfer_confirmed'
+  | 'dev_simulated'
+  | 'admin_marked_paid'
 
 export type SettleResult =
   | { ok: true; alreadySettled: boolean; orderId: string; amount: string; balanceAfter: string }
@@ -37,6 +42,13 @@ export async function settleRechargeOrder(params: {
   reportedAmount?: string | number
   thirdPartyOrderId?: string
   webhookData?: Record<string, unknown>
+  /**
+   * Skip the expiry window. Only the admin console sets this: the money was
+   * physically received and an operator is confirming it by hand, so refusing
+   * on a stale `expiresAt` would strand the credit. The idempotency guard
+   * below still applies, so this cannot double-credit.
+   */
+  allowExpired?: boolean
 }): Promise<SettleResult> {
   const [order] = await db
     .select()
@@ -77,7 +89,7 @@ export async function settleRechargeOrder(params: {
 
   // Bank transfers legitimately sit in `pending_transfer` for a long time, so
   // only the online channels are subject to the expiry window.
-  if (order.type !== 'bank_transfer' && order.expiresAt.getTime() < Date.now()) {
+  if (order.type !== 'bank_transfer' && !params.allowExpired && order.expiresAt.getTime() < Date.now()) {
     return { ok: false, code: 'EXPIRED', error: '订单已过期' }
   }
 
