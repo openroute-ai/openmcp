@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { authors, providerProfiles, providerKycSubmissions, user, organization, member } from "@workspace/db"
 import type { OrganizationMetadata } from "@workspace/db"
-import { auth } from "@/lib/auth"
 import { createId } from "@workspace/db"
 
 export type ProviderProfileInput = {
