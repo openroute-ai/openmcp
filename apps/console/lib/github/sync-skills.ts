@@ -1,11 +1,10 @@
 /**
  * The per-project skill sync, extracted from the task that runs it.
  *
- * The task loops over every skill project; a single project is also synced on
- * its own when one is created, and when an operator asks for one from the
- * dashboard. Both need the same fetch, translate and store pipeline, so it
- * lives here rather than inside the task body, where it could only be reached
- * by syncing everything.
+ * The task loops over every skill project, and a single project is also synced
+ * on its own when one is created. Both need the same fetch, translate and store
+ * pipeline, so it lives here rather than inside the task body, where it could
+ * only be reached by syncing everything.
  *
  * A project whose fetch fails keeps its stored skills: deleting them on a
  * transient failure would unpublish a working project, which is also why

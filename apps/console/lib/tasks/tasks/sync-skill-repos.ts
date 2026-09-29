@@ -7,8 +7,8 @@
  * depend on a downstream service being reachable.
  *
  * The per-project pipeline lives in `@/lib/github/sync-skills` because a
- * single project is also synced on its own — on create, and on request from
- * the dashboard — and that must not mean syncing all of them.
+ * single project is also synced on its own when one is created, and that must
+ * not mean syncing all of them.
  */
 
 import { createChatModel } from "@/lib/ai/provider"
