@@ -526,6 +526,9 @@
       "npmUsername": "npm username",
       "npmPackageCount": "npm packages",
       "verified": "Verified"
+    },
+    "link": {
+      "homepage": "Homepage"
     }
   },
   "Repos": {
