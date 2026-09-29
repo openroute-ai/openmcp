@@ -56,7 +56,8 @@ export function createBufferingLogger(
   let length = 0
 
   const push = (level: string, message: string, args: unknown[]) => {
-    const rendered = args.length > 0 ? ` ${args.map(stringifyArg).join(" ")}` : ""
+    const rendered =
+      args.length > 0 ? ` ${args.map(stringifyArg).join(" ")}` : ""
     const line = `${new Date().toISOString()} ${level} ${message}${rendered}`
 
     // The oldest lines are dropped first, so a chatty run keeps its recent
@@ -83,6 +84,22 @@ export function createBufferingLogger(
       console.error(`[task] ${message}`, ...args)
     },
     text: () => lines.join("\n"),
+  }
+}
+
+/**
+ * A logger for work outside a task run, such as a request handler.
+ *
+ * The buffering logger is the wrong shape here: its `text()` is what gets
+ * stored on the task execution row, and a request has no row to store it on,
+ * so the lines would be buffered and then dropped.
+ */
+export function createConsoleLogger(prefix: string): TaskLogger {
+  return {
+    info: (message, ...args) => console.info(`[${prefix}] ${message}`, ...args),
+    warn: (message, ...args) => console.warn(`[${prefix}] ${message}`, ...args),
+    error: (message, ...args) =>
+      console.error(`[${prefix}] ${message}`, ...args),
   }
 }
 
@@ -153,8 +170,7 @@ export async function runTask(
       // presumed dead, so it can be taken over.
       {
         staleAfter: new Date(
-          startedAt.getTime() -
-            (options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS)
+          startedAt.getTime() - (options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS)
         ),
       }
     )

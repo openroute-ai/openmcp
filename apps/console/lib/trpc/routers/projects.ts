@@ -1,15 +1,65 @@
 import { desc, eq, sql } from "drizzle-orm"
+import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import {
   PROJECT_STATUSES,
+  PROJECT_TYPES,
   projectSkills,
   projectSyncJobs,
   projects,
   repos,
 } from "@/db/schema"
+import {
+  InvalidRepoUrlError,
+  createProjectFromRepo,
+} from "@/lib/github/service/create-project"
+import { parseGithubRepoUrl } from "@/lib/github/repo-url"
+import { createConsoleLogger } from "@/lib/tasks/runner"
 import { createTRPCRouter, protectedProcedure } from "../init"
 
 export const projectsRouter = createTRPCRouter({
+  /**
+   * Curates a new project from a GitHub URL.
+   *
+   * Idempotent: a repository that already has a project returns that project
+   * with `status: "existing"`, so a double submit is harmless.
+   */
+  create: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+        // Defaults to the reference app's default, so an omitted type does not
+        // silently publish something as a skill.
+        type: z.enum(PROJECT_TYPES).default("application"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await createProjectFromRepo(
+          ctx.db,
+          { url: input.url, type: input.type },
+          { logger: createConsoleLogger("create-project") }
+        )
+      } catch (error) {
+        if (error instanceof InvalidRepoUrlError) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error.message,
+            cause: error,
+          })
+        }
+        throw error
+      }
+    }),
+
+  /**
+   * Normalizes a URL without creating anything, for the preview shown while
+   * the operator is still typing.
+   */
+  parseUrl: protectedProcedure
+    .input(z.object({ url: z.string().min(1) }))
+    .query(({ input }) => parseGithubRepoUrl(input.url)),
+
   list: protectedProcedure
     .input(
       z.object({

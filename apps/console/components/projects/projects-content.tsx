@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { SyncStatusBadge } from "@/components/status-badge"
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import { useTRPC } from "@/lib/trpc/client"
 import { formatRelative } from "@/lib/format"
 
@@ -52,13 +53,16 @@ export function ProjectsContent() {
               job
             </CardDescription>
           </div>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, owner, description…"
-            className="w-full sm:w-72"
-            aria-label="Search projects"
-          />
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search name, owner, description…"
+              className="w-full sm:w-64"
+              aria-label="Search projects"
+            />
+            <CreateProjectDialog />
+          </div>
         </div>
       </CardHeader>
       <CardContent>

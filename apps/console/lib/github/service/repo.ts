@@ -7,7 +7,8 @@ import type { RepoInfo } from "@/lib/github/repo-info-query"
 /** Any drizzle executor, so callers can pass a transaction. */
 export type Db = Database | Tx
 
-type RepoRow = typeof repos.$inferSelect
+/** Exported so callers can name a stored repository without re-deriving it. */
+export type RepoRow = typeof repos.$inferSelect
 type RepoInsert = typeof repos.$inferInsert
 
 /**

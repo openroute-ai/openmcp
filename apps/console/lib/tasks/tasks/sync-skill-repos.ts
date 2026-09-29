@@ -1,44 +1,24 @@
 /**
  * Fetches, translates and stores every skill project's SKILL.md documents.
  *
- * The source app parsed the skills, translated them, and posted them to
- * another service. Translation is folded back in here when an AI provider is
- * configured: without one the parse-and-store half stands alone, and the push
- * is still a separate task reading {@link listSkillsNeedingPush}, so a run
- * here cannot depend on a downstream service being reachable.
+ * Translation is folded back in here when an AI provider is configured:
+ * without one the parse-and-store half stands alone, and the push is still a
+ * separate task reading {@link listSkillsNeedingPush}, so a run here cannot
+ * depend on a downstream service being reachable.
  *
- * A project whose fetch fails keeps its stored skills. Deleting them on a
- * transient failure would unpublish a working project, which is why
- * `syncProjectSkills` also refuses to delete on an empty discovery.
+ * The per-project pipeline lives in `@/lib/github/sync-skills` because a
+ * single project is also synced on its own — on create, and on request from
+ * the dashboard — and that must not mean syncing all of them.
  */
 
-import { translateSkills } from "@/lib/ai/translate-skills"
-import { translator } from "@/lib/ai/translator"
 import { createChatModel } from "@/lib/ai/provider"
 import { createGitHubClient, type GitHubClient } from "@/lib/github/client"
-import {
-  fetchSkillMd,
-  isSkillDirMode,
-  listSkillDirs,
-  parseSkillMd,
-  skillPathInDir,
-} from "@/lib/github/skill"
-import {
-  listSkillProjects,
-  listSkillsForProject,
-  syncProjectSkills,
-} from "@/lib/github/service/skill"
+import { syncSkillsForProject } from "@/lib/github/sync-skills"
+import { listSkillProjects } from "@/lib/github/service/skill"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task } from "@/lib/tasks/runner"
 
 const SKILL_THROTTLE_MS = 200
-
-/** What a single parsed document contributes, before its project is attached. */
-type ParsedSkill = ReturnType<typeof parseSkillMd>
-
-interface DiscoveredSkill extends ParsedSkill {
-  skillDir: string
-}
 
 export function createSyncSkillReposTask(
   client: GitHubClient = createGitHubClient()
@@ -53,68 +33,31 @@ export function createSyncSkillReposTask(
       const projects = await listSkillProjects(db)
       logger.info(`syncing ${projects.length} skill project(s)`)
 
-      // Translation needs a model. Without one the fetched documents are
-      // stored untranslated and the push task delivers them with the zh
-      // fields empty, which is honest rather than fabricated English.
+      // One model for the whole run rather than one per project, so a long
+      // sweep does not build a client per iteration.
       const chatModel = createChatModel()
 
       const result = await processItems(
         projects,
-        async ({ project, repo }) => {
-          const fullName = `${repo.owner}/${repo.name}`
-          const ref = repo.defaultBranch ?? undefined
-          const path = project.skillMdPath ?? "SKILL.md"
-
-          const skills = isSkillDirMode(path)
-            ? await readDirectorySkills(client, fullName, path, ref)
-            : await readSingleSkill(client, fullName, path, ref)
-
-          if (skills.length === 0) {
-            // A repository that lost its skills is a real state, and so is a
-            // listing that failed. Passing the empty set through is what keeps
-            // the two apart: syncProjectSkills removes nothing on an empty
-            // discovery, and the next run resolves it.
-            logger.warn(`no skills found in ${fullName}, keeping stored skills`)
-            return { meta: { empty: 1 }, data: null }
-          }
-
-          const stored = new Map(
-            (await listSkillsForProject(db, project.id)).map((skill) => [
-              skill.skillDir,
-              skill,
-            ])
-          )
-
-          const translations = await translateSkills(
-            skills,
-            stored,
-            async (description, readme) => {
-              if (!chatModel) return { descriptionZh: "", readmeZh: "" }
-              const [descriptionZh, readmeZh] = await Promise.all([
-                translator.translateDescription(description),
-                translator.translateReadme(readme),
-              ])
-              return { descriptionZh, readmeZh }
-            }
-          )
-
-          await syncProjectSkills(
+        async (target) => {
+          const { skills, translated, empty } = await syncSkillsForProject(
             db,
-            project.id,
-            skills.map((skill, index) => ({
-              projectId: project.id,
-              ...skill,
-              ...translations[index],
-            }))
+            client,
+            target,
+            { logger, chatModel }
+          )
+
+          if (empty) return { meta: { empty: 1 }, data: null }
+
+          logger.info(
+            `synced ${target.repo.owner}/${target.repo.name}: ${skills} skill(s)`
           )
 
           return {
             meta: {
               synced: 1,
-              skills: skills.length,
-              translated: translations.filter(
-                (item) => item.descriptionZh || item.readmeZh
-              ).length,
+              skills,
+              translated,
             },
             data: null,
           }
@@ -137,55 +80,4 @@ export function createSyncSkillReposTask(
       }
     },
   }
-}
-
-/**
- * File mode: the project points at one document.
- *
- * The directory key is the path itself, so a project that switches between
- * file and directory mode stores under a different key rather than colliding
- * with a directory-mode row.
- */
-async function readSingleSkill(
-  client: GitHubClient,
-  fullName: string,
-  path: string,
-  ref?: string
-): Promise<DiscoveredSkill[]> {
-  const raw = await fetchSkillMd(client, fullName, path, ref)
-  if (!raw) return []
-  return [{ skillDir: path, ...parseSkillMd(raw) }]
-}
-
-/**
- * Directory mode: every subdirectory under `skills/` may hold a skill.
- *
- * One unreadable subdirectory does not fail the repository: a directory that
- * turns out not to contain a SKILL.md is skipped, and the rest are kept.
- */
-async function readDirectorySkills(
-  client: GitHubClient,
-  fullName: string,
-  path: string,
-  ref?: string
-): Promise<DiscoveredSkill[]> {
-  const dirs = await listSkillDirs(client, fullName, path, ref)
-  const found: DiscoveredSkill[] = []
-
-  for (const dir of dirs) {
-    try {
-      const raw = await fetchSkillMd(
-        client,
-        fullName,
-        skillPathInDir(path, dir),
-        ref
-      )
-      if (raw) found.push({ skillDir: dir, ...parseSkillMd(raw) })
-    } catch {
-      // A directory without a readable SKILL.md is not a reason to abandon
-      // the sibling directories that do have one.
-    }
-  }
-
-  return found
 }
