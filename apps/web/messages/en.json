@@ -2445,5 +2445,137 @@
       },
       "note": "Store MCP is live: /start and Install into Agent include “Add OpenMCP Store MCP” snippets. Endpoint /api/mcp/store."
     }
+  },
+  "Skills": {
+    "hero": {
+      "title": "All Skills",
+      "subtitle": "Quickly discover expert skills to take AI from generic to specialized",
+      "searchPlaceholder": "Search skills",
+      "searchButton": "Search",
+      "countSeparator": "·",
+      "countSuffix": "skills",
+      "categoryLabel": "Category",
+      "allCategories": "All categories",
+      "priceLabel": "Price",
+      "allPrices": "All prices",
+      "free": "Free",
+      "paid": "Paid",
+      "certLabel": "Certification",
+      "certAll": "All",
+      "certified": "Certified",
+      "sortLabel": "Sort",
+      "tabs": {
+        "all": "All",
+        "rising": "Trending",
+        "downloads": "Downloads",
+        "newest": "Newest"
+      },
+      "sorts": {
+        "dateDesc": "Newest",
+        "dateAsc": "Oldest",
+        "downloadsDesc": "Most downloaded",
+        "viewsDesc": "Most viewed",
+        "popularityDesc": "Most popular"
+      }
+    },
+    "list": {
+      "loadError": "Failed to load skills, please try again later",
+      "noMatch": "No matching skills found",
+      "adjustFilters": "Try adjusting your filters",
+      "totalPrefix": "Total",
+      "totalSuffix": "skills",
+      "listView": "List view",
+      "gridView": "Grid view",
+      "showingRange": "Showing",
+      "ofTotal": "of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "grid": {
+      "loadError": "Failed to load skills, please try again later",
+      "noMatch": "No matching skills found",
+      "adjustFilters": "Try adjusting your filters",
+      "showingRange": "Showing {from}-{to} skills, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "card": {
+      "safe": "Safe",
+      "caution": "⚠️ Caution",
+      "certified": "Certified",
+      "iconAlt": "{title} icon"
+    },
+    "row": {
+      "certified": "Certified",
+      "iconAlt": "{title} icon"
+    },
+    "category": {
+      "details": "Details",
+      "type": "Type",
+      "category": "Category",
+      "price": "Price",
+      "schemaVersion": "Schema version",
+      "billing": "Billing"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    }
+  },
+  "Personas": {
+    "hero": {
+      "title": "SOUL Gallery",
+      "subtitle": "Pick a soul for your Agent: browse the cards to find the right fit, then install that SOUL into your own AI companion.",
+      "testCta": "Test my SOUL",
+      "installCta": "Pair with expert packs",
+      "countSuffix": "available roles"
+    },
+    "grid": {
+      "loadError": "Failed to load roles, please try again later",
+      "noMatch": "No matching roles found",
+      "adjustFilters": "Try adjusting your filters",
+      "helper": "Not sure who clicks? Take the quick test to get a feel for the vibe. Already sold? Open a card to see the persona breakdown and install instructions.",
+      "galleryAria": "SOUL gallery",
+      "showingRange": "Showing {from}-{to} roles, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "card": {
+      "ariaLabel": "{code}・{title} persona details",
+      "shortReview": "Short review",
+      "viewDetail": "View details"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    }
+  },
+  "Authors": {
+    "workflows": {
+      "showingRange": "Showing {from}-{to} workflows, {total} total",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "price": {
+      "free": "Free",
+      "paid": "Paid"
+    },
+    "periods": {
+      "7d": "Last 7 days",
+      "1m": "Last month",
+      "3m": "Last 3 months"
+    },
+    "sorts": {
+      "dateAsc": "Oldest first",
+      "downloadsDesc": "Most downloads",
+      "viewsDesc": "Most views",
+      "popularityDesc": "Most popular",
+      "likesDesc": "Most likes"
+    },
+    "loading": "Loading...",
+    "activeFilters": "Active filters:",
+    "removeFilter": "Remove {label}",
+    "clearAll": "Clear all",
+    "sortPrefix": "Sort: {value}"
   }
 }
