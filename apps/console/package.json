@@ -61,6 +61,7 @@
     "prettier": "^3.9.9",
     "pretty-bytes": "^7.0.0",
     "pretty-ms": "^9.0.0",
+    "proxy-agent": "^8.0.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "recharts": "^3.10.1",
@@ -69,6 +70,11 @@
     "superjson": "^2.2.6",
     "tencentcloud-sdk-nodejs": "^4.1.319",
     "zod": "^4.6.5"
+  },
+  "overrides": {
+    "urllib": {
+      "proxy-agent": "^8.0.2"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
