@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from 'drizzle-orm/pg-core'
 import { createId } from './auth-schema'
@@ -108,7 +109,11 @@ export const balances = pgTable(
     amountSpend: numeric('amount_spend', { precision: 16, scale: 8 }).default('0').notNull(), // 累计消费金额
     lastSyncAt: timestamp('last_sync_at').default(sql`now()`).notNull(), // 最后同步时间，即与LiteLLMAPI同步的时间
   },
-  (table) => [index('balances_user_idx').on(table.userId)]
+  // UNIQUE, not just an index: every consumer reads a wallet with
+  // `where(userId).limit(1)`, and `ensureWallet()` relies on
+  // `onConflictDoNothing` to make first-time top-ups idempotent. Both only
+  // hold if there is at most one row per user.
+  (table) => [uniqueIndex('balances_user_id_unique').on(table.userId)]
 )
 
 /**

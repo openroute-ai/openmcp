@@ -13,6 +13,7 @@
       "@workspace/payment/types": ["../../packages/payment/src/types.ts"],
       "@workspace/payment/repository": ["../../packages/payment/src/repository.ts"],
       "@workspace/payment": ["../../packages/payment/src/index.ts"],
+      "@workspace/payment/topup": ["../../packages/payment/src/topup/index.ts"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [

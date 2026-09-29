@@ -273,6 +273,20 @@ export const payment = pgTable(
   (table) => [index("payment_userId_idx").on(table.userId)]
 )
 
+/**
+ * Order lifecycle. Money is only ever moved by `settleRechargeOrder`, which
+ * both the provider webhook and admin bank-transfer reconciliation call.
+ */
+export type RechargeOrderStatus =
+  | "pending"
+  | "pending_transfer"
+  | "paid"
+  | "expired"
+  | "closed"
+  | "failed"
+
+export type RechargeOrderType = "recharge" | "bank_transfer" | "wechat" | "alipay"
+
 export const rechargeOrders = pgTable(
   "recharge_orders",
   {
@@ -287,7 +301,10 @@ export const rechargeOrders = pgTable(
     credits: decimal("credits", { precision: 10, scale: 2 }).default("0").notNull(),
     currency: varchar("currency", { length: 3 }).default("CNY").notNull(),
     paymentMethod: varchar("payment_method", { length: 20 }).notNull(),
-    status: varchar("status", { length: 20 }).default("pending").notNull(),
+    status: varchar("status", { length: 20 })
+      .$type<RechargeOrderStatus>()
+      .default("pending")
+      .notNull(),
     paymentUrl: text("payment_url"),
     qrCode: text("qr_code"),
     thirdPartyOrderId: text("third_party_order_id"),
@@ -298,11 +315,43 @@ export const rechargeOrders = pgTable(
     webhookReceived: boolean("webhook_received").default(false),
     webhookData: jsonb("webhook_data"),
     remark: text("remark"),
-    type: varchar("type", { length: 20 }).default("recharge").notNull(),
+    type: varchar("type", { length: 20 })
+      .$type<RechargeOrderType>()
+      .default("recharge")
+      .notNull(),
     ip: text("ip"),
     userAgent: text("user_agent"),
   },
   (table) => [index("rechargeOrders_userId_idx").on(table.userId)]
+)
+
+
+export const bankTransferVouchers = pgTable(
+  "bank_transfer_vouchers",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    orderId: text("order_id").notNull().unique(),
+    remittanceCode: text("remittance_code").notNull().unique(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    payerName: text("payer_name"),
+    voucherUrl: text("voucher_url"),
+    status: varchar("status", { length: 20 }).default("pending").notNull(),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at"),
+    rejectReason: text("reject_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("bankTransferVouchers_userId_idx").on(table.userId),
+    index("bankTransferVouchers_status_idx").on(table.status),
+    index("bankTransferVouchers_remittanceCode_idx").on(table.remittanceCode),
+  ]
 )
 
 /* -------------------------------------------------------------------------- */
