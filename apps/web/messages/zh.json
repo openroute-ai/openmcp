@@ -787,6 +787,10 @@
           "invoice": {
             "title": "发票信息",
             "description": "开票抬头与税务资料"
+          },
+          "recharge": {
+            "title": "钱包与积分",
+            "description": "充值余额并查看积分流水"
           }
         }
       },

@@ -2,7 +2,7 @@
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { cn } from '@workspace/ui/lib/utils'
-import { Building2Icon, CircleUserRoundIcon, FileTextIcon } from 'lucide-react'
+import { BellIcon, Building2Icon, CircleUserRoundIcon, FileTextIcon, ReceiptIcon, WalletIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
@@ -59,6 +59,24 @@ export default function SettingsPage() {
       icon: FileTextIcon,
       title: t('cards.invoice.title'),
       description: t('cards.invoice.description'),
+    },
+    {
+      href: Routes.SettingsRecharge,
+      icon: WalletIcon,
+      title: t('cards.recharge.title'),
+      description: t('cards.recharge.description'),
+    },
+    {
+      href: Routes.SettingsBills,
+      icon: ReceiptIcon,
+      title: t('cards.bills.title'),
+      description: t('cards.bills.description'),
+    },
+    {
+      href: Routes.SettingsNotifications,
+      icon: BellIcon,
+      title: t('notifications.title'),
+      description: t('notifications.description'),
     },
   ]
 

@@ -787,6 +787,10 @@
           "invoice": {
             "title": "Invoice Profile",
             "description": "Invoice title and tax details"
+          },
+          "recharge": {
+            "title": "Wallet & Credits",
+            "description": "Top up your balance and view credit history"
           }
         }
       },
