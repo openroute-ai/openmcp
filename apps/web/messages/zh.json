@@ -29,7 +29,13 @@
     "loading": "加载中...",
     "cancel": "取消",
     "logoutFailed": "退出失败",
-    "copied": "已复制"
+    "copied": "已复制",
+    "breadcrumb": "面包屑导航",
+    "home": "首页",
+    "mcpMarket": "MCP 市场",
+    "personas": "虚拟员工",
+    "openpay": "OpenPay",
+    "backTo": "返回{name}"
   },
   "Dashboard": {
     "activityChart": {
@@ -1693,6 +1699,68 @@
       "subtitle": "浏览并安装 Skills / MCP / A2A；Provider 提交经审核后上架。变现为可选能力。",
       "ctaBrowse": "浏览 Skills / MCP / A2A",
       "ctaProvider": "成为 Provider"
+    }
+  },
+  "McpPage": {
+    "meta": {
+      "title": "MCP 工具市场 - 浏览 MCP Server",
+      "description": "发现可复用的 MCP Server，为你的 Agent 接入原生的工具调用能力",
+      "notFoundTitle": "服务未找到",
+      "notFoundDescription": "抱歉，找不到该 MCP 服务的信息。",
+      "detailTitleSuffix": "MCP Server",
+      "detailFallbackDescription": "查看并接入 {name} MCP Server"
+    },
+    "hero": {
+      "title": "MCP 工具市场",
+      "subtitle": "发现并接入可复用的 MCP Server。每个 Server 提供一套原生工具调用能力，让 Agent 触达任意外部系统。",
+      "searchPlaceholder": "搜索 MCP Server 名称或描述",
+      "searchAction": "搜索"
+    },
+    "list": {
+      "loadError": "加载失败，请稍后重试",
+      "emptyTitle": "暂无上架的 MCP Server",
+      "emptyHint": "成为第一个提供者，发布你的 MCP 工具",
+      "emptySearchTitle": "没有找到匹配的 MCP Server",
+      "emptySearchHint": "试试更换关键词，或发布你的第一个 MCP Server",
+      "publish": "发布 MCP Server",
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {page} / {total} 页"
+    },
+    "card": {
+      "noDescription": "暂无描述",
+      "calls": "{count} 次调用",
+      "free": "免费"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/次",
+      "subscription": "订阅 · ¥{amount}",
+      "oneTime": "买断 · ¥{amount}",
+      "free": "免费"
+    },
+    "detail": {
+      "notFoundHeading": "MCP 服务未找到",
+      "noDescription": "该服务暂时还没有描述。",
+      "overview": "服务介绍",
+      "tools": "工具列表",
+      "toolsCount": "{count} 个工具",
+      "author": "提供者",
+      "category": "分类",
+      "transport": "传输协议",
+      "auth": "认证方式",
+      "hosting": "托管方式",
+      "scope": "可见范围",
+      "endpoint": "端点地址",
+      "pricing": "计费方式",
+      "stats": "数据统计",
+      "views": "浏览量",
+      "downloads": "调用量",
+      "created": "创建时间",
+      "updated": "更新时间",
+      "certified": "平台认证",
+      "safeDefault": "安全",
+      "billingModel": "计费模式",
+      "free": "免费"
     }
   },
   "Newsletter": {

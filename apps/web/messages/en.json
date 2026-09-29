@@ -29,7 +29,13 @@
     "loading": "Loading...",
     "cancel": "Cancel",
     "logoutFailed": "Failed to log out",
-    "copied": "Copied"
+    "copied": "Copied",
+    "breadcrumb": "Breadcrumb",
+    "home": "Home",
+    "mcpMarket": "MCP Market",
+    "personas": "Personas",
+    "openpay": "OpenPay",
+    "backTo": "Back to {name}"
   },
   "Dashboard": {
     "cards": {
@@ -1611,6 +1617,68 @@
       "subtitle": "Browse and install Skills, MCP and A2A. Providers are listed after review. Monetization is optional.",
       "ctaBrowse": "Browse Skills / MCP / A2A",
       "ctaProvider": "Become a provider"
+    }
+  },
+  "McpPage": {
+    "meta": {
+      "title": "MCP Servers - Browse the Tool Marketplace",
+      "description": "Discover reusable MCP Servers and give your Agent native tool-calling capabilities",
+      "notFoundTitle": "Server Not Found",
+      "notFoundDescription": "Sorry, this MCP server could not be found.",
+      "detailTitleSuffix": "MCP Server",
+      "detailFallbackDescription": "View and connect {name} as an MCP server"
+    },
+    "hero": {
+      "title": "MCP tool marketplace",
+      "subtitle": "Discover and connect reusable MCP Servers. Each one exposes a set of native tools so your Agent can reach any external system.",
+      "searchPlaceholder": "Search MCP Server names or descriptions",
+      "searchAction": "Search"
+    },
+    "list": {
+      "loadError": "Could not load the server list. Please try again later.",
+      "emptyTitle": "No published MCP Servers yet",
+      "emptyHint": "Be the first provider and publish your MCP tools",
+      "emptySearchTitle": "No matching MCP Servers found",
+      "emptySearchHint": "Try a different keyword, or publish your first MCP Server",
+      "publish": "Publish an MCP Server",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}"
+    },
+    "card": {
+      "noDescription": "No description yet",
+      "calls": "{count} calls",
+      "free": "Free"
+    },
+    "price": {
+      "payPerCall": "¥{amount}/call",
+      "subscription": "Subscription · ¥{amount}",
+      "oneTime": "One-time · ¥{amount}",
+      "free": "Free"
+    },
+    "detail": {
+      "notFoundHeading": "MCP server not found",
+      "noDescription": "This server has no description yet.",
+      "overview": "Overview",
+      "tools": "Tools",
+      "toolsCount": "{count} tools",
+      "author": "Provider",
+      "category": "Category",
+      "transport": "Transport",
+      "auth": "Auth",
+      "hosting": "Hosting",
+      "scope": "Visibility",
+      "endpoint": "Endpoint",
+      "pricing": "Pricing",
+      "stats": "Stats",
+      "views": "Views",
+      "downloads": "Calls",
+      "created": "Created",
+      "updated": "Updated",
+      "certified": "Certified",
+      "safeDefault": "Safe",
+      "billingModel": "Billing",
+      "free": "Free"
     }
   },
   "Newsletter": {
