@@ -8,18 +8,43 @@ A standalone shadcn dashboard app.
   `DATABASE_URL` used by `apps/web` and `apps/api`.
 - Authentication via `better-auth` (`@workspace/auth`), and all data access goes
   through **tRPC v11** (`/api/trpc`).
-- The dashboard is the shadcn `dashboard-01` block, rewired to read live data
-  from this app's database.
+- The dashboard started as the shadcn `dashboard-01` block and has been
+  rewired to read live data from this app's database; the starter demo tables
+  (`sections`, `traffic`) were dropped once nothing read them.
 
 ## Routes
 
-| Route         | Description                                       |
-| ------------- | ------------------------------------------------- |
-| `/dashboard`  | `dashboard-01` block, requires a session          |
-| `/sign-in`    | Email + password sign in                          |
-| `/sign-up`    | Create an account (also creates the auth session) |
-| `/api/auth/*` | better-auth handler                               |
-| `/api/trpc/*` | tRPC fetch handler (batched, superjson)           |
+| Route                     | Description                                           |
+| ------------------------- | ----------------------------------------------------- |
+| `/dashboard`              | Overview: counts, task status, recent runs            |
+| `/dashboard/rankings`     | Week / month / rising-stars rankings                  |
+| `/dashboard/tasks`        | Task schedule, enable/disable, run on demand          |
+| `/dashboard/projects`     | Projects with repository stats, skills, last sync     |
+| `/dashboard/skills`       | Synced skills and their push state                    |
+| `/dashboard/sync`         | Project and readme sync jobs, newest first            |
+| `/sign-in`, `/sign-up`    | Email + password auth                                 |
+| `/api/auth/*`             | better-auth handler                                   |
+| `/api/trpc/*`             | tRPC fetch handler (batched, superjson)               |
+| `/api/rankings/*.json`    | Public ranking JSON (`week`, `month`, `rising-stars`) |
+| `/api/cron/github`        | The single scheduler entrypoint (Vercel Cron)         |
+| `/api/webhook/[task]`     | Inbound trigger for a named task                      |
+| `/api/internal/repos`     | Machine-to-machine repository ingest                  |
+| `/api/skills-sync/export` | Cursor-paged skill export                             |
+
+### Token-guarded routes
+
+`/api/cron/github`, `/api/webhook/[task]`, `/api/internal/repos` and
+`/api/skills-sync/export` all authenticate the same way — a `Bearer` header
+compared in constant time — and all **fail closed**: with no secret
+configured the route returns 404 rather than 401, so an unconfigured instance
+does not confirm that the route exists.
+
+| Route                     | Env var                | Notes                        |
+| ------------------------- | ---------------------- | ---------------------------- |
+| `/api/cron/github`        | `CRON_SECRET`          | Vercel Cron sends it         |
+| `/api/webhook/[task]`     | `CRON_SECRET`          | Same secret, inbound trigger |
+| `/api/internal/repos`     | `CONSOLE_API_TOKEN`    | `POST` a `RepoInfo`          |
+| `/api/skills-sync/export` | `SKILLS_WEBHOOK_TOKEN` | `?cursor=&limit=` paging     |
 
 ## Authentication
 
@@ -52,21 +77,33 @@ so local development that skips Redis is safe by default.
 
 ## Data model
 
-`db/schema.ts` defines two tables plus the four better-auth tables. The auth
-tables are re-used from `@workspace/db/schema` so there is a single source of
-truth, but they are created in **this app's own database**.
+`db/schema.ts` re-uses the Better Auth tables from `@workspace/db/schema` so
+there is a single source of truth, but they are created in **this app's own
+database**. On top of those it defines the migrated GitHub-sync domain in
+`db/schema/github.ts`:
 
-- `sections` — rows behind the dashboard data table. Dragging a row calls
-  `sections.reorder`, which persists the new ordering.
-- `traffic` — daily desktop/mobile counts behind the area chart. The chart's
-  range tabs (`7d`/`30d`/`90d`/`12m`) filter server-side via
-  `traffic.series`.
+- `repos` — repository statistics, plus the README, its translation, the icon
+  and the OSS image URLs written by their own tasks.
+- `projects`, `project_skills` — a repository's projects and the parsed
+  `SKILL.md` documents, with `synced_to_web_at` / `last_sync_error` recording
+  the downstream push outcome.
+- `project_sync_jobs`, `readme_sync_jobs` — sync history, shown on `/dashboard/sync`.
+- `task_definitions`, `task_status`, `task_executions` — the schedule, the
+  locks and the history. `task_executions` is what survives a run, so "what
+  happened last time" outlives "is anything running now".
+- `snapshots`, `repo_weekly_stars`, `rising_star_*` — the ranking inputs.
+
+Task definitions are **seeded from code**, not from a migration
+(`lib/tasks/seed.ts`), so adding a task is a code change. Seeding is
+insert-only, so an operator's schedule or enable flag is never reverted.
 
 tRPC routers live in `lib/trpc/routers`:
 
-- `stats.overview` — aggregates for the four summary cards
-- `sections.list`, `sections.reorder`, `sections.countsByStatus`
-- `traffic.series`
+- `overview.snapshot` — counts and the most recent executions
+- `tasks.list`, `tasks.executions`, `tasks.setEnabled`, `tasks.runNow`
+- `projects.list`, `skills.list`
+- `sync.list` — project and readme jobs merged, newest first
+- `rankings.weekly`, `rankings.monthly`, `rankings.risingStars`
 
 ## Environment
 
@@ -79,6 +116,15 @@ Copy `apps/console/.env.example` (or set these in your shell):
 | `BETTER_AUTH_SECRET`          | Shared with the other apps                           |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | Comma-separated list of allowed origins              |
 | `REDIS_URL`                   | Redis URL for the auth rate limiter                  |
+| `GITHUB_ACCESS_TOKEN`         | Required by every GitHub call and the sync tasks     |
+| `CRON_SECRET`                 | Bearer for the scheduler and inbound webhook         |
+| `CONSOLE_API_TOKEN`           | Bearer for the repository ingest endpoint            |
+| `SKILLS_WEBHOOK_URL`          | Outbound webhook for synced skills                   |
+| `SKILLS_WEBHOOK_TOKEN`        | Outbound bearer, and the export endpoint's bearer    |
+
+`.env.example` documents the rest (translation providers, Aliyun OSS, WeCom,
+build hooks). Most are optional; the tasks that need one are skipped or fail
+loudly rather than degrading silently.
 
 The app expects to run on port **3001** so it does not collide with `apps/web`.
 
@@ -89,9 +135,29 @@ The app expects to run on port **3001** so it does not collide with `apps/web`.
 psql -c 'create database console'
 
 pnpm --filter console db:migrate
-pnpm --filter console db:seed
+pnpm --filter console db:seed   # optional: task definitions before first deploy
 pnpm --filter console dev
 ```
 
-`db:seed` is idempotent — it only inserts when the tables are empty, and fills
-60 sections and 365 days of traffic so the dashboard has something to show.
+### Drizzle commands
+
+`drizzle.config.ts` sits at the app root and loads `.env` then `../../.env`, so
+bare `npx drizzle-kit` commands work from `apps/console`:
+
+```bash
+npx drizzle-kit generate   # writes db/drizzle; needs no database
+npx drizzle-kit migrate    # applies db/drizzle
+npx drizzle-kit push       # dev only: diff the schema straight onto the database
+npx drizzle-kit studio
+```
+
+`generate` only reads the schema, so it runs without `CONSOLE_DATABASE_URL`;
+the commands that connect require it and fail with
+`Please provide required params for Postgres driver: url: ''` when it is
+missing.
+
+> `push` diffs the **whole** schema, so pointing it at a database that still
+> holds tables from another app will offer to drop them. Use `migrate` there.
+
+`db:seed` is idempotent — `seedDefinitions` only inserts definitions that are
+missing, so it is safe to re-run and never reverts an edited schedule.

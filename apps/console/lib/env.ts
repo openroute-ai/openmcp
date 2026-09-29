@@ -150,9 +150,15 @@ export function requireGitHubToken(): string {
   return token
 }
 
-/** True when the machine-to-machine ingest API should be mounted. */
-export function apiTokenEnabled(): boolean {
-  return Boolean(syncEnv().CONSOLE_API_TOKEN)
+/**
+ * The bearer token for the machine-to-machine ingest API, if one is set.
+ *
+ * The ingest route fails closed on `undefined` rather than rejecting every
+ * call: an instance with no token configured does not expose the route at
+ * all, so an unauthenticated probe cannot confirm it exists.
+ */
+export function apiToken(): string | undefined {
+  return syncEnv().CONSOLE_API_TOKEN
 }
 
 /**

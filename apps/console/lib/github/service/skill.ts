@@ -6,7 +6,7 @@
  * visible and retryable rather than lost.
  */
 
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm"
+import { and, asc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { projectSkills, projects, repos } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
@@ -261,6 +261,50 @@ export async function listSkillsNeedingPushJoined(
 export interface SkillProject {
   project: typeof projects.$inferSelect
   repo: typeof repos.$inferSelect
+}
+
+export interface SkillExport {
+  skill: typeof projectSkills.$inferSelect
+  project: typeof projects.$inferSelect
+  repo: typeof repos.$inferSelect
+}
+
+export interface SkillExportOptions {
+  /** Only skills not yet acknowledged as synced, when omitted. */
+  cursor?: Date
+  limit: number
+}
+
+/**
+ * A page of skills for the export endpoint, ordered by the cursor.
+ *
+ * The cursor is `syncedToWebAt`, which is indexed for exactly this. A skill
+ * that has never been sent has a null there, and nulls sort first, so a
+ * consumer walking the cursor with no starting point sees the unsynced work
+ * before the backlog it has already processed.
+ *
+ * The page is `limit + 1` rows so the caller can tell "there is more" from
+ * "this was the last page" without a second count query.
+ */
+export async function listSkillsForExport(
+  db: Db,
+  options: SkillExportOptions
+): Promise<SkillExport[]> {
+  return db
+    .select({ skill: projectSkills, project: projects, repo: repos })
+    .from(projectSkills)
+    .innerJoin(projects, eq(projectSkills.projectId, projects.id))
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .where(
+      options.cursor
+        ? or(
+            isNull(projectSkills.syncedToWebAt),
+            gt(projectSkills.syncedToWebAt, options.cursor)
+          )
+        : isNull(projectSkills.syncedToWebAt)
+    )
+    .orderBy(asc(projectSkills.syncedToWebAt), asc(projectSkills.id))
+    .limit(options.limit + 1)
 }
 
 /** Skill projects with their repository, for a sync run. */
