@@ -1749,6 +1749,12 @@
           "privacyPolicy": "Privacy Policy",
           "termsOfService": "Terms of Service"
         }
+      },
+      "disclaimer": {
+        "contentSource": "Content source: some Skill content on this site comes from public channels, certified enterprises, or user submissions. Please exercise caution before use; copyright remains with the original author.",
+        "infringement": "Copyright complaints: if a Skill infringes copyright, email <link>service@openmcp.cn</link>. We will verify the report and take the content down.",
+        "copyright": "Copyright ©2025-Present Tianjin Julians Technology Co., Ltd.",
+        "icp": "Tianjin ICP Filing 2023007973"
       }
     },
     "avatar": {

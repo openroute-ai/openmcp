@@ -1798,6 +1798,12 @@
           "privacyPolicy": "隐私政策",
           "termsOfService": "服务条款"
         }
+      },
+      "disclaimer": {
+        "contentSource": "内容来源：本站部分 Skill 内容来源于公开渠道、认证企业或由用户自主发布，使用前请注意甄别风险，内容版权归原作者所有。",
+        "infringement": "侵权投诉：如 Skill 涉及版权问题，请发送邮件至 <link>service@openmcp.cn</link>，我们将在收到通知后及时核实并予以下架处理。",
+        "copyright": "Copyright ©2025-Present 天津聚链科技有限公司版权所有",
+        "icp": "津ICP备2023007973号"
       }
     },
     "avatar": {

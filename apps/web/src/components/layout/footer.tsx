@@ -80,23 +80,24 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
           <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-8'>
             <div className='flex flex-col gap-1 md:max-w-[559px]'>
               <p className='text-black/50 text-xs leading-[1.67]'>
-                内容来源：本站部分 Skill
-                内容来源于公开渠道、认证企业或由用户自主发布，使用前请注意甄别风险，内容版权归原作者所有。
+                {t('Marketing.footer.disclaimer.contentSource')}
               </p>
               <p className='text-black/50 text-xs leading-[1.67]'>
-                侵权投诉：如 Skill 涉及版权问题，请发送邮件至{' '}
-                <a
-                  href='mailto:service@openmcp.cn'
-                  className='cursor-pointer text-black/50 transition-colors duration-250 hover:text-foreground'
-                >
-                  service@openmcp.cn
-                </a>
-                ，我们将在收到通知后及时核实并予以下架处理。
+                {t.rich('Marketing.footer.disclaimer.infringement', {
+                  link: () => (
+                    <a
+                      href='mailto:service@openmcp.cn'
+                      className='cursor-pointer text-black/50 transition-colors duration-250 hover:text-foreground'
+                    >
+                      service@openmcp.cn
+                    </a>
+                  ),
+                })}
               </p>
             </div>
             <div className='flex shrink-0 flex-col gap-1 md:text-right'>
               <p className='text-black/50 text-xs leading-[1.67]'>
-                Copyright ©2025-Present 天津聚链科技有限公司版权所有
+                {t('Marketing.footer.disclaimer.copyright')}
               </p>
               <p className='text-[#71717B] text-xs leading-[1.67]'>
                 <a
@@ -105,7 +106,7 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
                   rel='noopener noreferrer'
                   className='cursor-pointer text-[#71717B] transition-colors duration-250 hover:text-foreground'
                 >
-                  津ICP备2023007973号
+                  {t('Marketing.footer.disclaimer.icp')}
                 </a>
               </p>
             </div>
