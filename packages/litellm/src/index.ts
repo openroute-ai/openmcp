@@ -6,6 +6,12 @@ export type {
 } from "./a2a-gateway"
 export { getA2aGateway, LiteLLMA2aGatewayManager } from "./a2a-gateway"
 export { isLiteLLMConfigured, LiteLLMBaseManager } from "./base"
+export {
+  computeKeyBudget,
+  computeSharedPoolBudgets,
+  roundTo,
+  SHARED_POOL_BASE,
+} from "./budget-alloc"
 export type { CreateCustomerParams, EndUserInfo } from "./customers"
 export { LiteLLMCustomerManager } from "./customers"
 export type {
@@ -30,4 +36,4 @@ export type {
   GenerateKeyParams,
   UpdateKeyParams,
 } from "./virtual-keys"
-export { LiteLLMVirtualKeyManager } from "./virtual-keys"
+export { getVirtualKeyManager, LiteLLMVirtualKeyManager } from "./virtual-keys"

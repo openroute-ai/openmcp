@@ -24,8 +24,11 @@ export function createVerifyHandler(config?: SmsCaptchaConfig) {
         config
       )
 
-      const body: { challengeId?: unknown; x?: unknown; y?: unknown } =
-        await request.json().catch(() => ({}))
+      const body = (await request.json().catch(() => ({}))) as {
+        challengeId?: unknown
+        x?: unknown
+        y?: unknown
+      }
       const challengeId = body?.challengeId
       const x = typeof body?.x === "number" ? body.x : undefined
       const y = typeof body?.y === "number" ? body.y : undefined

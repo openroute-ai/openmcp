@@ -27,7 +27,10 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
-  phoneNumber: text("phone_number"),
+  // Unique so one phone number maps to exactly one account: better-auth's
+  // phoneNumber plugin treats it as the identity key, and the temp email
+  // generated on sign-up is derived from it.
+  phoneNumber: text("phone_number").unique(),
   phoneNumberVerified: boolean("phone_number_verified").default(false).notNull(),
   /** Platform role: "admin" | "user" | "guest". Checked by the admin tRPC procedure. */
   role: varchar("role", { length: 256 }).default("user"),
@@ -225,6 +228,12 @@ export const apiKeys = pgTable(
     start: varchar("start", { length: 256 }),
     prefix: varchar("prefix", { length: 256 }),
     key: varchar("key", { length: 256 }).notNull(),
+    /** Issuer: 'litellm' for gateway virtual keys, 'local' for the offline fallback. */
+    provider: varchar("provider", { length: 32 }).default("local").notNull(),
+    /** LiteLLM key_alias, used for /key/delete and for display. */
+    keyAlias: varchar("key_alias", { length: 256 }),
+    /** key_name returned by LiteLLM (the token id). */
+    litellmKeyName: varchar("litellm_key_name", { length: 256 }),
     userId: varchar("user_id", { length: 256 }).notNull(),
     refillInterval: integer("refill_interval"),
     refillAmount: integer("refill_amount"),

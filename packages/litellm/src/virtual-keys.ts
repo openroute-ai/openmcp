@@ -154,19 +154,45 @@ export class LiteLLMVirtualKeyManager extends LiteLLMBaseManager {
     return this.request<{
       key: string
       token: string
+      key_name?: string
       expires: string
       user_id: string
     }>('/key/generate', 'POST', params)
   }
 
   /**
-   * 更新密钥
+   * 更新密钥（按明文 key 定位）
    */
   async updateKey(key: string, params: UpdateKeyParams) {
     return this.request<{
       key: string
       info: Record<string, any>
     }>('/key/update', 'POST', { key, ...params })
+  }
+
+  /**
+   * 更新密钥（按 key_alias 定位）
+   *
+   * openmcp 只持久化 `sha256(明文)`，无法还原明文，所以密钥生命周期的每次
+   * 同步都必须走 alias 寻址。LiteLLM `/key/update` 接受 `key` 与 `key_alias`
+   * 二者之一；这里刻意不发送 `key`（把 alias 当 key 传会查不到记录）。
+   */
+  async updateKeyByAlias(keyAlias: string, params: UpdateKeyParams) {
+    return this.request<{
+      key?: string
+      info?: Record<string, any>
+    }>('/key/update', 'POST', { key_alias: keyAlias, ...params })
+  }
+
+  /**
+   * 按 key_alias 读取 key 信息（仅管理面使用，不在请求热路径上）
+   */
+  async getKeyInfoByAlias(keyAlias: string) {
+    const queryString = this.buildQueryString({ key_alias: keyAlias })
+    return this.request<{
+      key: string
+      info: Record<string, any>
+    }>(`/key/info?${queryString}`, 'GET')
   }
 
   /**
@@ -182,10 +208,11 @@ export class LiteLLMVirtualKeyManager extends LiteLLMBaseManager {
    * @returns 密钥信息
    */
   async getKeyInfo(key: string) {
+    const queryString = this.buildQueryString({ key })
     return this.request<{
       key: string
       info: Record<string, any>
-    }>('/key/info', 'GET', { key })
+    }>(`/key/info?${queryString}`, 'GET')
   }
 
   /**
@@ -248,4 +275,11 @@ export class LiteLLMVirtualKeyManager extends LiteLLMBaseManager {
   async unblockKey(key: string) {
     return this.request<string>('/key/unblock', 'POST', { key })
   }
+}
+
+/**
+ * Virtual Key manager factory, following the getMcpGateway / getA2aGateway style.
+ */
+export function getVirtualKeyManager(): LiteLLMVirtualKeyManager {
+  return new LiteLLMVirtualKeyManager()
 }
