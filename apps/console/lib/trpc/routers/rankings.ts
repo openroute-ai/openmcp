@@ -12,6 +12,10 @@ import {
   buildRankingsForMonth,
   buildRankingsForWeek,
 } from "@/lib/github/service/rankings"
+import {
+  listMonthlyPeriods,
+  listWeeklyPeriods,
+} from "@/lib/github/service/available-periods"
 import { buildRisingStarsForYear } from "@/lib/github/service/rising-stars"
 import {
   resolveMonthInput,
@@ -25,6 +29,21 @@ const weekSchema = z.number().int().min(1).max(53)
 const monthSchema = z.number().int().min(1).max(12)
 
 export const rankingsRouter = createTRPCRouter({
+  /**
+   * The weeks and months that hold ranking data, most recent first.
+   *
+   * Read alongside the rankings themselves: the weekly and monthly queries
+   * answer for a period the caller names, and without this the dashboard has
+   * no way to know which names are worth offering.
+   */
+  periods: protectedProcedure.query(async ({ ctx }) => {
+    const [weeks, months] = await Promise.all([
+      listWeeklyPeriods(ctx.db),
+      listMonthlyPeriods(ctx.db),
+    ])
+    return { weeks, months }
+  }),
+
   weekly: protectedProcedure
     .input(
       z.object({

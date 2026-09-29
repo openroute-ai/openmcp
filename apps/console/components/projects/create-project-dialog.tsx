@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { IconCirclePlusFilled } from "@tabler/icons-react"
 import { useTRPC } from "@/lib/trpc/client"
 
 const TYPES = [
@@ -41,8 +42,15 @@ const TYPES = [
  * matching the reference endpoint: an omitted type must not quietly publish a
  * repository as a skill, because a skill project is synced from its SKILL.md
  * and everything else is not.
+ *
+ * `trigger` replaces the default button, so the same form can be opened from
+ * the sidebar's Quick Create without a second copy of the dialog.
  */
-export function CreateProjectDialog() {
+export function CreateProjectDialog({
+  trigger,
+}: {
+  trigger?: React.ReactNode
+}) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
@@ -105,7 +113,12 @@ export function CreateProjectDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button>New project</Button>
+        {trigger ?? (
+          <Button>
+            <IconCirclePlusFilled />
+            New project
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -145,7 +158,7 @@ export function CreateProjectDialog() {
           <div className="grid gap-2">
             <Label htmlFor="project-type">Type</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger id="project-type">
+              <SelectTrigger id="project-type" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
