@@ -25,8 +25,8 @@ export function getAvatarLinks(): MenuItem[] {
       icon: <LayoutDashboardIcon className='size-4 shrink-0' />,
     },
     {
-      title: t('billing'),
-      href: Routes.SettingsBilling,
+      title: t('wallet'),
+      href: Routes.SettingsRecharge,
       icon: <CreditCardIcon className='size-4 shrink-0' />,
     },
     {

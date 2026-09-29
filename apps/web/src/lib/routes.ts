@@ -82,7 +82,6 @@ export enum Routes {
 
   SettingsOverview = '/settings',
   SettingsProfile = '/settings/profile',
-  SettingsBilling = '/settings/billing',
   SettingsRecharge = '/settings/recharge',
   SettingsRechargeHistory = '/settings/recharge/history',
   SettingsNotifications = '/settings/notifications',
@@ -119,7 +118,6 @@ export const protectedRoutes = [
   Routes.ApiKeys,
   Routes.SettingsOverview,
   Routes.SettingsProfile,
-  Routes.SettingsBilling,
   Routes.SettingsRecharge,
   Routes.SettingsRechargeHistory,
   Routes.SettingsNotifications,

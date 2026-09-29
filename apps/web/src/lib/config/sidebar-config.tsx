@@ -134,6 +134,10 @@ export function getUserSidebarLinks(): NestedMenuItem[] {
 /**
  * Sidebar config for the admin console, with translations applied.
  *
+ * Only routes backed by a real page and a real `adminProcedure` are listed.
+ * Entries such as sessions, security review and user submissions stay out
+ * until their routers land, because a dead link is worse than a missing one.
+ *
  * NOTICE: used in client components only
  */
 export function getAdminSidebarLinks(): NestedMenuItem[] {
@@ -145,9 +149,57 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
       authorizeOnly: ['admin'],
       items: [
         {
-          title: t('admin.payments.title'),
+          title: t('admin.rechargeOrders.title'),
           icon: <CreditCardIcon className='size-4 shrink-0' />,
+          href: Routes.AdminRechargeOrders,
+          external: false,
+        },
+        {
+          title: t('admin.payments.title'),
+          icon: <DollarSignIcon className='size-4 shrink-0' />,
           href: Routes.AdminBankTransfers,
+          external: false,
+        },
+        {
+          title: t('admin.workflows.title'),
+          icon: <LayersIcon className='size-4 shrink-0' />,
+          href: Routes.AdminWorkflows,
+          external: false,
+        },
+        {
+          title: t('admin.categories.title'),
+          icon: <ActivityIcon className='size-4 shrink-0' />,
+          href: Routes.AdminCategories,
+          external: false,
+        },
+        {
+          title: t('admin.authors.title'),
+          icon: <KeyIcon className='size-4 shrink-0' />,
+          href: Routes.AdminAuthors,
+          external: false,
+        },
+        {
+          title: t('admin.mcpServers.title'),
+          icon: <BotIcon className='size-4 shrink-0' />,
+          href: Routes.AdminMcpServers,
+          external: false,
+        },
+        {
+          title: t('admin.a2aAgents.title'),
+          icon: <SparklesIcon className='size-4 shrink-0' />,
+          href: Routes.AdminA2aAgents,
+          external: false,
+        },
+        {
+          title: t('admin.providerApplications.title'),
+          icon: <ShieldCheckIcon className='size-4 shrink-0' />,
+          href: Routes.AdminProviderApplications,
+          external: false,
+        },
+        {
+          title: t('admin.providerPayouts.title'),
+          icon: <WalletIcon className='size-4 shrink-0' />,
+          href: Routes.AdminProviderPayouts,
           external: false,
         },
       ],
