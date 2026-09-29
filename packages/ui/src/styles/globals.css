@@ -193,6 +193,21 @@
     --sidebar-ring: oklch(0.553 0.013 58.071);
 }
 
+/*
+ * Section rhythm.
+ *
+ * These must live in a plain (non-`inline`) `@theme` block. Tailwind only
+ * registers the `spacing` namespace — and therefore the `py-section` /
+ * `py-section-lg` / `gap-section` utilities — from a regular `@theme`. Inside
+ * `@theme inline` the variables are emitted as inert custom properties and no
+ * utility is generated, so every section that opts into the shared rhythm would
+ * silently render with no vertical padding at all.
+ */
+@theme {
+    --spacing-section: var(--section-gap);
+    --spacing-section-lg: var(--section-gap-lg);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

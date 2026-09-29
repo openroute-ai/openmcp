@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "@workspace/sms-captcha": "workspace:*",
     "better-auth": "^1.7.6"
   },
   "devDependencies": {
