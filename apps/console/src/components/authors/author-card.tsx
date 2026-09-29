@@ -327,8 +327,62 @@ export function AuthorCard({ author }: { author: AuthorRow }) {
             {author.bio}
           </span>
         ) : null}
+        {/* The other places this author can be found. A card that collected a
+            LinkedIn handle and then showed nothing would make the editor look
+            broken, and these are the fields a refresh cannot fill — the only
+            way they ever appear is if they are rendered here. */}
+        <AuthorLinks author={author} />
       </div>
       <AuthorActions author={author} />
     </li>
+  )
+}
+
+/**
+ * The author's other profiles, as links.
+ *
+ * Each is shown only when it was actually collected, and each is labelled by
+ * the site it points at rather than by the URL, so a card reads as a list of
+ * places rather than a list of addresses.
+ */
+function AuthorLinks({ author }: { author: AuthorRow }) {
+  const a = useTranslations("Author")
+
+  const links: { href: string; label: string }[] = []
+  if (author.homepage) {
+    links.push({ href: author.homepage, label: a("link.homepage") })
+  }
+  if (author.twitter) {
+    links.push({
+      href: `https://twitter.com/${author.twitter.replace(/^@/, "")}`,
+      label: `@${author.twitter.replace(/^@/, "")}`,
+    })
+  }
+  if (author.linkedin) {
+    links.push({ href: author.linkedin, label: "LinkedIn" })
+  }
+  if (author.npmUsername) {
+    links.push({
+      href: `https://www.npmjs.com/~${author.npmUsername}`,
+      label: `npm:~${author.npmUsername}`,
+    })
+  }
+
+  if (links.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-0.5 text-xs">
+      {links.map((link) => (
+        <a
+          key={link.href}
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-muted-foreground underline underline-offset-4"
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
   )
 }

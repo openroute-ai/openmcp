@@ -33,11 +33,6 @@ import { projectSyncJobs } from "@/db/schema"
  */
 const runningSyncs = new Set<string>()
 
-/** Whether a resync is in flight for a project, for disabling the button. */
-export function isResyncing(projectId: string): boolean {
-  return runningSyncs.has(projectId)
-}
-
 /**
  * Starts a resync and returns as soon as the job row exists.
  *

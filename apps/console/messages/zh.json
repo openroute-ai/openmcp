@@ -526,6 +526,9 @@
       "npmUsername": "npm 用户名",
       "npmPackageCount": "npm 包数量",
       "verified": "已认证"
+    },
+    "link": {
+      "homepage": "主页"
     }
   },
   "Repos": {
