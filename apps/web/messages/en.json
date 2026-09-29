@@ -2314,35 +2314,20 @@
     "error": "Failed to load",
     "retry": "Retry",
     "filters": {
-      "title": "Filters & Sort",
-      "titleMobile": "Filters & Categories",
-      "price": "Price",
-      "timePeriod": "Time Period",
-      "sort": "Sort By",
-      "category": "Category",
-      "all": "All",
-      "allCategories": "All Categories",
-      "allTime": "All Time",
-      "free": "Free",
-      "paid": "Paid",
-      "last7Days": "Last 7 Days",
-      "lastMonth": "Last Month",
-      "last3Months": "Last 3 Months",
-      "sortBy": {
-        "dateDesc": "Newest",
-        "dateAsc": "Oldest",
-        "downloadsDesc": "Most Downloads",
-        "viewsDesc": "Most Views",
-        "popularityDesc": "Most Popular",
-        "likesDesc": "Most Likes"
-      }
+      "nodeTypes": "Node Types",
+      "supportAuthor": "Support the author",
+      "supportTitle": "Thank you for your support",
+      "supportDescription": "If this project has been useful to you, you can support it by scanning the WeChat QR code below. Your support keeps the work improving.",
+      "supportQrAlt": "WeChat payment QR code",
+      "supportHint": "Scan the QR code above with WeChat to donate. Thank you for your generous support!"
     },
     "grid": {
-      "noWorkflowsFound": "No workflows found matching your criteria",
-      "tryAdjustFilters": "Try adjusting your filters",
-      "showing": "Showing",
-      "of": "of",
-      "workflows": "workflows"
+      "loadError": "Failed to load workflows. Please try again later.",
+      "empty": "No workflows match your filters",
+      "emptyHint": "Try adjusting your filters",
+      "showing": "Showing {from}-{to} of {total} workflows",
+      "previous": "Previous",
+      "next": "Next"
     },
     "activeFilters": {
       "selected": "Selected:",
@@ -2373,6 +2358,53 @@
         "viewsDesc": "Most Views",
         "popularityDesc": "Most Popular"
       }
+    },
+    "hero": {
+      "title": "Workflow Library - Discover and share powerful automations",
+      "countSuffix": "workflows available",
+      "subtitle": "Explore ready-to-use automation workflows and optimize how you work",
+      "searchPlaceholder": "Search workflows..."
+    },
+    "related": {
+      "title": "Related Workflows",
+      "description": "Discover more great automation solutions"
+    },
+    "share": {
+      "title": "Share your workflow",
+      "description": "Have a great workflow to share? Join the creator community and help the community grow!",
+      "submitCta": "Submit your template",
+      "howTo": "How to submit",
+      "footnote": "Join hundreds of creators and share your automation workflows"
+    },
+    "detail": {
+      "description": "Description",
+      "expandDescription": "Expand description",
+      "collapseDescription": "Collapse description",
+      "markdown": "Markdown Content",
+      "expandMarkdown": "Expand Markdown content",
+      "collapseMarkdown": "Collapse Markdown content",
+      "copyMarkdown": "Copy Markdown",
+      "copied": "Copied!",
+      "home": "Home",
+      "workflows": "Workflows",
+      "nodes": "Nodes",
+      "categories": "Categories",
+      "website": "Website",
+      "copyId": "Copy workflow ID",
+      "viewOnN8n": "View on n8n.io",
+      "downloading": "Downloading...",
+      "downloadWorkflow": "Download workflow",
+      "downloadSuccess": "Downloaded",
+      "downloadError": "Download failed",
+      "missingId": "Could not resolve the workflow ID",
+      "certifiedTitle": "Certified workflow",
+      "certifiedDescription": "This workflow has passed the official quality review",
+      "signInRequired": "Sign in to continue",
+      "signIn": "Sign in"
+    },
+    "notFound": {
+      "title": "Workflow Not Found",
+      "description": "Sorry, we could not find information about this workflow."
     }
   },
   "StartPage": {

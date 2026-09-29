@@ -2242,35 +2242,20 @@
     "error": "加载失败",
     "retry": "重试",
     "filters": {
-      "title": "筛选与排序",
-      "titleMobile": "筛选与分类",
-      "price": "价格",
-      "timePeriod": "时间段",
-      "sort": "排序方式",
-      "category": "分类",
-      "all": "全部",
-      "allCategories": "全部分类",
-      "allTime": "全部时间",
-      "free": "免费",
-      "paid": "付费",
-      "last7Days": "最近7天",
-      "lastMonth": "最近1个月",
-      "last3Months": "最近3个月",
-      "sortBy": {
-        "dateDesc": "最新发布",
-        "dateAsc": "最早发布",
-        "downloadsDesc": "下载最多",
-        "viewsDesc": "浏览最多",
-        "popularityDesc": "热度最高",
-        "likesDesc": "点赞最多"
-      }
+      "nodeTypes": "节点类型",
+      "supportAuthor": "支持作者",
+      "supportTitle": "感谢您的支持",
+      "supportDescription": "如果您觉得这个项目对您有帮助，欢迎通过微信扫码进行捐助。您的支持是我持续改进和更新的动力！",
+      "supportQrAlt": "微信支付二维码",
+      "supportHint": "请使用微信扫描上方二维码进行捐助，感谢您的慷慨支持！"
     },
     "grid": {
-      "noWorkflowsFound": "没有找到符合条件的工作流",
-      "tryAdjustFilters": "请尝试调整筛选条件",
-      "showing": "显示",
-      "of": "共",
-      "workflows": "个工作流"
+      "loadError": "加载工作流失败，请稍后重试",
+      "empty": "没有找到符合条件的工作流",
+      "emptyHint": "请尝试调整筛选条件",
+      "showing": "显示 {from}-{to} 个工作流，共 {total} 个",
+      "previous": "上一页",
+      "next": "下一页"
     },
     "activeFilters": {
       "selected": "已选条件:",
@@ -2301,6 +2286,53 @@
         "viewsDesc": "浏览最多",
         "popularityDesc": "热度最高"
       }
+    },
+    "hero": {
+      "title": "工作流库 - 发现并分享强大的自动化工作流",
+      "countSuffix": "个可用工作流",
+      "subtitle": "探索即用型自动化工作流，优化您的工作流程",
+      "searchPlaceholder": "搜索工作流..."
+    },
+    "related": {
+      "title": "相关推荐工作流",
+      "description": "发现更多优秀的自动化解决方案"
+    },
+    "share": {
+      "title": "分享您的工作流",
+      "description": "有优秀的工作流想要分享吗？加入创作者中心，帮助社区发展！",
+      "submitCta": "提交您的模板",
+      "howTo": "如何提交",
+      "footnote": "加入数百位创作者，分享您的自动化工作流"
+    },
+    "detail": {
+      "description": "描述",
+      "expandDescription": "展开描述",
+      "collapseDescription": "折叠描述",
+      "markdown": "Markdown 内容",
+      "expandMarkdown": "展开 Markdown 内容",
+      "collapseMarkdown": "折叠 Markdown 内容",
+      "copyMarkdown": "复制 Markdown",
+      "copied": "已复制!",
+      "home": "首页",
+      "workflows": "工作流",
+      "nodes": "节点",
+      "categories": "分类",
+      "website": "网站",
+      "copyId": "复制工作流 ID",
+      "viewOnN8n": "在 n8n.io 查看",
+      "downloading": "下载中...",
+      "downloadWorkflow": "下载工作流",
+      "downloadSuccess": "下载成功",
+      "downloadError": "下载失败",
+      "missingId": "无法获取工作流 ID",
+      "certifiedTitle": "平台认证工作流",
+      "certifiedDescription": "此工作流已通过官方质量审核",
+      "signInRequired": "请先登录",
+      "signIn": "登录"
+    },
+    "notFound": {
+      "title": "工作流未找到",
+      "description": "抱歉，找不到该工作流的信息。"
     }
   },
   "StartPage": {

@@ -39,6 +39,13 @@ export const websiteConfig = {
     /** Locale prefix strategy: unprefixed for the default locale. */
     localePrefix: 'as-needed',
   },
+  /**
+   * Optional WeChat donation QR shown on the marketplace filter sidebar.
+   * The upstream repo shipped a hardcoded image path; sourcing it from the
+   * environment keeps a missing asset from rendering as a broken image.
+   */
+  donationQrUrl: process.env.NEXT_PUBLIC_DONATION_QR_URL || '',
+
   i18n: {
     defaultLocale: 'en',
     locales: {
