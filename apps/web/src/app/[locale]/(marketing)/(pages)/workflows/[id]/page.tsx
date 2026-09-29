@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { assertLocale } from '@/i18n/routing'
+import { isLocale } from '@/i18n/routing'
 import { constructMetadata } from '@/lib/metadata'
 import { getUrlWithLocale } from '@/lib/urls/urls'
 import { workflowsDataAccess } from '@/web/workflows'
@@ -12,9 +12,11 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string; locale: string }>
-}): Promise<Metadata> {
+}): Promise<Metadata | undefined> {
   const { id } = await params
-  const locale = assertLocale((await params).locale)
+  const { locale: rawLocale } = await params
+  if (!isLocale(rawLocale)) return undefined
+  const locale = rawLocale
 
   // Try to get workflow by ID first, then by slug
   let workflow = await workflowsDataAccess.getWorkflowById(id, locale)

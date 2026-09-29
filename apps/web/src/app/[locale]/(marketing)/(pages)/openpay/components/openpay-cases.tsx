@@ -14,7 +14,7 @@ export async function OpenpayCases() {
   const t = await getTranslations('OpenPayPage.cases')
 
   return (
-    <section className='overflow-hidden px-gutter py-section'>
+    <section className='overflow-hidden px-gutter py-section sm:px-gutter-sm lg:px-gutter-lg'>
       <div className='mx-auto max-w-5xl'>
         <div className='mb-12 text-center'>
           <span className='mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>

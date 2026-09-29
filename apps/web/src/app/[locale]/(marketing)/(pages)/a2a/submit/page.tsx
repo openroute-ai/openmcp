@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import { A2aSubmitForm } from '@/components/a2a-agents/a2a-submit-form'
 import { ProviderNotLogin } from '@/components/provider/provider-not-login'
 import { ProviderSubmitGate } from '@/components/provider/provider-submit-gate'
-import { assertLocale } from '@/i18n/routing'
+import { isLocale } from '@/i18n/routing'
 import { auth } from '@/lib/auth'
 import { constructMetadata } from '@/lib/metadata'
 import { Routes } from '@/lib/routes'
@@ -14,8 +14,10 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const locale = assertLocale((await params).locale)
+}): Promise<Metadata | undefined> {
+  const { locale: rawLocale } = await params
+  if (!isLocale(rawLocale)) return undefined
+  const locale = rawLocale
   const t = await getTranslations({ locale, namespace: 'A2ASubmit.meta' })
 
   return constructMetadata({

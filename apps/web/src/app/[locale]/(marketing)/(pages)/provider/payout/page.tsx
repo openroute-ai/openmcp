@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { assertLocale } from '@/i18n/routing'
+import { assertLocale, isLocale } from '@/i18n/routing'
 import { constructMetadata } from '@/lib/metadata'
 import { getUrlWithLocale } from '@/lib/urls/urls'
 import { auth } from '@/lib/auth'
@@ -17,8 +17,10 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const locale = assertLocale((await params).locale)
+}): Promise<Metadata | undefined> {
+  const { locale: rawLocale } = await params
+  if (!isLocale(rawLocale)) return undefined
+  const locale = rawLocale
   const t = await getTranslations({ locale, namespace: 'ProviderPage.payout' })
 
   return constructMetadata({

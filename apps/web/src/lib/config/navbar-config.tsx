@@ -39,6 +39,11 @@ export function getNavbarLinks(): NestedMenuItem[] {
       external: false,
     },
     {
+      title: t('openpay.title'),
+      href: Routes.OpenPay,
+      external: false,
+    },
+    {
       title: t('blog.title'),
       href: Routes.Blog,
       external: false,

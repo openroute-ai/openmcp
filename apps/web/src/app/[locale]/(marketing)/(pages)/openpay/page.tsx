@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
-import { assertLocale } from '@/i18n/routing'
+import { isLocale } from '@/i18n/routing'
 import { constructMetadata } from '@/lib/metadata'
 import { getUrlWithLocale } from '@/lib/urls/urls'
 import { OpenpayCapabilities } from './components/openpay-capabilities'
@@ -18,8 +18,10 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const locale = assertLocale((await params).locale)
+}): Promise<Metadata | undefined> {
+  const { locale: rawLocale } = await params
+  if (!isLocale(rawLocale)) return undefined
+  const locale = rawLocale
   const t = await getTranslations({ locale, namespace: 'OpenPayPage.meta' })
 
   return constructMetadata({

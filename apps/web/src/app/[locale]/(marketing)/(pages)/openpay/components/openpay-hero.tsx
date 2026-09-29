@@ -14,7 +14,7 @@ export async function OpenpayHero() {
   const t = await getTranslations('OpenPayPage.hero')
 
   return (
-    <section className='relative overflow-hidden border-border border-b px-gutter py-section'>
+    <section className='relative overflow-hidden border-border border-b px-gutter py-section sm:px-gutter-sm lg:px-gutter-lg'>
       <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--color-glow),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,var(--color-glow-dark),transparent_70%)]' />
 
       <div className='relative mx-auto max-w-4xl text-center'>

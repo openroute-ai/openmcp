@@ -246,7 +246,8 @@
         "successDescription": "Please save your API key. You won't be able to view it again after closing this dialog.",
         "apiKey": "API Key",
         "apiKeyWarning": "Please save this key securely. You won't be able to view it again after closing this dialog.",
-        "done": "Done"
+        "done": "Done",
+        "gatewayHint": "Issued by the platform gateway — usable directly for MCP / A2A calls and Skill installs."
       },
       "deleteDialog": {
         "title": "Delete API Key",
@@ -254,6 +255,24 @@
         "cancel": "Cancel",
         "confirm": "Delete",
         "fail": "Failed to delete API key"
+      },
+      "gatewayHint": "Keys issued here are gateway keys (sk-…): the same key works for Store MCP, Skill package downloads, and marketplace MCP / A2A calls.",
+      "budget": {
+        "title": "Gateway budget",
+        "available": "Available balance",
+        "availableHint": "Marketplace MCP / A2A calls are capped by this balance; calls are rejected once it runs out.",
+        "noGatewayKey": "No gateway key yet. A newly created key is capped automatically.",
+        "insufficient": "Insufficient balance — gateway calls are being rejected. Please recharge.",
+        "recharge": "Recharge",
+        "sync": "Sync budget",
+        "syncing": "Syncing…",
+        "syncSuccess": "Budget synced to the gateway",
+        "syncSkipped": "Nothing to sync",
+        "syncFail": "Failed to sync budget",
+        "lastSynced": "Last synced",
+        "neverSynced": "Never synced",
+        "perKeyBudget": "Key budget",
+        "notConfigured": "Gateway not configured"
       }
     },
     "bills": {
@@ -376,9 +395,71 @@
       "error": "Failed to load, please try again"
     },
     "myDownloads": {
-      "title": "My Downloads"
+      "title": "My Downloads",
+      "description": "Review every Skill you have downloaded, and download it again anytime",
+      "empty": {
+        "title": "No downloads yet",
+        "description": "Head to the Skills marketplace to browse and download Skills"
+      },
+      "browseSkills": "Skills marketplace",
+      "count": "{count} download record(s)",
+      "downloadAgain": "Download again",
+      "viewDetail": "View details",
+      "skillRemoved": "This skill has been unpublished or deleted",
+      "unknownSkill": "Untitled skill",
+      "grade": {
+        "safe": "Safe",
+        "caution": "Caution"
+      }
+    },
+    "myInstalls": {
+      "viewDetail": "View details",
+      "noMatch": "No installs match the current filters",
+      "title": "My Installs",
+      "description": "Review every Skill installed to your local agent, and manage or reinstall them",
+      "empty": {
+        "title": "No installs yet",
+        "description": "Once you install a Skill through an agent, the record shows up here automatically"
+      },
+      "count": "{count} install record(s)",
+      "countFiltered": "{count} of {total} install record(s)",
+      "filters": {
+        "runtime": "Runtime",
+        "status": "Status",
+        "all": "All",
+        "runtimes": {
+          "cursor": "Cursor",
+          "claude-code": "Claude Code",
+          "codex": "Codex",
+          "generic": "Generic"
+        },
+        "statuses": {
+          "active": "Active",
+          "removed": "Removed"
+        }
+      },
+      "installedAt": "Installed {time}",
+      "lastUsedAt": "Last used {time}",
+      "installPath": "Install path",
+      "reinstall": "Reinstall",
+      "markRemoved": "Mark as removed",
+      "restore": "Restore",
+      "markRemovedConfirm": "Mark this install as removed? Your local files are not deleted.",
+      "updateFailed": "Failed to update the install record",
+      "skillRemoved": "This skill has been unpublished or deleted",
+      "unknownSkill": "Untitled skill",
+      "grade": {
+        "safe": "Safe",
+        "caution": "Caution"
+      }
     },
     "virtualKeys": {
+      "loadFailed": "Failed to load",
+      "nameRequired": "Please enter a key name",
+      "descriptionRequired": "Please enter a key description",
+      "delete": "Delete",
+      "edit": "Edit",
+      "view": "View details",
       "title": "Virtual Keys",
       "description": "Manage your virtual keys for accessing AI models",
       "create": "Create Key",
@@ -425,6 +506,9 @@
         "fail": "Failed to update virtual key"
       },
       "detailDialog": {
+        "name": "Name",
+        "descriptionLabel": "Description",
+        "status": "Status",
         "title": "Virtual Key Details",
         "description": "View detailed information about the virtual key",
         "key": "Virtual Key",
@@ -1175,7 +1259,57 @@
       },
       "loadFailed": "Failed to load",
       "retry": "Retry",
-      "payoutAccount": "Payout account"
+      "payoutAccount": "Payout account",
+      "payoutAccountHint": "Bind a WeChat / Alipay account so the platform can remit your earnings",
+      "managePayoutAccount": "Manage payout account",
+      "statusLabel": "Status: {status}",
+      "payReady": "Bound — you can request a payout",
+      "payNotReady": "Not bound — bind an account before requesting a payout",
+      "skillsShareTitle": "Skill sales share",
+      "skillsShareDescription": "Paid Skills add {share}% to your withdrawable balance (platform fee {fee}%)",
+      "requestPayout": "Request payout",
+      "requesting": "Submitting…",
+      "summary": {
+        "payable": "Withdrawable",
+        "paid": "Settled",
+        "total": "Total net income"
+      },
+      "skillsTable": {
+        "skill": "Skill",
+        "gross": "Gross",
+        "platformFee": "Platform fee",
+        "net": "Net income",
+        "status": "Status",
+        "createdAt": "Time",
+        "empty": "No Skill sales yet"
+      },
+      "payouts": {
+        "title": "Payout requests",
+        "amount": "Amount",
+        "channel": "Channel",
+        "status": "Status",
+        "createdAt": "Time",
+        "note": "Note",
+        "empty": "—"
+      },
+      "channel": {
+        "wechat": "WeChat",
+        "alipay": "Alipay",
+        "unknown": "—"
+      },
+      "status": {
+        "payable": "Withdrawable",
+        "paid": "Settled",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "unknown": "Unknown"
+      },
+      "toast": {
+        "requested": "Payout request submitted",
+        "requestFailed": "Failed to request payout",
+        "payAccountRequired": "Bind a WeChat / Alipay payout account first"
+      }
     },
     "organization": {
       "title": "Organization",
@@ -1255,7 +1389,18 @@
       "invalidPhone": "Please enter a valid phone number",
       "codeSent": "Verification code sent",
       "countdown": "Resend in {seconds}s",
-      "autoCreateAccount": "Account will be created automatically if phone number doesn't exist"
+      "autoCreateAccount": "Account will be created automatically if phone number doesn't exist",
+      "captchaTitle": "Security Verification",
+      "captchaHint": "Slide to complete the puzzle",
+      "captchaLoading": "Loading captcha...",
+      "captchaVerifying": "Verifying...",
+      "captchaChallengeFailed": "Failed to load captcha",
+      "captchaVerifyFailed": "Verification failed",
+      "captchaMismatch": "Slide position mismatch, please try again",
+      "captchaTooManyAttempts": "Too many attempts, please try again later",
+      "sendCodeFailed": "Failed to send verification code",
+      "verifySuccess": "Signed in successfully",
+      "verifyFailed": "Verification failed, please check the code"
     },
     "register": {
       "title": "Register",
@@ -1278,7 +1423,8 @@
       "send": "Send reset link",
       "backToLogin": "Back to login",
       "checkEmail": "Please check your email inbox",
-      "emailRequired": "Please enter your email"
+      "emailRequired": "Please enter your email",
+      "description": "Enter your email and we will send you a reset link"
     },
     "resetPassword": {
       "title": "Reset Password",
@@ -1287,7 +1433,11 @@
       "backToLogin": "Back to login",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
-      "minLength": "Password must be at least 8 characters"
+      "minLength": "Password must be at least 8 characters",
+      "confirmPassword": "Confirm password",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "description": "Choose a new password for your account",
+      "missingToken": "This reset link is invalid or has expired. Please request a new one."
     },
     "error": {
       "title": "Oops! Something went wrong!",
@@ -1768,6 +1918,284 @@
       "emailValidation": "Please enter a valid email address"
     }
   },
+  "Landing": {
+    "cta": {
+      "browse": "Browse the marketplace",
+      "provider": "Become a creator",
+      "submitSkill": "Publish a personal Skill",
+      "providerJoin": "Enterprise publishing",
+      "skills": "Browse Skills",
+      "mcp": "MCP services",
+      "a2a": "A2A agents"
+    },
+    "hero": {
+      "badge": "One marketplace for Skills / MCP / A2A",
+      "badgeSuffix": " · Built for agents in China",
+      "titleLead": "Discover, install and publish ",
+      "titleHighlight": "agent skills",
+      "subtitle": "Search SKILL.md skill packs by business scenario, or connect MCP / A2A services. Individuals and companies can both submit assets; payment and settlement are optional.",
+      "copyPrompt": "Copy for your AI agent",
+      "stepsPrefix": "Full steps at ",
+      "runtimeCompat": "The same SKILL.md works in {runtimes}, and in any agent that can install local skill directories.",
+      "installPrompt": "Install the OpenMCP store with <path>/install/openmcp.md</path>"
+    },
+    "carousel": {
+      "ariaLabel": "Three kinds of available capabilities",
+      "eyebrow": "Agent Marketplace",
+      "title": "Three capabilities, one standard",
+      "subtitle": "Skills install and run immediately, MCP services are called on demand, A2A agents orchestrate across platforms — all sharing one registry and one billing and settlement system.",
+      "sampleLabel": "Ready to use · sample data",
+      "updatedSuffix": " · updated live",
+      "prevAria": "Previous",
+      "nextAria": "Next",
+      "skills": {
+        "title": "Skills: installable skill packs",
+        "description": "Search skills by business scenario and copy the prompt to drop them into {runtimes} — install and go.",
+        "total": "50+ certified Skills",
+        "items": {
+          "1": {
+            "name": "Bid proposal assistant",
+            "tag": "Free"
+          },
+          "2": {
+            "name": "Enterprise month-end close",
+            "tag": "One-off ¥99"
+          },
+          "3": {
+            "name": "Cross-border compliance review",
+            "tag": "Free"
+          }
+        }
+      },
+      "mcp": {
+        "title": "MCP: tool and data services",
+        "description": "Data and tool services register under the protocol with independent key governance; find one and connect it straight to your agent, with transparent per-call or subscription billing.",
+        "total": "100+ MCP services",
+        "items": {
+          "1": {
+            "name": "Invoice verification API",
+            "tag": "¥0.01/call"
+          },
+          "2": {
+            "name": "Live market data",
+            "tag": "Subscription ¥29/mo"
+          },
+          "3": {
+            "name": "Enterprise ERP gateway",
+            "tag": "Private deployment"
+          }
+        }
+      },
+      "a2a": {
+        "title": "A2A: orchestrable agents",
+        "description": "Legal, finance and engineering agents are called on demand; multi-agent collaboration closes the business loop, billed per call, per session or by subscription.",
+        "total": "10+ A2A agents",
+        "items": {
+          "1": {
+            "name": "Legal due diligence agent",
+            "tag": "Per call"
+          },
+          "2": {
+            "name": "Support desk agent",
+            "tag": "Subscription ¥199/mo"
+          },
+          "3": {
+            "name": "Data analysis agent",
+            "tag": "Per session"
+          }
+        }
+      }
+    },
+    "platform": {
+      "eyebrow": "Platform foundation",
+      "title": "One registry, three kinds of assets",
+      "description": "Assets submitted by individuals or companies land in one catalog: users search and install them, and paid assets settle on actual usage. Prefer programmatic integration? Use the open API.",
+      "cta": "View integration docs",
+      "capabilities": {
+        "protocol": {
+          "title": "Open standards",
+          "description": "SKILL.md / MCP / A2A, never locked in"
+        },
+        "registry": {
+          "title": "Unified registry and discovery",
+          "description": "Submit once, searchable and installable everywhere"
+        },
+        "metering": {
+          "title": "Metering and billing",
+          "description": "Per call / subscription / seat, usage visible in real time"
+        },
+        "keys": {
+          "title": "Key governance",
+          "description": "A virtual key per service, isolated by channel"
+        },
+        "settlement": {
+          "title": "Real-time settlement",
+          "description": "WeChat / Alipay, split on every call"
+        },
+        "api": {
+          "title": "Open API",
+          "description": "Submit, register and meter — all programmatic"
+        }
+      }
+    },
+    "publish": {
+      "ariaLabel": "The publishing path from submission to invocation",
+      "eyebrow": "Publishing flow",
+      "titleLead": "From submission to invocation,",
+      "titleAccent": "every step is traceable",
+      "description": "Two channels for individuals and enterprises, sharing the same identity verification, security review and distribution guarantees.",
+      "personal": {
+        "label": "Individual",
+        "milestones": {
+          "1": {
+            "title": "Real-name verification",
+            "stat": "Publish after real-name verification",
+            "caption": "A trusted publishing identity",
+            "description": "Real-name verification is required before a Skill can be published. The platform completes identity validation through face verification, stores the information encrypted and uses it solely to verify identity, for no other purpose, in full compliance with the law."
+          },
+          "2": {
+            "title": "Security and content review",
+            "stat": "24h",
+            "caption": "Average automated review time · sample data",
+            "description": "The platform reviews all published content along multiple dimensions: keyword filtering combined with AI semantic understanding to identify violations and low-quality content, keeping the Skill ecosystem safe and trustworthy."
+          },
+          "3": {
+            "title": "Mandatory security gate",
+            "stat": "100%",
+            "caption": "Mandatory security gate for Skills",
+            "description": "Every Skill must pass a three-line parallel security review pipeline before listing — content compliance filtering, deep vulnerability scanning and AI model safety assessment — and is listed automatically only once all three pass."
+          },
+          "4": {
+            "title": "Web, CLI and agent publishing",
+            "stat": "Multiple publishing ways",
+            "caption": "Web UI / CLI / automated agent deployment",
+            "description": "Three ways to publish: a visual web form, one-command CLI push, and automated agent deployment. Versions are fully traceable and can be rolled back at any time."
+          }
+        }
+      },
+      "enterprise": {
+        "label": "Enterprise",
+        "milestones": {
+          "1": {
+            "title": "Organization identity check",
+            "stat": "Publish after enterprise verification",
+            "caption": "A trusted organization identity",
+            "description": "Once the legal entity and its contacts are verified, an organization space is opened where members collaborate on assets, and the verified badge is visible across every distribution channel."
+          },
+          "2": {
+            "title": "Platform plus admin review",
+            "stat": "2 layers",
+            "caption": "Automated review plus organization admin sign-off",
+            "description": "Manual review by an organization admin is layered on top of automated security review. Core assets require two-person sign-off before entering external distribution, and review records are kept throughout."
+          },
+          "3": {
+            "title": "Security gate and distribution scope",
+            "stat": "100%",
+            "caption": "Mandatory security gate for external distribution",
+            "description": "Assets can be set to internal-only or externally distributed, with visibility scoped by team, project and channel. Versions that fail the security gate are blocked outright and never reach the marketplace."
+          },
+          "4": {
+            "title": "Private distribution and signed traceability",
+            "stat": "Private delivery",
+            "caption": "Private repo / internal CLI / agent deployment",
+            "description": "Supports private repository sync, internal CLI push and automated agent deployment. Content fingerprints and digital signatures prevent tampering and provide traceability, meeting enterprise internal control and compliance requirements."
+          }
+        }
+      },
+      "visual": {
+        "verified": "Verified",
+        "submit": "Submit for review",
+        "reviewTitle": "Review pipeline",
+        "gateTitle": "Security gate · three lines in parallel",
+        "blocked": "blocked",
+        "passed": "passed",
+        "reviewStages": {
+          "1": "Content compliance filtering",
+          "2": "AI semantic review",
+          "3": "Low-quality content detection"
+        },
+        "gateStages": {
+          "1": "Content compliance filtering",
+          "2": "Deep vulnerability scanning",
+          "3": "AI model safety assessment"
+        },
+        "ways": {
+          "web": {
+            "label": "Web publishing",
+            "caption": "Upload SKILL.md via a visual form"
+          },
+          "agent": {
+            "label": "Agent publishing",
+            "caption": "The agent reads credentials and deploys automatically"
+          },
+          "cli": {
+            "label": "CLI publishing",
+            "caption": "One-command push from the command line"
+          }
+        }
+      }
+    },
+    "providerCta": {
+      "eyebrow": "Creators · publish and monetize",
+      "titleLead": "List on OpenMCP",
+      "titleAccent": "Get discovered, get installed, keep 90%",
+      "description": "Submit Skills, register MCP / A2A, and enter the unified catalog. Revenue comes from installs and invocations; payment and settlement are optional extras after listing.",
+      "existingPrefix": "Already have an asset? See the ",
+      "stepsLink": "listing steps",
+      "openpayLink": "OpenPay billing",
+      "installsLabel": "Sample · installs / calls this month",
+      "installsValue": "128k",
+      "sampleBadge": "Sample data",
+      "revenueLabel": "Optional revenue (sample)",
+      "revenueValue": "¥31.9k",
+      "revenueNote": "Publishing first · settlement optional",
+      "payLabel": "Sample · paid calls",
+      "payValue": "Handled by OpenPay, enabled on demand",
+      "payBadge": "Optional capability",
+      "payFootLeft": "WeChat Pay / Alipay",
+      "payFootRight": "Free and paid coexist",
+      "orders": {
+        "1": {
+          "name": "Earnings report agent",
+          "amount": "¥0.5"
+        },
+        "2": {
+          "name": "In-depth stock analysis",
+          "amount": "¥0.3"
+        },
+        "3": {
+          "name": "Meeting minutes · task dispatch",
+          "amount": "¥0.2"
+        }
+      }
+    },
+    "metrics": {
+      "skills": {
+        "label": "Certified Skills",
+        "caption": "Approved on listing"
+      },
+      "mcp": {
+        "label": "MCP services",
+        "caption": "Centrally registered"
+      },
+      "a2a": {
+        "label": "A2A agents",
+        "caption": "Protocol-level interop"
+      },
+      "revenue": {
+        "label": "Creator share",
+        "caption": "Real-time settlement"
+      }
+    },
+    "onboarding": {
+      "corner": "Discover · Install · Publish",
+      "eyebrow": "OpenMCP marketplace",
+      "title": "Install skill packs, or list your own assets",
+      "description": "Browse and install Skills / MCP / A2A; creator submissions go live after review. Monetization is an optional capability.",
+      "ctaBrowse": "Browse Skills / MCP / A2A",
+      "ctaProvider": "Become a creator"
+    }
+  },
   "Marketing": {
     "navbar": {
       "workflows": {
@@ -1778,6 +2206,9 @@
       },
       "personas": {
         "title": "Personas"
+      },
+      "openpay": {
+        "title": "OpenPay"
       },
       "skills": {
         "title": "Skills"
@@ -1848,6 +2279,9 @@
             "description": "The legal agreement between you and our company"
           }
         }
+      },
+      "models": {
+        "title": "模型"
       }
     },
     "footer": {
@@ -1866,7 +2300,8 @@
           "authors": "Authors",
           "mcp": "MCP",
           "a2a": "A2A",
-          "start": "Getting started"
+          "start": "Getting started",
+          "faq": "常见问题"
         }
       },
       "resources": {
@@ -2077,7 +2512,8 @@
         "feature-4": "Enterprise-grade security",
         "feature-5": "Advanced integrations",
         "feature-6": "Custom branding",
-        "feature-7": "Lifetime updates"
+        "feature-7": "Lifetime updates",
+        "feature-8": "无限额度团队支持"
       }
     }
   },
@@ -2404,7 +2840,8 @@
       "statWorkflows": "Workflows",
       "statPersonas": "Personas",
       "hasLinksNote": "External links available"
-    }
+    },
+    "skills": "Skills"
   },
   "CategoriesPage": {
     "title": "Skill Categories",
@@ -2416,7 +2853,9 @@
       "title": "Category Not Found",
       "description": "Sorry, we couldn't find information about this category."
     },
-    "loadError": "Failed to load categories, please try again later"
+    "loadError": "Failed to load categories, please try again later",
+    "skill": "Skill",
+    "skills": "Skills"
   },
   "Workflows": {
     "workflowCount": "{count, plural, =0 {workflows} =1 {workflow} other {workflows}}",

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
-import { assertLocale } from '@/i18n/routing'
+import { isLocale } from '@/i18n/routing'
 import { constructMetadata } from '@/lib/metadata'
 import { getUrlWithLocale } from '@/lib/urls/urls'
 import { categoriesDataAccess } from '@/web/categories'
@@ -15,9 +15,11 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string; locale: string }>
-}): Promise<Metadata> {
+}): Promise<Metadata | undefined> {
   const { slug } = await params
-  const localeTyped = assertLocale((await params).locale)
+  const { locale: rawLocale } = await params
+  if (!isLocale(rawLocale)) return undefined
+  const localeTyped = rawLocale
 
   const category = await categoriesDataAccess.getCategoryBySlug(decodeURIComponent(slug), localeTyped)
 
