@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { signIn } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import { useLocaleRouter } from "@/i18n/navigation"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -52,7 +52,7 @@ export function SignInForm() {
     setError(null)
     setLoading(true)
 
-    await signIn.email(
+    await authClient.signIn.email(
       { email, password },
       {
         onSuccess: () => {

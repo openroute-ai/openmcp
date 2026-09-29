@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { signUp } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
+import { safeCallbackUrl } from "@/lib/auth/redirect"
+import { Routes } from "@/lib/routes"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -25,6 +27,10 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 export function SignUpForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Registration honours the same `callbackUrl` the sign-in forms do, so a
+  // visitor sent to /sign-up from a guarded route returns there afterwards.
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'), Routes.Dashboard)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -36,12 +42,12 @@ export function SignUpForm() {
     setError(null)
     setLoading(true)
 
-    await signUp.email(
+    await authClient.signUp.email(
       { email, password, name },
       {
         onSuccess: () => {
           toast.success("Account created successfully")
-          router.push("/")
+          router.push(callbackUrl)
           router.refresh()
         },
         onError: (ctx) => {

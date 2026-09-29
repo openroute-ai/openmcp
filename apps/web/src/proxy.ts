@@ -1,7 +1,7 @@
 import createMiddleware from "next-intl/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 import { routing, type Locale } from "@/i18n/routing"
-import { Routes, protectedRoutes, routesNotAllowedByLoggedInUsers } from "@/lib/routes"
+import { Routes, protectedRoutes } from "@/lib/routes"
 
 /**
  * next-intl locale negotiation, combined with the auth gate.
@@ -14,8 +14,6 @@ import { Routes, protectedRoutes, routesNotAllowedByLoggedInUsers } from "@/lib/
 const handleI18nRouting = createMiddleware(routing)
 
 const LOGIN_ROUTE = Routes.Login
-const SIGN_UP_ROUTE = Routes.Register
-const AUTH_ROUTES = [LOGIN_ROUTE, SIGN_UP_ROUTE]
 
 /** Strips a leading locale segment, e.g. `/zh/dashboard` -> `/dashboard`. */
 function splitLocale(pathname: string): { locale: Locale; pathname: string } {
@@ -55,8 +53,6 @@ function runAuthChecks(request: NextRequest): NextResponse | null {
   const sessionCookie = request.cookies.get("better-auth.session_token")
   const isLoggedIn = !!sessionCookie
 
-  const isAuthRoute = routesNotAllowedByLoggedInUsers.some((route) => pathname === route)
-
   // The marketplace and marketing pages are public; only the routes listed in
   // `protectedRoutes` gate on a session.
   if (!isLoggedIn && isProtectedRoute(pathname)) {
@@ -67,11 +63,12 @@ function runAuthChecks(request: NextRequest): NextResponse | null {
     return NextResponse.redirect(signInUrl)
   }
 
-  if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(
-      new URL(localize(Routes.Dashboard, locale), request.url)
-    )
-  }
+  // Deliberately NOT bouncing signed-in visitors off the auth pages here.
+  // Cookie presence is not proof of a valid session, so a stale cookie would
+  // make this redirect to the dashboard while `requireAuth` in the protected
+  // layout bounced the very same request back to sign-in, looping forever.
+  // The auth pages own that decision via `requireUnauth`, which validates the
+  // session server-side and therefore agrees with the protected layout.
 
   return null
 }
@@ -79,8 +76,8 @@ function runAuthChecks(request: NextRequest): NextResponse | null {
 export const config = {
   // Match all pathnames except:
   // - /api, /_next, /_vercel
-  // - files with an extension (e.g. favicon.ico, robots.txt)
+  // - files with an extension (e.g. favicon.ico, robots.txt, install/openmcp.md)
   matcher: [
-    "/((?!api|trpc|_next|_vercel|.*\\.(?:ico|js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|webmanifest|xml|txt)$).*)",
+    "/((?!api|trpc|_next|_vercel|.*\\.(?:ico|js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|webmanifest|xml|txt|md)$).*)",
   ],
 }

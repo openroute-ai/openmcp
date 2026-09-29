@@ -43,8 +43,8 @@ export enum Routes {
   Login = '/sign-in',
   Register = '/sign-up',
   AuthError = '/auth/error',
-  ForgotPassword = '/auth/forgot-password',
-  ResetPassword = '/auth/reset-password',
+  ForgotPassword = '/forgot-password',
+  ResetPassword = '/reset-password',
   Welcome = '/auth/welcome',
 
   // dashboard routes

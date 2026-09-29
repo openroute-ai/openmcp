@@ -28,14 +28,24 @@ export const routing = defineRouting({
 
 export type Locale = (typeof routing.locales)[number]
 
+/** Type guard for a raw route param. */
+export function isLocale(value: string): value is Locale {
+  return (routing.locales as readonly string[]).includes(value)
+}
+
 /**
  * Narrows a raw route param (typed `string` by Next.js) to a configured
  * `Locale`. The locale layout has already rejected unknown values, so callers
  * that run beneath it can treat a failure as unreachable.
+ *
+ * Do not call this from `generateMetadata`: Next runs metadata generation in
+ * parallel with the layout, so a path like `/favicon.svg` that falls through to
+ * this segment would raise here before the layout's `notFound()` could respond.
+ * Use `isLocale` and bail out with `undefined` instead.
  */
 export function assertLocale(value: string): Locale {
-  if (!(routing.locales as readonly string[]).includes(value)) {
+  if (!isLocale(value)) {
     throw new Error(`Unsupported locale: ${value}`)
   }
-  return value as Locale
+  return value
 }
