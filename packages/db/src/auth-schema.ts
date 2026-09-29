@@ -1,3 +1,4 @@
+import { createId as createId2 } from "@paralleldrive/cuid2"
 import { relations } from "drizzle-orm"
 import {
   pgTable,
@@ -11,10 +12,14 @@ import {
   varchar,
 } from "drizzle-orm/pg-core"
 
-/** 16-char cuid-style id, used as the default primary key for non-auth tables. */
-export const createId = (): string =>
-  Math.random().toString(36).slice(2, 10) +
-  Math.random().toString(36).slice(2, 10)
+/**
+ * 16-char cuid-style id, used as the default primary key for non-auth tables.
+ *
+ * Truncated from cuid2 rather than hand-rolled from `Math.random()`, which is
+ * not collision-safe and is predictable, so ids would be guessable by an
+ * attacker probing public resources.
+ */
+export const createId = (): string => createId2().substring(0, 16)
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

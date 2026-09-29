@@ -1,3 +1,5 @@
+import { providersRouter } from '@/web/providers/router'
+import { adminProvidersRouter } from '@/web/providers/router-admin'
 import { publicProcedure, router } from './trpc'
 
 /**
@@ -15,6 +17,12 @@ const healthRouter = router({
  */
 export const appRouter = router({
   health: healthRouter,
+  providers: providersRouter,
+
+  // Admin routes
+  admin: router({
+    providers: adminProvidersRouter,
+  }),
 })
 
 export type AppRouter = typeof appRouter
