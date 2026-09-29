@@ -1,6 +1,0 @@
-{
-  "$schema": "https://orm.drizzle.team/config.schema.json",
-  "dialect": "postgresql",
-  "schema": "./db/schema.ts",
-  "out": "./db/drizzle"
-}

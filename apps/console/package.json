@@ -13,9 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate --config db/drizzle.config.ts",
-    "db:push": "drizzle-kit push --config db/drizzle.config.ts",
-    "db:studio": "drizzle-kit studio --config db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
     "sync:run": "tsx lib/sync/cli.ts"
   },

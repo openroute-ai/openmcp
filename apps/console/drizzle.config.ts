@@ -10,20 +10,17 @@ for (const path of [".env", "../../.env"]) {
   if (existsSync(path)) config({ path, override: false })
 }
 
-if (!process.env.CONSOLE_DATABASE_URL) {
-  throw new Error(
-    "CONSOLE_DATABASE_URL is required to run Drizzle commands. " +
-      "Copy apps/console/.env.example to apps/console/.env."
-  )
-}
+// `drizzle-kit generate` only reads the schema, so it must not require a
+// database URL. The commands that do connect (`push`, `migrate`, `studio`,
+// `pull`, `introspect`) reject the placeholder below on their own, and the
+// package scripts stay pointed at this file.
+const url = process.env.CONSOLE_DATABASE_URL ?? ""
 
 export default defineConfig({
   schema: "./db/schema.ts",
   out: "./db/drizzle",
   dialect: "postgresql",
-  dbCredentials: {
-    url: process.env.CONSOLE_DATABASE_URL,
-  },
+  dbCredentials: { url },
   strict: true,
   verbose: true,
 })
