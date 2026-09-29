@@ -16,6 +16,10 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 30_000,
   },
+  // ali-oss pulls in urllib, which lazily requires the optional `proxy-agent`
+  // package. Bundling it makes the build fail on that missing optional dep, so
+  // the Node-only storage SDK is kept as a runtime require instead.
+  serverExternalPackages: ["ali-oss"],
 };
 
 export default withNextIntl(nextConfig);

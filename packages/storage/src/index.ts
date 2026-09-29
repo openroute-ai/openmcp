@@ -1,3 +1,8 @@
+/// <reference path="./ali-oss.d.ts" />
+// The reference above pulls the ambient `ali-oss` declarations into the program
+// of any app that imports this package. Without it those declarations only exist
+// when this package is typechecked on its own, and a consuming app that reaches
+// provider/oss.ts sees `ali-oss` as an untyped module.
 import { storageConfigFromEnv } from './config/storage-config'
 import { OSSProvider } from './provider/oss'
 import { S3Provider } from './provider/s3'
