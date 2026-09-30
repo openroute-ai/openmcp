@@ -1,11 +1,6 @@
 User-agent: *
 Allow: /
 
-Disallow: /api/
-Disallow: /_next/
-Disallow: /dashboard/
-Disallow: /settings/
-Disallow: /admin/
-Disallow: /zh/dashboard/
-Disallow: /zh/settings/
-Disallow: /zh/admin/
+Host: https://fumadocsstarter.vercel.app
+
+Sitemap: https://fumadocsstarter.vercel.app/sitemap.xml
