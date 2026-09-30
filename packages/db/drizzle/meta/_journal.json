@@ -43,6 +43,13 @@
       "when": 1790732276236,
       "tag": "0005_gateway_spend_records",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790740000000,
+      "tag": "0006_skills_console_sync_provenance",
+      "breakpoints": true
     }
   ]
 }

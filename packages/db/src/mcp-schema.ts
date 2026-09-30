@@ -209,6 +209,10 @@ export const skills = pgTable(
     // 目标运行平台标记：claude-code / codex / pi / opencode / openclaw ...
     // 不同平台技能格式不同（SKILL.md / CLAUDE.md / .codex/skills.md / PI.md 等），用于分发时生成对应安装方式
     platforms: jsonb('platforms').default(sql`'[]'::jsonb`).notNull(),
+    /** Provenance: where this row was last ingested from (e.g. console webhook). */
+    externalSource: varchar('external_source', { length: 50 }),
+    /** Last successful ingest from apps/console skills webhook / export. */
+    syncedFromConsoleAt: timestamp('synced_from_console_at'),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
   },
@@ -226,6 +230,7 @@ export const skills = pgTable(
     index('skills_popularity_idx').on(table.popularity),
     index('skills_published_at_idx').on(table.publishedAt),
     index('skills_forked_from_idx').on(table.forkedFromId),
+    index('skills_external_source_idx').on(table.externalSource),
   ]
 )
 
