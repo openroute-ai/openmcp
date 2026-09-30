@@ -264,49 +264,44 @@ missing.
 `drizzle.config.ts` points `schema` at `src/db/drizzle-schema.ts`, **not** at
 `src/db/schema.ts`. That split is load-bearing.
 
-`src/db/schema.ts` re-exports `@workspace/db/schema` wholesale, which is what
-the runtime wants — `@workspace/auth` and the console's services import `user`,
-`session`, `account` from there. But drizzle-kit does not read the runtime
-`schema` object. It imports the entry module and walks **every export** looking
-for table objects, so pointing it at `src/db/schema.ts` hands it the whole
-shared schema: `blog_posts`, `workflows`, `personas`, `mcp_servers`,
-`provider_earnings` and several hundred more that console neither owns nor
-queries. `generate` against it emitted a migration with a thousand lines of
-`CREATE TABLE` for other apps' tables; `push` would have offered to drop them.
+`src/db/schema.ts` re-exports `./schema/github` wholesale, so it names every
+table console owns. But drizzle-kit does not read the runtime `schema` object: it
+imports the entry module and walks **every export** looking for table objects,
+which would also sweep up the `relations` helpers and, before the shared schema
+was detached, all of `@workspace/db/schema` — `blog_posts`, `workflows`,
+`personas`, `mcp_servers`, `provider_earnings` and several hundred more that
+console neither owns nor queries. `generate` against that emitted a migration
+with a thousand lines of `CREATE TABLE` for other apps' tables; `push` would
+have offered to drop them.
 
-`src/db/drizzle-schema.ts` therefore names the twenty-two tables console owns —
-the four better-auth tables plus console's eighteen GitHub tables — and nothing
+`src/db/drizzle-schema.ts` therefore names the twenty-four tables console owns —
+the four better-auth tables plus console's twenty GitHub tables — and nothing
 else.
 
-Two consequences to keep in mind when changing the schema:
+One consequence to keep in mind when changing the schema:
 
 - **A new table is not picked up until it is listed there.** `generate` does not
   warn. The symptom is a table that exists in TypeScript but not in the
-  database, and better-auth fails at runtime with `42703 undefined_column`
-  rather than at build time.
-- **`user` comes from `./schema`, not from `@workspace/db/schema`.** Both declare
-  a `pgTable("user")`; console's copy is the one carrying `role`, the
-  phone-number pair and better-auth's ban columns, and the runtime `schema`
-  object lists it last so it wins the key. Naming the shared one would generate
-  DDL for the wrong `user`, and since drizzle keys tables by name the two would
-  collide.
+  database, and the first request that touches it fails at runtime rather than
+  at build time.
 
 #### Migrations are a single squashed baseline
 
 `src/db/drizzle/` holds one file, `0000_*.sql`, produced by
 `drizzle-kit generate` against a database-free schema. It creates all
-twenty-two tables with their indexes and foreign keys.
+twenty-four tables with their indexes and foreign keys.
 
-The app previously carried `0000`–`0007`, built incrementally over months. That
+The app previously carried `0000`–`0008`, built incrementally over months. That
 history was not trustworthy:
 
-- The migrations had drifted from the code. better-auth 1.7.6's `createSession()`
-  writes `active_organization_id` and `impersonated_by` unconditionally, but no
-  migration ever added them, because `0000` predates those columns landing in
-  `packages/db/src/auth-schema.ts`. The symptom was a `42703` on the very first
-  sign-up, with no way to regenerate the missing step because `generate` was
-  pointed at the over-broad schema described above.
-- `0007` was in the journal with no matching `meta/` snapshot.
+- The migrations had drifted from the code. `session` was declared without
+  `active_organization_id` / `impersonated_by`, and no migration ever added them
+  either — so the question of whether better-auth writes them was settled by
+  argument rather than by a working sign-up. The baseline carries them.
+- `0007` was hand-written, so the snapshot chain stopped at `0006` and every
+  `generate` replayed its DDL.
+- `generate` was pointed at the over-broad schema described above, so the missing
+  step could not simply be regenerated.
 - Nothing had ever been applied to a console database, so there was no
   environment in which the sequence was known to work end to end.
 
@@ -380,7 +375,7 @@ only run it against a database holding nothing worth keeping — the local dev
 instance at `localhost:5432/github` is shared with `apps/web`.
 
 > The Supabase dashboard's table editor only reads the `postgres` database, so
-> console's twenty-two tables are not visible there. Inspect them over the
+> console's twenty-four tables are not visible there. Inspect them over the
 > connection string instead.
 
 ## Connecting to a managed provider

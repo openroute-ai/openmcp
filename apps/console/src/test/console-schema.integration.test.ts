@@ -38,20 +38,22 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the twenty-two tables console owns", () => {
-    // Four better-auth + eighteen GitHub. If this list changes, the count
+  it("is the twenty-four tables console owns", () => {
+    // Four better-auth + twenty GitHub. If this list changes, the count
     // changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(22)
+    expect(managedTables).toHaveLength(24)
     expect(managedTables).toEqual(
       [
         "account",
         "bundles",
+        "capabilities",
         "hall_of_fame",
         "hall_of_fame_to_projects",
         "packages",
         "project_skills",
         "project_sync_jobs",
         "projects",
+        "projects_to_capabilities",
         "projects_to_tags",
         "readme_sync_jobs",
         "repo_weekly_stars",
@@ -71,9 +73,10 @@ describe("managed table set", () => {
   })
 
   it("excludes the shared schema's tables", () => {
-    // `src/db/schema.ts` re-exports `@workspace/db/schema` wholesale, so these
-    // are reachable from the app's own schema module. They belong to web/api
-    // and must never appear in console's migrations.
+    // These belong to web/api and must never appear in console's migrations.
+    // `src/db/schema.ts` no longer imports `@workspace/db` at all, so the
+    // guard is now against a regression that would reintroduce that import
+    // and hand drizzle-kit web's 86 tables.
     const shared = [
       "blog_posts",
       "workflows",
@@ -87,9 +90,10 @@ describe("managed table set", () => {
     }
   })
 
-  it("manages console's `user`, not the shared one", () => {
-    // Both are `pgTable("user")`; drizzle keys tables by name, so the wrong
-    // choice silently generates DDL without `role` or the ban columns.
+  it("manages console's `user`, the one carrying role and the ban columns", () => {
+    // Console declares its own `user` rather than importing the shared one, and
+    // it has to carry the columns better-auth's admin plugin and the role checks
+    // read. A migration generated from the shared definition would lack them.
     expect(managedTables).toContain("user")
     const columns = Object.values(getTableColumns(managed.user)).map((c) => c.name)
     expect(columns).toEqual(

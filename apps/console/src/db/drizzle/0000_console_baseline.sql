@@ -24,6 +24,18 @@ CREATE TABLE "bundles" (
 	"updated_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "capabilities" (
+	"id" text PRIMARY KEY NOT NULL,
+	"axis" text NOT NULL,
+	"code" text NOT NULL,
+	"label" text NOT NULL,
+	"description" text,
+	"confidence" double precision,
+	"reviewed_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp
+);
+--> statement-breakpoint
 CREATE TABLE "hall_of_fame" (
 	"username" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -115,6 +127,16 @@ CREATE TABLE "projects" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp,
 	CONSTRAINT "projects_slug_unique" UNIQUE("slug")
+);
+--> statement-breakpoint
+CREATE TABLE "projects_to_capabilities" (
+	"project_id" text NOT NULL,
+	"capability_id" text NOT NULL,
+	"evidence" text,
+	"confidence" double precision,
+	"rejected" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "projects_to_capabilities_project_id_capability_id_pk" PRIMARY KEY("project_id","capability_id")
 );
 --> statement-breakpoint
 CREATE TABLE "projects_to_tags" (
@@ -218,8 +240,6 @@ CREATE TABLE "session" (
 	"ip_address" text,
 	"user_agent" text,
 	"user_id" text NOT NULL,
-	"active_organization_id" text,
-	"impersonated_by" text,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
@@ -239,6 +259,9 @@ CREATE TABLE "tags" (
 	"description" text,
 	"aliases" jsonb,
 	"exclude_from_rankings" boolean DEFAULT false NOT NULL,
+	"confidence" double precision,
+	"evidence" text,
+	"reviewed_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp,
 	CONSTRAINT "tags_code_unique" UNIQUE("code")
@@ -319,6 +342,8 @@ ALTER TABLE "project_skills" ADD CONSTRAINT "project_skills_project_id_projects_
 ALTER TABLE "project_sync_jobs" ADD CONSTRAINT "project_sync_jobs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_sync_jobs" ADD CONSTRAINT "project_sync_jobs_repo_id_repos_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_repo_id_repos_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects_to_capabilities" ADD CONSTRAINT "projects_to_capabilities_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects_to_capabilities" ADD CONSTRAINT "projects_to_capabilities_capability_id_capabilities_id_fk" FOREIGN KEY ("capability_id") REFERENCES "public"."capabilities"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects_to_tags" ADD CONSTRAINT "projects_to_tags_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects_to_tags" ADD CONSTRAINT "projects_to_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "readme_sync_jobs" ADD CONSTRAINT "readme_sync_jobs_repo_id_repos_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -328,6 +353,8 @@ ALTER TABLE "snapshots" ADD CONSTRAINT "snapshots_repo_id_repos_id_fk" FOREIGN K
 ALTER TABLE "task_executions" ADD CONSTRAINT "task_executions_task_definition_id_task_definitions_id_fk" FOREIGN KEY ("task_definition_id") REFERENCES "public"."task_definitions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_status" ADD CONSTRAINT "task_status_task_definition_id_task_definitions_id_fk" FOREIGN KEY ("task_definition_id") REFERENCES "public"."task_definitions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "capabilities_axis_code_unique" ON "capabilities" USING btree ("axis","code");--> statement-breakpoint
+CREATE INDEX "capabilities_axis_idx" ON "capabilities" USING btree ("axis");--> statement-breakpoint
 CREATE INDEX "packages_project_id_idx" ON "packages" USING btree ("project_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "project_skills_project_id_skill_dir_idx" ON "project_skills" USING btree ("project_id","skill_dir");--> statement-breakpoint
 CREATE INDEX "project_skills_synced_to_web_at_idx" ON "project_skills" USING btree ("synced_to_web_at");--> statement-breakpoint
@@ -338,6 +365,8 @@ CREATE UNIQUE INDEX "projects_owner_name_unique" ON "projects" USING btree ("own
 CREATE INDEX "projects_repo_id_idx" ON "projects" USING btree ("repo_id");--> statement-breakpoint
 CREATE INDEX "projects_status_idx" ON "projects" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "projects_type_idx" ON "projects" USING btree ("type");--> statement-breakpoint
+CREATE INDEX "projects_to_capabilities_capability_id_idx" ON "projects_to_capabilities" USING btree ("capability_id");--> statement-breakpoint
+CREATE INDEX "projects_to_tags_tag_id_idx" ON "projects_to_tags" USING btree ("tag_id");--> statement-breakpoint
 CREATE INDEX "readme_sync_jobs_status_idx" ON "readme_sync_jobs" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "readme_sync_jobs_created_at_idx" ON "readme_sync_jobs" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "repo_weekly_stars_week_idx" ON "repo_weekly_stars" USING btree ("year","week");--> statement-breakpoint
@@ -347,6 +376,7 @@ CREATE UNIQUE INDEX "rising_star_projects_year_full_name_idx" ON "rising_star_pr
 CREATE INDEX "rising_star_projects_year_category_idx" ON "rising_star_projects" USING btree ("year","category");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "snapshots_year_idx" ON "snapshots" USING btree ("year");--> statement-breakpoint
+CREATE INDEX "tags_unreviewed_by_confidence_idx" ON "tags" USING btree ("reviewed_at","confidence");--> statement-breakpoint
 CREATE INDEX "task_definitions_is_enabled_idx" ON "task_definitions" USING btree ("is_enabled");--> statement-breakpoint
 CREATE INDEX "task_executions_task_definition_id_idx" ON "task_executions" USING btree ("task_definition_id");--> statement-breakpoint
 CREATE INDEX "task_executions_created_at_idx" ON "task_executions" USING btree ("created_at");--> statement-breakpoint

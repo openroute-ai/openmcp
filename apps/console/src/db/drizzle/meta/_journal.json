@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1790776761909,
-      "tag": "0000_faithful_chimera",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1790760505075,
-      "tag": "0008_console_capabilities_and_tag_review",
+      "when": 1790782026885,
+      "tag": "0000_console_baseline",
       "breakpoints": true
     }
   ]
