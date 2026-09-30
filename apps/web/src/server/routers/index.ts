@@ -10,6 +10,7 @@ import { mcpServersRouter } from '@/web/mcp-servers/router'
 import { adminMcpServersRouter } from '@/web/mcp-servers/router-admin'
 import { mcpToolsRouter } from '@/web/mcp-tools/router'
 import { newslettersRouter } from '@/web/newsletter/router'
+import { adminNewsletterSubscriptionsRouter } from '@/web/newsletter-subscriptions/router-admin'
 import { personasRouter } from '@/web/personas/router'
 import { providersRouter } from '@/web/providers/router'
 import { rechargeOrdersRouter } from '@/web/recharge-orders/router'
@@ -18,8 +19,11 @@ import { adminRechargeOrdersRouter } from '@/web/recharge-orders/router-admin-or
 import { adminProvidersRouter } from '@/web/providers/router-admin'
 import { adminSkillReviewsRouter } from '@/web/skill-reviews/router-admin'
 import { adminSessionsRouter } from '@/web/sessions/router-admin'
+import { siteMessagesRouter } from '@/web/site-messages/router'
+import { firstLoginRouter } from '@/web/first-login/router'
 import { adminUsersRouter } from '@/web/users/router-admin'
 import { skillsRouter } from '@/web/skills/router'
+import { workflowRankingsRouter } from '@/web/workflow-rankings/router'
 import { workflowsRouter } from '@/web/workflows/router'
 import { adminWorkflowsRouter } from '@/web/workflows/router-admin'
 import { publicProcedure, router } from './trpc'
@@ -52,6 +56,9 @@ export const appRouter = router({
   mcpServers: mcpServersRouter,
   a2aAgents: a2aAgentsRouter,
   newsletters: newslettersRouter,
+  workflowRankings: workflowRankingsRouter,
+  siteMessages: siteMessagesRouter,
+  firstLogin: firstLoginRouter,
 
   // Admin routes
   admin: router({
@@ -66,6 +73,7 @@ export const appRouter = router({
     users: adminUsersRouter,
     sessions: adminSessionsRouter,
     securityReview: adminSkillReviewsRouter,
+    newsletterSubscriptions: adminNewsletterSubscriptionsRouter,
   }),
 })
 

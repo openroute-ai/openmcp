@@ -2408,6 +2408,16 @@
         "infringement": "侵权投诉：如 Skill 涉及版权问题，请发送邮件至 <link>service@openmcp.cn</link>，我们将在收到通知后及时核实并予以下架处理。",
         "copyright": "Copyright ©2025-Present 天津聚链科技有限公司版权所有",
         "icp": "津ICP备2023007973号"
+      },
+      "newsletter": {
+        "title": "订阅邮件通讯",
+        "description": "不定期推送产品更新与平台动态。",
+        "placeholder": "you@example.com",
+        "submit": "订阅",
+        "submitting": "订阅中…",
+        "success": "订阅成功，请查收确认邮件。",
+        "error": "订阅失败，请稍后重试。",
+        "emailRequired": "请输入邮箱地址。"
       }
     },
     "avatar": {
@@ -2495,19 +2505,19 @@
       "messageMaxLength": "消息必须不超过 500 个字符"
     },
     "wechat": {
-      "title": "微信联系",
-      "description": "扫描二维码添加微信",
-      "contactWeChat": "微信联系",
-      "openDialog": "打开微信联系对话框",
+      "title": "微信联系我们",
+      "description": "使用微信扫描下方二维码添加我们为好友。",
+      "openDialog": "打开微信联系弹窗",
+      "contactWeChat": "微信联系我们",
+      "qrCodePlaceholder": "微信二维码",
       "qrCodeAlt": "微信二维码",
-      "qrCodePlaceholder": "二维码加载失败",
       "wechatId": "微信号",
       "copy": "复制",
       "copied": "已复制",
-      "copySuccess": "微信号已复制到剪贴板",
+      "copySuccess": "微信号已复制",
       "copyFailed": "复制失败，请手动复制",
-      "supportNote": "这是我们的技术支持微信，随时为您服务",
-      "instruction1": "请使用微信扫描上方二维码"
+      "supportNote": "微信号",
+      "instruction1": "打开微信扫描上方二维码即可添加我们为好友。"
     }
   },
   "WaitlistPage": {
@@ -4133,6 +4143,46 @@
       "new": "最新",
       "popular": "热门",
       "free": "免费"
+    }
+  },
+  "Rankings": {
+    "title": "排行榜",
+    "backToRankings": "返回排行榜",
+    "viewAll": "查看全部",
+    "empty": "该周期暂无排行数据。",
+    "dimensions": {
+      "popular": "热门",
+      "recent": "最新"
+    },
+    "periods": {
+      "daily": "日榜",
+      "weekly": "周榜",
+      "monthly": "月榜"
+    },
+    "sections": {
+      "latest": "昨日",
+      "previous": "前天",
+      "lastWeek": "上周",
+      "lastMonth": "上月"
+    },
+    "navigation": {
+      "previous": "上一周期",
+      "next": "下一周期"
+    },
+    "pagination": {
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "complexity": {
+      "beginner": "入门",
+      "intermediate": "进阶",
+      "advanced": "高级"
+    },
+    "card": {
+      "newEntry": "新上榜",
+      "noChange": "与上期持平",
+      "rankChange": "较上期上升 {count} 位",
+      "popularityScore": "热度 {score}"
     }
   }
 }

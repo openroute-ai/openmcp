@@ -2338,6 +2338,16 @@
         "infringement": "Copyright complaints: if a Skill infringes copyright, email <link>service@openmcp.cn</link>. We will verify the report and take the content down.",
         "copyright": "Copyright ©2025-Present Tianjin Julians Technology Co., Ltd.",
         "icp": "Tianjin ICP Filing 2023007973"
+      },
+      "newsletter": {
+        "title": "Subscribe to our newsletter",
+        "description": "Product updates and platform news, occasionally.",
+        "placeholder": "you@example.com",
+        "submit": "Subscribe",
+        "submitting": "Subscribing...",
+        "success": "Subscribed. Please check your inbox for confirmation.",
+        "error": "Subscription failed. Please try again.",
+        "emailRequired": "Please enter your email address."
       }
     },
     "avatar": {
@@ -2547,19 +2557,19 @@
       "messageMaxLength": "Message must not exceed 500 characters"
     },
     "wechat": {
-      "title": "WeChat Contact",
-      "description": "Scan the QR code to add WeChat",
-      "contactWeChat": "WeChat Contact",
+      "title": "Contact us on WeChat",
+      "description": "Scan the code below with WeChat to add us as a contact.",
       "openDialog": "Open WeChat contact dialog",
-      "qrCodeAlt": "WeChat QR Code",
-      "qrCodePlaceholder": "QR code failed to load",
+      "contactWeChat": "Contact us on WeChat",
+      "qrCodePlaceholder": "WeChat QR code",
+      "qrCodeAlt": "WeChat QR code",
       "wechatId": "WeChat ID",
       "copy": "Copy",
       "copied": "Copied",
-      "copySuccess": "WeChat ID copied to clipboard",
+      "copySuccess": "WeChat ID copied",
       "copyFailed": "Copy failed, please copy manually",
-      "supportNote": "This is our technical support WeChat, we're here to help",
-      "instruction1": "Please scan the QR code above with WeChat"
+      "supportNote": "WeChat ID",
+      "instruction1": "Open WeChat and scan the QR code above to add us as a contact."
     }
   },
   "WaitlistPage": {
@@ -4133,6 +4143,46 @@
       "title": "Agent submitted for review",
       "description": "You can track its status from your dashboard.",
       "manage": "Manage your agents"
+    }
+  },
+  "Rankings": {
+    "title": "Rankings",
+    "backToRankings": "Back to rankings",
+    "viewAll": "View all",
+    "empty": "No ranking data for this period yet.",
+    "dimensions": {
+      "popular": "Popular",
+      "recent": "New"
+    },
+    "periods": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "sections": {
+      "latest": "Yesterday",
+      "previous": "Two days ago",
+      "lastWeek": "Last week",
+      "lastMonth": "Last month"
+    },
+    "navigation": {
+      "previous": "Previous period",
+      "next": "Next period"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "complexity": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "card": {
+      "newEntry": "New",
+      "noChange": "No change",
+      "rankChange": "Up {count} since last period",
+      "popularityScore": "Popularity {score}"
     }
   }
 }

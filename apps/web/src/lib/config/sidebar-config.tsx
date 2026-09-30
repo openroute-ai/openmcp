@@ -11,6 +11,7 @@ import {
   KeyIcon,
   LayersIcon,
   LayoutDashboardIcon,
+  MailIcon,
   MonitorIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
@@ -174,6 +175,12 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           title: t('admin.securityReview.title'),
           icon: <ShieldAlertIcon className='size-4 shrink-0' />,
           href: Routes.AdminSecurityReview,
+          external: false,
+        },
+        {
+          title: t('admin.newsletterSubscriptions.title'),
+          icon: <MailIcon className='size-4 shrink-0' />,
+          href: Routes.AdminNewsletterSubscriptions,
           external: false,
         },
         {
