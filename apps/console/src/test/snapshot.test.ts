@@ -5,6 +5,7 @@ import {
   computeMonthlyTrend,
   computeWeeklyTrend,
   mergeMonth,
+  selectDailyStarWindow,
   sweepWeekRange,
 } from "@/lib/github/service/snapshot"
 
@@ -255,5 +256,63 @@ describe("sweepWeekRange", () => {
   it("returns nothing when there is no usable data", () => {
     expect(sweepWeekRange([])).toBeUndefined()
     expect(sweepWeekRange([stamp("nope")])).toBeUndefined()
+  })
+})
+
+describe("selectDailyStarWindow", () => {
+  it("groups by UTC day and skips empty days", () => {
+    const window = selectDailyStarWindow([
+      stamp("2026-03-10T23:59:59Z"),
+      stamp("2026-03-10T00:00:01Z"),
+      stamp("2026-03-11T12:00:00Z"),
+    ])
+
+    // The 10th holds two: bucketing is by UTC day, and 23:59:59 is still the
+    // 10th wherever the viewer is. The 11th is separate.
+    expect(window?.rows).toEqual([
+      { day: "2026-03-10", stars: 2 },
+      { day: "2026-03-11", stars: 1 },
+    ])
+  })
+
+  it("anchors the window on the newest stargazer, not the clock", () => {
+    // A repository last starred on 11 March still gets a 90-day window
+    // *ending* on the 11th. Anchoring on today would have kept a single row.
+    const window = selectDailyStarWindow([
+      stamp("2025-01-01T00:00:00Z"),
+      stamp("2026-03-11T00:00:00Z"),
+    ])
+
+    expect(window?.lastDay).toBe("2026-03-11")
+    expect(window?.firstDay).toBe("2025-12-12")
+    expect(window?.rows).toEqual([{ day: "2026-03-11", stars: 1 }])
+  })
+
+  it("keeps the window span wider than the rows it stores", () => {
+    // Only the newest day has stars, so `rows` has one entry while the window
+    // covers 90 days. The writer clears the whole span, or a day that lost its
+    // stars since the last sweep would survive and stretch the chart's axis.
+    const window = selectDailyStarWindow([stamp("2026-03-11T00:00:00Z")])
+
+    expect(window?.rows).toHaveLength(1)
+    expect(window?.firstDay).toBe("2025-12-12")
+    expect(window?.lastDay).toBe("2026-03-11")
+  })
+
+  it("crosses a month and a year boundary", () => {
+    const window = selectDailyStarWindow([
+      stamp("2025-12-30T00:00:00Z"),
+      stamp("2026-01-02T00:00:00Z"),
+    ])
+
+    expect(window?.rows).toEqual([
+      { day: "2025-12-30", stars: 1 },
+      { day: "2026-01-02", stars: 1 },
+    ])
+  })
+
+  it("returns nothing when there is no usable data", () => {
+    expect(selectDailyStarWindow([])).toBeUndefined()
+    expect(selectDailyStarWindow([stamp("nope")])).toBeUndefined()
   })
 })

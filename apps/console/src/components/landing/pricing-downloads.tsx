@@ -68,12 +68,12 @@ export function Pricing() {
             <div
               className={`flex h-full flex-col rounded-2xl border p-6 backdrop-blur-xl ${
                 t.featured
-                  ? "border-brand/50 bg-glass-strong shadow-xl shadow-brand/10"
-                  : "border-glass-border bg-glass"
+                  ? "border-primary/50 bg-card shadow-xl shadow-primary/10"
+                  : "border-border bg-card"
               }`}
             >
               {t.featured && (
-                <span className="mb-3 w-fit rounded-full bg-brand/25 px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
+                <span className="mb-3 w-fit rounded-full bg-primary/25 px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
                   最受欢迎
                 </span>
               )}
@@ -91,8 +91,8 @@ export function Pricing() {
                 href={t.href}
                 className={`mt-6 block rounded-xl py-2.5 text-center text-sm font-medium transition-opacity ${
                   t.featured
-                    ? "bg-gradient-to-r from-brand to-brand2 font-semibold text-primary-foreground hover:opacity-90"
-                    : "border border-glass-border bg-glass text-foreground hover:bg-glass-strong"
+                    ? "bg-primary font-semibold text-primary-foreground hover:opacity-90"
+                    : "border border-border bg-card text-foreground hover:bg-card"
                 }`}
               >
                 {t.cta}
@@ -124,9 +124,9 @@ export function ReportDownload() {
   return (
     <section id="download" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
-        <div className="rounded-3xl border border-glass-border bg-glass p-8 text-center backdrop-blur-xl md:p-14">
-          <span className="inline-flex items-center gap-2 rounded-full border border-glass-border bg-glass px-3 py-1 text-xs text-muted-foreground">
-            <IconDownload size={13} className="text-aqua" />
+        <div className="rounded-3xl border border-border bg-card p-8 text-center backdrop-blur-xl md:p-14">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+            <IconDownload size={13} className="text-secondary-foreground" />
             免费资源
           </span>
           <h2 className="mt-5 font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -136,7 +136,7 @@ export function ReportDownload() {
             对比 12 个项目 · 逐项原始量 · 含原始时间轴与证据来源
           </p>
           {done ? (
-            <p className="mx-auto mt-8 max-w-md rounded-xl border border-glass-border bg-glass-strong px-5 py-4 text-sm text-foreground">
+            <p className="mx-auto mt-8 max-w-md rounded-xl border border-border bg-card px-5 py-4 text-sm text-foreground">
               已收到！报告下载链接将发送到 <span className="font-medium">{email}</span>。
             </p>
           ) : (
@@ -156,12 +156,12 @@ export function ReportDownload() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="w-full rounded-xl border border-glass-border bg-glass py-3 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-brand"
+                  className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-brand/30 transition-opacity hover:opacity-90"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
               >
                 立即下载 <span aria-hidden>→</span>
               </button>
@@ -170,7 +170,7 @@ export function ReportDownload() {
           <p className="mt-4 text-xs text-muted-foreground/80">
             提交即表示同意接收选型周刊，可随时退订。
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-glass-border pt-8 text-sm">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-border pt-8 text-sm">
             <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
               更多资源
             </span>
@@ -178,7 +178,7 @@ export function ReportDownload() {
               <a
                 key={r}
                 href="#"
-                className="font-medium text-aqua transition-colors hover:text-foreground"
+                className="font-medium text-secondary-foreground transition-colors hover:text-foreground"
               >
                 {r}
               </a>
@@ -235,7 +235,7 @@ export function Faq() {
               <div
                 key={q}
                 className={`rounded-xl border backdrop-blur-md transition-colors ${
-                  isOpen ? "border-brand/40 bg-glass-strong" : "border-glass-border bg-glass"
+                  isOpen ? "border-primary/40 bg-card" : "border-border bg-card"
                 }`}
               >
                 <button
@@ -267,7 +267,7 @@ export function Faq() {
       <Reveal className="mt-8 text-center">
         <a
           href="#"
-          className="text-sm font-semibold text-aqua transition-colors hover:text-foreground"
+          className="text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
         >
           查看全部 FAQ <span aria-hidden>→</span>
         </a>
@@ -280,8 +280,8 @@ export function FinalCta() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-24">
       <Reveal>
-        <div className="rounded-3xl bg-gradient-to-br from-brand/30 via-brand2/20 to-aqua/20 p-1">
-          <div className="rounded-[calc(1.5rem-4px)] border border-glass-border bg-ink/85 p-8 text-center backdrop-blur-xl md:p-14">
+        <div className="rounded-3xl bg-border p-1">
+          <div className="rounded-[calc(1.5rem-4px)] border border-border bg-card/85 p-8 text-center backdrop-blur-xl md:p-14">
             <h2 className="font-display text-3xl font-bold tracking-tight text-primary-foreground md:text-4xl">
               下一次技术选型，先来看它是不是在变坏。
             </h2>
@@ -291,7 +291,7 @@ export function FinalCta() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <a
                 href="#pricing"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-xl shadow-brand/30 transition-opacity hover:opacity-90"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/20 transition-opacity hover:opacity-90"
               >
                 看看今天的异动 <span aria-hidden>→</span>
               </a>

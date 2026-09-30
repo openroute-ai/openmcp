@@ -9,11 +9,13 @@
  * other's contribution.
  *
  * The monthly rows cannot answer a weekly question, so the per-ISO-week split
- * lives in its own table. See `repoWeeklyStars` in the schema.
+ * lives in its own table. See `repoWeeklyStars` in the schema. The per-day split
+ * for the public detail chart lives in `repo_daily_stars`, over a rolling
+ * window rather than the whole history.
  */
 
-import { and, eq, sql } from "drizzle-orm"
-import { repoWeeklyStars, snapshots, type SnapshotMonth } from "@/db/schema"
+import { and, asc, eq, gte, lte, sql } from "drizzle-orm"
+import { repoDailyStars, repoWeeklyStars, snapshots, type SnapshotMonth } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 import {
   getIsoWeekNumber,
@@ -310,6 +312,193 @@ export async function recordWeeklyStarsFromStargazers(
 
 function weekKey({ year, week }: YearWeek): number {
   return year * 100 + week
+}
+
+/**
+ * How many days of daily history the sweep keeps.
+ *
+ * A sweep reads a repository's entire stargazer list, so the daily split is
+ * derivable for all of it — but storing all of it is the wrong trade. The only
+ * reader is the public project detail chart, which shows a trailing window, and
+ * a decade-old repository would otherwise contribute 3650 rows for a few hundred
+ * days that actually have stargazers. 90 days covers the chart and roughly a
+ * quarter, which is also long enough to spot a seasonal pattern.
+ */
+export const DAILY_STARS_WINDOW_DAYS = 90
+
+/** A UTC calendar day, as `YYYY-MM-DD`. */
+function toDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function addDays(day: string, days: number): string {
+  const date = new Date(`${day}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return toDayKey(date)
+}
+
+export interface DailyStarWindow {
+  /** Non-empty days to store, ascending. */
+  rows: { day: string; stars: number }[]
+  /** First day of the window, which has no row when nothing happened on it. */
+  firstDay: string
+  /** Last day of the window, which is the newest stargazer's day. */
+  lastDay: string
+}
+
+/**
+ * Picks the daily rows to store: the non-empty days inside the trailing window,
+ * ascending, plus the window's own bounds.
+ *
+ * The window is keyed off the newest stargazer rather than the clock, so a
+ * repository nobody has starred in a month still records the month leading up to
+ * its last star instead of writing a single row for today.
+ *
+ * The bounds are returned alongside the rows because they are not the same span:
+ * the window starts `DAILY_STARS_WINDOW_DAYS` before the newest stargazer, which
+ * is a day that may well have no row. A rewrite has to clear the whole window,
+ * not just the days that still have stargazers, or a day that *lost* its stars
+ * since the last sweep would survive as a stale row and stretch the chart's axis
+ * back over a window the repository no longer has data for.
+ */
+export function selectDailyStarWindow(
+  stamps: StargazerStamp[]
+): DailyStarWindow | undefined {
+  const perDay = new Map<string, number>()
+
+  for (const stamp of stamps) {
+    const date = new Date(stamp.starredAt)
+    if (Number.isNaN(date.getTime())) continue
+    const day = toDayKey(date)
+    perDay.set(day, (perDay.get(day) ?? 0) + 1)
+  }
+
+  if (perDay.size === 0) return undefined
+
+  const lastDay = [...perDay.keys()].sort().at(-1)!
+  const firstDay = addDays(lastDay, -(DAILY_STARS_WINDOW_DAYS - 1))
+
+  const rows = [...perDay.entries()]
+    .filter(([day]) => day >= firstDay)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([day, stars]) => ({ day, stars }))
+
+  return { rows, firstDay, lastDay }
+}
+
+/**
+ * Records new stargazers per UTC day, for the trailing `DAILY_STARS_WINDOW_DAYS`.
+ *
+ * Only non-empty days are written, unlike the weekly writer above which fills
+ * the gaps between the first and last stargazer. That difference is deliberate:
+ * weekly needs the zeros because a week with no stargazers is a *claim* — the
+ * project was flat, which is a finding. At day granularity a quiet day is
+ * unremarkable and overwhelmingly the common case, so the reader supplies the
+ * zeros and the writer stays proportional to real activity.
+ *
+ * Replaces the window rather than appending, so a re-sweep converges and a day
+ * that lost stars is corrected.
+ */
+export async function recordDailyStarsFromStargazers(
+  db: Db,
+  repoId: string,
+  stamps: StargazerStamp[]
+): Promise<number> {
+  const window = selectDailyStarWindow(stamps)
+  if (!window) return 0
+
+  await db
+    .delete(repoDailyStars)
+    .where(
+      and(
+        eq(repoDailyStars.repoId, repoId),
+        gte(repoDailyStars.day, window.firstDay),
+        lte(repoDailyStars.day, window.lastDay)
+      )
+    )
+
+  for (const { day, stars } of window.rows) {
+    await db.insert(repoDailyStars).values({ repoId, day, stars })
+  }
+
+  return window.rows.length
+}
+
+export interface DailyStar {
+  day: string
+  stars: number
+}
+
+/**
+ * New stargazers per ISO week, ascending, over a trailing number of weeks.
+ *
+ * The weekly table is stored for a repository's whole history, so a chart asks
+ * for a window rather than reading the table: a ten-year-old repository has five
+ * hundred rows of which the recent dozen are on screen. The window is taken from
+ * the end rather than filtered on a date, because the table stores (year, week)
+ * and not a date — see `repoWeeklyStars` in the schema for why.
+ */
+export async function listWeeklyStars(
+  db: Db,
+  repoId: string,
+  weeks: number = 12
+): Promise<{ yearWeek: YearWeek; stars: number }[]> {
+  const rows = await db
+    .select({
+      year: repoWeeklyStars.year,
+      week: repoWeeklyStars.week,
+      stars: repoWeeklyStars.stars,
+    })
+    .from(repoWeeklyStars)
+    .where(eq(repoWeeklyStars.repoId, repoId))
+    .orderBy(
+      asc(repoWeeklyStars.year),
+      asc(repoWeeklyStars.week)
+    )
+
+  return rows
+    .slice(-weeks)
+    .map((row) => ({
+      yearWeek: { year: row.year, week: row.week },
+      stars: row.stars,
+    }))
+}
+
+/**
+ * The stored daily rows inside a window, ascending, with gaps filled as zeros.
+ *
+ * The window is `[newest stored day - days + 1, newest stored day]` rather than
+ * the last `days` calendar days, so a repository that stopped getting stars
+ * returns its last 90 days instead of a flat line of zeros stretching to today.
+ * That means the chart is always as long as there is data for, and the caller
+ * can date the axis from the data rather than from the clock.
+ *
+ * Returns an empty array when nothing is stored, which is a real state rather
+ * than an error: the table only fills as repositories are swept.
+ */
+export async function getDailyStars(
+  db: Db,
+  repoId: string,
+  days: number = DAILY_STARS_WINDOW_DAYS
+): Promise<DailyStar[]> {
+  const rows = await db
+    .select({ day: repoDailyStars.day, stars: repoDailyStars.stars })
+    .from(repoDailyStars)
+    .where(eq(repoDailyStars.repoId, repoId))
+    .orderBy(asc(repoDailyStars.day))
+
+  const stored = rows.map((row) => ({ day: row.day, stars: row.stars }))
+  if (stored.length === 0) return []
+
+  const counts = new Map(stored.map((row) => [row.day, row.stars]))
+  const last = stored[stored.length - 1]!.day
+  const first = addDays(last, -(days - 1))
+
+  const dense: DailyStar[] = []
+  for (let day = first; day <= last; day = addDays(day, 1)) {
+    dense.push({ day, stars: counts.get(day) ?? 0 })
+  }
+  return dense
 }
 
 function weeksInYear(year: number): number {

@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm"
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -11,6 +12,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  varchar,
 } from "drizzle-orm/pg-core"
 
 /**
@@ -97,6 +99,30 @@ export const repos = pgTable(
     defaultBranch: text("default_branch"),
     licenseSpdxId: text("license_spdx_id"),
     languages: jsonb("languages").$type<string[]>(),
+
+    /**
+     * Unused. Declared only so the column that already exists in the deployed
+     * database stays declared: an undeclared-but-present column is the one kind
+     * of schema/database disagreement `drizzle-kit push` resolves by *dropping*,
+     * so every push would offer to delete it.
+     *
+     * The project-level classification is `projects.type`, an enum
+     * (`client | server | application | skill | persona`). This one is a plain
+     * `varchar(20)` left over from an earlier schema, its rows all reading
+     * `'application'`, and nothing queries it. Do not read it as a second source
+     * of truth for a project's type — that is `projects.type`, and the two are
+     * not kept in sync.
+     */
+    type: varchar("type", { length: 20 })
+      .notNull()
+      .default("application"),
+
+    /**
+     * Unused, and nullable. Same reason as `type` above: kept declared so
+     * `push` will not offer to drop it. There is no `author` relation anywhere
+     * in this schema, so nothing can join to it.
+     */
+    authorId: text("author_id"),
 
     pushedAt: timestamp("pushed_at").notNull(),
     createdAt: timestamp("created_at").notNull(),
@@ -410,6 +436,48 @@ export const repoWeeklyStars = pgTable(
   ]
 )
 
+/**
+ * New stargazers per UTC day, for the public project detail chart.
+ *
+ * Same derivation as `repoWeeklyStars` — bucketed from the raw timestamps the
+ * sweep already holds — but kept only for a rolling window (see
+ * `DAILY_STARS_WINDOW_DAYS` in `lib/github/service/snapshot.ts`).
+ *
+ * The window is the whole reason this table is not a mirror of the weekly one.
+ * A sweep reads a repository's entire stargazer history, and the weekly table
+ * pays for that at 52 rows per year. Daily would be seven times that, almost
+ * all of it zero: a decade-old repository is 3650 consecutive days for perhaps a
+ * few hundred of them non-empty. Nothing reads that far back — the detail chart
+ * shows a trailing window — so the sweep writes the recent slice and the reader
+ * fills the gaps. Storage stays proportional to recent activity instead of to
+ * repository age.
+ *
+ * Only days with at least one stargazer get a row. A missing day means zero, and
+ * the read path says so explicitly, which is also why a re-sweep can delete and
+ * rewrite the window without leaving a stale zero behind for a day that stopped
+ * being zero when stars were removed.
+ *
+ * `day` is a plain `date` rather than the weekly table's (year, week) pair: a
+ * day is already a calendar value, so splitting it would only make the range
+ * predicate a comparison on two columns.
+ */
+export const repoDailyStars = pgTable(
+  "repo_daily_stars",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+    day: date("day").notNull(),
+    /** Stargazers gained on this UTC day. */
+    stars: integer("stars").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.repoId, table.day] }),
+    // The chart reads a window across every repository it is comparing.
+    index("repo_daily_stars_day_idx").on(table.day),
+  ]
+)
+
 export const packages = pgTable(
   "packages",
   {
@@ -719,6 +787,7 @@ export const reposRelations = relations(repos, ({ many }) => ({
   projects: many(projects),
   snapshots: many(snapshots),
   weeklyStars: many(repoWeeklyStars),
+  dailyStars: many(repoDailyStars),
 }))
 
 export const projectsRelations = relations(projects, ({ many, one }) => ({

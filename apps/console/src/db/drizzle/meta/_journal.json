@@ -64,6 +64,20 @@
       "when": 1790760505075,
       "tag": "0008_console_capabilities_and_tag_review",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790779039240,
+      "tag": "0009_fantastic_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790780682884,
+      "tag": "0010_preserve_legacy_columns",
+      "breakpoints": true
     }
   ]
 }

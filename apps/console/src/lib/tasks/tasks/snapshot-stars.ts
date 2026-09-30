@@ -27,6 +27,7 @@ import {
   accumulateStarsByMonth,
   listSnapshottedRepoIds,
   recordMonth,
+  recordDailyStarsFromStargazers,
   recordWeeklyStarsFromStargazers,
   type StargazerStamp,
 } from "@/lib/github/service/snapshot"
@@ -162,11 +163,21 @@ export function createSnapshotStarsTask(
             stamps
           )
 
+          // Same argument for the day-level split the public detail chart
+          // reads, narrowed to a rolling window so the table stays sized to
+          // recent activity.
+          const days = await recordDailyStarsFromStargazers(
+            db,
+            repo.id,
+            stamps
+          )
+
           return {
             meta: {
               swept: 1,
               months: byMonth.length,
               weeks,
+              days,
               stars: stamps.length,
             },
             data: null,
@@ -186,6 +197,7 @@ export function createSnapshotStarsTask(
         swept: result.meta.swept ?? 0,
         months: result.meta.months ?? 0,
         weeks: result.meta.weeks ?? 0,
+      days: result.meta.days ?? 0,
         stars: result.meta.stars ?? 0,
         empty: result.meta.empty ?? 0,
         skippedLarge: tooLarge.length,

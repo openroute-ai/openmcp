@@ -1,72 +1,32 @@
 /*
- * OpenMCP 雷达 — 主题层（L2 定位层）
+ * OpenMCP 雷达 — 语义色补充
  *
- * 决策 #15（分层一致，不是完全统一）：
+ * 这一层曾经覆盖过 --primary（把 web 的紫色换成青蓝仪器色）、并新增
+ * --brand / --brand2 / --aqua 一族自定义色。那套配色已全部移除：console
+ * 现在直接使用 `@workspace/ui/globals.css` 的原生 shadcn 主题，与应用内
+ * 其余界面（列表、详情、后台）完全一致，落地页也不再有任何自定义颜色。
  *
- *   L1 信任层 → @workspace/ui/globals.css。字体栈、--radius 阶梯、间距节奏、
- *               组件解剖结构、可访问性。与 apps/web 共用，不 fork。
- *   L2 定位层 → 本文件。雷达的主色、涨跌色。values 是雷达私有的。
+ * 只剩三个值保留在这里，理由是原生主题给不出它们：
  *
- * 为什么覆盖 --primary：
- * web 的 --primary 是紫色，语义是「行动/交易色」，用于购买按钮。雷达是仪器：
- * 用户来这里读数、看曲线、判断一个项目是不是在衰退，不是来下单。沿用紫色会让
- * 两个站在视觉上无法分辨，也会把 web 的交易语气带进诊断界面（§5.9.2）。
+ *   --radar-up    shadcn 只有 --destructive 一个红色。「星标在涨」不是危险，
+ *                 但复用 --destructive 会让「跌」和「危险」在告警场景里
+ *                 失去区分度，所以涨跌必须自带一对颜色。
+ *   --radar-down  原生主题里根本没有绿色，任何「跌」都必须自己给值。
+ *   --radar-flat  中性，用于 0 变化。
  *
- * 只改 --primary 一族，其余中性色沿用 L1 —— 这是「分层」而非「另起一套」。
- * 覆盖写在本应用而非 packages/ui，是因为那份文件由两个应用共用，改它会连带改掉 web。
- *
- * 落地页专用的玻璃表面、渐变文字与悬浮动效在 app/[locale]/landing.css。
- *
- * `@theme inline` 的注册同样在 packages/ui/src/styles/globals.css —— 那是唯一
- * `@import "tailwindcss"` 的文件，只有被 Tailwind 自己处理的文件才会展开 @theme。
- * 本文件只负责给值。
+ * 三个值都只被涨跌语义使用，不参与品牌表达。注册在
+ * `packages/ui/src/styles/globals.css` 的 `@theme inline` 里（那是唯一
+ * `@import "tailwindcss"` 的文件，Tailwind 只会展开被它处理的文件里的
+ * @theme）；本文件只负责给值。
  */
 
 :root {
-    /* 主色阶：青蓝 → 深蓝。弱到强。 */
-    --brand: oklch(0.62 0.128 205);
-    --brand2: oklch(0.52 0.135 232);
-    --aqua: oklch(0.78 0.115 194);
-
-    /* 把 web 的紫色主色换成本站的仪器色。只覆盖 --primary 一族。 */
-    --primary: var(--brand);
-    --primary-foreground: oklch(0.985 0.001 106.423);
-    --ring: var(--brand);
-    --sidebar-primary: var(--brand);
-    --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
-    --chart-1: var(--brand);
-    --chart-2: var(--brand2);
-    --chart-3: var(--aqua);
-
-    /*
-     * 涨跌语义色 —— 红涨绿跌（§5.9.3 方案 A）。
-     *
-     * 刻意不改 shadcn 的 --destructive / 成功态：--destructive 是「危险 / 报错」，
-     * 与「量在下降」不是一回事。雷达里「跌」要读作中性事实，「危险」要读作告警，
-     * 混用会让异动告警失去辨识度。
-     */
     --radar-up: oklch(0.577 0.222 27);
     --radar-down: oklch(0.58 0.105 168);
     --radar-flat: oklch(0.62 0.01 240);
-
-    /*
-     * 风险告警不靠颜色：靠图标 + 文案 + 左侧 2px 色条（§5.9.3）。
-     * 这里的色只用于色条，不参与涨跌语义。
-     */
-    --radar-alert-bar: oklch(0.72 0.15 65);
 }
 
 .dark {
-    --brand: oklch(0.7 0.13 205);
-    --brand2: oklch(0.62 0.14 232);
-    --aqua: oklch(0.82 0.115 194);
-
-    --primary: var(--brand);
-    --sidebar-primary: var(--brand);
-    --chart-1: var(--brand);
-    --chart-2: var(--brand2);
-    --chart-3: var(--aqua);
-
     /* 暗底上红与绿都要提亮，否则压到背景里去 */
     --radar-up: oklch(0.66 0.215 27);
     --radar-down: oklch(0.7 0.115 168);

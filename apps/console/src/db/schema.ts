@@ -72,21 +72,28 @@ export const user = pgTable("user", {
 })
 
 /**
- * `session` / `account` / `verification`: Better Auth 的三张表，逐字复制自
- * `@workspace/db/auth-schema`，但由 console 自己拥有——理由与上面的 `user`
- * 相同，这里多一条具体的：
+ * `session` / `account` / `verification`: Better Auth 的三张表，由 console 自己
+ * 拥有——理由与上面的 `user` 相同。
  *
- * 共享的 `session` 带有 `active_organization_id` / `impersonated_by` 两列，
- * 那是 better-auth **organization 插件**的产物，而 console 的
- * `src/lib/auth.ts` 只装了 `phoneNumber` 与 `openAPI`，从未装 organization。
- * 之前 console 直接 `import` 共享定义，于是 `drizzle-kit generate` 每次都在
- * 试图给 console 自己的库加这两列——一个纯漂移、无插件读取、却会一直重发的
- * 迁移。声明一份 console 自己的定义，漂移就没有了来源；将来真的启用
- * organization 插件时，这里必须同步加上那两列。
+ * `session` 上还带着 `active_organization_id` / `impersonated_by` 两列。它们是
+ * better-auth **organization 插件**的产物，而 console 的 `src/lib/auth.ts` 只装了
+ * `phoneNumber` 与 `openAPI`，从未装 organization——**所以这两列没有任何代码读取，
+ * 下面那行注释之外不要指望它们有意义。**
  *
- * 与共享表保持一致的义务仍然存在（列名/类型逐字对齐），只是不再由 import
- * 自动继承。`account` 与 `verification` 当前本就一致，照抄是为了让它们不再
- * 成为下一次漂移的入口。
+ * 它们仍然被声明，是因为生产库里这两列已经存在。schema 不声明、库里有，是
+ * schema 与数据库不一致的唯一一种形态，而 `drizzle-kit push` 对这种差异的处理
+ * 是**删列**：`push` 每次都会弹出
+ *「You're about to delete active_organization_id column in session table」。
+ * 一次顺手确认的 push 就是一次不可逆的数据丢失，而留着两列的成本是两条没人读的
+ * 定义。两者不对等，所以选后者。
+ *
+ * 代价是 `generate` 会为它们发一次 `ADD COLUMN`（没有任何 migration 建过它们）。
+ * 那条迁移必须写成 `ADD COLUMN IF NOT EXISTS`：生产库已有这两列，裸 `ADD COLUMN`
+ * 会直接报错。见 `0010_preserve_legacy_columns.sql`。
+ *
+ * 与共享表保持一致的义务仍然存在（列名/类型逐字对齐），只是不再由 import 自动
+ * 继承。`account` 与 `verification` 当前本就一致，照抄是为了让它们不再成为下一次
+ * 漂移的入口。
  */
 export const session = pgTable(
   "session",
@@ -103,6 +110,10 @@ export const session = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /** 未使用。仅为保住生产库里已有的列，见上方注释。 */
+    activeOrganizationId: text("active_organization_id"),
+    /** 未使用。仅为保住生产库里已有的列，见上方注释。 */
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_userId_idx").on(table.userId)]
 )

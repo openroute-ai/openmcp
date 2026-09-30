@@ -1,218 +1,142 @@
 "use client"
 
-import { IconArrowRight, IconRadio, IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
+import { IconArrowRight, IconCheck, IconCopy, IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+import { useState } from "react"
+
+import { LocaleLink } from "@/i18n/navigation"
 
 /**
- * 首屏 = 实时异动 feed（docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4）
+ * 首屏 = 产品入口 + 价值主张 + 给 agent 的指令（docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4）
  *
- * 首屏不放评分，也不放价值主张，放真实数据。这既是与 apps/web 最快的辨识手段
- * （一眼看出这不是商城），也是最强的获客钩子——真实项目名天然含长尾关键词。
+ * 版式参考 novita.ai：顶部一排产品入口，居中 H1，副标题，主次双 CTA，
+ * 紧跟一段面向开发者的可复制指令，最后一条信任标识带。全部居中单列。
  *
- * 涨跌按中文金融直觉：红涨绿跌（§5.9.3 方案 A）。风险信号不靠颜色，靠
- * AlertTriangle 图标 + 文案标签 + 左侧 2px 色条。
+ * 这一版**移除了此前右侧的实时异动 feed**。它当时承担获客钩子的职责，但那份
+ * 数据是写死的 ANOMALIES 样例：项目名是 acme/k8s-operator 这类虚构仓库，
+ * 首屏拿假数据当真实信号卖，与「每条结论都能点开看原始时间轴」的核心承诺
+ * 直接矛盾。真实异动改为从公开榜单进入，位置见 nav 的「公开榜单」。
+ *
+ * 首屏用的是原生 shadcn 主题，没有任何自定义配色。
  */
 
-type Direction = "down" | "up";
+/** 产品入口 pill。 */
+const ENTRIES = [
+  { href: "/rankings", label: "公开榜单" },
+  { href: "/rankings?range=rising", label: "新星榜" },
+  { href: "/categories", label: "应用分类" },
+] as const
 
-type Anomaly = {
-  repo: string;
-  kind: "断崖" | "停滞" | "加速" | "许可证变更";
-  direction: Direction;
-  /** 周增量的绝对值。排序与展示都用它，避免小基数百分比霸榜。 */
-  delta: number;
-  /** 近三周同口径的周增量，用于画迷你时间轴。 */
-  series: [number, number, number];
-  evidence: string;
-  scanned: string;
-};
-
-const ANOMALIES: Anomaly[] = [
-  {
-    repo: "acme/k8s-operator",
-    kind: "断崖",
-    direction: "down",
-    delta: -142,
-    series: [318, 176, 0],
-    evidence: "近 3 周增速单调下降；最近一次 release 已 214 天",
-    scanned: "14 分钟前",
-  },
-  {
-    repo: "vendor/legacy-gateway",
-    kind: "停滞",
-    direction: "down",
-    delta: -8,
-    series: [12, 9, 1],
-    evidence: "Top 3 贡献者中 2 人超 150 天无 commit",
-    scanned: "21 分钟前",
-  },
-  {
-    repo: "lab/vector-store",
-    kind: "加速",
-    direction: "up",
-    delta: 267,
-    series: [41, 96, 308],
-    evidence: "4 周内周增速连续 3 周翻倍，maintainer 响应中位数 2 小时",
-    scanned: "38 分钟前",
-  },
-  {
-    repo: "core/parser-bundle",
-    kind: "许可证变更",
-    direction: "down",
-    delta: -63,
-    series: [201, 184, 138],
-    evidence: "licenseSpdxId 由 MIT → BUSL-1.1，附带商业使用限制",
-    scanned: "1 小时前",
-  },
-  {
-    repo: "ops/queue-agent",
-    kind: "加速",
-    direction: "up",
-    delta: 194,
-    series: [28, 74, 222],
-    evidence: "发布节奏由 6 周缩短至 9 天，CVE 修复响应中位数 1 天",
-    scanned: "2 小时前",
-  },
-];
-
-/** 迷你时间轴。三周增量，柱高按本条序列的峰值归一，避免跨条目视觉误导。 */
-function Sparkbars({ series, direction }: { series: Anomaly["series"]; direction: Direction }) {
-  const peak = Math.max(...series.map(Math.abs), 1);
-  const tone = direction === "up" ? "bg-radar-up" : "bg-radar-down";
-
+function EntryPill({ href, label }: { href: string; label: string }) {
   return (
-    <span className="flex h-6 items-end gap-[3px]" aria-hidden>
-      {series.map((v, i) => (
-        <span
-          key={i}
-          className={`w-1.5 rounded-sm ${v === 0 ? "bg-border" : tone}`}
-          style={{ height: `${Math.max(12, (Math.abs(v) / peak) * 100)}%`, opacity: v === 0 ? 0.4 : 0.45 + i * 0.22 }}
-        />
-      ))}
-    </span>
-  );
+    <LocaleLink
+      href={href}
+      className="rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+    >
+      {label}
+    </LocaleLink>
+  )
 }
 
-export function Hero() {
+/** 给 agent 的指令块。整块可复制，复制成功就换成对勾。 */
+function AgentCommand({ origin }: { origin: string }) {
+  const [copied, setCopied] = useState(false)
+  const command = `curl -s ${origin}/api/rankings/week.json`
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2_000)
+    } catch {
+      // 剪贴板不可用（非安全上下文、被策略拒绝）时静默失败：命令本身
+      // 已经以文本形式摆在上面，用户可以自己选中复制。
+    }
+  }
+
+  return (
+    <div className="mx-auto mt-16 w-full max-w-2xl text-left">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          For Agent
+        </span>
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+
+      <pre className="mt-3 overflow-x-auto rounded-xl border border-border bg-card px-4 py-3.5 text-[13px] leading-relaxed">
+        <code>{command}</code>
+      </pre>
+
+      <p className="mt-2.5 text-xs text-muted-foreground">
+        榜单、分类、详情都是免登录的 JSON 与 HTML，agent 可以直接读，不需要信用卡。
+      </p>
+    </div>
+  )
+}
+
+export function Hero({ origin }: { origin: string }) {
   return (
     <section id="top" className="relative overflow-hidden">
-      <div className="mx-auto grid max-w-6xl items-start gap-12 px-4 pb-20 pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:pt-24">
-        <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-glass-border bg-glass px-3 py-1 text-xs text-muted-foreground backdrop-blur-md">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-radar-up opacity-60" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-radar-up" />
-            </span>
-            实时异动
-          </span>
+      <div className="mx-auto max-w-3xl px-4 pb-20 pt-14 text-center sm:pt-24">
+        <nav className="flex flex-wrap items-center justify-center gap-2">
+          {ENTRIES.map((e) => (
+            <EntryPill key={e.href} {...e} />
+          ))}
+        </nav>
 
-          <h1 className="mt-5 font-display text-5xl font-bold leading-[1.08] tracking-tight lg:text-6xl">
-            别人告诉你它多受欢迎，
-            <br />
-            我们告诉你它正在
-            <span className="text-gradient-brand">变坏</span>。
-          </h1>
+        <h1 className="mt-7 font-display text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
+          别人告诉你它多受欢迎，
+          <br />
+          我们告诉你它正在<span className="text-primary">变坏</span>。
+        </h1>
 
-          <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground">
-            逐个记录 stargazer 的到达时间，算出增速、加速度与下行异动。增速断崖、维护停滞、许可证变更——全部免费公开，每条结论都能点开看原始时间轴。
-          </p>
+        <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          逐个记录 stargazer 的到达时间，算出增速、加速度与下行异动。增速断崖、维护停滞、许可证变更——全部免费公开，每条结论都能点开看原始时间轴。
+        </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <a
-              href="#anomalies"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-xl shadow-brand/25 transition-opacity hover:opacity-90"
-            >
-              看今天的异动
-              <IconArrowRight size={16} />
-            </a>
-            <a
-              href="#pricing"
-              className="inline-flex items-center gap-2 rounded-xl border border-glass-border bg-glass px-6 py-3 text-sm font-medium text-foreground backdrop-blur-md transition-colors hover:bg-glass-strong"
-            >
-              监控我的项目
-            </a>
-          </div>
-
-          <p className="mt-4 text-xs text-muted-foreground">
-            榜单、异动、尽调全部免费公开 · 无需信用卡
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-glass-border pt-6 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <IconTrendingUp size={13} className="text-radar-up" />
-              <span className="text-radar-up">红</span> = 涨 / 加速
-            </span>
-            <span className="flex items-center gap-1.5">
-              <IconTrendingDown size={13} className="text-radar-down" />
-              <span className="text-radar-down">绿</span> = 跌 / 衰退
-            </span>
-          </div>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <LocaleLink
+            href="/rankings"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            看公开榜单
+            <IconArrowRight size={16} />
+          </LocaleLink>
+          <LocaleLink
+            href="/categories"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            浏览应用分类
+          </LocaleLink>
         </div>
 
-        {/* 实时异动 feed。匿名可看，不需要登录——这是获客漏斗的最上层。 */}
-        <div id="anomalies" className="animate-floaty scroll-mt-24">
-          <div className="rounded-2xl border border-glass-border bg-glass p-5 shadow-2xl shadow-black/20 backdrop-blur-xl dark:shadow-black/40">
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-sm font-semibold">
-                <IconRadio size={15} className="text-aqua" />
-                异动流
-              </span>
-              <span className="rounded-full border border-glass-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                最近 24 小时
-              </span>
-            </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          榜单、异动、尽调全部免费公开 · 无需信用卡
+        </p>
 
-            <div className="mt-4 space-y-2.5">
-              {ANOMALIES.map((a) => (
-                <article
-                  key={a.repo}
-                  className="radar-alert-bar rounded-xl border border-glass-border bg-glass py-3.5 pl-4 pr-3.5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="truncate font-mono text-[13px] font-semibold">{a.repo}</span>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {a.direction === "up" ? (
-                            <IconTrendingUp size={10} />
-                          ) : (
-                            <IconTrendingDown size={10} />
-                          )}
-                          {a.kind}
-                        </span>
-                      </div>
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{a.evidence}</p>
-                    </div>
+        <AgentCommand origin={origin} />
+      </div>
 
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span
-                        className={`font-display text-lg font-bold tabular-nums ${
-                          a.direction === "up" ? "text-radar-up" : "text-radar-down"
-                        }`}
-                      >
-                        {a.delta > 0 ? "+" : ""}
-                        {a.delta}
-                      </span>
-                      <Sparkbars series={a.series} direction={a.direction} />
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[10px] text-muted-foreground/80">周增量 · 采集于 {a.scanned}</p>
-                </article>
-              ))}
-            </div>
-
-            <p className="mt-4 rounded-lg border border-glass-border bg-glass px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-              按<b className="font-medium text-foreground">周增量绝对值</b>排序，不用百分比——小基数项目的百分比会骗人。
-            </p>
-
-            <a
-              href="#pricing"
-              className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 py-2.5 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              把我的项目加进监控
-            </a>
-          </div>
+      <div className="border-t border-border">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-6 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <IconTrendingUp size={13} className="text-radar-up" />
+            <span className="text-radar-up">红</span> = 涨 / 加速
+          </span>
+          <span className="flex items-center gap-1.5">
+            <IconTrendingDown size={13} className="text-radar-down" />
+            <span className="text-radar-down">绿</span> = 跌 / 衰退
+          </span>
+          <span>无自定义评分公式</span>
+          <span>无 AI 判定</span>
         </div>
       </div>
     </section>
-  );
+  )
 }

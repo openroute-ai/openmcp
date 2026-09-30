@@ -24,10 +24,10 @@ export function Comparison() {
         </div>
       </Reveal>
       <Reveal delay={100} className="mt-12">
-        <div className="overflow-x-auto rounded-2xl border border-glass-border bg-glass backdrop-blur-xl">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card backdrop-blur-xl">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
-              <tr className="border-b border-glass-border text-[13px]">
+              <tr className="border-b border-border text-[13px]">
                 <th className="px-5 py-4 font-medium text-muted-foreground"></th>
                 <th className="px-5 py-4 font-medium text-muted-foreground">传统方式</th>
                 <th className="px-5 py-4 font-semibold text-foreground">OpenMCP 雷达</th>
@@ -35,7 +35,7 @@ export function Comparison() {
             </thead>
             <tbody>
               {COMPARISON_ROWS.map(([k, old, neu]) => (
-                <tr key={k} className="border-b border-glass-border last:border-0">
+                <tr key={k} className="border-b border-border last:border-0">
                   <td className="px-5 py-4 font-medium">{k}</td>
                   <td className="px-5 py-4 text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
@@ -60,7 +60,7 @@ export function Comparison() {
       <Reveal className="mt-10 text-center">
         <a
           href="#pricing"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-brand/30 transition-opacity hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
         >
           免费开始尽调 <span aria-hidden>→</span>
         </a>
@@ -132,20 +132,20 @@ export function Roles() {
               onClick={() => setActive(i)}
               className={`rounded-full px-5 py-2 text-sm transition-all ${
                 i === active
-                  ? "bg-gradient-to-r from-brand to-brand2 font-semibold text-primary-foreground shadow-lg shadow-brand/30"
-                  : "border border-glass-border bg-glass text-muted-foreground hover:text-foreground"
+                  ? "bg-primary font-semibold text-primary-foreground shadow-lg shadow-primary/20"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
               {r.tab}
             </button>
           ))}
         </div>
-        <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-glass-border bg-glass p-7 backdrop-blur-xl">
+        <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-border bg-card p-7 backdrop-blur-xl">
           <h3 className="font-display text-xl font-semibold">{role.title}</h3>
           <ul className="mt-4 space-y-3">
             {role.points.map((p) => (
               <li key={p} className="flex items-start gap-3 text-sm text-muted-foreground">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-aqua/15 text-aqua">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-secondary text-secondary-foreground">
                   <IconCheck size={12} />
                 </span>
                 {p}
@@ -154,7 +154,7 @@ export function Roles() {
           </ul>
           <a
             href="#download"
-            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-aqua transition-colors hover:text-foreground"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
           >
             {role.cta} <span aria-hidden>→</span>
           </a>
@@ -173,7 +173,7 @@ const NEUTRALITY = [
 
 export function Neutrality() {
   return (
-    <section id="method" className="border-y border-glass-border bg-glass/40 backdrop-blur-sm">
+    <section id="method" className="border-y border-border bg-card/40 backdrop-blur-sm">
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-24 lg:grid-cols-[1fr_auto]">
         <Reveal>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -197,13 +197,13 @@ export function Neutrality() {
           <div className="flex flex-col gap-3">
             <a
               href="#faq"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-brand to-brand2 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-brand/30 transition-opacity hover:opacity-90"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
             >
               查看判定规则 <span aria-hidden>→</span>
             </a>
             <a
               href="#faq"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-glass-border bg-glass px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-glass-strong"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-card"
             >
               查看数据来源 <span aria-hidden>→</span>
             </a>
@@ -226,10 +226,10 @@ export function Testimonials() {
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Reveal key={i} delay={i * 90}>
-            <div className="h-full rounded-2xl border border-dashed border-glass-border bg-glass/60 p-6 backdrop-blur-md">
+            <div className="h-full rounded-2xl border border-dashed border-border bg-card/60 p-6 backdrop-blur-md">
               <p className="text-sm leading-relaxed text-muted-foreground/70">“证言占位 — 上线后填充”</p>
               <div className="mt-6 flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full border border-dashed border-glass-border text-xs text-muted-foreground/60">
+                <span className="grid size-9 place-items-center rounded-full border border-dashed border-border text-xs text-muted-foreground/60">
                   头像
                 </span>
                 <div className="text-[13px] leading-tight text-muted-foreground/70">

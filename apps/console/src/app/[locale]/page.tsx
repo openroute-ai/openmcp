@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { hasLocale } from "next-intl"
 
 import { DeepDives } from "@/components/landing/deep-dives"
@@ -26,8 +27,10 @@ export const dynamic = "force-dynamic"
  *     admin to `/dashboard` and anyone else to `/console`, and a session whose
  *     cookie has expired falls through to `/sign-in` — which is the one case the
  *     proxy's cookie check cannot tell apart from a live session.
- *   - Everyone else gets the landing page, whose first screen is the live
- *     anomaly feed rather than a pitch (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4).
+ *   - Everyone else gets the landing page: a centred hero, a copyable `curl`
+ *     for agents, and entry points into the public rankings, category and
+ *     detail pages. Those three are anonymous and readable without an account
+ *     (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4).
  *
  * The role branch is made once, here, so nothing downstream has to repeat it.
  *
@@ -43,6 +46,16 @@ export default async function Home({
   const { locale } = await params
   const user = await getSessionUser()
 
+  // The Hero's copyable `curl` has to name a host the visitor can actually
+  // reach, which is this deployment's own origin rather than the canonical one
+  // in `metadataBase` — a preview deployment would otherwise hand out a command
+  // pointing at production. Read from the request because the page is already
+  // `force-dynamic`, so this costs no extra dynamic rendering.
+  const requestHeaders = await headers()
+  const host = requestHeaders.get("host")
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
+  const origin = host ? `${proto}://${host}` : "https://radar.openmcp.cn"
+
   // The layout already sends an unsupported locale to `notFound`, so this only
   // narrows the type: Next.js types the param as a string whatever the segment
   // matched, and a redirect built from an unvalidated one could name a locale
@@ -55,9 +68,17 @@ export default async function Home({
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
+      {/* Without this the page is mostly blank: the server renders every
+          [data-reveal] block hidden so the first client render can match it
+          (see use-reveal.tsx), which means the reveal animation is now what
+          makes the content appear at all. A <noscript> style is the one place
+          that can undo it — inside it, and only inside it, the rules apply. */}
+      <noscript>
+        <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
+      </noscript>
       <SiteHeader />
       <main>
-        <Hero />
+        <Hero origin={origin} />
         <TrustStrip />
         <PainPoints />
         <Solutions />

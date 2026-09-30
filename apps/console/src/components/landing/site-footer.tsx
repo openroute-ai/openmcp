@@ -11,12 +11,12 @@ const COLUMNS: { title: string; links: string[] }[] = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-glass-border">
+    <footer className="border-t border-border">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2.5">
-              <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-brand to-aqua font-display text-sm font-bold text-primary-foreground">
+              <span className="grid size-8 place-items-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
                 V
               </span>
               <span className="font-display text-base font-semibold">OpenMCP 雷达</span>
@@ -30,7 +30,7 @@ export function SiteFooter() {
                   key={i}
                   href="#"
                   aria-label={["GitHub", "X/Twitter", "RSS"][i]}
-                  className="grid size-8 place-items-center rounded-lg border border-glass-border bg-glass text-muted-foreground transition-colors hover:text-foreground"
+                  className="grid size-8 place-items-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Icon size={14} />
                 </a>
@@ -54,10 +54,10 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-10 flex flex-col items-start justify-between gap-3 border-t border-glass-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
+        <div className="mt-10 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
           <p>© 2026 OpenMCP 雷达 · radar.openmcp.cn</p>
           <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-glass-border bg-glass px-2.5 py-1">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1">
               简体中文
               <span aria-hidden>▾</span>
             </span>

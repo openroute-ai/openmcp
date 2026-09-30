@@ -1,50 +1,21 @@
 /*
  * OpenMCP 雷达 — 落地页专用层
  *
- * 只服务营销面（/ 未登录时的落地页）。应用外壳与列表页的涨跌色、主色在
- * app/[locale]/theme.css，不在这里。
+ * 只服务营销面（/ 未登录时的落地页）。这里**不定义任何颜色**：落地页已完全
+ * 使用 `@workspace/ui/globals.css` 的原生 shadcn 主题，与应用内其余界面
+ * 一致。此前这一层定义过 --glass / --glass-strong / --glass-border / --ink
+ * 四族自定义色、一个品牌渐变文字和一个悬浮动效，全部移除。
  *
- * 这里放的是只有营销面才需要的东西：半透明玻璃表面、品牌渐变文字、
- * 风险行的左侧色条、悬浮动效。理由是落地页是全宽滚动面，下方内容会透上来，
- * 实心卡片会读成后台管理界面；应用外壳则相反，需要稳定的对比度。
+ * 现在只剩一个风险行的左侧色条，和 Reveal 的两处降级。
  */
-
-/*
- * 玻璃表面。light 用白叠白，dark 用石板灰叠石板灰——不叠纯黑，仪器面板的底色
- * 是石板而不是黑。
- */
-@layer utilities {
-    :root {
-        --glass: oklch(1 0 0 / 0.72);
-        --glass-strong: oklch(1 0 0 / 0.9);
-        --glass-border: oklch(0.147 0.004 49.25 / 0.12);
-        --ink: oklch(0.17 0.017 240);
-    }
-
-    .dark {
-        --glass: oklch(0.22 0.018 240 / 0.6);
-        --glass-strong: oklch(0.24 0.02 240 / 0.82);
-        --glass-border: oklch(0.985 0.001 106.423 / 0.14);
-    }
-}
 
 @layer components {
-    /* 品牌渐变文字：只用于 h1 里的关键词，不用于正文 */
-    .text-gradient-brand {
-        background-image: linear-gradient(
-            100deg,
-            var(--brand),
-            var(--aqua) 55%,
-            var(--brand2)
-        );
-        background-clip: text;
-        -webkit-background-clip: text;
-        color: transparent;
-    }
-
     /*
-     * 风险行的左侧色条。风险信号靠形状可扫视，不依赖红/绿的语义判断
-     * —— §5.9.3 方案 A。
+     * 风险行的左侧色条。风险信号靠形状可扫视，不依赖红/绿的语义判断。
+     *
+     * 色值取原生 --destructive 而不再是自定义的 --radar-alert-bar：这条色条
+     * 表达的就是「危险」，正是 destructive 的职责，与「量在下降」的
+     * --radar-down 是两件事。
      */
     .radar-alert-bar {
         position: relative;
@@ -58,29 +29,23 @@
         width: 2px;
         border-start-start-radius: inherit;
         border-end-start-radius: inherit;
-        background: var(--radar-alert-bar);
+        background: var(--destructive);
     }
 }
 
-@keyframes radar-floaty {
-    0%,
-    100% {
-        transform: translateY(0);
-    }
+/*
+ * Reveal 的降级处理，放在 CSS 而不是 JS 里。
+ *
+ * 渐进增强是前提：服务端已经把 [data-reveal] 渲染成隐藏（这是修复 hydration
+ * 不匹配的必要条件，见 use-reveal.tsx 里的说明），所以首屏 HTML 里这些区块是
+ * 不可见的，reveal 要靠 JS 跑起来才显示。这里补上 JS 不在场时的两条退路。
+ */
 
-    50% {
-        transform: translateY(-8px);
-    }
-}
-
-@layer utilities {
-    /*
-     * 首屏仪表面板的悬浮动效。respects prefers-reduced-motion —— 页面动效是装饰性的，
-     * 不该压过内容阅读。
-     */
-    @media (prefers-reduced-motion: no-preference) {
-        .animate-floaty {
-            animation: radar-floaty 7s ease-in-out infinite;
-        }
+/* 尊重系统的「减少动态效果」：去掉过渡，但保留 reveal 本身——区块照样会显示，
+   只是不再淡入上移。用 !important 是因为 transition 写在元素的行内样式里，
+   行内样式优先级高于任何非 important 的作者样式。 */
+@media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+        transition: none !important;
     }
 }

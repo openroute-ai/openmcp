@@ -3,7 +3,7 @@ import { getSessionCookie } from "better-auth/cookies"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { DEFAULT_LOCALE, LOCALES, routing } from "@/i18n/routing"
-import { Routes } from "@/lib/routes"
+import { isPublicPath, Routes } from "@/lib/routes"
 
 const intlMiddleware = createIntlMiddleware(routing)
 
@@ -26,6 +26,10 @@ const DEFAULT_LANDING = Routes.root
  *
  * The auth checks run first so a redirect can name the locale the visitor
  * arrived with; the intl middleware then rewrites what is left over.
+ *
+ * A public path still falls through to `intlMiddleware`, not to a bare `NextResponse`:
+ * the locale prefix has to be normalized for these routes too, or a visitor
+ * without one would be served the wrong language's messages.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -35,7 +39,12 @@ export function proxy(request: NextRequest) {
     (route) => localize(route, localePrefix) === pathname
   )
 
-  if (!sessionCookie && !isAuthRoute) {
+  // The radar's public pages. Gating them would mean a shared link, a search
+  // result, or an agent fetching a URL all land on a login page, so they are
+  // the one non-auth path that passes through without a cookie.
+  const needsAuth = !sessionCookie && !isAuthRoute && !isPublicPath(pathname, localePrefix)
+
+  if (needsAuth) {
     return NextResponse.redirect(
       new URL(localize(AUTH_ROUTES[0]!, localePrefix), request.url)
     )

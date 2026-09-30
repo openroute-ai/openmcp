@@ -22,7 +22,7 @@ function VitalsPanel() {
   ];
 
   return (
-    <div className="rounded-2xl border border-glass-border bg-glass p-6 backdrop-blur-xl">
+    <div className="rounded-2xl border border-border bg-card p-6 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <span className="font-mono text-sm font-semibold">project-a · 生命体征</span>
         <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[11px] font-medium text-muted-foreground">
@@ -34,10 +34,10 @@ function VitalsPanel() {
       <p className="mt-1.5 text-[11px] text-muted-foreground">采集于 14 分钟前 · 不做加权汇总，每项都是原始量</p>
 
       <dl className="mt-5 space-y-3.5">
-        {vitals.map((v, i) => (
+        {vitals.map((v) => (
           <div
             key={v.label}
-            className="flex items-baseline justify-between gap-4 border-b border-glass-border pb-3 last:border-0"
+            className="flex items-baseline justify-between gap-4 border-b border-border pb-3 last:border-0"
           >
             <div className="min-w-0">
               <dt className="text-sm">{v.label}</dt>
@@ -56,7 +56,7 @@ function VitalsPanel() {
 
       <a
         href="#method"
-        className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-aqua transition-colors hover:text-foreground"
+        className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondary-foreground transition-colors hover:text-foreground"
       >
         看这条结论的原始时间轴 <IconArrowUpRight size={13} />
       </a>
@@ -82,7 +82,7 @@ export function DeepDives() {
             <VitalsPanel />
           </Reveal>
           <Reveal delay={100}>
-            <span className="text-sm font-medium text-aqua">生命体征</span>
+            <span className="text-sm font-medium text-secondary-foreground">生命体征</span>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               不给你一个分，给你看它是不是在变坏
             </h2>
@@ -103,7 +103,7 @@ export function DeepDives() {
                 </li>
               ))}
             </ul>
-            <p className="mt-6 rounded-xl border border-glass-border bg-glass p-4 text-[13px] leading-relaxed text-muted-foreground">
+            <p className="mt-6 rounded-xl border border-border bg-card p-4 text-[13px] leading-relaxed text-muted-foreground">
               <span className="font-medium text-foreground">我们不做加权汇总，也不公开权重。</span>
               每项数据都有采集时间与来源，点开即见原始时间轴——结论可以复现，也可以被你自己推翻。
             </p>
@@ -115,7 +115,7 @@ export function DeepDives() {
       <section>
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
-            <span className="text-sm font-medium text-aqua">证据链</span>
+            <span className="text-sm font-medium text-secondary-foreground">证据链</span>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               每条结论都能追到原始信号
             </h2>
@@ -139,9 +139,9 @@ export function DeepDives() {
             </ul>
           </Reveal>
           <Reveal delay={100}>
-            <div className="rounded-2xl border border-glass-border bg-glass p-5 backdrop-blur-xl">
+            <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-xl">
               <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                <IconClock size={13} className="text-aqua" />
+                <IconClock size={13} className="text-secondary-foreground" />
                 证据时间轴 · project-a
               </div>
               <div className="mt-4 space-y-3">
@@ -153,7 +153,7 @@ export function DeepDives() {
                 ].map((w) => (
                   <div key={w.t} className="flex items-center gap-3 text-[13px]">
                     <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">{w.t}</span>
-                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-glass-border">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
                       <span
                         className={`block h-full rounded-full ${w.c}`}
                         style={{ width: w.n === 0 ? "6%" : `${(w.n / 240) * 100}%`, opacity: w.n === 0 ? 0.4 : 0.85 }}
@@ -167,7 +167,7 @@ export function DeepDives() {
                   </div>
                 ))}
               </div>
-              <p className="mt-4 border-t border-glass-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
                 本周增量为 0，且距上次 release 已 214 天 → 触发「维护停滞」旗标。判断依据全部在这张表里。
               </p>
             </div>
@@ -180,22 +180,22 @@ export function DeepDives() {
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
             {/* 决策工作台示意 */}
-            <div className="rounded-2xl border border-glass-border bg-glass p-5 backdrop-blur-xl">
+            <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">向量数据库选型 · 决策工作台</span>
-                <span className="rounded-full bg-brand/15 px-2.5 py-1 text-[11px] font-medium text-brand">
+                <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-medium text-primary">
                   评审中
                 </span>
               </div>
               <div className="mt-4 space-y-2.5">
                 {[
                   ["候选 A · project-a", "通过", "bg-muted text-muted-foreground"],
-                  ["候选 B · project-b", "复评中", "bg-aqua/15 text-aqua"],
+                  ["候选 B · project-b", "复评中", "bg-secondary text-secondary-foreground"],
                   ["候选 C · project-c", "待评审", "bg-muted text-muted-foreground"],
                 ].map(([name, status, tint]) => (
                   <div
                     key={name}
-                    className="flex items-center justify-between rounded-lg border border-glass-border bg-glass px-3.5 py-2.5"
+                    className="flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-2.5"
                   >
                     <span className="text-[13px]">{name}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tint}`}>{status}</span>
@@ -207,14 +207,14 @@ export function DeepDives() {
                   <span>流程进度：候选收集 → 尽调 → 评审 → 审批</span>
                   <span className="font-display font-semibold text-foreground">65%</span>
                 </div>
-                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-glass-border">
-                  <div className="h-full w-[65%] rounded-full bg-gradient-to-r from-brand to-aqua" />
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border">
+                  <div className="h-full w-[65%] rounded-full bg-primary" />
                 </div>
               </div>
             </div>
           </Reveal>
           <Reveal delay={100}>
-            <span className="text-sm font-medium text-aqua">团队决策工作台</span>
+            <span className="text-sm font-medium text-secondary-foreground">团队决策工作台</span>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               让选型从个人判断变成团队决策
             </h2>
@@ -234,7 +234,7 @@ export function DeepDives() {
             </ul>
             <a
               href="#download"
-              className="mt-7 inline-flex items-center gap-1.5 text-sm font-semibold text-aqua transition-colors hover:text-foreground"
+              className="mt-7 inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
             >
               预约团队演示 <span aria-hidden>→</span>
             </a>
@@ -246,7 +246,7 @@ export function DeepDives() {
       <section>
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
-            <span className="text-sm font-medium text-aqua">风险监控</span>
+            <span className="text-sm font-medium text-secondary-foreground">风险监控</span>
             <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               引入不是终点，风险需要持续监控
             </h2>
@@ -255,20 +255,20 @@ export function DeepDives() {
             </p>
             <a
               href="#pricing"
-              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand2 px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-brand/30 transition-opacity hover:opacity-90"
+              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
             >
               了解风险订阅 <span aria-hidden>→</span>
             </a>
           </Reveal>
           <Reveal delay={100}>
             {/* 告警列表示意 */}
-            <div className="rounded-2xl border border-glass-border bg-glass p-5 backdrop-blur-xl">
+            <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">风险告警</span>
                 <span className="text-[11px] text-muted-foreground">最近 7 天</span>
               </div>
               <div className="mt-4 space-y-2.5">
-                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-glass-border bg-glass py-3 pl-4 pr-3.5 text-[13px]">
+                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-border bg-card py-3 pl-4 pr-3.5 text-[13px]">
                   <span className="mt-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     中危
                   </span>
@@ -277,7 +277,7 @@ export function DeepDives() {
                     <span className="text-muted-foreground">新增 1 个中危 CVE</span>
                   </span>
                 </div>
-                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-glass-border bg-glass py-3 pl-4 pr-3.5 text-[13px]">
+                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-border bg-card py-3 pl-4 pr-3.5 text-[13px]">
                   <span className="mt-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     维护
                   </span>
@@ -286,7 +286,7 @@ export function DeepDives() {
                     <span className="text-muted-foreground">近 30 天新增贡献者下降 40%</span>
                   </span>
                 </div>
-                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-glass-border bg-glass py-3 pl-4 pr-3.5 text-[13px]">
+                <div className="radar-alert-bar flex items-start gap-3 rounded-lg border border-border bg-card py-3 pl-4 pr-3.5 text-[13px]">
                   <span className="mt-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     更新
                   </span>

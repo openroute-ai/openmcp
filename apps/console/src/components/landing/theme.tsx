@@ -25,7 +25,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       aria-label="切换深色 / 浅色主题"
       title="切换深色 / 浅色主题"
       onClick={() => apply(!document.documentElement.classList.contains("dark"))}
-      className={`grid size-9 shrink-0 place-items-center rounded-lg border border-glass-border bg-glass text-muted-foreground transition-colors hover:text-foreground ${className}`}
+      className={`grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground ${className}`}
     >
       {/* CSS-controlled icons: no hydration mismatch, matches the class set by the head script */}
       <IconSun size={16} className="hidden dark:block" />
