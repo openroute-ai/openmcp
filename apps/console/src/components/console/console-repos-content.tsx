@@ -24,6 +24,7 @@ import { useTRPC } from "@/lib/trpc/client"
 import { useFormats } from "@/lib/i18n/format"
 import { DataPagination } from "@/components/data-pagination"
 import { RepoCreateDialog } from "@/components/repos/repo-edit-dialog"
+import { LocaleLink } from "@/i18n/navigation"
 
 /** Rows per page. Enough to scan for a repository, few enough to stay a page. */
 const PAGE_SIZE = 20
@@ -44,7 +45,8 @@ const SEARCH_DEBOUNCE_MS = 300
  *
  * The project count stays, because it is the one column that answers the
  * question a reader of this list actually has — whether an admin has published
- * the repository yet.
+ * the repository yet. The count is also what the detail page turns into names,
+ * so a row opens onto the answer rather than onto the number again.
  */
 export function ConsoleReposContent() {
   const formats = useFormats()
@@ -121,13 +123,25 @@ export function ConsoleReposContent() {
                 {items.map((repo) => (
                   <TableRow key={repo.id}>
                     <TableCell>
-                      <a
+                      {/*
+                        The name goes to the detail page, and GitHub sits beside
+                        it as its own link: the detail page is what this console
+                        is for, and a row whose only link leaves for another site
+                        would make this list a table of outbound links.
+                      */}
+                      <LocaleLink
+                        href={`/console/repos/${repo.id}` as never}
                         className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {repo.fullName}
+                      </LocaleLink>
+                      <a
+                        className="block text-xs text-muted-foreground underline-offset-4 hover:underline"
                         href={repo.repoUrl}
                         target="_blank"
                         rel="noreferrer"
                       >
-                        {repo.fullName}
+                        {t("onGitHub")}
                       </a>
                       {repo.description ? (
                         <span className="block max-w-80 truncate text-xs text-muted-foreground">
