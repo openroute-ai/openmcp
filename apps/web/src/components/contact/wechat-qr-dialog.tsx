@@ -22,6 +22,8 @@ interface WeChatQRDialogProps {
   /** Handle the visitor should add. */
   wechatId?: string
   buttonText?: string
+  /** Trigger button style. Defaults to `outline`. */
+  buttonVariant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive'
   showIcon?: boolean
   className?: string
   /** Render the trigger as a square icon-only button. */
@@ -42,6 +44,7 @@ export function WeChatQRDialog({
   qrCodeUrl = '/images/pm.jpg',
   wechatId = 'qijianbin001',
   buttonText,
+  buttonVariant = 'outline',
   showIcon = true,
   className,
   asIconButton = false,
@@ -81,7 +84,7 @@ export function WeChatQRDialog({
       {!isControlled && (
         <DialogTrigger asChild>
           <Button
-            variant='outline'
+            variant={buttonVariant}
             className={cn('cursor-pointer gap-2', asIconButton && 'px-2', className)}
             aria-label={t('openDialog')}
           >

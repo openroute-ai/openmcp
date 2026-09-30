@@ -39,3 +39,6 @@ export function buildAssetDetailUrl(kind: 'skill' | 'mcp' | 'a2a', slug: string,
 
 export const API_KEY_PLACEHOLDER = 'YOUR_OPENMCP_API_KEY'
 export const API_KEYS_PATH = '/dashboard/apikeys'
+
+/** Platform gateway (LiteLLM) preferred auth header; `Authorization: Bearer` also works. */
+export const GATEWAY_KEY_HEADER = 'x-litellm-api-key'

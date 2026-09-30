@@ -3,6 +3,7 @@
 import {
   ActivityIcon,
   BotIcon,
+  BookOpenIcon,
   CreditCardIcon,
   DollarSignIcon,
   DownloadIcon,
@@ -205,6 +206,12 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           title: t('admin.categories.title'),
           icon: <ActivityIcon className='size-4 shrink-0' />,
           href: Routes.AdminCategories,
+          external: false,
+        },
+        {
+          title: t('admin.blog.title'),
+          icon: <BookOpenIcon className='size-4 shrink-0' />,
+          href: Routes.CMSBlog,
           external: false,
         },
         {

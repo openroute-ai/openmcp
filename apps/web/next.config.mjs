@@ -1,6 +1,9 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import { createMDX } from "fumadocs-mdx/next";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -22,4 +25,4 @@ const nextConfig = {
   serverExternalPackages: ["ali-oss"],
 };
 
-export default withNextIntl(nextConfig);
+export default withMDX(withNextIntl(nextConfig));

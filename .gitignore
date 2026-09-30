@@ -37,3 +37,6 @@ npm-debug.log*
 
 # AI
 .claude/
+
+# fumadocs-mdx generated
+.source/

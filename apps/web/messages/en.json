@@ -727,6 +727,11 @@
         "description": "Manage workflow categories",
         "loading": "Loading..."
       },
+      "blog": {
+        "title": "Blog",
+        "description": "Manage blog posts",
+        "loading": "Loading..."
+      },
       "userSubmissions": {
         "title": "User Submissions",
         "description": "Manage user submissions",

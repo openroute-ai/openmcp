@@ -1,6 +1,6 @@
 {
-  "id": "d6efa216-8ab4-41db-b683-f9241d3a829a",
-  "prevId": "34f0e174-3d71-4c30-9ed5-393e029e6ebb",
+  "id": "848f90de-4a9a-4943-8855-b7ff2be0d5db",
+  "prevId": "d6efa216-8ab4-41db-b683-f9241d3a829a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1917,6 +1917,203 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.gateway_spend_records": {
+      "name": "gateway_spend_records",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "api_key_id": {
+          "name": "api_key_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_alias": {
+          "name": "key_alias",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spend": {
+          "name": "spend",
+          "type": "numeric(16, 8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "overspend_amount": {
+          "name": "overspend_amount",
+          "type": "numeric(16, 8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "total_tokens": {
+          "name": "total_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "asset_type": {
+          "name": "asset_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_name": {
+          "name": "asset_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "gateway_spend_records_user_idx": {
+          "name": "gateway_spend_records_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "gateway_spend_records_author_idx": {
+          "name": "gateway_spend_records_author_idx",
+          "columns": [
+            {
+              "expression": "author_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "gateway_spend_records_occurred_at_idx": {
+          "name": "gateway_spend_records_occurred_at_idx",
+          "columns": [
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "gateway_spend_records_key_alias_idx": {
+          "name": "gateway_spend_records_key_alias_idx",
+          "columns": [
+            {
+              "expression": "key_alias",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "gateway_spend_records_user_id_user_id_fk": {
+          "name": "gateway_spend_records_user_id_user_id_fk",
+          "tableFrom": "gateway_spend_records",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "gateway_spend_records_author_id_authors_id_fk": {
+          "name": "gateway_spend_records_author_id_authors_id_fk",
+          "tableFrom": "gateway_spend_records",
+          "tableTo": "authors",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "gateway_spend_records_request_id_unique": {
+          "name": "gateway_spend_records_request_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "request_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.mcp_tools": {
       "name": "mcp_tools",
       "schema": "",
@@ -3536,7 +3733,13 @@
           "name": "skill_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "gateway_record_id": {
+          "name": "gateway_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "entitlement_id": {
           "name": "entitlement_id",
@@ -3672,10 +3875,31 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "provider_earnings_gateway_record_id_gateway_spend_records_id_fk": {
+          "name": "provider_earnings_gateway_record_id_gateway_spend_records_id_fk",
+          "tableFrom": "provider_earnings",
+          "tableTo": "gateway_spend_records",
+          "columnsFrom": [
+            "gateway_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "provider_earnings_gateway_record_unique": {
+          "name": "provider_earnings_gateway_record_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "gateway_record_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
