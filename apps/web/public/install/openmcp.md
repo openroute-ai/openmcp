@@ -10,7 +10,7 @@ OpenMCP（https://www.openmcp.cn）是面向 Agent 的 MCP / A2A / Skills 资产
 
 - **安装某个 Skill（已有目录约定）** → 跳到第三节，按 slug 下载 Zip 并解压。
 - **首次接入 OpenMCP 商店** → 先做第二节（Store MCP），再按需装技能。
-- **仅浏览/搜索** → 调用 Store MCP 的 `search_assets` / `get_asset`。
+- **仅浏览/搜索** → 调用 Store MCP 的 `search_assets` / `recommend_assets` / `get_asset`。
 
 ## 二、注册 OpenMCP Store MCP（推荐）
 
@@ -30,8 +30,9 @@ OpenMCP（https://www.openmcp.cn）是面向 Agent 的 MCP / A2A / Skills 资产
 ```
 
 - API Key：登录后打开 https://www.openmcp.cn/dashboard/apikeys 创建（网关 Virtual Key，`sk-…`）。同一把 Key 也可直接用于平台网关的市场 MCP / A2A。
-- 可用 tools：`search_assets` → `get_asset` → `install_asset`。
-- 鉴权优先级：`search_assets` / `get_asset` 匿名可只读；`install_asset` 需有效 Key（付费 Skill 另需 entitlement）。
+- 可用 tools：`search_assets` / `recommend_assets` → `get_asset` → `install_asset`。
+- 鉴权优先级：`search_assets` / `recommend_assets` / `get_asset` 匿名可只读；`install_asset` 需有效 Key（付费 Skill 另需 entitlement）。
+- Chat / AI 选型请优先调 `recommend_assets`（`useCase` + 可选 kind/priceType/securityGrade），返回带 `reason` 的热度排序清单；选定后再 `install_asset`。
 - 鉴权头两种写法均可：`Authorization: Bearer <key>` 或 `x-litellm-api-key: <key>`。
 
 Claude Code CLI 示例：

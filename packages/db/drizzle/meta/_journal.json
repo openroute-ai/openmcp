@@ -50,6 +50,13 @@
       "when": 1790740000000,
       "tag": "0006_skills_console_sync_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790750000000,
+      "tag": "0007_catalog_assets_search",
+      "breakpoints": true
     }
   ]
 }

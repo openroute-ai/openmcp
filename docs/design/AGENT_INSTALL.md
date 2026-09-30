@@ -1,6 +1,6 @@
 # Agent 自动安装（Install into Agent）
 
-> 版本：v1.2（2026-09-27）  
+> 版本：v1.3（2026-09-30）· Catalog search + recommend  
 > 范围：`apps/openmcp` · 市场资产装进 Cursor / Claude Code / Codex / 通用 Agent  
 > 决策：仅平台网关 URL；**不**支持 Provider 直连端点安装；**支持 OAuth 认证**  
 > API Key 架构：Dashboard 代理签发 LiteLLM Virtual Key，见 [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)  
@@ -92,7 +92,8 @@
 
 | Tool | 作用 |
 |------|------|
-| `search_assets` | 查询已上架 skill / mcp / a2a（`q`, `kind?`, `limit?`） |
+| `search_assets` | 结构化搜索 skill / mcp / a2a / app（`q?`, `kind?`, `tags?`, `categorySlug?`, `priceType?`, `securityGrade?`, `sort?`, `limit?`）；默认热度排序 |
+| `recommend_assets` | Chat/AI 选型：`useCase` → 推荐列表 + `reason`（复用 catalog search） |
 | `get_asset` | 详情 + 安装元数据（id / slug / kind） |
 | `install_asset` | 按 `runtime` 返回安装 payload（files 列表 / mcp 配置 snippet / a2a card URL）。付费 Skill 校验 entitlement（对齐 `skills.acquire`）；免费放行 |
 
@@ -303,7 +304,86 @@ Cursor `mcp.json` 片段见 §3.4；Claude Code：`claude mcp add --transport ht
 
 ---
 
-## 8. Skill 包安装（SkillHub 对齐，2026-09）
+## 8. 结构化目录搜索 + AI 选型推荐（Catalog）
+
+> 实现：`apps/web/src/web/catalog/` · Store MCP 复用同一核心 · 迁移 `0007_catalog_assets_search`
+
+### 8.1 目标
+
+统一搜索已上架 **Skill / MCP / A2A / App（workflows）**，默认按热度分排序；Chat / Agent 选型走 `recommend_assets`。
+
+### 8.2 热度分公式
+
+```
+hot_score = ln(1 + downloads) * 2.0
+          + GREATEST(0, 30 - age_days) * 0.35
+          + security_weight   # safe=8, caution=3, unknown=1, else=0
+          + (certified ? 5 : 0)
+          + (app only) popularity * 0.01
+```
+
+Postgres 视图 `catalog_assets` 与 TypeScript `searchCatalog` 使用同一公式（见 migration 注释）。
+
+### 8.3 调用方式
+
+| 入口 | 路径 | 说明 |
+|------|------|------|
+| tRPC | `catalog.search` / `catalog.recommend` | Web / Chat 后端 |
+| Store MCP | `search_assets` / `recommend_assets` | Agent 可匿名调用 |
+| SQL | `SELECT * FROM catalog_assets ORDER BY "hotScore" DESC` | 运维 / 报表 |
+
+**Chat 选型示例（Store MCP）**：
+
+```json
+{
+  "name": "recommend_assets",
+  "arguments": {
+    "useCase": "帮我找能读写飞书文档的 MCP 或 Skill",
+    "kind": "mcp",
+    "preferFree": true,
+    "securityGrade": "caution",
+    "limit": 5
+  }
+}
+```
+
+返回每条含 `reason`（中文推荐理由）与 `hotScore`；选定后再调 `install_asset`（需登录）。
+
+**结构化搜索示例**：
+
+```json
+{
+  "name": "search_assets",
+  "arguments": {
+    "q": "飞书",
+    "kind": "skill",
+    "tags": ["文档"],
+    "priceType": "free",
+    "sort": "hot",
+    "limit": 10
+  }
+}
+```
+
+`q` 现为可选：不传则按过滤器 + 热度浏览。
+
+### 8.4 自动分类（轻量）
+
+Console webhook 入库时：若 payload 带 `category_id` 则写入；否则 `categoryId` 留空。扫描结果为 safe/caution 后异步 `runSkillEnrichment`：LLM 补分类（仅当缺失）、scenario、features，并同步到 `tags`。LLM 失败不阻塞上架。
+
+### 8.5 代码锚点
+
+| 模块 | 路径 |
+|------|------|
+| DB 视图 / tags | `packages/db/src/catalog-schema.ts` · migration `0007_catalog_assets_search.sql` |
+| 搜索核心 | `apps/web/src/web/catalog/search.ts` |
+| 选型推荐 | `apps/web/src/web/catalog/recommend.ts` |
+| tRPC | `apps/web/src/web/catalog/router.ts` → `catalog.search` / `catalog.recommend` |
+| Store MCP | `apps/web/src/lib/agent-install/store-mcp/tools.ts` |
+
+---
+
+## 9. Skill 包安装（SkillHub 对齐，2026-09）
 
 Skill 安装以 **真实 Skill 包（SKILL.md + 文件）** 为主，提示词为辅助。
 

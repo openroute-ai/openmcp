@@ -171,6 +171,8 @@ export const workflows = pgTable(
       .notNull(), // 工作流状态
     publishedAt: timestamp('published_at'), // 发布时间
     metadata: jsonb('metadata'), // 额外元数据，如标签等
+    /** 搜索/筛选标签 */
+    tags: jsonb('tags').$type<string[] | null>().default(sql`'[]'::jsonb`),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
   },
@@ -186,6 +188,7 @@ export const workflows = pgTable(
     index('workflows_published_at_idx').on(table.publishedAt),
     index('workflows_views_idx').on(table.views),
     index('workflows_downloads_idx').on(table.downloads),
+    index('workflows_tags_gin_idx').using('gin', table.tags),
   ]
 )
 

@@ -10,7 +10,7 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { authors, createId, skills } from '@workspace/db'
+import { authors, categories, createId, skills } from '@workspace/db'
 import { db } from '@/lib/db'
 import { filesFromSkillRow, runSkillSecurityScan } from '@/lib/security-scan'
 import { runSkillEnrichment } from '@/lib/skills/enrich-skill-by-ai'
@@ -155,7 +155,18 @@ export async function ingestConsoleSkill(
     .where(eq(skills.referenceId, referenceId))
     .limit(1)
 
-  // categoryId left null on ingest — enrichment fills it after a passable scan.
+  // Prefer webhook category_id when it matches a local category; else null → LLM enrich.
+  const rawCategoryId = nonEmpty(data.category_id)
+  let resolvedCategoryId: string | null = null
+  if (rawCategoryId) {
+    const [cat] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.id, rawCategoryId))
+      .limit(1)
+    resolvedCategoryId = cat?.id ?? null
+  }
+  const featureTags = data.features ?? null
   const skillValues = {
     referenceId,
     slug,
@@ -166,10 +177,11 @@ export async function ingestConsoleSkill(
     readme: nonEmpty(data.readme_zh),
     readmeEn: nonEmpty(data.readme),
     version: nonEmpty(data.version),
-    features: data.features ?? null,
+    features: featureTags,
+    tags: featureTags,
     scenario: nonEmpty(data.scenario),
     authorId: existing?.authorId ?? authorId,
-    categoryId: null as string | null,
+    categoryId: resolvedCategoryId,
     status: 'scanning' as const,
     sourceType: 'github' as const,
     githubUrl,

@@ -5,6 +5,7 @@ import { dashboardRouter } from './web/dashboard'
 import { apiKeysRouter } from './web/apiKeys'
 import { authorsRouter } from '@/web/authors/router'
 import { adminAuthorsRouter } from '@/web/authors/router-admin'
+import { catalogRouter } from '@/web/catalog/router'
 import { categoriesRouter } from '@/web/categories/router'
 import { adminCategoriesRouter } from '@/web/categories/router-admin'
 import { mcpServersRouter } from '@/web/mcp-servers/router'
@@ -46,6 +47,7 @@ export const appRouter = router({
   health: healthRouter,
   dashboard: dashboardRouter,
   apiKeys: apiKeysRouter,
+  catalog: catalogRouter,
   categories: categoriesRouter,
   workflows: workflowsRouter,
   authors: authorsRouter,

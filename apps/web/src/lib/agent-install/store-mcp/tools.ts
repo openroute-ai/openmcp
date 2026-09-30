@@ -1,5 +1,5 @@
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
-import { a2aAgents, mcpServers, skills } from '@workspace/db'
+import { eq, sql } from 'drizzle-orm'
+import { a2aAgents, authors, mcpServers, skills } from '@workspace/db'
 import {
   buildA2aAgentCardUrl,
   buildA2aGatewayUrl,
@@ -17,7 +17,9 @@ import { db } from '@/lib/db'
 import { acquireSkill } from '@/web/skills/acquire'
 import { buildSkillPackage, buildMinimalSkillPackage } from '@/lib/agent-install/skill-package'
 import { filesFromSkillRow } from '@/lib/security-scan'
-import { authors } from '@workspace/db'
+import { recommendCatalogAssets } from '@/web/catalog/recommend'
+import { searchCatalog } from '@/web/catalog/search'
+import type { CatalogKind } from '@/web/catalog/types'
 import type { StoreAuthResult } from './auth'
 import { createDeviceCode } from './oauth'
 
@@ -25,29 +27,75 @@ export const STORE_MCP_TOOLS = [
   {
     name: 'search_assets',
     description:
-      'Search published OpenMCP marketplace assets (skills, MCP servers, A2A agents). Anonymous OK.',
+      '结构化搜索已上架资产（Skill / MCP / A2A / App=工作流）。支持 kind、tags、category、priceType、securityGrade；默认按热度分（downloads+时效+安全评级）排序。可匿名。',
     inputSchema: {
       type: 'object',
       properties: {
-        q: { type: 'string', description: 'Search query (title/name/slug/description)' },
+        q: { type: 'string', description: '搜索词（标题/slug/描述，中文友好）' },
         kind: {
           type: 'string',
-          enum: ['skill', 'mcp', 'a2a'],
-          description: 'Optional asset kind filter',
+          enum: ['skill', 'mcp', 'a2a', 'app'],
+          description: '资产类型；app 对应 workflows',
         },
-        limit: { type: 'number', description: 'Max results (1-50, default 10)' },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '标签过滤（需全部命中）',
+        },
+        categorySlug: { type: 'string', description: '分类 slug' },
+        priceType: { type: 'string', enum: ['free', 'paid'], description: '免费/付费' },
+        securityGrade: {
+          type: 'string',
+          enum: ['safe', 'caution', 'unsafe', 'reject', 'unknown'],
+          description: '最低可接受安全评级',
+        },
+        sort: {
+          type: 'string',
+          enum: ['hot', 'downloads', 'recent'],
+          description: '排序：hot=热度分（默认）',
+        },
+        limit: { type: 'number', description: '条数 1-50，默认 10' },
       },
-      required: ['q'],
+      required: [],
+    },
+  },
+  {
+    name: 'recommend_assets',
+    description:
+      'Chat / AI 选型推荐：根据场景描述（useCase）返回混合类型资产清单 + 推荐理由。内部复用结构化 catalog search 与热度排序。可匿名。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        useCase: {
+          type: 'string',
+          description: '选型场景 / 需求描述，例如「需要一个能查天气的 MCP」',
+        },
+        kind: {
+          type: 'string',
+          enum: ['skill', 'mcp', 'a2a', 'app'],
+          description: '可选类型过滤',
+        },
+        priceType: { type: 'string', enum: ['free', 'paid'] },
+        preferFree: { type: 'boolean', description: '默认 true：同等条件下偏免费' },
+        securityGrade: {
+          type: 'string',
+          enum: ['safe', 'caution', 'unsafe', 'reject', 'unknown'],
+          description: '最低安全评级，默认 caution',
+        },
+        tags: { type: 'array', items: { type: 'string' } },
+        limit: { type: 'number', description: '条数 1-20，默认 5' },
+      },
+      required: ['useCase'],
     },
   },
   {
     name: 'get_asset',
-    description: 'Get published asset detail + install metadata by id or slug. Anonymous OK.',
+    description: '按 id/slug 获取已上架资产详情与安装元数据。可匿名。',
     inputSchema: {
       type: 'object',
       properties: {
         kind: { type: 'string', enum: ['skill', 'mcp', 'a2a'] },
-        id: { type: 'string', description: 'Asset uuid or slug' },
+        id: { type: 'string', description: '资产 uuid 或 slug' },
       },
       required: ['kind', 'id'],
     },
@@ -55,18 +103,18 @@ export const STORE_MCP_TOOLS = [
   {
     name: 'install_asset',
     description:
-      'Install a published asset for a runtime. Requires auth (API Key or OAuth). Paid skills need entitlement.',
+      '为指定 runtime 安装已上架资产。需要鉴权（API Key 或 OAuth）。付费 Skill 需 entitlement。',
     inputSchema: {
       type: 'object',
       properties: {
         kind: { type: 'string', enum: ['skill', 'mcp', 'a2a'] },
-        id: { type: 'string', description: 'Asset uuid or slug' },
+        id: { type: 'string', description: '资产 uuid 或 slug' },
         runtime: {
           type: 'string',
           enum: ['cursor', 'claude-code', 'codex', 'generic-prompt'],
-          description: 'Target agent runtime (default: cursor)',
+          description: '目标 Agent runtime（默认 cursor）',
         },
-        version: { type: 'string', description: 'Optional skill version' },
+        version: { type: 'string', description: '可选 Skill 版本' },
       },
       required: ['kind', 'id'],
     },
@@ -91,147 +139,6 @@ function clampLimit(n: unknown, fallback = 10): number {
   const v = typeof n === 'number' ? n : Number(n)
   if (!Number.isFinite(v)) return fallback
   return Math.max(1, Math.min(50, Math.floor(v)))
-}
-
-async function searchSkills(q: string, limit: number) {
-  const pattern = `%${q}%`
-  const rows = await db
-    .select({
-      id: skills.id,
-      slug: skills.slug,
-      title: skills.title,
-      description: skills.description,
-      version: skills.version,
-      priceType: skills.priceType,
-      priceAmount: skills.priceAmount,
-      securityGrade: skills.securityGrade,
-      certified: skills.certified,
-      downloads: skills.downloads,
-    })
-    .from(skills)
-    .where(
-      and(
-        eq(skills.status, 'published'),
-        or(
-          ilike(skills.title, pattern),
-          ilike(skills.slug, pattern),
-          ilike(skills.description, pattern),
-          ilike(skills.titleEn, pattern)
-        )
-      )
-    )
-    .orderBy(desc(skills.downloads), desc(skills.publishedAt))
-    .limit(limit)
-
-  return rows.map((r) => ({
-    kind: 'skill' as const,
-    id: r.id,
-    slug: r.slug,
-    title: r.title,
-    description: r.description,
-    version: r.version,
-    priceType: r.priceType,
-    priceAmount: r.priceAmount,
-    securityGrade: r.securityGrade,
-    certified: r.certified,
-    downloads: r.downloads,
-    detailUrl: buildAssetDetailUrl('skill', r.slug),
-  }))
-}
-
-async function searchMcp(q: string, limit: number) {
-  const pattern = `%${q}%`
-  const rows = await db
-    .select({
-      id: mcpServers.id,
-      slug: mcpServers.slug,
-      name: mcpServers.name,
-      description: mcpServers.description,
-      priceType: mcpServers.priceType,
-      unitPrice: mcpServers.unitPrice,
-      certified: mcpServers.certified,
-      securityLevel: mcpServers.securityLevel,
-      serverName: mcpServers.serverName,
-      downloads: mcpServers.downloads,
-    })
-    .from(mcpServers)
-    .where(
-      and(
-        eq(mcpServers.status, 'published'),
-        or(
-          ilike(mcpServers.name, pattern),
-          ilike(mcpServers.slug, pattern),
-          ilike(mcpServers.description, pattern),
-          ilike(mcpServers.serverName, pattern)
-        )
-      )
-    )
-    .orderBy(desc(mcpServers.downloads), desc(mcpServers.publishedAt))
-    .limit(limit)
-
-  return rows.map((r) => ({
-    kind: 'mcp' as const,
-    id: r.id,
-    slug: r.slug,
-    title: r.name,
-    description: r.description,
-    priceType: r.priceType,
-    unitPrice: r.unitPrice,
-    certified: r.certified,
-    securityLevel: r.securityLevel,
-    serverName: r.serverName,
-    downloads: r.downloads,
-    detailUrl: buildAssetDetailUrl('mcp', r.slug),
-    gatewayUrl: r.serverName ? buildMcpGatewayUrl(r.serverName) : null,
-  }))
-}
-
-async function searchA2a(q: string, limit: number) {
-  const pattern = `%${q}%`
-  const rows = await db
-    .select({
-      id: a2aAgents.id,
-      slug: a2aAgents.slug,
-      name: a2aAgents.name,
-      description: a2aAgents.description,
-      priceType: a2aAgents.priceType,
-      unitPrice: a2aAgents.unitPrice,
-      certified: a2aAgents.certified,
-      securityLevel: a2aAgents.securityLevel,
-      agentName: a2aAgents.agentName,
-      downloads: a2aAgents.downloads,
-    })
-    .from(a2aAgents)
-    .where(
-      and(
-        eq(a2aAgents.status, 'published'),
-        or(
-          ilike(a2aAgents.name, pattern),
-          ilike(a2aAgents.slug, pattern),
-          ilike(a2aAgents.description, pattern),
-          ilike(a2aAgents.agentName, pattern)
-        )
-      )
-    )
-    .orderBy(desc(a2aAgents.downloads), desc(a2aAgents.publishedAt))
-    .limit(limit)
-
-  return rows.map((r) => ({
-    kind: 'a2a' as const,
-    id: r.id,
-    slug: r.slug,
-    title: r.name,
-    description: r.description,
-    priceType: r.priceType,
-    unitPrice: r.unitPrice,
-    certified: r.certified,
-    securityLevel: r.securityLevel,
-    agentName: r.agentName,
-    downloads: r.downloads,
-    detailUrl: buildAssetDetailUrl('a2a', r.slug),
-    gatewayUrl: r.agentName ? buildA2aGatewayUrl(r.agentName) : null,
-    agentCardUrl: r.agentName ? buildA2aAgentCardUrl(r.agentName) : null,
-  }))
 }
 
 async function resolveSkill(idOrSlug: string) {
@@ -284,22 +191,75 @@ export async function callStoreTool(
 ): Promise<ToolCallResult> {
   switch (name) {
     case 'search_assets': {
-      const q = String(args.q ?? '').trim()
-      if (!q) return textResult({ error: '缺少参数 q' }, true)
-      const kind = args.kind as AssetKind | undefined
+      const q = args.q != null ? String(args.q).trim() : undefined
+      const kind = args.kind ? (String(args.kind) as CatalogKind) : undefined
       const limit = clampLimit(args.limit)
+      const tags = Array.isArray(args.tags) ? args.tags.map(String) : undefined
+      const categorySlug = args.categorySlug ? String(args.categorySlug) : undefined
+      const priceType =
+        args.priceType === 'free' || args.priceType === 'paid' ? args.priceType : undefined
+      const securityGrade = args.securityGrade ? String(args.securityGrade) : undefined
+      const sort =
+        args.sort === 'downloads' || args.sort === 'recent' || args.sort === 'hot'
+          ? args.sort
+          : 'hot'
 
-      if (kind === 'skill') return textResult({ assets: await searchSkills(q, limit) })
-      if (kind === 'mcp') return textResult({ assets: await searchMcp(q, limit) })
-      if (kind === 'a2a') return textResult({ assets: await searchA2a(q, limit) })
+      const { assets, total } = await searchCatalog({
+        q,
+        kind,
+        tags,
+        categorySlug,
+        priceType,
+        securityGrade: securityGrade as
+          | 'safe'
+          | 'caution'
+          | 'unsafe'
+          | 'reject'
+          | 'unknown'
+          | undefined,
+        sort,
+        limit,
+      })
+      return textResult({
+        assets,
+        total,
+        sort,
+        ranking:
+          'hot_score = ln(1+downloads)*2 + recency(30d)*0.35 + security_weight + certified_boost',
+      })
+    }
 
-      const per = Math.max(1, Math.ceil(limit / 3))
-      const [skillRows, mcpRows, a2aRows] = await Promise.all([
-        searchSkills(q, per),
-        searchMcp(q, per),
-        searchA2a(q, per),
-      ])
-      return textResult({ assets: [...skillRows, ...mcpRows, ...a2aRows].slice(0, limit) })
+    case 'recommend_assets': {
+      const useCase = String(args.useCase ?? args.q ?? '').trim()
+      if (!useCase) return textResult({ error: '缺少参数 useCase（选型场景描述）' }, true)
+      const kind = args.kind ? (String(args.kind) as CatalogKind) : undefined
+      const tags = Array.isArray(args.tags) ? args.tags.map(String) : undefined
+      const priceType =
+        args.priceType === 'free' || args.priceType === 'paid' ? args.priceType : undefined
+      const preferFree = args.preferFree === undefined ? undefined : Boolean(args.preferFree)
+      const securityGrade = args.securityGrade ? String(args.securityGrade) : undefined
+      const limit = clampLimit(args.limit, 5)
+
+      const { recommendations, query } = await recommendCatalogAssets({
+        useCase,
+        kind,
+        tags,
+        priceType,
+        preferFree,
+        securityGrade: securityGrade as
+          | 'safe'
+          | 'caution'
+          | 'unsafe'
+          | 'reject'
+          | 'unknown'
+          | undefined,
+        limit: Math.min(20, limit),
+      })
+      return textResult({
+        query,
+        recommendations,
+        hint: 'Chat 选型可直接展示 reason；安装请再调 install_asset（需登录）。',
+      })
     }
 
     case 'get_asset': {
@@ -558,7 +518,7 @@ export function storeServerInfo() {
   return {
     name: 'openmcp-store',
     version: '1.0.0',
-    description: 'OpenMCP marketplace Store MCP — search / get / install published assets',
+    description: 'OpenMCP marketplace Store MCP — search / recommend / get / install published assets',
     url: buildStoreMcpUrl(base),
     oauth: {
       deviceCodeUrl: `${base}/api/mcp/store/oauth/device`,

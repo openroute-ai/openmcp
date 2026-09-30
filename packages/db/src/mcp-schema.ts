@@ -139,6 +139,8 @@ export const skills = pgTable(
     version: varchar('version', { length: 100 }),
     /** 特性关键词列表 */
     features: jsonb('features').$type<string[] | null>(),
+    /** 搜索/筛选标签（可与 features 同步；catalog 统一用 tags） */
+    tags: jsonb('tags').$type<string[] | null>().default(sql`'[]'::jsonb`),
     /** 典型使用场景说明 */
     scenario: text('scenario'),
     priceType: varchar('price_type', {
@@ -231,6 +233,7 @@ export const skills = pgTable(
     index('skills_published_at_idx').on(table.publishedAt),
     index('skills_forked_from_idx').on(table.forkedFromId),
     index('skills_external_source_idx').on(table.externalSource),
+    index('skills_tags_gin_idx').using('gin', table.tags),
   ]
 )
 

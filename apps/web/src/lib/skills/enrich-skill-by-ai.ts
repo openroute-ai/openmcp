@@ -49,6 +49,7 @@ export async function runSkillEnrichment(skillId: string): Promise<void> {
       title: skills.title,
       description: skills.description,
       readme: skills.readme,
+      categoryId: skills.categoryId,
     })
     .from(skills)
     .where(eq(skills.id, skillId))
@@ -102,13 +103,15 @@ Respond with:
     const categoryRow = categoryRows.find((c) => c.slug === result.categorySlug)
     const categoryId = categoryRow?.id ?? null
 
+    // Auto-classification: fill category when missing; always refresh scenario/features/tags.
     await db
       .update(skills)
       .set({
-        categoryId,
+        categoryId: skill.categoryId ?? categoryId,
         securityLevel: result.securityLevel,
         scenario: result.scenario,
         features: result.features,
+        tags: result.features,
         updatedAt: new Date(),
       })
       .where(eq(skills.id, skillId))
