@@ -5,6 +5,13 @@
  * schedule that reads "3am" fires at the same wall-clock time the team
  * intended. Vercel Cron itself runs in UTC, so the entrypoint must convert
  * rather than pass the expression straight through.
+ *
+ * The expressions say *when a period is due*, not when the run happens. A
+ * single daily wake-up stands in for all of them, so `04:00` is read as "the
+ * 04:00 work is due from 04:00" and the run for that work may land later the
+ * same day, or the next morning, depending on the wake-up. See
+ * `@/lib/tasks/schedule` for the rule that turns an expression into the
+ * period a run belongs to.
  */
 
 export const SCHEDULE_TIMEZONE = "Asia/Shanghai"
@@ -145,28 +152,26 @@ export const TASK_SEEDS: TaskSeed[] = [
 ]
 
 /**
- * Whether a definition should run at this moment.
+ * The order tasks must run in: the seed order.
  *
- * The Cron entrypoint is invoked on one schedule for the whole app, so a
- * task's own expression has to be checked here. `cronExpression` is optional
- * because a definition can be stored without one, in which case the coarse
- * `isDaily`/`isWeekly`/`isMonthly` flag decides. An expression always wins
- * over those flags, because a task rescheduled by an operator should run when
- * the operator asked.
+ * Repository data feeds the rankings and the rankings feed the notifications,
+ * so the Cron cascade cannot use the alphabetical order the definitions come
+ * back from the database in. Unknown names sort last, in name order, so a task
+ * an operator added runs after the pipeline it depends on rather than in the
+ * middle of it.
  */
-export function isDue(
-  seed: {
-    cronExpression?: string | null
-    isDaily?: boolean
-    isWeekly?: boolean
-    isMonthly?: boolean
-  },
-  now: Date
-): boolean {
-  if (!seed.cronExpression) {
-    return seed.isDaily === true
-  }
-  return matchesCron(seed.cronExpression, now, SCHEDULE_TIMEZONE)
+export function seedRank(name: string): number {
+  const index = TASK_SEEDS.findIndex((seed) => seed.name === name)
+  return index === -1 ? TASK_SEEDS.length : index
+}
+
+export function sortBySeedOrder<T extends { name: string }>(
+  definitions: readonly T[]
+): T[] {
+  return [...definitions].sort(
+    (a, b) =>
+      seedRank(a.name) - seedRank(b.name) || a.name.localeCompare(b.name)
+  )
 }
 
 interface CronFields {
@@ -176,6 +181,8 @@ interface CronFields {
   month: Set<number>
   dayOfWeek: Set<number>
 }
+
+export type { CronFields }
 
 function parseField(field: string, min: number, max: number): Set<number> {
   const values = new Set<number>()
@@ -292,8 +299,10 @@ export function zonedParts(
   now: Date,
   timeZone: string
 ): {
+  year: number
   minute: number
   hour: number
+  second: number
   day: number
   month: number
   dayOfWeek: number
@@ -309,6 +318,7 @@ export function zonedParts(
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   })
 
   const parts: Record<string, string> = {}
@@ -333,6 +343,8 @@ export function zonedParts(
     // it is reduced back into 0-23.
     hour: Number(parts.hour) % 24,
     minute: Number(parts.minute),
+    second: Number(parts.second),
+    year: Number(parts.year),
     day: Number(parts.day),
     month: Number(parts.month),
     dayOfWeek: weekday === undefined ? 0 : (weekdays[weekday] ?? 0),

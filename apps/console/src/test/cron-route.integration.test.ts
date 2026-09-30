@@ -148,99 +148,118 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
   })
 
   describe("scheduling", () => {
-    // 03:00 on 1 March in Asia/Shanghai is 19:00 UTC on 28 February, because
-    // the zone is UTC+8 and has no daylight saving.
-    const FIRST_OF_MARCH_0300_SHANGHAI = new Date("2026-02-28T19:00:00Z")
+    // 02:00 on 1 March in Asia/Shanghai is 18:00 UTC on 28 February, because
+    // the zone is UTC+8 and has no daylight saving. That is the daily wake-up,
+    // and the moment every test below drives the cascade from.
+    const WAKE_UP = new Date("2026-02-28T18:00:00Z")
 
-    it("runs only what is due at the given moment", async () => {
-      const body = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-      ).json()
+    /** Turns off every task except the named ones, to keep a test to one run. */
+    async function onlyEnable(...names: string[]) {
+      for (const definition of await listTaskDefinitions(db)) {
+        await setTaskEnabled(db, definition.id, names.includes(definition.name))
+      }
+    }
 
-      expect(Object.keys(body.results)).toEqual(["build-monthly-rankings"])
-      // The monthly build is implemented and ran: with no snapshots recorded
-      // it completes having published nothing, which is a normal empty build
-      // rather than a gap. The gap reporting is exercised by other tests.
-      expect(body.results["build-monthly-rankings"]).toBe("completed")
+    it("runs the missed period first, then the current one, then stops", async () => {
+      // The monthly build is due at 03:00 on the 1st. At the 02:00 wake-up on
+      // 1 March the 03:00 slot has not arrived, so the period on offer is
+      // February — the report nobody ran — and March waits for the next
+      // wake-up. A fresh database is the extreme of a missed period: everything
+      // is outstanding, which is why a new deployment backfills rather than
+      // waiting for the next 1st.
+      await route.runScheduledTasks(WAKE_UP)
+      await onlyEnable("build-monthly-rankings")
+
+      const first = await (await route.runScheduledTasks(WAKE_UP)).json()
+      expect(first.results["build-monthly-rankings"]).toBe("completed")
+      expect(first.periods["build-monthly-rankings"]).toBe("2026-02")
+
+      const second = await (await route.runScheduledTasks(WAKE_UP)).json()
+      expect(second.results["build-monthly-rankings"]).toBe("completed")
+      expect(second.periods["build-monthly-rankings"]).toBe("2026-03")
+
+      // Both periods are done, so the third tick is a no-op rather than a third
+      // rebuild of the same month.
+      const third = await (await route.runScheduledTasks(WAKE_UP)).json()
+      expect(third.results["build-monthly-rankings"]).toBe(
+        "already ran this period"
+      )
+    })
+
+    it("does not run a period whose slot has not arrived yet", async () => {
+      // `update-bundle-size` is due at 04:00. At the 02:00 wake-up today's
+      // period has not reached 04:00, so the run belongs to the day that was
+      // due — running today's build at 02:00 would measure bundles before the
+      // package refresh that feeds them has run.
+      await route.runScheduledTasks(WAKE_UP)
+      await onlyEnable("update-bundle-size")
+
+      const body = await (await route.runScheduledTasks(WAKE_UP)).json()
+      expect(body.results["update-bundle-size"]).toBe("completed")
+      expect(body.periods["update-bundle-size"]).toBe("2026-02-28")
     })
 
     it("evaluates the schedule in Asia/Shanghai, not UTC", async () => {
-      // This instant is 04:00 on 1 March in UTC, where `update-bundle-size`'s
-      // "0 4 * * *" matches. In Shanghai it is 12:00, which nothing is
-      // scheduled for, so a scheduler reading the expression in UTC would start
-      // a bundle sweep eight hours early.
+      // 20:00 UTC on 28 February is 04:00 on 1 March in Shanghai. A scheduler
+      // reading the clock in UTC would put the 04:00 bundle sweep on the 28th,
+      // three days before the monthly rankings it feeds.
+      await route.runScheduledTasks(WAKE_UP)
+      await onlyEnable("update-bundle-size")
+
       const body = await (
-        await route.runScheduledTasks(new Date("2026-03-01T04:00:00Z"))
+        await route.runScheduledTasks(new Date("2026-02-28T20:00:00Z"))
       ).json()
 
-      expect(body.results).toEqual({})
-    })
-
-    it("runs nothing when nothing is due", async () => {
-      // 03:00 on the 2nd in Shanghai: the monthly task matched the 1st.
-      const body = await (
-        await route.runScheduledTasks(new Date("2026-03-01T19:00:00Z"))
-      ).json()
-
-      expect(body.results).toEqual({})
+      expect(body.periods["update-bundle-size"]).toBe("2026-03-01")
     })
 
     it("skips a task an operator has disabled", async () => {
-      await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-
+      await route.runScheduledTasks(WAKE_UP)
       const definition = (await listTaskDefinitions(db)).find(
         (candidate) => candidate.name === "build-monthly-rankings"
       )
       await setTaskEnabled(db, definition!.id, false)
 
-      const body = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-      ).json()
+      const body = await (await route.runScheduledTasks(WAKE_UP)).json()
 
       // A disabled task is not "due" work: the run summary says nothing ran.
       expect(body.results).toEqual({})
     })
 
-    // 04:00 on 1 March in Asia/Shanghai is 20:00 UTC on 28 February, where
-    // `trigger-monthly-finished` ("0 4 1 * *") is due.
-    const FIRST_OF_MARCH_0400_SHANGHAI = new Date("2026-02-28T20:00:00Z")
+    it("retries a failed period, then gives up on it", async () => {
+      // `trigger-monthly-finished` throws when no webhook URL is configured, so
+      // it fails without touching the network. A failure is retried rather than
+      // read as done work — otherwise a misconfiguration would hide for a month
+      // — and it is retried a bounded number of times, so one broken task
+      // cannot spend every wake-up re-discovering that it is still broken.
+      await route.runScheduledTasks(WAKE_UP)
+      await onlyEnable("trigger-monthly-finished")
 
-    it("deduplicates completed work and retries failed work", async () => {
-      // A completed run is work that happened, so a second tick in the same
-      // minute is deduplicated rather than repeated.
-      const done = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-      ).json()
-      expect(done.results["build-monthly-rankings"]).toBe("completed")
-      const repeated = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-      ).json()
-      expect(repeated.results["build-monthly-rankings"]).toBe(
-        "already ran this minute"
+      for (const attempt of [1, 2, 3]) {
+        const body = await (await route.runScheduledTasks(WAKE_UP)).json()
+        expect(
+          body.results["trigger-monthly-finished"],
+          `attempt ${attempt}`
+        ).toBe("failed")
+      }
+
+      const givenUp = await (await route.runScheduledTasks(WAKE_UP)).json()
+      expect(givenUp.results["trigger-monthly-finished"]).toBe(
+        "gave up after 3 attempts"
       )
-
-      // A failed run is retried on the next tick, not hidden behind the
-      // guard: `trigger-monthly-finished` fails because no webhook URL is
-      // configured, and the guard excludes failed runs precisely so that a
-      // misconfiguration does not read as done work, a day or an hour later.
-      await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
-      const retried = await (
-        await route.runScheduledTasks(FIRST_OF_MARCH_0400_SHANGHAI)
-      ).json()
-      expect(retried.results["trigger-monthly-finished"]).toBe("failed")
     })
 
     it("keeps the disabled flag across later ticks", async () => {
       // The seed runs on every tick. Going through an upsert would restore the
       // shipped `isEnabled` a moment after anyone turned a task off.
-      await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+      await route.runScheduledTasks(WAKE_UP)
       const definition = (await listTaskDefinitions(db)).find(
         (candidate) => candidate.name === "build-monthly-rankings"
       )
       await setTaskEnabled(db, definition!.id, false)
 
-      await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
-      await route.runScheduledTasks(FIRST_OF_MARCH_0300_SHANGHAI)
+      await route.runScheduledTasks(WAKE_UP)
+      await route.runScheduledTasks(WAKE_UP)
 
       const after = (await listTaskDefinitions(db)).find(
         (candidate) => candidate.name === "build-monthly-rankings"

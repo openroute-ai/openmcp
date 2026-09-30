@@ -34,6 +34,7 @@
     "rankings": "排行榜",
     "tasks": "任务",
     "projects": "项目",
+    "authors": "作者",
     "skills": "技能",
     "syncJobs": "同步任务",
     "logOut": "退出登录",
@@ -109,6 +110,7 @@
     "monthly": "月榜",
     "risingStars": "新星榜",
     "period": "周期",
+    "year": "年份",
     "lastCompleteWeek": "最近完整周",
     "lastCompleteMonth": "最近完整月",
     "noRanked": "该周期没有上榜项目。",
@@ -137,21 +139,35 @@
       "count": "数量",
       "tags": "标签",
       "excludedTags": "排除标签",
+      "excluded": "排除 Slug",
       "enabled": "启用",
       "remove": "删除类别"
     },
+    "categoriesExcludedHint": "无论标签如何，该类别都不会选中的项目 Slug。",
     "categoriesAdd": "新增类别",
     "categoriesReset": "重新载入",
+    "categoriesRestoreDefaults": "恢复默认",
     "categoriesIsDefault": "当前使用默认配置",
+    "categoriesUpdatedAt": "保存于 {date}",
     "categoriesNeedsAll": "必须存在标识为 “all” 的类别。",
     "categoriesDuplicate": "存在重复的类别标识。",
+    "categoriesErrors": {
+      "missingAll": "必须存在标识为 “all” 的类别。",
+      "duplicateKey": "存在重复的类别标识。"
+    },
     "categoriesSave": "保存",
     "categoriesCancel": "取消",
     "categoriesSaveFailed": "无法保存配置",
     "categoriesSaved": "已保存 {count} 个类别",
     "categoriesRebuild": "重新生成报告",
     "rebuildSucceeded": "已重新生成 {year} 年报告，共 {count} 个项目",
-    "rebuildFailed": "无法重新生成报告"
+    "rebuildFailed": "无法重新生成报告",
+    "yearState": {
+      "history": "已有 Star 历史",
+      "configured": "已配置",
+      "built": "已生成过",
+      "empty": "该年份还没有 Star 历史，报告会为空。"
+    }
   },
   "Tasks": {
     "title": "任务定义",
@@ -166,6 +182,8 @@
       "actions": "操作"
     },
     "neverRun": "从未运行",
+    "risingStarsYear": "重建年份",
+    "risingStarsYearDescription": "留空则重建最近一个完整年份；填写年份则改为重建该年份。",
     "recentExecutions": "最近执行",
     "recentExecutionsDescription": "所有任务最近 50 次运行",
     "noExecutions": "暂无执行记录。",
@@ -531,6 +549,24 @@
       "homepage": "主页"
     }
   },
+  "Authors": {
+    "title": "作者",
+    "description": "所有拥有已收录仓库的人，按关注数排序。作者来自仓库拥有者，因此资料的完整程度取决于最近一次刷新。",
+    "searchPlaceholder": "搜索名称、账号或简介",
+    "empty": "没有匹配的作者。",
+    "noBio": "尚未获取资料",
+    "incompleteCount": "有 {count} 位作者尚未获取资料 — 请使用该行的刷新按钮。",
+    "never": "从未",
+    "verified": "已认证",
+    "column": {
+      "author": "作者",
+      "details": "简介",
+      "followers": "关注数",
+      "npm": "npm",
+      "status": "状态",
+      "refreshed": "最近刷新"
+    }
+  },
   "Repos": {
     "title": "仓库",
     "description": "所有已记录的仓库，以及哪些还没有被引用。孤立仓库每天仍会消耗一次刷新。",
@@ -553,6 +589,29 @@
     "projectCount": "{count} 个项目",
     "orphan": "未收录",
     "never": "从未",
+    "create": "添加仓库",
+    "createTitle": "添加仓库",
+    "createDescription": "从 GitHub 读取该仓库并开始跟踪。无论是否已有项目指向它，都会被记录。",
+    "createField": "仓库",
+    "createSubmit": "添加",
+    "createSucceeded": "已添加 {name}",
+    "createAlreadyTracked": "{name} 已在跟踪中，已改为刷新",
+    "createFailed": "无法添加仓库",
+    "createUnparseable": "这不是一个 GitHub 仓库，请尝试 URL 或 owner/name 形式。",
+    "createFetchFailed": "无法从 GitHub 读取该仓库。请检查名称；若为私有仓库，请确认令牌有权限。",
+    "editRow": "编辑 {name}",
+    "editTitle": "编辑 {name}",
+    "editDescription": "描述和主页归属 GitHub。在此修改任一项都会将其标记为人工设置，每日刷新将不再覆盖，直到你手动改回。",
+    "updateSubmit": "保存",
+    "updateSucceeded": "已保存 {name}",
+    "updateFailed": "无法保存仓库",
+    "release": "交回 GitHub 管理 — 下次刷新将覆盖此项",
+    "field": {
+      "description": "描述",
+      "descriptionZh": "描述（中文）",
+      "homepage": "主页",
+      "iconUrl": "图标地址"
+    },
     "refreshRow": "从 GitHub 刷新 {name}",
     "refreshSucceeded": "已刷新 {name}",
     "refreshPartial": "部分刷新完成",

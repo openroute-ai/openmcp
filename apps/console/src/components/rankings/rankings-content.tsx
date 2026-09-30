@@ -208,14 +208,17 @@ function RankingCard({
 }
 
 /**
- * Picks one week or one month from the periods that hold data.
+ * Picks one week, one month or one year from the options that hold data.
  *
  * The list comes from the server rather than being generated from the
  * calendar, so a period that was never swept is not offered as a choice that
- * would render empty.
+ * would render empty. `label` is passed in because the three tabs are not
+ * choosing the same kind of thing — a week and a month are both a "period", a
+ * year is not.
  */
 function PeriodSelect({
   id,
+  label,
   value,
   options,
   fallbackLabel,
@@ -223,17 +226,16 @@ function PeriodSelect({
   onChange,
 }: {
   id: string
+  label: string
   value: string
   options: { value: string; label: string }[]
   fallbackLabel: string
   pending: boolean
   onChange: (value: string) => void
 }) {
-  const t = useTranslations("Rankings")
-
   return (
     <div className="grid w-full gap-2 sm:w-56">
-      <Label htmlFor={id}>{t("period")}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Select value={value} onValueChange={onChange} disabled={pending}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={fallbackLabel} />
@@ -308,9 +310,18 @@ export function RankingsContent() {
   )
   const [risingChoice, setRisingChoice] = React.useState<string | null>(null)
   const risingYear = resolvePeriod(risingChoice, yearOptions)
+  const risingYearEntry = React.useMemo(
+    () => risingYears.data?.find((entry) => entry.year === Number(risingYear)),
+    [risingYears.data, risingYear]
+  )
+  // Held back until the list arrives. Running the query with no year would let
+  // the server pick the last complete year, so the page would fetch that one
+  // and then immediately refetch the newest year once the options land — two
+  // years of data and a visible flash on every load.
   const rising = useQuery(
     trpc.rankings.risingStars.queryOptions(
-      risingYear ? { year: Number(risingYear) } : {}
+      risingYear ? { year: Number(risingYear) } : {},
+      { enabled: risingYear !== "" }
     )
   )
 
@@ -352,6 +363,7 @@ export function RankingsContent() {
       <TabsContent value="weekly" className="flex flex-col gap-4">
         <PeriodSelect
           id="rankings-week"
+          label={t("period")}
           value={week}
           options={weekOptions}
           fallbackLabel={t("lastCompleteWeek")}
@@ -373,6 +385,7 @@ export function RankingsContent() {
       <TabsContent value="monthly" className="flex flex-col gap-4">
         <PeriodSelect
           id="rankings-month"
+          label={t("period")}
           value={month}
           options={monthOptions}
           fallbackLabel={t("lastCompleteMonth")}
@@ -395,6 +408,7 @@ export function RankingsContent() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <PeriodSelect
             id="rankings-rising-year"
+            label={t("year")}
             value={risingYear}
             options={yearOptions}
             fallbackLabel={t("risingDefaultYear")}
@@ -407,6 +421,28 @@ export function RankingsContent() {
             <RisingStarCategoriesDialog year={Number(risingYear)} />
           ) : null}
         </div>
+        {/* What is actually behind the chosen year. The year list also holds
+            these flags, and an operator staring at an empty report has no other
+            way to tell "this year has no data yet" from "the configuration is
+            wrong" — they are different problems with the same symptom. */}
+        {risingYearEntry ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {risingYearEntry.hasHistory ? (
+              <Badge variant="secondary">{t("yearState.history")}</Badge>
+            ) : null}
+            {risingYearEntry.configured ? (
+              <Badge variant="secondary">{t("yearState.configured")}</Badge>
+            ) : null}
+            {risingYearEntry.built ? (
+              <Badge variant="secondary">{t("yearState.built")}</Badge>
+            ) : null}
+            {!risingYearEntry.hasHistory ? (
+              <span className="text-muted-foreground">
+                {t("yearState.empty")}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <RankingCard
           title={t("risingStars")}
           description={t("risingDescription", { year: yearLabel })}

@@ -26,6 +26,27 @@ export interface BuildRisingStarsOptions {
   now?: () => Date
 }
 
+/**
+ * The year a manual run asked for.
+ *
+ * Read from the run input rather than from the task's options, so the registered
+ * task stays the default-year one while an operator can still rebuild a
+ * specific year. Rejected when it is not a plausible year, so a typo becomes a
+ * default-year run the operator can see in the result rather than a report for
+ * year 12.
+ *
+ * Exported for direct unit testing: the range check is the only guard between
+ * a typo and a report built for an impossible year, and it is pure.
+ */
+export function requestedYear(
+  input: Record<string, unknown> | undefined
+): number | undefined {
+  const year = input?.year
+  if (typeof year !== "number" || !Number.isInteger(year)) return undefined
+  if (year < 2000 || year > 9999) return undefined
+  return year
+}
+
 export function createBuildRisingStarsTask(
   options: BuildRisingStarsOptions = {}
 ): Task {
@@ -33,10 +54,11 @@ export function createBuildRisingStarsTask(
     name: "build-rising-stars",
     description: "Build the Rising Stars report and publish it",
 
-    async run({ db, logger }) {
+    async run({ db, logger, input }) {
       const now = options.now ?? (() => new Date())
       const store = options.store ?? ossClient
-      const year = options.year ?? now().getFullYear() - 1
+      const year =
+        options.year ?? requestedYear(input) ?? now().getFullYear() - 1
 
       const report = await buildRisingStarsForYear(db, year, now())
 

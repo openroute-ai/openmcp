@@ -4,7 +4,11 @@ import * as React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -34,6 +38,12 @@ export type AuthorRow = {
   twitter: string | null
   linkedin: string | null
   github: string | null
+  /**
+   * The mirrored copy, absent when mirroring is unavailable or has not run
+   * yet. Preferred over `avatarUrl` because it is ours to serve; the remote URL
+   * is the fallback, so a fetch that never mirrored still shows a picture.
+   */
+  avatar: string | null
   avatarUrl: string | null
   followers: number | null
   verified: boolean
@@ -140,7 +150,8 @@ function AuthorEditDialog({ author }: { author: AuthorRow }) {
       twitter: twitter.trim() === "" ? null : twitter.trim(),
       linkedin: linkedin.trim() === "" ? null : linkedin.trim(),
       npmUsername: npmUsername.trim() === "" ? null : npmUsername.trim(),
-      npmPackageCount: npmCount.trim() === "" || Number.isNaN(count) ? null : count,
+      npmPackageCount:
+        npmCount.trim() === "" || Number.isNaN(count) ? null : count,
       verified,
     })
   }
@@ -267,7 +278,10 @@ function AuthorEditDialog({ author }: { author: AuthorRow }) {
                 {t("cancel")}
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={update.isPending || name.trim() === ""}>
+            <Button
+              type="submit"
+              disabled={update.isPending || name.trim() === ""}
+            >
               {update.isPending ? <Spinner /> : null}
               {t("save")}
             </Button>
@@ -286,12 +300,16 @@ export function AuthorCard({ author }: { author: AuthorRow }) {
   return (
     <li className="flex items-start gap-3">
       <Avatar className="size-9 shrink-0">
-        {author.avatarUrl ? (
-          <AvatarImage src={author.avatarUrl} alt={author.name} />
+        {/* The mirror is tried first and GitHub's own URL second, so an author
+            whose avatar has not been mirrored — or whose mirror failed —
+            still shows a picture rather than initials. */}
+        {author.avatar || author.avatarUrl ? (
+          <AvatarImage
+            src={author.avatar || author.avatarUrl!}
+            alt={author.name}
+          />
         ) : null}
-        <AvatarFallback>
-          {author.name.slice(0, 2).toUpperCase()}
-        </AvatarFallback>
+        <AvatarFallback>{author.name.slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
       <div className="grid min-w-0 flex-1 gap-0.5 text-sm">
         <div className="flex items-center gap-1">

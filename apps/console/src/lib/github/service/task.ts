@@ -485,6 +485,63 @@ export async function hasRunDuringMinute(
   return row !== undefined
 }
 
+export interface PeriodRunState {
+  /** A run inside the period completed. */
+  completed: boolean
+  /**
+   * Runs the period has used, failures included.
+   *
+   * Cancelled runs are not counted: they never started, they lost the lock
+   * race, and charging them against the retry budget would let an overlapping
+   * tick spend a task's attempts.
+   */
+  attempts: number
+}
+
+/**
+ * How much of one period a task has already done.
+ *
+ * The Cron tick is a cascade over periods rather than a fixed list of minutes,
+ * so what has already happened is a question about the period, and the run
+ * history is what answers it. `taskStatus.lastRunAt` cannot: it records when a
+ * run was *claimed*, so a task that failed an hour ago reads as having run, and
+ * the failed period would never be retried.
+ *
+ * Counted rather than read as a boolean because a period may be retried: the
+ * attempt count is what stops a task that keeps failing from being retried on
+ * every wake-up forever.
+ */
+export async function getPeriodRunState(
+  db: Db,
+  taskDefinitionId: string,
+  since: Date
+): Promise<PeriodRunState> {
+  const rows = await db
+    .select({
+      status: taskExecutions.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(taskExecutions)
+    .where(
+      and(
+        eq(taskExecutions.taskDefinitionId, taskDefinitionId),
+        gte(taskExecutions.createdAt, since),
+        ne(taskExecutions.status, "cancelled")
+      )
+    )
+    .groupBy(taskExecutions.status)
+
+  let completed = false
+  let attempts = 0
+
+  for (const row of rows) {
+    if (row.status === "completed") completed = true
+    attempts += row.count
+  }
+
+  return { completed, attempts }
+}
+
 /**
  * Finds executions that were left `pending` or `running` by a process that
  * died, so a Vercel instance killed mid-task does not leave the task locked

@@ -5,11 +5,12 @@
  * identity is known and only the display details need fetching.
  */
 
-import { eq, sql, type SQL } from "drizzle-orm"
+import { asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { hallOfFame, hallOfFameToProjects, projects } from "@/db/schema"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { createGitHubClient, type GitHubClient } from "@/lib/github/client"
+import { ossClient } from "@/lib/oss/client"
 import type { UserInfo } from "@/lib/github/user-info-query"
 import type { Db, RepoRow } from "@/lib/github/service/repo"
 
@@ -24,8 +25,7 @@ type HallOfFameRow = typeof hallOfFame.$inferSelect
  */
 type HallOfFameUpdateSet = {
   [K in keyof typeof hallOfFame.$inferInsert]?:
-    | (typeof hallOfFame.$inferInsert)[K]
-    | SQL
+    (typeof hallOfFame.$inferInsert)[K] | SQL
 }
 
 export interface AuthorProfile {
@@ -272,8 +272,78 @@ export async function getAuthor(
   })
 }
 
-export async function listAuthors(db: Db): Promise<HallOfFameRow[]> {
-  return db.select().from(hallOfFame).orderBy(hallOfFame.username)
+/**
+ * Every author, most-followed first.
+ *
+ * Ordered by follower count with an explicit `nulls last`, because that is the
+ * order a directory is read in and a default sort would interleave authors
+ * nobody has fetched a profile for with the ones at zero. The search term is
+ * matched against the login, the display name and the bio, so an operator can
+ * find an author by any of the three — the bio is the one that carries a
+ * human-recognisable description when the display name is still the handle.
+ */
+export async function listAuthors(
+  db: Db,
+  search?: string
+): Promise<HallOfFameRow[]> {
+  const term = search?.trim()
+  if (!term) {
+    return db
+      .select()
+      .from(hallOfFame)
+      .orderBy(desc(hallOfFame.followers), asc(hallOfFame.username))
+  }
+
+  // `%` and `_` are wildcards to LIKE and `\` is its escape character, so they
+  // are escaped before being wrapped: unescaped, a search for "c++" matches
+  // every author.
+  const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`
+  return db
+    .select()
+    .from(hallOfFame)
+    .where(
+      or(
+        ilike(hallOfFame.username, pattern),
+        ilike(hallOfFame.name, pattern),
+        ilike(hallOfFame.bio, pattern)
+      )
+    )
+    .orderBy(desc(hallOfFame.followers), asc(hallOfFame.username))
+}
+
+/**
+ * Mirrors an author's avatar into the bucket.
+ *
+ * The `avatar` column exists so a public page can hotlink our copy rather than
+ * GitHub's, and it had no writer: nothing ever set it, so every reader of the
+ * column fell through to the remote URL and the mirror was a plan rather than a
+ * behaviour. This is that writer.
+ *
+ * Best effort and skipped when already mirrored. An author's picture changes
+ * rarely and the refresh runs weekly, so re-uploading an identical image on
+ * every run would multiply storage for nothing — the same reasoning as the
+ * repository icon. A failure returns nothing rather than throwing: the profile
+ * fields around it are worth having even when the upload did not work, and the
+ * card falls back to the remote URL.
+ */
+export async function mirrorAuthorAvatar(
+  username: string,
+  sourceUrl: string | null
+): Promise<string | undefined> {
+  if (!sourceUrl || !ossClient.isEnabled()) return undefined
+
+  try {
+    return await ossClient.uploadFromUrl(
+      sourceUrl,
+      ossClient.generateAuthorAvatarPath(username)
+    )
+  } catch (error) {
+    console.warn(
+      `[hall-of-fame] could not mirror the avatar for ${username}`,
+      error
+    )
+    return undefined
+  }
 }
 
 /**
@@ -290,13 +360,22 @@ export async function listAuthors(db: Db): Promise<HallOfFameRow[]> {
  * null, but a fetch that never ran writes nothing at all. `linkedin` and the
  * npm fields are not part of GitHub's profile and are left alone — they are
  * whatever an operator put there.
+ *
+ * `avatarMirrored` says whether this call uploaded a new avatar, not whether
+ * the author has one. An author whose picture was mirrored on an earlier run
+ * keeps it, and the next run reports `false` because it correctly skipped the
+ * upload rather than claiming a transfer that never happened.
  */
 export async function refreshAuthorProfile(
   db: Db,
   username: string,
-  deps: { client?: Pick<GitHubClient, "fetchUserInfo"> } = {}
+  deps: {
+    client?: Pick<GitHubClient, "fetchUserInfo">
+    mirrorAvatar?: typeof mirrorAuthorAvatar
+  } = {}
 ): Promise<
-  { ok: true; author: HallOfFameRow } | { ok: false; error: string }
+  | { ok: true; author: HallOfFameRow; avatarMirrored: boolean }
+  | { ok: false; error: string }
 > {
   const existing = await getAuthor(db, username)
   if (!existing) {
@@ -315,9 +394,25 @@ export async function refreshAuthorProfile(
     }
   }
 
+  // Skipped when already mirrored, so a weekly run does not re-upload an
+  // unchanged picture. Read from the row loaded above rather than re-fetched.
+  // `uploaded` records whether this run actually mirrored, separately from
+  // `avatar` which may be a pre-existing mirror: an already-mirrored author must
+  // not be reported as freshly mirrored on every later run.
+  const mirror = deps.mirrorAvatar ?? mirrorAuthorAvatar
+  const uploaded = existing.avatar
+    ? undefined
+    : await mirror(username, info.avatarUrl || null)
+  const avatar = existing.avatar ?? uploaded
+
   await upsertAuthor(
     db,
-    { username, verified: existing.verified, status: existing.status },
+    {
+      username,
+      ...(avatar ? { avatar } : {}),
+      verified: existing.verified,
+      status: existing.status,
+    },
     {
       name: info.name || username,
       followers: info.followers,
@@ -329,7 +424,11 @@ export async function refreshAuthorProfile(
   )
 
   const author = await getAuthor(db, username)
-  return { ok: true, author: author ?? existing }
+  return {
+    ok: true,
+    author: author ?? existing,
+    avatarMirrored: Boolean(uploaded),
+  }
 }
 
 export interface AuthorWithProjects extends HallOfFameRow {

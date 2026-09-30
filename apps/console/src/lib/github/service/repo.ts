@@ -82,15 +82,23 @@ export function toRepoRow(info: RepoInfo): RepoInsert {
  * Only GitHub-derived fields are touched. The README, its translation, the
  * icon and the OSS image URLs are written by their own tasks, and are
  * deliberately absent here so a routine stats refresh cannot wipe them.
+ *
+ * `overrides` names the fields a human has already edited. GitHub is the
+ * source of truth for the rest, but not for those: the daily sweep runs this
+ * for every repository on a schedule, so an editor's description would survive
+ * only until the next pass. A caller that does not know the flags passes
+ * nothing and gets the plain GitHub-derived behaviour, which is what the
+ * repository sweep does.
  */
-export function toRepoUpdate(info: RepoInfo): Partial<RepoInsert> {
+export function toRepoUpdate(
+  info: RepoInfo,
+  overrides: { description?: boolean; homepage?: boolean } = {}
+): Partial<RepoInsert> {
   const update: Partial<RepoInsert> = {
     name: info.name,
     ownerId: info.ownerId,
     topics: info.topics,
     archived: info.archived,
-    description: info.description,
-    homepage: info.homepage,
     defaultBranch: info.defaultBranch,
     licenseSpdxId: info.licenseSpdxId,
     languages: info.languages,
@@ -107,6 +115,9 @@ export function toRepoUpdate(info: RepoInfo): Partial<RepoInsert> {
     updatedAt: new Date(),
   }
 
+  if (!overrides.description) update.description = info.description
+  if (!overrides.homepage) update.homepage = info.homepage
+
   for (const column of NON_ZERO_ONLY_COUNTERS) {
     const value = info[column]
     if (value > 0) {
@@ -122,20 +133,123 @@ export function toRepoUpdate(info: RepoInfo): Partial<RepoInsert> {
  *
  * `addedAt` is left to its column default so it records when this system
  * first saw the repository and is never moved by a later refresh.
+ *
+ * The override flags are read from the row that is already there rather than
+ * taken as an argument, because they are a property of the stored record and
+ * every writer needs the same answer. A caller that genuinely wants to discard
+ * an override clears the flag first through {@link curateRepo}.
  */
 export async function upsertRepo(db: Db, info: RepoInfo): Promise<RepoRow> {
+  const [existing] = await db
+    .select({
+      description: repos.overrideDescription,
+      homepage: repos.overrideHomepage,
+    })
+    .from(repos)
+    .where(and(eq(repos.owner, info.owner), eq(repos.name, info.name)))
+    .limit(1)
+
   const [row] = await db
     .insert(repos)
     .values(toRepoRow(info))
     .onConflictDoUpdate({
       target: [repos.owner, repos.name],
-      set: toRepoUpdate(info),
+      set: toRepoUpdate(info, {
+        description: existing?.description === true,
+        homepage: existing?.homepage === true,
+      }),
     })
     .returning()
 
   if (!row) {
     throw new Error(`Failed to upsert repository ${info.fullName}`)
   }
+  return row
+}
+
+/** The repository fields an operator may edit by hand. */
+export interface RepoCuration {
+  description?: string | null
+  descriptionZh?: string | null
+  homepage?: string | null
+  iconUrl?: string | null
+  /**
+   * Set `false` to hand a field back to GitHub.
+   *
+   * This is the only way to detach a field from a refresh once it has been
+   * overridden: the flag is what tells {@link toRepoUpdate} to leave the value
+   * alone, so clearing the flag is what makes the next sweep overwrite it.
+   */
+  overrideDescription?: boolean
+  overrideHomepage?: boolean
+}
+
+/**
+ * Writes the hand-edited fields of a repository.
+ *
+ * A value is written only when it actually differs from what is stored, and
+ * the override flag is raised only alongside a changed value. An operator who
+ * opens the editor and saves without touching a field should not silently
+ * detach that field from GitHub forever, and comparing against the stored row
+ * is what makes that true regardless of how the editor submits its form. A
+ * partial edit stays partial: a field passed as `undefined` is not written.
+ *
+ * `description` and `homepage` are the only two that are GitHub's to begin with.
+ * The other two are ours already — a machine translation and a mirrored icon —
+ * so there is nothing for a refresh to undo and no flag for them.
+ */
+export async function curateRepo(
+  db: Db,
+  id: string,
+  fields: RepoCuration
+): Promise<RepoRow | undefined> {
+  const [existing] = await db
+    .select({
+      description: repos.description,
+      descriptionZh: repos.descriptionZh,
+      homepage: repos.homepage,
+      iconUrl: repos.iconUrl,
+      overrideDescription: repos.overrideDescription,
+      overrideHomepage: repos.overrideHomepage,
+    })
+    .from(repos)
+    .where(eq(repos.id, id))
+    .limit(1)
+
+  if (!existing) return undefined
+
+  const set: Partial<RepoInsert> = {}
+
+  // Only a value that differs is written, and the flag travels with that write
+  // rather than with the form, so an untouched field is never marked.
+  for (const key of [
+    "description",
+    "descriptionZh",
+    "homepage",
+    "iconUrl",
+  ] as const) {
+    const value = fields[key]
+    if (value === undefined) continue
+    if (value === existing[key]) continue
+    set[key] = value
+    if (key === "description") set.overrideDescription = true
+    if (key === "homepage") set.overrideHomepage = true
+  }
+
+  // Handing a field back to GitHub is a flag change on its own, with no value:
+  // the next refresh supplies the value from GitHub and clears nothing.
+  if (fields.overrideDescription === false) set.overrideDescription = false
+  if (fields.overrideHomepage === false) set.overrideHomepage = false
+
+  if (Object.keys(set).length === 0) return getRepoById(db, id)
+
+  set.updatedAt = new Date()
+
+  const [row] = await db
+    .update(repos)
+    .set(set)
+    .where(eq(repos.id, id))
+    .returning()
   return row
 }
 

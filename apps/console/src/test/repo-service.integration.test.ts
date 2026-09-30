@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { pool, db } from "@/db/client"
 import { repos } from "@/db/schema"
 import {
+  curateRepo,
   getRepoByFullName,
   getReposByFullNames,
   setContributorCount,
@@ -245,5 +246,91 @@ describe.skipIf(!hasDatabase)("repo service (integration)", () => {
     await db.delete(repos).where(eq(repos.id, row.id))
 
     expect(await getRepoByFullName(db, "cascade-test/thing")).toBeUndefined()
+  })
+
+  it("leaves a hand-edited description alone on the next refresh", async () => {
+    const row = await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "kept",
+        fullName: "override-test/kept",
+      })
+    )
+    await curateRepo(db, row.id, { description: "Hand-written" })
+
+    await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "kept",
+        fullName: "override-test/kept",
+        description: "What GitHub says",
+      })
+    )
+
+    const stored = await getRepoByFullName(db, "override-test/kept")
+    expect(stored?.description).toBe("Hand-written")
+    expect(stored?.overrideDescription).toBe(true)
+  })
+
+  it("does not raise the override flag for a value that did not change", async () => {
+    // Saving the editor without touching a field must not detach it from
+    // GitHub forever. The service compares against the stored row, so it is
+    // safe regardless of how the form submits.
+    const row = await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "unchanged",
+        fullName: "override-test/unchanged",
+      })
+    )
+    await curateRepo(db, row.id, { description: "The React Framework" })
+
+    const stored = await getRepoByFullName(db, "override-test/unchanged")
+    expect(stored?.overrideDescription ?? null).toBeNull()
+
+    // And because the flag is clear, the next refresh still writes GitHub's.
+    await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "unchanged",
+        fullName: "override-test/unchanged",
+        description: "A newer description",
+      })
+    )
+    expect(
+      (await getRepoByFullName(db, "override-test/unchanged"))?.description
+    ).toBe("A newer description")
+  })
+
+  it("hands a field back to GitHub when the override is cleared", async () => {
+    const row = await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "released",
+        fullName: "override-test/released",
+      })
+    )
+    await curateRepo(db, row.id, { description: "Hand-written" })
+    await curateRepo(db, row.id, { overrideDescription: false })
+
+    await upsertRepo(
+      db,
+      info({
+        owner: "override-test",
+        name: "released",
+        fullName: "override-test/released",
+        description: "GitHub's again",
+      })
+    )
+
+    const stored = await getRepoByFullName(db, "override-test/released")
+    expect(stored?.description).toBe("GitHub's again")
+    // Explicitly false rather than absent: clearing is a write, not a delete.
+    expect(stored?.overrideDescription).toBe(false)
   })
 })

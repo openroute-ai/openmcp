@@ -28,6 +28,10 @@ import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { useTRPC } from "@/lib/trpc/client"
 import { useFormats } from "@/lib/i18n/format"
 import { DataPagination } from "@/components/data-pagination"
+import {
+  RepoCreateDialog,
+  RepoEditDialog,
+} from "@/components/repos/repo-edit-dialog"
 import { RepoDeleteDialog } from "@/components/repos/repo-delete-dialog"
 
 type RepoFilter = "all" | "curated" | "orphan" | "archived"
@@ -94,10 +98,16 @@ export function ReposContent() {
     trpc.repos.refresh.mutationOptions({
       onSuccess: (result) => {
         if (result.ok) {
-          toast.success(t("refreshSucceeded", { name: `${result.refreshed?.owner ?? ""}/${result.refreshed?.name ?? ""}` }))
+          toast.success(
+            t("refreshSucceeded", {
+              name: `${result.refreshed?.owner ?? ""}/${result.refreshed?.name ?? ""}`,
+            })
+          )
         } else {
           toast.warning(t("refreshPartial"), {
-            description: t("refreshFailedSteps", { steps: result.failed.join(", ") }),
+            description: t("refreshFailedSteps", {
+              steps: result.failed.join(", "),
+            }),
           })
         }
         void queryClient.invalidateQueries({
@@ -130,13 +140,16 @@ export function ReposContent() {
             </TabsList>
           </Tabs>
         </div>
-        <Input
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-          placeholder={t("searchPlaceholder")}
-          aria-label={t("searchPlaceholder")}
-          className="max-w-sm"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+            className="max-w-sm"
+          />
+          <RepoCreateDialog />
+        </div>
       </CardHeader>
       <CardContent>
         {isPending ? (
@@ -195,7 +208,9 @@ export function ReposContent() {
                       {formats.relative(repo.pushedAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {repo.updatedAt ? formats.relative(repo.updatedAt) : t("never")}
+                      {repo.updatedAt
+                        ? formats.relative(repo.updatedAt)
+                        : t("never")}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -220,6 +235,18 @@ export function ReposContent() {
                             {t("refreshRow", { name: repo.fullName })}
                           </span>
                         </Button>
+                        <RepoEditDialog
+                          repo={{
+                            id: repo.id,
+                            fullName: repo.fullName,
+                            description: repo.description,
+                            descriptionZh: repo.descriptionZh,
+                            homepage: repo.homepage,
+                            iconUrl: repo.iconUrl,
+                            overrideDescription: repo.overrideDescription,
+                            overrideHomepage: repo.overrideHomepage,
+                          }}
+                        />
                         <RepoDeleteDialog
                           repo={{
                             id: repo.id,

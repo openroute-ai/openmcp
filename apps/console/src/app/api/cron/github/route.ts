@@ -1,32 +1,46 @@
 /**
  * The single Cron entrypoint.
  *
- * Vercel Cron invokes one path on one schedule, so every task's own schedule
- * is evaluated here rather than in `vercel.json`. A task whose expression does
- * not match this moment is not started at all, which matters on the
- * serverless plan where the hourly invocation itself is metered.
+ * Vercel Cron invokes one path on one schedule, so the whole schedule is
+ * decided here. A task is not asked whether its own minute has arrived — that
+ * cannot work from a single daily wake-up — but which *period* of work it is
+ * owed, and whether that period still has work in it. See
+ * `@/lib/tasks/schedule`: a task whose 04:00 slot has passed runs for today, and
+ * one whose slot has not arrives yet catches up on the day it was missed.
  *
  * The endpoint fails closed. With no `CRON_SECRET` it returns 404 rather than
  * running anything, because a scheduler that writes to the database and pushes
  * webhooks must never degrade into an open trigger.
  *
- * Runs are sequential, not parallel. Several of these tasks read what the
- * previous one wrote — repository data feeds the rankings, the rankings feed
- * the notifications — and a serverless function that fired them all at once
- * would notify on half-written input. Each task also takes its own database
- * lock, so a second instance arriving mid-tick does not duplicate work.
+ * Runs are sequential, not parallel, and in seed order rather than in the
+ * alphabetical order the definitions come back from the database in. Several of
+ * these tasks read what the previous one wrote — repository data feeds the
+ * rankings, the rankings feed the notifications — and a serverless function
+ * that fired them all at once, or in the wrong order, would notify on
+ * half-written input. Each task also takes its own database lock, so a second
+ * instance arriving mid-tick does not duplicate work.
+ *
+ * Cost of the cascade: a wake-up may run the whole pipeline, so the function is
+ * declared at the longest duration Vercel offers and the tick that overruns
+ * loses only the tasks it had not reached. Those are picked up by the next
+ * wake-up, because a period nobody finished is still outstanding.
  */
 
 import { db } from "@/db/client"
 import { cronSecret } from "@/lib/env"
 import { authorized } from "@/lib/cron/guard"
-import { isDue } from "@/lib/tasks/definitions"
+import { sortBySeedOrder } from "@/lib/tasks/definitions"
 import { installTaskRegistry, UNIMPLEMENTED_TASKS } from "@/lib/tasks/registry"
 import {
-  hasRunDuringMinute,
+  getPeriodRunState,
   listTaskDefinitions,
 } from "@/lib/github/service/task"
 import { seedDefinitions } from "@/lib/tasks/seed"
+import {
+  MAX_ATTEMPTS_PER_PERIOD,
+  periodTargets,
+  selectPeriod,
+} from "@/lib/tasks/schedule"
 import {
   createBufferingLogger,
   getTaskRegistry,
@@ -67,25 +81,7 @@ export async function POST(request: Request) {
 }
 
 /**
- * The start of the minute `now` falls in, in UTC.
- *
- * Truncated to the minute rather than the hour, so a task scheduled for
- * 02:30 is only deduplicated against other 02:30 runs.
- */
-function minuteStart(now: Date): Date {
-  return new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      now.getUTCHours(),
-      now.getUTCMinutes()
-    )
-  )
-}
-
-/**
- * Seeds definitions, frees abandoned runs, then runs whatever is due.
+ * Seeds definitions, frees abandoned runs, then runs whatever is outstanding.
  *
  * Exported so the admin "run now" action and the tests can drive the same
  * sequence, rather than re-implementing the ordering.
@@ -98,8 +94,9 @@ export async function runScheduledTasks(now = new Date()) {
   const recovered = await recoverStaleRuns(db)
 
   const registry = installTaskRegistry()
-  const definitions = await listTaskDefinitions(db)
+  const definitions = sortBySeedOrder(await listTaskDefinitions(db))
   const results: Record<string, string> = {}
+  const periods: Record<string, string> = {}
 
   for (const definition of definitions) {
     // A disabled task is not work at all, so it is filtered here rather than
@@ -107,13 +104,18 @@ export async function runScheduledTasks(now = new Date()) {
     // has already been reported as attempted, which makes a disabled task look
     // like a task that keeps being tried and declines.
     if (!definition.isEnabled) continue
-    if (!isDue(definition, now)) continue
+
+    // The periods this task is owed, oldest first. Derived from the clock and
+    // the definition alone, so a task with an empty history is due rather than
+    // invisible: a fresh deployment backfills instead of waiting for the next
+    // 1st of the month. One period per task per wake-up, so the deepest task
+    // needs two wake-ups to settle.
+    const targets = periodTargets(definition, now)
+    if (targets.length === 0) continue
 
     if (UNIMPLEMENTED_TASKS.has(definition.name)) {
       // Named rather than raised: this is a known gap in the migration, and it
       // should read as one in the run summary rather than as a broken task.
-      // Checked before the same-minute guard below, because nothing ever runs
-      // for these and a guard should not change how a known gap reads.
       results[definition.name] = "unimplemented"
       continue
     }
@@ -123,12 +125,25 @@ export async function runScheduledTasks(now = new Date()) {
       continue
     }
 
-    // `isDue` matches the current minute, so a retried or manually triggered
-    // tick inside the same minute sees the same due set. Running it again would
-    // repeat a full sweep of the external APIs for the same minute of work, and
-    // only a real run leaves an execution row, so this does not mask anything.
-    if (await hasRunDuringMinute(db, definition.id, minuteStart(now))) {
-      results[definition.name] = "already ran this minute"
+    // Oldest period first. A week whose report never ran is finished before the
+    // current one starts, and a task never skips a period in favour of a newer
+    // one — which is what a single wake-up has to be for, since it can only
+    // offer this once.
+    const outstanding = await selectPeriod(targets, (target) =>
+      getPeriodRunState(db, definition.id, target.start)
+    )
+
+    if (outstanding.kind === "done") {
+      results[definition.name] = "already ran this period"
+      continue
+    }
+
+    if (outstanding.kind === "exhausted") {
+      // Said plainly rather than left to look like success: a task that has
+      // failed every attempt in a period is waiting for the next one, not
+      // quietly done with this one.
+      results[definition.name] =
+        `gave up after ${MAX_ATTEMPTS_PER_PERIOD} attempts`
       continue
     }
 
@@ -145,6 +160,7 @@ export async function runScheduledTasks(now = new Date()) {
     }
 
     results[definition.name] = outcome.status
+    periods[definition.name] = outstanding.target.key
   }
 
   return NextResponse.json({
@@ -152,6 +168,7 @@ export async function runScheduledTasks(now = new Date()) {
     recovered,
     registered: [...getTaskRegistry().keys()],
     results,
+    periods,
   })
 }
 

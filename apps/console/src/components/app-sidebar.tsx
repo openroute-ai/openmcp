@@ -24,6 +24,7 @@ import {
   IconRobot,
   IconRepeat,
   IconInnerShadowTop,
+  IconUsers,
 } from "@tabler/icons-react"
 
 // The label is a message key rather than text, so the sidebar translates with
@@ -33,6 +34,10 @@ const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
   { key: "rankings", url: "/dashboard/rankings", icon: <IconChartBar /> },
   { key: "tasks", url: "/dashboard/tasks", icon: <IconClock /> },
   { key: "projects", url: "/dashboard/projects", icon: <IconFolder /> },
+  // Authors sit next to projects rather than under them: an author outlives the
+  // project that introduced them, and this is the only page that lists all of
+  // them at once.
+  { key: "authors", url: "/dashboard/authors", icon: <IconUsers /> },
   { key: "repos", url: "/dashboard/repos", icon: <IconCode /> },
   { key: "skills", url: "/dashboard/skills", icon: <IconRobot /> },
   { key: "syncJobs", url: "/dashboard/sync", icon: <IconRepeat /> },

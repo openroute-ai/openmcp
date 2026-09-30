@@ -33,6 +33,16 @@ export interface TaskContext {
   definition: TaskDefinitionRow
   execution: TaskExecutionRow
   logger: TaskLogger
+  /**
+   * Arguments for this run, from whoever asked for it.
+   *
+   * Only ever set by a manual run. A task's construction-time options answer
+   * "how is this task configured", which is the same for every run; this
+   * answers "what is this particular run for", which is not. A yearly task
+   * building the previous year on its own schedule and an operator rebuilding
+   * 2023 are the same task with different input.
+   */
+  input?: Record<string, unknown>
 }
 
 export interface TaskLogger {
@@ -136,6 +146,8 @@ export interface RunOptions {
   logger?: TaskLogger
   /** Bypasses the lock, for an operator asking twice on purpose. */
   force?: boolean
+  /** Arguments for the run. See `TaskContext.input`. */
+  input?: Record<string, unknown>
 }
 
 /**
@@ -208,6 +220,7 @@ export async function runTask(
       definition,
       execution,
       logger,
+      ...(options.input ? { input: options.input } : {}),
     })
     // Read after the run, so the logs include what happened during it.
     const logs = collectLogs(logger)

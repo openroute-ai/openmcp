@@ -134,3 +134,13 @@ describe("toRepoUpdate", () => {
     expect(update).not.toHaveProperty("contributorCount")
   })
 })
+
+describe("toRepoUpdate with overrides", () => {
+  it("does not overwrite description or homepage when overridden", () => {
+    const base = info({ description: "New", homepage: "https://new.com" })
+    const update = toRepoUpdate(base, { description: true, homepage: true })
+
+    expect(update).not.toHaveProperty("description")
+    expect(update).not.toHaveProperty("homepage")
+  })
+})

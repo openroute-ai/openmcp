@@ -2,13 +2,17 @@
  * The Rising Stars report for a year, as JSON.
  *
  * Like the build task, this defaults to the last complete year. The report is
- * recomputed and re-persisted on request so the endpoint always agrees with
- * the rows an admin sees; the projection is deterministic, so a read never
- * changes the numbers, only confirms them.
+ * recomputed on request so the endpoint always agrees with the rows an admin
+ * sees, and the projection is deterministic, so a read never changes the
+ * numbers — only confirms them. Nothing is written: this route has no
+ * authentication, and the sibling `week.json` / `month.json` routes are
+ * documented as read-only, so an anonymous request must not be able to delete
+ * and reinsert a year's rows. `buildRisingStarsForYear` is the persisting path,
+ * behind the console's own rebuild button and the yearly task.
  */
 
 import { db } from "@/db/client"
-import { buildRisingStarsForYear } from "@/lib/github/service/rising-stars"
+import { computeRisingStarsForYear } from "@/lib/github/service/rising-stars"
 import { resolveYear } from "@/lib/rankings-web"
 import { NextResponse } from "next/server"
 
@@ -22,7 +26,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: resolved.error }, { status: 400 })
   }
 
-  const report = await buildRisingStarsForYear(db, resolved.value)
+  const { report } = await computeRisingStarsForYear(db, resolved.value)
   return NextResponse.json(
     report,
     report.projects.length === 0 ? { status: 404 } : {}

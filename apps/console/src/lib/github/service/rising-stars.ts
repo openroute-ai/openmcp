@@ -85,10 +85,20 @@ export const defaultRisingStarCategories: RisingStarCategory[] = [
   { key: "cli", count: 15, tags: ["cli"] },
 ]
 
-/** The configuration for a year, seeding the default when none is stored. */
+/**
+ * The configuration for a year, falling back to the default.
+ *
+ * The fallback row is written only when `seed` is set. A read that inserted
+ * would make every read path a writer, and two of them are not supposed to be
+ * able to write at all: the dashboard query and the public JSON endpoint are
+ * both unauthenticated reads, so a write here would be an anonymous request
+ * mutating a table. The build seeds instead, so a year that has been computed
+ * always has a row an editor can open.
+ */
 export async function getRisingStarCategories(
   db: Db,
-  year: number
+  year: number,
+  options: { seed?: boolean } = {}
 ): Promise<RisingStarCategory[]> {
   const [row] = await db
     .select()
@@ -97,12 +107,26 @@ export async function getRisingStarCategories(
 
   if (row) return row.categories
 
-  await db
-    .insert(risingStarCategories)
-    .values({ year, categories: defaultRisingStarCategories })
-    .onConflictDoNothing()
+  if (options.seed) {
+    await db
+      .insert(risingStarCategories)
+      .values({ year, categories: defaultRisingStarCategories })
+      .onConflictDoNothing()
+  }
 
   return defaultRisingStarCategories
+}
+
+/**
+ * The seed configuration, for an editor that wants to put it back.
+ *
+ * Returned by the server rather than imported into the dialog, because the
+ * default lives beside the selection that reads it and importing that module
+ * into a client component would pull the whole Drizzle schema into the browser
+ * bundle.
+ */
+export function listDefaultRisingStarCategories(): RisingStarCategory[] {
+  return defaultRisingStarCategories.map((category) => ({ ...category }))
 }
 
 interface Candidate {
@@ -126,18 +150,37 @@ interface Candidate {
 }
 
 /**
- * Computes the report for a year.
+ * A computed report, before it is written anywhere.
+ *
+ * The category each project was picked by and its contributor count are part of
+ * the result rather than being re-derived, because only the build has both and
+ * the table's columns are filled from them.
+ */
+export interface ComputedRisingStars {
+  report: RisingStarsReport
+  categoryByFullName: Map<string, string>
+  contributorsByFullName: Map<string, number | null>
+}
+
+/**
+ * Computes the report for a year, without writing.
  *
  * Candidates are repositories that have monthly history for that year, joined
  * to their project. Hidden and deprecated projects are skipped, matching
  * every other public surface: a report is not a place to advertise work that
  * is deliberately off the site.
+ *
+ * Read-only on purpose, and this is the function the dashboard and the public
+ * JSON endpoint use. The projection is deterministic — it depends only on the
+ * snapshot history and the stored categories — so a read that recomputes returns
+ * exactly what a build would have written, and it does not need the write to
+ * prove it. `buildRisingStarsForYear` is the one that persists.
  */
-export async function buildRisingStarsForYear(
+export async function computeRisingStarsForYear(
   db: Db,
   year: number,
   date = new Date()
-): Promise<RisingStarsReport> {
+): Promise<ComputedRisingStars> {
   const rows = await db
     .select({
       repoId: repos.id,
@@ -267,14 +310,43 @@ export async function buildRisingStarsForYear(
           .from(tags)
           .where(inArray(tags.code, [...usedCodes]))
 
-  await persistRisingStars(db, year, selected, categoryByFullName, contributors)
-
   return {
-    date: date.toISOString(),
-    count: selected.length,
-    projects: selected,
-    tags: usedTags,
+    report: {
+      date: date.toISOString(),
+      count: selected.length,
+      projects: selected,
+      tags: usedTags,
+    },
+    categoryByFullName,
+    contributorsByFullName: contributors,
   }
+}
+
+/**
+ * Computes a year and writes the selection to `rising_star_projects`.
+ *
+ * This is the only path that persists, and it is what the yearly task and the
+ * editor's rebuild button both use, so the table and the published artefact
+ * cannot disagree. The category row is seeded first, so a year that was built
+ * has something to open in the editor even when the report came out empty.
+ */
+export async function buildRisingStarsForYear(
+  db: Db,
+  year: number,
+  date = new Date()
+): Promise<RisingStarsReport> {
+  await getRisingStarCategories(db, year, { seed: true })
+
+  const computed = await computeRisingStarsForYear(db, year, date)
+  await persistRisingStars(
+    db,
+    year,
+    computed.report.projects,
+    computed.categoryByFullName,
+    computed.contributorsByFullName
+  )
+
+  return computed.report
 }
 
 /** Builds one project's report entry, or null when it grew nothing. */

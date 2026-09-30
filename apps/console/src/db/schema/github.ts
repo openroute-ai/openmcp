@@ -113,6 +113,19 @@ export const repos = pgTable(
     descriptionZh: text("description_zh"),
     iconUrl: text("icon_url"),
     openGraphImageOssUrl: text("open_graph_image_oss_url"),
+
+    /**
+     * Set once a human has edited these, so a refresh leaves them alone.
+     *
+     * The same arrangement `projects` uses, and for the same reason: the daily
+     * sweep overwrites `description` and `homepage` from GitHub on every pass,
+     * so an editor that changed either of them would watch their edit disappear
+     * a few hours later. The flag is what makes the repository editor worth
+     * having. The `*_zh` columns have no flag because nothing but a translator
+     * and an operator ever writes them.
+     */
+    overrideDescription: boolean("override_description"),
+    overrideHomepage: boolean("override_homepage"),
   },
   (table) => [
     uniqueIndex("repos_name_owner_index").on(table.owner, table.name),

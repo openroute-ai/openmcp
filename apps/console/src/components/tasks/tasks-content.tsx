@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { Switch } from "@workspace/ui/components/switch"
+import { Input } from "@workspace/ui/components/input"
 import {
   Table,
   TableBody,
@@ -33,6 +34,26 @@ import { useFormats } from "@/lib/i18n/format"
 
 /** Execution rows per page, matching the other logs. */
 const EXECUTIONS_PAGE_SIZE = 20
+
+/**
+ * The run input for a task, from the year box beside its button.
+ *
+ * Empty means "no input", which is not the same as year 0: the task then falls
+ * back to the last complete year. A value outside the plausible range is
+ * dropped here rather than sent, so the server's own range check is a
+ * backstop and not the first line of defence against a mistyped year.
+ */
+function risingStarsInput(
+  name: string,
+  year: string
+): { input?: { year: number } } {
+  if (name !== "build-rising-stars" || year.trim() === "") return {}
+
+  const parsed = Number(year)
+  if (!Number.isInteger(parsed) || parsed < 2000 || parsed > 9999) return {}
+
+  return { input: { year: parsed } }
+}
 
 export function TasksContent() {
   const formats = useFormats()
@@ -51,6 +72,7 @@ export function TasksContent() {
     trpc.tasks.list.queryOptions()
   )
   const [executionPageIndex, setExecutionPageIndex] = React.useState(1)
+  const [yearInput, setYearInput] = React.useState("")
   const { data: executionPage } = useQuery(
     trpc.tasks.executions.queryOptions({
       limit: EXECUTIONS_PAGE_SIZE,
@@ -241,11 +263,39 @@ export function TasksContent() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
+                        {/* The rising-stars report is per year, so rebuilding
+                            "now" alone would always rebuild the same default
+                            year and a past year would need a code change. The
+                            field is per row rather than a dialog because there
+                            is exactly one input to collect. */}
+                        {task.name === "build-rising-stars" ? (
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={2000}
+                            max={9999}
+                            step={1}
+                            placeholder={String(new Date().getFullYear() - 1)}
+                            value={yearInput}
+                            onChange={(event) =>
+                              setYearInput(event.target.value)
+                            }
+                            aria-label={t("risingStarsYear")}
+                            title={t("risingStarsYearDescription")}
+                            className="w-28 text-right"
+                          />
+                        ) : null}
                         <Button
                           size="sm"
                           variant="outline"
+                          className="ml-2"
                           disabled={runningNow || setEnabled.isPending}
-                          onClick={() => runNow.mutate({ name: task.name })}
+                          onClick={() =>
+                            runNow.mutate({
+                              name: task.name,
+                              ...risingStarsInput(task.name, yearInput),
+                            })
+                          }
                         >
                           {runningNow ? (
                             <Spinner className="size-3" />

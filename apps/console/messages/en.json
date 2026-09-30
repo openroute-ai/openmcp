@@ -34,6 +34,7 @@
     "rankings": "Rankings",
     "tasks": "Tasks",
     "projects": "Projects",
+    "authors": "Authors",
     "skills": "Skills",
     "syncJobs": "Sync Jobs",
     "logOut": "Log out",
@@ -109,6 +110,7 @@
     "monthly": "Monthly",
     "risingStars": "Rising Stars",
     "period": "Period",
+    "year": "Year",
     "lastCompleteWeek": "Last complete week",
     "lastCompleteMonth": "Last complete month",
     "noRanked": "No ranked projects for this period.",
@@ -137,21 +139,35 @@
       "count": "Count",
       "tags": "Tags",
       "excludedTags": "Excluded tags",
+      "excluded": "Excluded slugs",
       "enabled": "Enabled",
       "remove": "Remove category"
     },
+    "categoriesExcludedHint": "Project slugs this category never picks, whatever their tags.",
     "categoriesAdd": "Add category",
     "categoriesReset": "Reload stored",
+    "categoriesRestoreDefaults": "Restore defaults",
     "categoriesIsDefault": "Using the default configuration",
+    "categoriesUpdatedAt": "Saved {date}",
     "categoriesNeedsAll": "A category with the key \"all\" is required.",
     "categoriesDuplicate": "Two categories share a key.",
+    "categoriesErrors": {
+      "missingAll": "A category with the key \"all\" is required.",
+      "duplicateKey": "Two categories share a key."
+    },
     "categoriesSave": "Save",
     "categoriesCancel": "Cancel",
     "categoriesSaveFailed": "Could not save the configuration",
     "categoriesSaved": "Saved {count} categories",
     "categoriesRebuild": "Rebuild report",
     "rebuildSucceeded": "Rebuilt the {year} report with {count} projects",
-    "rebuildFailed": "Could not rebuild the report"
+    "rebuildFailed": "Could not rebuild the report",
+    "yearState": {
+      "history": "Has star history",
+      "configured": "Configured",
+      "built": "Already built",
+      "empty": "No star history for this year yet, so the report will be empty."
+    }
   },
   "Tasks": {
     "title": "Task definitions",
@@ -166,6 +182,8 @@
       "actions": "Actions"
     },
     "neverRun": "never run",
+    "risingStarsYear": "Year to rebuild",
+    "risingStarsYearDescription": "Leave empty to rebuild the last complete year. Enter a year to rebuild that one instead.",
     "recentExecutions": "Recent executions",
     "recentExecutionsDescription": "The latest 50 runs across every task",
     "noExecutions": "No executions yet.",
@@ -531,6 +549,24 @@
       "homepage": "Homepage"
     }
   },
+  "Authors": {
+    "title": "Authors",
+    "description": "Everyone with a curated repository, ordered by followers. An author comes from the repository owner, so a profile is only as good as the last refresh.",
+    "searchPlaceholder": "Search name, handle or bio",
+    "empty": "No authors match.",
+    "noBio": "Profile not fetched yet",
+    "incompleteCount": "{count, plural, one {# author has} other {# authors have}} no profile fetched yet — use the refresh button on the row.",
+    "never": "Never",
+    "verified": "Verified",
+    "column": {
+      "author": "Author",
+      "details": "Bio",
+      "followers": "Followers",
+      "npm": "npm",
+      "status": "Status",
+      "refreshed": "Last refresh"
+    }
+  },
   "Repos": {
     "title": "Repositories",
     "description": "Every recorded repository, and which ones nothing points at. An orphan still costs a refresh a day.",
@@ -553,6 +589,29 @@
     "projectCount": "{count, plural, one {# project} other {# projects}}",
     "orphan": "Not curated",
     "never": "Never",
+    "create": "Add repository",
+    "createTitle": "Add a repository",
+    "createDescription": "Reads the repository from GitHub and starts tracking it. It is recorded whether or not anything points at it yet.",
+    "createField": "Repository",
+    "createSubmit": "Add",
+    "createSucceeded": "Added {name}",
+    "createAlreadyTracked": "{name} was already tracked; refreshed instead",
+    "createFailed": "Could not add the repository",
+    "createUnparseable": "That is not a GitHub repository. Try a URL or an owner/name pair.",
+    "createFetchFailed": "GitHub could not be read for that repository. Check the name, and that the token can see it if it is private.",
+    "editRow": "Edit {name}",
+    "editTitle": "Edit {name}",
+    "editDescription": "The description and homepage belong to GitHub. Changing either here marks it as hand-set, so the daily refresh leaves it alone until you clear it back.",
+    "updateSubmit": "Save",
+    "updateSucceeded": "Saved {name}",
+    "updateFailed": "Could not save the repository",
+    "release": "Hand back to GitHub — the next refresh will overwrite this",
+    "field": {
+      "description": "Description",
+      "descriptionZh": "Description (Chinese)",
+      "homepage": "Homepage",
+      "iconUrl": "Icon URL"
+    },
     "refreshRow": "Refresh {name} from GitHub",
     "refreshSucceeded": "Refreshed {name}",
     "refreshPartial": "Refreshed with gaps",

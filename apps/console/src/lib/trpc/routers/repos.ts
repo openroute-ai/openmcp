@@ -2,11 +2,28 @@ import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { createGitHubClient } from "@/lib/github/client"
+import { parseGithubRepoUrl } from "@/lib/github/repo-url"
+import type { RepoInfo } from "@/lib/github/repo-info-query"
 import { refreshRepoFromGitHub } from "@/lib/github/sync-project"
-import { getRepoById } from "@/lib/github/service/repo"
+import {
+  curateRepo,
+  getRepoByFullName,
+  getRepoById,
+  upsertRepo,
+  type Db,
+} from "@/lib/github/service/repo"
 import { createConsoleLogger } from "@/lib/tasks/runner"
 import { projects, repos } from "@/db/schema"
 import { createTRPCRouter, protectedProcedure } from "../init"
+
+/** How many projects point at a repository. */
+async function countProjectsForRepo(db: Db, id: string): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(projects)
+    .where(eq(projects.repoId, id))
+  return row?.value ?? 0
+}
 
 /**
  * The repository registry, seen from an operator rather than a project.
@@ -88,6 +105,7 @@ export const reposRouter = createTRPCRouter({
             name: repos.name,
             description: repos.description,
             descriptionZh: repos.descriptionZh,
+            homepage: repos.homepage,
             stars: repos.stars,
             forks: repos.forks,
             topics: repos.topics,
@@ -97,6 +115,8 @@ export const reposRouter = createTRPCRouter({
             defaultBranch: repos.defaultBranch,
             iconUrl: repos.iconUrl,
             openGraphImageUrl: repos.openGraphImageUrl,
+            overrideDescription: repos.overrideDescription,
+            overrideHomepage: repos.overrideHomepage,
             addedAt: repos.addedAt,
             updatedAt: repos.updatedAt,
             pushedAt: repos.pushedAt,
@@ -129,37 +149,126 @@ export const reposRouter = createTRPCRouter({
     }),
 
   /**
-   * One repository with the projects that point at it.
+   * Records a repository by its GitHub reference.
    *
-   * The projects are included because the delete confirmation cannot be written
-   * without them: a repository cascades to its projects, so the number of rows
-   * about to disappear is the whole question an operator is being asked.
+   * There is no operator-facing way to add a repository without this, and
+   * without it the only writers were the discovery sweep and project creation:
+   * a repository an operator wanted tracked had to be discovered by accident
+   * or attached to a project first.
+   *
+   * The metadata comes from GitHub rather than from the operator, because a row
+   * cannot be half-built — `pushed_at` and `created_at` are not nullable and
+   * every counter on the page would be null. So this is an upsert against
+   * `(owner, name)`, and the result says whether the repository was new, because
+   * adding one that was already tracked should not read as a fresh discovery.
+   *
+   * Accepts every shape a human is likely to paste — a URL, an SSH remote, a
+   * bare `owner/name` — through the same parser the ingest route uses.
    */
-  get: protectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
-    .query(async ({ ctx, input }) => {
-      const repo = await getRepoById(ctx.db, input.id)
-      if (!repo) {
+  create: protectedProcedure
+    .input(z.object({ repository: z.string().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const parsed = parseGithubRepoUrl(input.repository)
+      if (!parsed) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "repos.create.unparseable",
+        })
+      }
+
+      const existing = await getRepoByFullName(ctx.db, parsed.fullName)
+
+      const logger = createConsoleLogger("repos.create")
+      let info: RepoInfo
+      try {
+        info = await createGitHubClient().fetchRepoInfo(parsed.fullName)
+      } catch (error) {
+        // Not the caller's fault if the repository is private, gone, or the
+        // token cannot see it, so the reason is passed along rather than
+        // reported as a validation failure.
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: "repos.create.fetchFailed",
+          cause: {
+            detail: error instanceof Error ? error.message : String(error),
+          },
+        })
+      }
+
+      const row = await upsertRepo(ctx.db, info)
+      logger.info(`${existing ? "refreshed" : "added"} ${parsed.fullName}`)
+
+      return {
+        id: row.id,
+        fullName: `${row.owner}/${row.name}`,
+        repoUrl: `https://github.com/${row.owner}/${row.name}`,
+        created: !existing,
+        projectCount: await countProjectsForRepo(ctx.db, row.id),
+      }
+    }),
+
+  /**
+   * Edits the hand-curated fields of a repository.
+   *
+   * Only fields that are not GitHub's alone. `description` and `homepage` are
+   * GitHub's, so editing one also raises the flag that stops the daily sweep
+   * from writing over it — otherwise the edit would be gone by the next
+   * morning, and an editor that silently loses work is worse than no editor.
+   * `descriptionZh` and `iconUrl` are ours already.
+   *
+   * Every field is optional and an absent one is left alone, so this is a
+   * partial write rather than a whole-row replace.
+   */
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        description: z.string().max(1000).nullable().optional(),
+        descriptionZh: z.string().max(1000).nullable().optional(),
+        homepage: z.string().url().max(500).nullable().optional(),
+        iconUrl: z.string().url().max(1000).nullable().optional(),
+        /**
+         * `false` hands the field back to GitHub, letting the next sweep
+         * overwrite it. This has to be expressible from the editor, or the
+         * "until you clear it back" the description promises has no control
+         * behind it and a field could never be released once edited.
+         */
+        overrideDescription: z.boolean().optional(),
+        overrideHomepage: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...fields } = input
+      const current = await getRepoById(ctx.db, id)
+      if (!current) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Repo not found" })
       }
 
-      const linked = await ctx.db
-        .select({
-          id: projects.id,
-          name: projects.name,
-          owner: projects.owner,
-          slug: projects.slug,
-          status: projects.status,
-          type: projects.type,
+      // The "only if it changed" rule lives in `curateRepo`, which compares
+      // against the stored row. Applying a second copy of it here would be a
+      // second source of truth for when a flag is raised, and the two would
+      // eventually disagree.
+      const updated = await curateRepo(ctx.db, id, fields)
+      if (!updated) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Repo not found" })
+      }
+
+      const changed = Object.entries(fields)
+        .filter(([key, value]) => {
+          if (key === "overrideDescription") {
+            return current.overrideDescription !== value
+          }
+          if (key === "overrideHomepage") {
+            return current.overrideHomepage !== value
+          }
+          return current[key as keyof typeof current] !== value
         })
-        .from(projects)
-        .where(eq(projects.repoId, repo.id))
+        .map(([key]) => key)
 
       return {
-        ...repo,
-        fullName: `${repo.owner}/${repo.name}`,
-        repoUrl: `https://github.com/${repo.owner}/${repo.name}`,
-        projects: linked,
+        id: updated.id,
+        fullName: `${updated.owner}/${updated.name}`,
+        updated: changed,
       }
     }),
 
@@ -193,9 +302,7 @@ export const reposRouter = createTRPCRouter({
         ["openGraphImage", result.openGraphImage],
         ["snapshot", result.snapshot],
       ] as const
-      const failed = steps
-        .filter(([, ok]) => !ok)
-        .map(([name]) => name)
+      const failed = steps.filter(([, ok]) => !ok).map(([name]) => name)
 
       return {
         refreshed: await getRepoById(ctx.db, input.id),
@@ -205,6 +312,13 @@ export const reposRouter = createTRPCRouter({
         // present a metadata refresh as a total failure.
         failed,
         ok: failed.length === 0,
+        // A field an operator has taken over is not part of the refresh, so
+        // saying so keeps "the refresh did not change my description" from
+        // reading as a bug.
+        preserved: {
+          description: repo.overrideDescription === true,
+          homepage: repo.overrideHomepage === true,
+        },
       }
     }),
 
@@ -252,23 +366,4 @@ export const reposRouter = createTRPCRouter({
         deletedProjects: linked,
       }
     }),
-
-  /**
-   * Repository ids and full names, for anything that needs to select one.
-   *
-   * Not paginated on purpose: a picker is given the whole list to search, and
-   * a page of a truncated list is a list that silently cannot find something.
-   */
-  options: protectedProcedure.query(async ({ ctx }) => {
-    const rows = await ctx.db
-      .select({
-        id: repos.id,
-        owner: repos.owner,
-        name: repos.name,
-        updatedAt: repos.updatedAt,
-      })
-      .from(repos)
-      .orderBy(asc(repos.owner), asc(repos.name))
-    return rows.map((row) => ({ ...row, fullName: `${row.owner}/${row.name}` }))
-  }),
 })

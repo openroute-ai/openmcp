@@ -2,7 +2,7 @@ import OSS from "ali-oss"
 import * as prettier from "prettier"
 import { hasAliyunOss, syncEnv } from "@/lib/env"
 
-export type OssAssetType = "icon" | "og-image" | "readme-images"
+export type OssAssetType = "icon" | "og-image" | "readme-images" | "avatar"
 
 /**
  * Aliyun OSS bucket used to publish the generated JSON artefacts and to
@@ -99,6 +99,17 @@ export class AliyunOSSClient {
   ): string {
     const extension = fileName.split(".").pop() || "png"
     return `mcp/repos/${repoName}/${type}/${Date.now()}.${extension}`
+  }
+
+  /**
+   * An author's mirrored avatar, keyed by their login rather than a repository.
+   *
+   * Its own path because an avatar belongs to the account, not to any one
+   * repository: putting it under a repository would re-upload the same picture
+   * once per repository the author happens to own.
+   */
+  generateAuthorAvatarPath(username: string): string {
+    return `mcp/authors/${username}/avatar/${Date.now()}.png`
   }
 
   async exists(ossPath: string): Promise<boolean> {

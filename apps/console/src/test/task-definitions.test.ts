@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { resetSyncEnvCache } from "@/lib/env"
 import {
-  isDue,
   matchesCron,
   parseCron,
   SCHEDULE_TIMEZONE,
+  sortBySeedOrder,
   TASK_SEEDS,
   zonedParts,
 } from "@/lib/tasks/definitions"
@@ -72,8 +72,10 @@ describe("zonedParts", () => {
   it("reads wall-clock fields in the requested timezone", () => {
     // 18:30 UTC is 02:30 the next day in Shanghai, which is UTC+8.
     const parts = zonedParts(new Date("2026-03-10T18:30:00Z"), SHANGHAI)
+    expect(parts.year).toBe(2026)
     expect(parts.hour).toBe(2)
     expect(parts.minute).toBe(30)
+    expect(parts.second).toBe(0)
     expect(parts.day).toBe(11)
     expect(parts.month).toBe(3)
   })
@@ -164,21 +166,43 @@ describe("matchesCron", () => {
   })
 })
 
-describe("isDue", () => {
-  it("uses the expression when there is one", () => {
-    // isDue evaluates in the schedule timezone, so 18:00 UTC is the 02:00
-    // Shanghai slot this task fires on.
-    const seed = { cronExpression: "0 2 * * *", isDaily: true }
-    expect(isDue(seed, new Date("2026-03-10T18:00:00Z"))).toBe(true)
-    expect(isDue(seed, new Date("2026-03-10T19:00:00Z"))).toBe(false)
+describe("sortBySeedOrder", () => {
+  it("puts dependency order ahead of alphabetical order", () => {
+    // `build-daily-data` reads what `update-github-data` wrote, and
+    // `notify-daily` publishes what the build produced. A scheduler that used
+    // the order the database returns would notify on half-written input.
+    const names = sortBySeedOrder([
+      { name: "notify-daily" },
+      { name: "build-daily-data" },
+      { name: "update-github-data" },
+    ]).map((definition) => definition.name)
+
+    expect(names).toEqual([
+      "update-github-data",
+      "build-daily-data",
+      "notify-daily",
+    ])
   })
 
-  it("falls back to the daily flag when there is no expression", () => {
-    // A definition stored with no schedule is treated as daily, matching the
-    // source scheduler's default.
-    expect(isDue({ cronExpression: "", isDaily: true }, new Date())).toBe(true)
-    expect(isDue({ cronExpression: "", isWeekly: true }, new Date())).toBe(
-      false
+  it("sorts a task the seeds do not know last, by name", () => {
+    // An operator-added task must not land in the middle of the pipeline it
+    // would then read from.
+    const names = sortBySeedOrder([
+      { name: "operator-added" },
+      { name: "build-daily-data" },
+      { name: "another-added" },
+    ]).map((definition) => definition.name)
+
+    expect(names).toEqual([
+      "build-daily-data",
+      "another-added",
+      "operator-added",
+    ])
+  })
+
+  it("agrees with the seed order itself", () => {
+    expect(sortBySeedOrder(TASK_SEEDS).map((seed) => seed.name)).toEqual(
+      TASK_SEEDS.map((seed) => seed.name)
     )
   })
 })

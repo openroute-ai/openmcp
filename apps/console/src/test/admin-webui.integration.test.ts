@@ -297,6 +297,32 @@ describe.skipIf(!hasDatabase)("admin webui (integration)", () => {
       expect(task?.lastExecution?.id).toBe("new-exec")
     })
 
+    it("reports when each task next runs", async () => {
+      // The schedule says when work is *due*; the column says when it will
+      // actually happen, which is the wake-up at or after the due moment.
+      const tasks = await caller.tasks.list()
+      for (const task of tasks) {
+        expect(task.nextRunAt, task.name).toBeInstanceOf(Date)
+        expect(task.nextRunAt!.getTime(), task.name).toBeGreaterThan(
+          Date.now() - 60_000
+        )
+      }
+    })
+
+    it("reports no next run for a task that is turned off", async () => {
+      await caller.tasks.setEnabled({
+        name: "build-weekly-rankings",
+        enabled: false,
+      })
+
+      const task = (await caller.tasks.list()).find(
+        (t) => t.name === "build-weekly-rankings"
+      )
+      // Nothing will run it, so putting a time on it would be a promise the
+      // scheduler is not keeping.
+      expect(task?.nextRunAt).toBeNull()
+    })
+
     it("rejects an unknown task", async () => {
       // Both the readable message and the code: the message reaches a server
       // log, the code is what the interface puts in the reader's language.

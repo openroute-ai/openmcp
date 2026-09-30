@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useTranslations } from "next-intl"
+import { useFormatter, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -20,30 +20,49 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { Switch } from "@workspace/ui/components/switch"
-import { IconPlus, IconRefresh, IconSettings, IconTrash } from "@tabler/icons-react"
+import {
+  IconPlus,
+  IconRefresh,
+  IconRestore,
+  IconSettings,
+  IconTrash,
+} from "@tabler/icons-react"
 import { useTRPC } from "@/lib/trpc/client"
 
-/** One category as the editor holds it. */
+/**
+ * One category as the editor holds it.
+ *
+ * Every field the selection reads is here, including `excluded`. It is a slug
+ * deny-list rather than a tag filter, and it is the one that is easy to forget:
+ * the server accepts it and the selection honours it, so a draft that dropped it
+ * would not fail loudly — it would quietly delete the exclusions from every
+ * category the operator had ever configured.
+ */
 type Draft = {
   key: string
   count: number
   tags: string
   excludedTags: string
+  excluded: string
   disabled: boolean
 }
 
-function toDraft(category: {
+type StoredCategory = {
   key: string
   count?: number
   tags?: string[]
   excludedTags?: string[]
+  excluded?: string[]
   disabled?: boolean
-}): Draft {
+}
+
+function toDraft(category: StoredCategory): Draft {
   return {
     key: category.key,
     count: category.count ?? 15,
     tags: (category.tags ?? []).join(", "),
     excludedTags: (category.excludedTags ?? []).join(", "),
+    excluded: (category.excluded ?? []).join(", "),
     disabled: category.disabled === true,
   }
 }
@@ -57,12 +76,27 @@ function toList(value: string): string[] {
 }
 
 /**
+ * Server rejection messages, which are codes rather than prose.
+ *
+ * The editor checks both conditions before it lets save be pressed, so these are
+ * the backstop for a stale tab or a second operator. Anything not in here falls
+ * through to the raw message, which is the right thing for an error we have no
+ * catalog entry for.
+ */
+const CATEGORY_ERRORS = {
+  "rankings.risingStarsCategories.missingAll": "categoriesErrors.missingAll",
+  "rankings.risingStarsCategories.duplicateKey":
+    "categoriesErrors.duplicateKey",
+} as const satisfies Record<string, string>
+
+/**
  * Edits the categories a year's Rising Stars report is selected by.
  *
  * This configuration was a file per year in a sibling application, which meant
  * it could only be changed by a deploy from outside this repository. It is
  * stored here instead, and this is the editor for it: which tag codes a
- * category draws from, how many projects it takes, and whether it runs at all.
+ * category draws from, which tags and slugs it refuses, how many projects it
+ * takes, and whether it runs at all.
  *
  * Saving does not rebuild the report, because a build writes rows and runs a
  * full re-derivation. The rebuild button is separate so an operator can save a
@@ -70,6 +104,7 @@ function toList(value: string): string[] {
  */
 export function RisingStarCategoriesDialog({ year }: { year: number }) {
   const t = useTranslations("Rankings")
+  const format = useFormatter()
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
@@ -78,6 +113,13 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
 
   const categories = useQuery(
     trpc.rankings.risingStarCategories.queryOptions({ year }, { enabled: open })
+  )
+  // Only fetched while the dialog is open, and only read if the operator asks
+  // for the defaults back.
+  const defaults = useQuery(
+    trpc.rankings.risingStarDefaultCategories.queryOptions(undefined, {
+      enabled: open,
+    })
   )
 
   /**
@@ -98,7 +140,11 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
         void queryClient.invalidateQueries()
       },
       onError: (error) => {
-        toast.error(t("categoriesSaveFailed"), { description: error.message })
+        const key =
+          CATEGORY_ERRORS[error.message as keyof typeof CATEGORY_ERRORS]
+        toast.error(t("categoriesSaveFailed"), {
+          description: key ? t(key) : error.message,
+        })
       },
     })
   )
@@ -118,7 +164,9 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
   function mutate(index: number, patch: Partial<Draft>) {
     setDrafts((current) =>
       current
-        ? current.map((draft, at) => (at === index ? { ...draft, ...patch } : draft))
+        ? current.map((draft, at) =>
+            at === index ? { ...draft, ...patch } : draft
+          )
         : current
     )
   }
@@ -128,7 +176,14 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
       current
         ? [
             ...current,
-            { key: "", count: 15, tags: "", excludedTags: "", disabled: false },
+            {
+              key: "",
+              count: 15,
+              tags: "",
+              excludedTags: "",
+              excluded: "",
+              disabled: false,
+            },
           ]
         : current
     )
@@ -142,10 +197,23 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
     setDrafts(categories.data?.categories.map(toDraft) ?? null)
   }
 
+  /**
+   * Puts the seed configuration back on screen.
+   *
+   * A draft rather than a save, so it is undoable the same way every other
+   * change in here is — an operator who pressed this by accident should be able
+   * to go back to what they had without reloading the page.
+   */
+  function restoreDefaults() {
+    setDrafts((defaults.data?.categories ?? []).map(toDraft))
+  }
+
   const keys = rows.map((row) => row.key.trim()).filter((key) => key !== "")
   const duplicate = new Set(keys).size !== keys.length
   const hasAll = keys.includes("all")
   const saveable = rows.length > 0 && hasAll && !duplicate
+
+  const rowsTemplate = "grid-cols-1 sm:grid-cols-[7rem_5rem_1fr_1fr_1fr_auto]"
 
   return (
     <Dialog
@@ -163,7 +231,7 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
           {t("categories")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("categoriesTitle", { year })}</DialogTitle>
           <DialogDescription>{t("categoriesDescription")}</DialogDescription>
@@ -176,24 +244,33 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
           </div>
         ) : (
           <div className="grid gap-3">
-            <div className="hidden grid-cols-[1fr_5rem_1fr_1fr_auto] items-end gap-2 text-xs font-medium text-muted-foreground">
+            <div
+              className={`hidden items-end gap-2 text-xs font-medium text-muted-foreground sm:grid ${rowsTemplate}`}
+            >
               <Label>{t("categoriesColumn.key")}</Label>
               <Label>{t("categoriesColumn.count")}</Label>
               <Label>{t("categoriesColumn.tags")}</Label>
               <Label>{t("categoriesColumn.excludedTags")}</Label>
+              <Label>
+                <span title={t("categoriesExcludedHint")}>
+                  {t("categoriesColumn.excluded")}
+                </span>
+              </Label>
               <span className="w-16" />
             </div>
 
             {rows.map((row, index) => (
               <div
                 key={index}
-                className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_5rem_1fr_1fr_auto]"
+                className={`grid items-center gap-2 ${rowsTemplate}`}
               >
                 <Input
                   aria-label={t("categoriesColumn.key")}
                   value={row.key}
                   placeholder="framework"
-                  onChange={(event) => mutate(index, { key: event.target.value })}
+                  onChange={(event) =>
+                    mutate(index, { key: event.target.value })
+                  }
                 />
                 <Input
                   aria-label={t("categoriesColumn.count")}
@@ -208,7 +285,9 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
                   aria-label={t("categoriesColumn.tags")}
                   value={row.tags}
                   placeholder="framework, cli"
-                  onChange={(event) => mutate(index, { tags: event.target.value })}
+                  onChange={(event) =>
+                    mutate(index, { tags: event.target.value })
+                  }
                 />
                 <Input
                   aria-label={t("categoriesColumn.excludedTags")}
@@ -217,16 +296,22 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
                     mutate(index, { excludedTags: event.target.value })
                   }
                 />
+                <Input
+                  aria-label={t("categoriesColumn.excluded")}
+                  value={row.excluded}
+                  placeholder="some-project-slug"
+                  onChange={(event) =>
+                    mutate(index, { excluded: event.target.value })
+                  }
+                />
                 <div className="flex items-center gap-1">
-                  <div className="flex items-center gap-1.5">
-                    <Switch
-                      aria-label={t("categoriesColumn.enabled")}
-                      checked={!row.disabled}
-                      onCheckedChange={(checked) =>
-                        mutate(index, { disabled: !checked })
-                      }
-                    />
-                  </div>
+                  <Switch
+                    aria-label={t("categoriesColumn.enabled")}
+                    checked={!row.disabled}
+                    onCheckedChange={(checked) =>
+                      mutate(index, { disabled: !checked })
+                    }
+                  />
                   {/* "all" is the bucket every sub-category draws from, so
                       removing it would leave the build unable to run. */}
                   <Button
@@ -256,16 +341,41 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
                 <IconRefresh />
                 {t("categoriesReset")}
               </Button>
+              {/* Distinct from "reload stored": this one puts the seed back,
+                  which is the state an operator cannot get to on their own once
+                  they have started editing. */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={restoreDefaults}
+                disabled={!defaults.data || categories.data?.isDefault === true}
+              >
+                <IconRestore />
+                {t("categoriesRestoreDefaults")}
+              </Button>
               {categories.data?.isDefault ? (
                 <Badge variant="secondary">{t("categoriesIsDefault")}</Badge>
+              ) : null}
+              {categories.data?.updatedAt ? (
+                <span className="text-xs text-muted-foreground">
+                  {t("categoriesUpdatedAt", {
+                    date: format.dateTime(categories.data.updatedAt, {
+                      dateStyle: "medium",
+                    }),
+                  })}
+                </span>
               ) : null}
             </div>
 
             {!hasAll ? (
-              <p className="text-sm text-destructive">{t("categoriesNeedsAll")}</p>
+              <p className="text-sm text-destructive">
+                {t("categoriesNeedsAll")}
+              </p>
             ) : null}
             {duplicate ? (
-              <p className="text-sm text-destructive">{t("categoriesDuplicate")}</p>
+              <p className="text-sm text-destructive">
+                {t("categoriesDuplicate")}
+              </p>
             ) : null}
           </div>
         )}
@@ -300,6 +410,9 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
                       : {}),
                     ...(toList(row.excludedTags).length > 0
                       ? { excludedTags: toList(row.excludedTags) }
+                      : {}),
+                    ...(toList(row.excluded).length > 0
+                      ? { excluded: toList(row.excluded) }
                       : {}),
                     ...(row.disabled ? { disabled: true } : {}),
                   })),

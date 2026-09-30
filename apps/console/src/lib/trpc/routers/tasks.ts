@@ -6,6 +6,7 @@ import { getTaskDefinitionByName } from "@/lib/github/service/task"
 import { createBufferingLogger, runTask } from "@/lib/tasks/runner"
 import { installTaskRegistry } from "@/lib/tasks/registry"
 import { seedDefinitions } from "@/lib/tasks/seed"
+import { nextRunAt, type PeriodState } from "@/lib/tasks/schedule"
 import { createTRPCRouter, protectedProcedure } from "../init"
 import { ERROR_CODES, SKIP_CODES } from "@/lib/trpc/error-codes"
 
@@ -21,6 +22,7 @@ const nameSchema = z.string().min(1)
 
 export const tasksRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
+    const now = new Date()
     const [rows, latest] = await Promise.all([
       ctx.db
         .select({
@@ -46,6 +48,7 @@ export const tasksRouter = createTRPCRouter({
           taskDefinitionId: taskExecutions.taskDefinitionId,
           status: taskExecutions.status,
           startedAt: taskExecutions.startedAt,
+          createdAt: taskExecutions.createdAt,
           duration: taskExecutions.duration,
           triggeredBy: taskExecutions.triggeredBy,
           error: taskExecutions.error,
@@ -66,18 +69,63 @@ export const tasksRouter = createTRPCRouter({
       }
     }
 
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      cronExpression: row.cronExpression,
-      taskType: row.taskType,
-      isEnabled: row.isEnabled,
-      isRunning: row.isRunning ?? false,
-      lastRunAt: row.lastRunAt,
-      nextRunAt: row.nextRunAt,
-      lastExecution: latestByTask.get(row.id) ?? null,
-    }))
+    // The same rows, grouped by task and kept only when they can be placed in a
+    // period, so "next run" is answerable without a query per task. A window
+    // this size covers the last couple of periods, which is all any cadence
+    // looks at: the oldest period the scheduler offers is the one before this.
+    const recentByTask = new Map<string, { at: number; completed: boolean }[]>()
+    for (const row of latest) {
+      // A cancelled run never started and a row without a timestamp cannot be
+      // placed in a period; both are left out rather than guessed at.
+      if (row.status === "cancelled" || !row.createdAt) continue
+      const runs = recentByTask.get(row.taskDefinitionId) ?? []
+      runs.push({
+        at: new Date(row.createdAt).getTime(),
+        completed: row.status === "completed",
+      })
+      recentByTask.set(row.taskDefinitionId, runs)
+    }
+
+    const periodState =
+      (taskId: string) =>
+      (target: { start: Date }): PeriodState => {
+        let completed = false
+        let attempts = 0
+
+        for (const run of recentByTask.get(taskId) ?? []) {
+          if (run.at < target.start.getTime()) continue
+          attempts += 1
+          if (run.completed) completed = true
+        }
+
+        return { completed, attempts }
+      }
+
+    return Promise.all(
+      rows.map(async (row) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        cronExpression: row.cronExpression,
+        taskType: row.taskType,
+        isEnabled: row.isEnabled,
+        isRunning: row.isRunning ?? false,
+        lastRunAt: row.lastRunAt,
+        nextRunAt:
+          (row.isEnabled
+            ? await nextRunAt(
+                {
+                  name: row.name,
+                  taskType: row.taskType,
+                  cronExpression: row.cronExpression,
+                },
+                periodState(row.id),
+                now
+              )
+            : undefined) ?? null,
+        lastExecution: latestByTask.get(row.id) ?? null,
+      }))
+    )
   }),
 
   executions: protectedProcedure
@@ -140,8 +188,23 @@ export const tasksRouter = createTRPCRouter({
       return { name: input.name, isEnabled: input.enabled }
     }),
 
+  /**
+   * Runs one task now.
+   *
+   * `input` is passed through to the task rather than baked into it, so a
+   * periodic task can be asked to do a specific instance of its job — the
+   * Rising Stars build for a named year, rather than the last complete one it
+   * would pick on its own. The task validates it and falls back to its default
+   * when it cannot use it, so a malformed value is a default-year run that is
+   * visible in the result rather than a failure.
+   */
   runNow: protectedProcedure
-    .input(z.object({ name: nameSchema }))
+    .input(
+      z.object({
+        name: nameSchema,
+        input: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       await seedDefinitions()
 
@@ -171,6 +234,7 @@ export const tasksRouter = createTRPCRouter({
       const outcome = await runTask(ctx.db, definition, {
         triggeredBy: "manual",
         logger: createBufferingLogger(),
+        ...(input.input ? { input: input.input } : {}),
       })
 
       if (outcome.status === "skipped") {

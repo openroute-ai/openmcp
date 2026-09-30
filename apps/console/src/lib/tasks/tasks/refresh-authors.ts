@@ -17,7 +17,10 @@
  * missing" would mean it is right exactly once.
  */
 
-import { listAuthors, refreshAuthorProfile } from "@/lib/github/service/hall-of-fame"
+import {
+  listAuthors,
+  refreshAuthorProfile,
+} from "@/lib/github/service/hall-of-fame"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task } from "@/lib/tasks/runner"
 import type { GitHubClient } from "@/lib/github/client"
@@ -33,8 +36,7 @@ export function createRefreshAuthorsTask(
 ): Task {
   return {
     name: "refresh-authors",
-    description:
-      "Refresh every hall of fame author from their GitHub profile",
+    description: "Refresh every hall of fame author from their GitHub profile",
 
     async run({ db, logger }) {
       const authors = await listAuthors(db)
@@ -57,7 +59,12 @@ export function createRefreshAuthorsTask(
 
       if (stale.length === 0) {
         logger.info(`all ${authors.length} authors refreshed recently`)
-        return { processed: 0, refreshed: 0, failed: 0, skipped: authors.length }
+        return {
+          processed: 0,
+          refreshed: 0,
+          failed: 0,
+          skipped: authors.length,
+        }
       }
 
       // Serial rather than concurrent: these are GraphQL calls against one
@@ -70,14 +77,22 @@ export function createRefreshAuthorsTask(
             client: options.client,
           })
           if (result.ok) {
-            logger.info(`refreshed ${author.username}`)
+            logger.info(
+              result.avatarMirrored
+                ? `refreshed ${author.username} and mirrored their avatar`
+                : `refreshed ${author.username}`
+            )
           } else {
             logger.error(
               `failed ${author.username}: ${result.error} — kept the stored profile`
             )
           }
           return {
-            meta: { processed: 1, refreshed: result.ok ? 1 : 0 },
+            meta: {
+              processed: 1,
+              refreshed: result.ok ? 1 : 0,
+              mirrored: result.ok && result.avatarMirrored ? 1 : 0,
+            },
             data: { username: author.username, ok: result.ok },
           }
         },
@@ -87,6 +102,7 @@ export function createRefreshAuthorsTask(
       return {
         processed: results.meta.processed ?? 0,
         refreshed: results.meta.refreshed ?? 0,
+        mirrored: results.meta.mirrored ?? 0,
         failed: (results.meta.processed ?? 0) - (results.meta.refreshed ?? 0),
         skipped: authors.length - stale.length,
       }

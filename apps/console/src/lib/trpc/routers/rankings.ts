@@ -20,10 +20,16 @@ import {
 } from "@/lib/github/service/available-periods"
 import {
   buildRisingStarsForYear,
+  computeRisingStarsForYear,
   defaultRisingStarCategories,
   getRisingStarCategories,
+  listDefaultRisingStarCategories,
 } from "@/lib/github/service/rising-stars"
-import { risingStarCategories, risingStarProjects, snapshots } from "@/db/schema"
+import {
+  risingStarCategories,
+  risingStarProjects,
+  snapshots,
+} from "@/db/schema"
 import {
   resolveMonthInput,
   resolveWeekInput,
@@ -55,6 +61,20 @@ const categorySchema = z.object({
   excluded: z.array(z.string().min(1).max(200)).max(1000).optional(),
   disabled: z.boolean().optional(),
 })
+
+/**
+ * Codes for the two ways a category configuration is rejected.
+ *
+ * The editor checks both before it enables save, so these are the backstop for
+ * a second operator saving the same year at the same time, or a stale tab. The
+ * message is the code rather than prose because the interface translates it —
+ * a server string has already been written in one language — and the code is
+ * what lets the toast say why in the reader's own.
+ */
+const CATEGORY_ERROR_CODES = {
+  missingAll: "rankings.risingStarsCategories.missingAll",
+  duplicateKey: "rankings.risingStarsCategories.duplicateKey",
+} as const
 
 export const rankingsRouter = createTRPCRouter({
   /**
@@ -102,6 +122,14 @@ export const rankingsRouter = createTRPCRouter({
       return buildRankingsForMonth(ctx.db, target.value)
     }),
 
+  /**
+   * The report as it currently stands, recomputed from the stored configuration.
+   *
+   * Read-only. The projection is deterministic, so recomputing on read returns
+   * the same numbers a build would write, and a dashboard page view must not be
+   * a write — this procedure backs an unauthenticated JSON route as well as
+   * this page. `buildRisingStars` is what persists.
+   */
   risingStars: protectedProcedure
     .input(z.object({ year: yearSchema.optional() }))
     .query(async ({ ctx, input }) => {
@@ -109,7 +137,8 @@ export const rankingsRouter = createTRPCRouter({
       if (!year.ok) {
         throw new Error(year.error)
       }
-      return buildRisingStarsForYear(ctx.db, year.value)
+      const computed = await computeRisingStarsForYear(ctx.db, year.value)
+      return computed.report
     }),
 
   /**
@@ -153,11 +182,24 @@ export const rankingsRouter = createTRPCRouter({
   }),
 
   /**
+   * The seed configuration every year starts from.
+   *
+   * Served rather than imported so the editor can offer to put it back: the
+   * default lives beside the selection that reads it, and importing that module
+   * into a client component would pull the Drizzle schema into the browser.
+   */
+  risingStarDefaultCategories: protectedProcedure.query(() => ({
+    categories: listDefaultRisingStarCategories(),
+  })),
+
+  /**
    * The category configuration for a year.
    *
    * Read through the same function the report uses, so what an editor sees is
    * what the build will apply — including for a year that has never been
-   * configured, which comes back as the default set rather than empty.
+   * configured, which comes back as the default set rather than empty. Nothing
+   * is written here: a year nobody has configured has no row, and the editor
+   * creates one on save.
    */
   risingStarCategories: protectedProcedure
     .input(z.object({ year: yearSchema }))
@@ -171,10 +213,15 @@ export const rankingsRouter = createTRPCRouter({
       return {
         year: input.year,
         categories,
+        // `null` means the year was never configured and what is on screen is
+        // the seed rather than anything an operator chose. The editor says so
+        // instead of showing a save date for a row that does not exist.
         updatedAt: row?.updatedAt ?? null,
         // Whether this is the untouched default, so the editor can offer to
         // put it back rather than an operator wondering what the original was.
-        isDefault: JSON.stringify(categories) === JSON.stringify(defaultRisingStarCategories),
+        isDefault:
+          JSON.stringify(categories) ===
+          JSON.stringify(defaultRisingStarCategories),
       }
     }),
 
@@ -199,7 +246,8 @@ export const rankingsRouter = createTRPCRouter({
       if (!input.categories.some((category) => category.key === "all")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "rankings.risingStarsCategories.missingAll",
+          message: CATEGORY_ERROR_CODES.missingAll,
+          cause: { code: CATEGORY_ERROR_CODES.missingAll },
         })
       }
 
@@ -207,7 +255,8 @@ export const rankingsRouter = createTRPCRouter({
       if (new Set(keys).size !== keys.length) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "rankings.risingStarsCategories.duplicateKey",
+          message: CATEGORY_ERROR_CODES.duplicateKey,
+          cause: { code: CATEGORY_ERROR_CODES.duplicateKey },
         })
       }
 
@@ -224,7 +273,10 @@ export const rankingsRouter = createTRPCRouter({
         })
         .returning({ year: risingStarCategories.year })
 
-      return { year: stored?.year ?? input.year, count: input.categories.length }
+      return {
+        year: stored?.year ?? input.year,
+        count: input.categories.length,
+      }
     }),
 
   /**

@@ -12,6 +12,7 @@ import {
   selectByCategory,
   type RisingStarProject,
 } from "@/lib/github/service/rising-stars"
+import { requestedYear } from "@/lib/tasks/tasks/build-rising-stars"
 
 function project(
   fullName: string,
@@ -172,5 +173,21 @@ describe("selectByCategory", () => {
     const input = [project("org/a", 10, [])]
 
     expect(() => selectByCategory(input, [], new Set())).toThrow(/all/)
+  })
+})
+
+describe("requestedYear", () => {
+  it("reads a plausible year from the run input", () => {
+    expect(requestedYear({ year: 2024 })).toBe(2024)
+  })
+
+  it("ignores anything that is not an integer year", () => {
+    // A typo should fall back to the default year, not build a report for
+    // year 12 or for a fraction.
+    expect(requestedYear({ year: 12 })).toBeUndefined()
+    expect(requestedYear({ year: 2024.5 })).toBeUndefined()
+    expect(requestedYear({ year: "2024" })).toBeUndefined()
+    expect(requestedYear({})).toBeUndefined()
+    expect(requestedYear(undefined)).toBeUndefined()
   })
 })

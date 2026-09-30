@@ -22,26 +22,38 @@ export const authorsRouter = createTRPCRouter({
    *
    * Not paginated: one row per GitHub account with a curated repository, which
    * is a list an operator reads end to end rather than a log they scan.
+   *
+   * Sorted by followers rather than by login, because the point of the list is
+   * to show which bylines matter; an unrefreshed author has no follower count
+   * and sorts last, which is the honest position for a row nothing is known
+   * about. A search term narrows it, for the same reason a list this size needs
+   * one.
    */
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const rows = await listAuthors(ctx.db)
-    return rows.map((row) => ({
-      username: row.username,
-      name: row.name,
-      bio: row.bio,
-      homepage: row.homepage,
-      twitter: row.twitter,
-      linkedin: row.linkedin,
-      github: row.github,
-      avatarUrl: row.avatarUrl,
-      avatar: row.avatar,
-      followers: row.followers,
-      verified: row.verified,
-      npmUsername: row.npmUsername,
-      npmPackageCount: row.npmPackageCount,
-      updatedAt: row.updatedAt,
-    }))
-  }),
+  list: protectedProcedure
+    .input(
+      z.object({ search: z.string().trim().max(200).optional() }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const term = input?.search
+      const rows = await listAuthors(ctx.db, term)
+      return rows.map((row) => ({
+        username: row.username,
+        name: row.name,
+        bio: row.bio,
+        homepage: row.homepage,
+        twitter: row.twitter,
+        linkedin: row.linkedin,
+        github: row.github,
+        avatar: row.avatar,
+        avatarUrl: row.avatarUrl,
+        followers: row.followers,
+        verified: row.verified,
+        status: row.status,
+        npmUsername: row.npmUsername,
+        npmPackageCount: row.npmPackageCount,
+        updatedAt: row.updatedAt,
+      }))
+    }),
 
   /**
    * Refetches one author from GitHub.
@@ -110,9 +122,13 @@ export const authorsRouter = createTRPCRouter({
         {
           ...(fields.name !== undefined ? { name: fields.name } : {}),
           ...(fields.bio !== undefined ? { bio: fields.bio } : {}),
-          ...(fields.homepage !== undefined ? { homepage: fields.homepage } : {}),
+          ...(fields.homepage !== undefined
+            ? { homepage: fields.homepage }
+            : {}),
           ...(fields.twitter !== undefined ? { twitter: fields.twitter } : {}),
-          ...(fields.linkedin !== undefined ? { linkedin: fields.linkedin } : {}),
+          ...(fields.linkedin !== undefined
+            ? { linkedin: fields.linkedin }
+            : {}),
           ...(fields.npmUsername !== undefined
             ? { npmUsername: fields.npmUsername }
             : {}),

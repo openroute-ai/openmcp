@@ -1,21 +1,23 @@
 /**
  * The Vercel schedule that wakes the Cron endpoint.
  *
- * Vercel evaluates `crons` entries in UTC, allows one entry per project, and
- * a Hobby plan allows one invocation per day, so the tasks cannot each get an
- * entry of their own. They are scheduled in `Asia/Shanghai` instead and
- * matched against their own `cronExpression`, and this single entry exists
- * only to make sure the endpoint is awake often enough to catch all of them.
+ * Vercel evaluates `crons` entries in UTC, allows one entry per project, and a
+ * Hobby plan allows one invocation per day, so the tasks cannot each get an
+ * entry of their own. They are scheduled in `Asia/Shanghai` instead and the
+ * wake-up runs one cascade over them — see `@/lib/tasks/schedule`.
  *
- * Twice an hour, on the hour and on the half hour, because those are the only
- * two minutes the seeds use. `isDue` matches the current minute rather than
- * "since the last tick", so a task scheduled for 02:00 is due on the `0`
- * wake-up and not on the `30` one, and nothing runs twice.
+ * Once a day, at 02:00 Asia/Shanghai, which is the earliest slot any seed
+ * names. Waking at the first task's own hour means that task runs on the day it
+ * is due, and every task later in the day runs for the period it was due in,
+ * hours after the fact, in seed order. The wake-up does not have to land on any
+ * minute a seed uses, which is what lets a new task be added at 17:47 without
+ * editing this file: its period becomes outstanding at the next wake-up.
  *
- * Consequence worth knowing before adding a seed: a new task scheduled at,
- * say, 17 minutes past would never run, because no wake-up lands on minute 17.
- * Add its minutes to `VERCEL_CRON_SCHEDULE` when that happens.
+ * A second consequence worth knowing: because a wake-up may run the whole
+ * pipeline, the one-hour ceiling on a lower plan can cut a cascade short. That
+ * is survivable rather than lossy — the tasks that were not reached are still
+ * outstanding periods, so the next wake-up picks them up.
  */
 export const VERCEL_CRON_PATH = "/api/cron/github"
 
-export const VERCEL_CRON_SCHEDULE = "0,30 * * * *"
+export const VERCEL_CRON_SCHEDULE = "0 18 * * *"
