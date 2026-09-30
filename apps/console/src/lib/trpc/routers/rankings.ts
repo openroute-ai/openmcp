@@ -36,7 +36,7 @@ import {
   resolveYearInput,
 } from "@/lib/rankings-web"
 import { zonedYear } from "@/lib/time"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 const yearSchema = z.number().int().min(2000).max(9999)
 const weekSchema = z.number().int().min(1).max(53)
@@ -85,7 +85,7 @@ export const rankingsRouter = createTRPCRouter({
    * answer for a period the caller names, and without this the dashboard has
    * no way to know which names are worth offering.
    */
-  periods: protectedProcedure.query(async ({ ctx }) => {
+  periods: adminProcedure.query(async ({ ctx }) => {
     const [weeks, months] = await Promise.all([
       listWeeklyPeriods(ctx.db),
       listMonthlyPeriods(ctx.db),
@@ -93,7 +93,7 @@ export const rankingsRouter = createTRPCRouter({
     return { weeks, months }
   }),
 
-  weekly: protectedProcedure
+  weekly: adminProcedure
     .input(
       z.object({
         year: yearSchema.optional(),
@@ -108,7 +108,7 @@ export const rankingsRouter = createTRPCRouter({
       return buildRankingsForWeek(ctx.db, target.value)
     }),
 
-  monthly: protectedProcedure
+  monthly: adminProcedure
     .input(
       z.object({
         year: yearSchema.optional(),
@@ -131,7 +131,7 @@ export const rankingsRouter = createTRPCRouter({
    * a write — this procedure backs an unauthenticated JSON route as well as
    * this page. `buildRisingStars` is what persists.
    */
-  risingStars: protectedProcedure
+  risingStars: adminProcedure
     .input(z.object({ year: yearSchema.optional() }))
     .query(async ({ ctx, input }) => {
       const year = resolveYearInput(input)
@@ -151,7 +151,7 @@ export const rankingsRouter = createTRPCRouter({
    * one a report can be built for as the months come in and it is the year an
    * operator is most likely setting up first.
    */
-  risingStarYears: protectedProcedure.query(async ({ ctx }) => {
+  risingStarYears: adminProcedure.query(async ({ ctx }) => {
     const [withHistory, configured, built] = await Promise.all([
       ctx.db
         .selectDistinct({ year: snapshots.year })
@@ -191,7 +191,7 @@ export const rankingsRouter = createTRPCRouter({
    * default lives beside the selection that reads it, and importing that module
    * into a client component would pull the Drizzle schema into the browser.
    */
-  risingStarDefaultCategories: protectedProcedure.query(() => ({
+  risingStarDefaultCategories: adminProcedure.query(() => ({
     categories: listDefaultRisingStarCategories(),
   })),
 
@@ -204,7 +204,7 @@ export const rankingsRouter = createTRPCRouter({
    * is written here: a year nobody has configured has no row, and the editor
    * creates one on save.
    */
-  risingStarCategories: protectedProcedure
+  risingStarCategories: adminProcedure
     .input(z.object({ year: yearSchema }))
     .query(async ({ ctx, input }) => {
       const categories = await getRisingStarCategories(ctx.db, input.year)
@@ -238,7 +238,7 @@ export const rankingsRouter = createTRPCRouter({
    * The "all" bucket is required, because the selection throws without it and
    * a report that cannot be built is not a state worth storing.
    */
-  setRisingStarCategories: protectedProcedure
+  setRisingStarCategories: adminProcedure
     .input(
       z.object({
         year: yearSchema,
@@ -290,7 +290,7 @@ export const rankingsRouter = createTRPCRouter({
    * yearly task happened to run again. This is what an editor presses to see
    * the effect of what they just saved.
    */
-  buildRisingStars: protectedProcedure
+  buildRisingStars: adminProcedure
     .input(z.object({ year: yearSchema }))
     .mutation(async ({ ctx, input }) => {
       const report = await buildRisingStarsForYear(ctx.db, input.year)

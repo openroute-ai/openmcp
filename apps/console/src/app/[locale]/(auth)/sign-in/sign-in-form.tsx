@@ -33,6 +33,7 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 import { authErrorMessage } from "@/lib/auth/auth-error"
+import { landingPathFor } from "@/lib/auth/role"
 
 const PHONE_REGEX = /^1[3-9]\d{9}$/
 
@@ -72,9 +73,12 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
     await authClient.signIn.email(
       { email, password },
       {
-        onSuccess: () => {
+        onSuccess: ({ data }) => {
           toast.success(t("signInSuccess"))
-          router.push("/dashboard")
+          // Where an account belongs is a function of its role, and the role
+          // comes back on the sign-in response — so the right console is one
+          // navigation away rather than a bounce through the root redirect.
+          router.push(landingPathFor(data?.user))
           router.refresh()
         },
         onError: (ctx) => {
@@ -130,7 +134,11 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
         setCodeError(authErrorMessage(err, t, t("codeWrong")))
       } else {
         toast.success(t("signInSuccess"))
-        router.push("/dashboard")
+        // The root rather than a console: with `signUpOnVerification` this call
+        // may have created the account, and it does not hand back the user it
+        // signed in, so the role is only knowable from the session. The root
+        // resolves it and redirects on, which is the same answer one hop later.
+        router.push("/")
         router.refresh()
       }
     } catch {

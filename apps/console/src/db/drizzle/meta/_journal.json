@@ -43,6 +43,13 @@
       "when": 1790700000000,
       "tag": "0005_repo_override_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790700600000,
+      "tag": "0006_console_user_role",
+      "breakpoints": true
     }
   ]
 }

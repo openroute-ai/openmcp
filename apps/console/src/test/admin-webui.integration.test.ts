@@ -11,6 +11,7 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { createCaller } from "@/lib/trpc/root"
+import { fakeAdminContext } from "./helpers/fakes"
 import { db, pool } from "@/db/client"
 import {
   projectSkills,
@@ -119,11 +120,9 @@ async function clean() {
 }
 
 describe.skipIf(!hasDatabase)("admin webui (integration)", () => {
-  const caller = createCaller({
-    db,
-    session: {} as never,
-    headers: new Headers({ authorization: "Bearer test" }),
-  })
+  // Every procedure in this router is `adminProcedure`, so the caller has to be
+  // an admin for the suite to reach anything. `admin-auth` covers the refusal.
+  const caller = createCaller(fakeAdminContext(db))
 
   beforeAll(async () => {
     process.env.GITHUB_ACCESS_TOKEN =

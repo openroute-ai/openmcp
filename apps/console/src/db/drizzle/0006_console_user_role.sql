@@ -1,0 +1,13 @@
+-- The console has two audiences in one app: operators, who curate projects
+-- from `/dashboard`, and everyone else, who may sign in to `/console` and only
+-- see the repository list. Telling them apart needs a role on the account, so
+-- this is the same `user.role` the shared schema already carries — hence the
+-- identical type and default rather than a console-specific enum, which would
+-- have made a promoted account unreadable to the other apps.
+--
+-- Nullable with a default, matching the shared column and the way
+-- `projects.override_description` spells an absent flag: the gate asks
+-- `role === "admin"`, so a null is an ordinary account. Existing rows pick up
+-- `"user"` from the default, which is what keeps every account that signed up
+-- before this migration out of the admin console.
+ALTER TABLE "user" ADD COLUMN "role" varchar(256) DEFAULT 'user';

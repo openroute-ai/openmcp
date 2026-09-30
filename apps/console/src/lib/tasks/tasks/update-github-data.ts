@@ -3,7 +3,7 @@
  *
  * The shape of the run follows the source app's `update-github-data`, with the
  * per-repository work delegated to `refreshRepoFromGitHub` so that the manual
- * "resync this project" button and this sweep cannot drift apart, and with two
+ * "resync this project" button and this sweep cannot drift apart, and with three
  * differences that matter:
  *
  * - Metadata is fetched in batches of 100 through the batched GraphQL query
@@ -15,6 +15,8 @@
  * - Contributor counts come from REST instead of an HTML scrape of the
  *   repository page, which the source did with a CSS selector and which broke
  *   silently whenever GitHub changed its markup.
+ * - Only repositories an administrator has curated are deep-refreshed. See
+ *   {@link createUpdateGitHubDataTask}'s run for what that means in practice.
  *
  * Translation is deliberately not part of this sweep. The source re-translated
  * every README on every run, which is a language-model call per repository per
@@ -30,7 +32,13 @@ import {
   listAllProjects,
   syncProjectFromRepo,
 } from "@/lib/github/service/project"
-import { listAllRepos, listReposByOwner, type Db } from "@/lib/github/service/repo"
+import {
+  listAllRepos,
+  listCuratedRepos,
+  listReposByOwner,
+  upsertRepo,
+  type Db,
+} from "@/lib/github/service/repo"
 import { refreshRepoFromGitHub } from "@/lib/github/sync-project"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task, TaskLogger } from "@/lib/tasks/runner"
@@ -44,14 +52,26 @@ export function createUpdateGitHubDataTask(
   return {
     name: "update-github-data",
     description:
-      "Refresh repository metadata, contributor counts and READMEs, then sync " +
-      "curated projects and hall-of-fame authors from the refreshed data",
+      "Refresh repository metadata for every stored repository, then " +
+      "deep-refresh, sync projects and rebuild hall-of-fame authors for the " +
+      "ones an administrator has curated",
 
     async run({ db, logger }) {
       const stored = await listAllRepos(db)
-      logger.info(`refreshing ${stored.length} repos`)
+      logger.info(`refreshing metadata for ${stored.length} repos`)
 
       if (stored.length === 0) return { processed: 0, updated: 0, missing: 0 }
+
+      // Which repositories publish something, and therefore have derived state
+      // to keep current. Read before the fetch so a project curated mid-run is
+      // not silently skipped: the next run picks it up, but logging the count
+      // here is what makes that visible.
+      const curated = await listCuratedRepos(db)
+      const curatedIds = new Set(curated.map((repo) => repo.id))
+      logger.info(
+        `${curatedIds.size} of ${stored.length} repos are curated and will be ` +
+          `deep-refreshed`
+      )
 
       const { results, missing } = await client.fetchRepos(
         stored.map((repo) => `${repo.owner}/${repo.name}`)
@@ -73,9 +93,31 @@ export function createUpdateGitHubDataTask(
       const perRepo = await processItems(
         rows,
         async (repo) => {
+          const info = results.get(`${repo.owner}/${repo.name}`)
+          const fullName = `${repo.owner}/${repo.name}`
+
+          // A repository nobody has curated is still refreshed, but only from
+          // the batched metadata: it keeps its stars, description and push date
+          // current, so the list a user reads is not stale. Everything past
+          // that — contributor counts, the README, mirrored assets, the star
+          // snapshot — is per-repository work that only a project benefits from,
+          // and it is the majority of this sweep's GitHub calls.
+          if (!curatedIds.has(repo.id)) {
+            if (info) {
+              await upsertRepo(db, info)
+              return { meta: { processed: 1, metadataOnly: 1 }, data: null }
+            }
+
+            // No batched metadata to fall back on, so this repository is one of
+            // the `missing` ones. Its stored row is left as it was: writing
+            // zeroes would read as the repository having been emptied.
+            logger.warn(`skipped metadata refresh for ${fullName}`)
+            return { meta: { processed: 1 }, data: null }
+          }
+
           const refreshed = await refreshRepoFromGitHub(db, client, repo, {
             logger,
-            info: results.get(`${repo.owner}/${repo.name}`),
+            info,
           })
 
           return {
@@ -105,6 +147,11 @@ export function createUpdateGitHubDataTask(
         processed: perRepo.meta.processed ?? 0,
         updated,
         missing: missing.length,
+        // The split, because the two counts together explain what this run
+        // actually spent its GitHub budget on.
+        metadataOnly: perRepo.meta.metadataOnly ?? 0,
+        deepRefreshed:
+          (perRepo.meta.processed ?? 0) - (perRepo.meta.metadataOnly ?? 0),
         readme: perRepo.meta.readme ?? 0,
         contributorCount: perRepo.meta.contributorCount ?? 0,
         icon: perRepo.meta.icon ?? 0,

@@ -34,7 +34,7 @@ import {
 import { startProjectResync } from "@/lib/github/service/resync"
 import { parseGithubRepoUrl } from "@/lib/github/repo-url"
 import { createConsoleLogger } from "@/lib/tasks/runner"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 export const projectsRouter = createTRPCRouter({
   /**
@@ -43,7 +43,7 @@ export const projectsRouter = createTRPCRouter({
    * Idempotent: a repository that already has a project returns that project
    * with `status: "existing"`, so a double submit is harmless.
    */
-  create: protectedProcedure
+  create: adminProcedure
     .input(
       z.object({
         url: z.string().min(1),
@@ -81,7 +81,7 @@ export const projectsRouter = createTRPCRouter({
    * GitHub fetch, so without this the operator has no way to find out before
    * committing to the click.
    */
-  parseUrl: protectedProcedure
+  parseUrl: adminProcedure
     .input(z.object({ url: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const parsed = parseGithubRepoUrl(input.url)
@@ -116,7 +116,7 @@ export const projectsRouter = createTRPCRouter({
    * hundred, and it silently mislabels the sync column for any project older
    * than the window.
    */
-  list: protectedProcedure
+  list: adminProcedure
     .input(
       z.object({
         status: z.enum(PROJECT_STATUSES).optional(),
@@ -269,7 +269,7 @@ export const projectsRouter = createTRPCRouter({
    * project is, and a detail page whose main content needs a second request is
    * a detail page that opens empty.
    */
-  byId: protectedProcedure
+  byId: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const [project] = await ctx.db
@@ -458,7 +458,7 @@ export const projectsRouter = createTRPCRouter({
    * the caller to remember: a human who corrects a description and forgets to
    * tick a box would quietly lose the edit on the next refresh.
    */
-  update: protectedProcedure
+  update: adminProcedure
     .input(
       z.object({
         id: z.string().min(1),
@@ -528,7 +528,7 @@ export const projectsRouter = createTRPCRouter({
    * it can assign, so toggling two and saving is one round trip that cannot
    * lose the edits to a read-modify-write race against a second operator.
    */
-  setTags: protectedProcedure
+  setTags: adminProcedure
     .input(
       z.object({
         id: z.string().min(1),
@@ -558,7 +558,7 @@ export const projectsRouter = createTRPCRouter({
    * keyed by owner and name, not by this row, and other projects may still be
    * pointing at the same repository.
    */
-  remove: protectedProcedure
+  remove: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const [project] = await ctx.db
@@ -589,7 +589,7 @@ export const projectsRouter = createTRPCRouter({
    * sync that failed left no trace and the project page could not tell that
    * anything had happened. Both gaps are what this row and the job list close.
    */
-  sync: protectedProcedure
+  sync: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       return startProjectResync(ctx.db, {

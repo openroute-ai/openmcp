@@ -13,10 +13,16 @@
  *   totals at the cost of thousands of requests.
  * - Repositories are processed with bounded concurrency, because the request
  *   rate, not the CPU, is the limit here.
+ *
+ * And one thing makes it correct rather than merely cheap: only repositories an
+ * administrator has curated are swept at all. Star history is drawn on a
+ * project page, so a repository nobody has curated has no chart to feed, and
+ * this task is the single most expensive call to GitHub in the app. The count of
+ * repositories left out is reported, for the same reason the ceiling's is.
  */
 
 import { createGitHubClient } from "@/lib/github/client"
-import { listAllRepos } from "@/lib/github/service/repo"
+import { listAllRepos, listCuratedRepos } from "@/lib/github/service/repo"
 import {
   accumulateStarsByMonth,
   listSnapshottedRepoIds,
@@ -60,12 +66,23 @@ export function createSnapshotStarsTask(
   return {
     name: "snapshot-stars",
     description:
-      "Sweep stargazer timestamps into monthly star history for repositories " +
-      "that do not already have it",
+      "Sweep stargazer timestamps into monthly star history for curated " +
+      "repositories that do not already have it",
 
     async run({ db, logger }) {
       const client = createGitHubClient()
-      const repos = await listAllRepos(db)
+      const stored = await listAllRepos(db)
+      const repos = await listCuratedRepos(db)
+
+      if (repos.length < stored.length) {
+        // Reported rather than silent: the gap between these two numbers is the
+        // set of collected-but-unpublished repositories this task is not
+        // touching, and an operator comparing star counts against history needs
+        // to know which set they are in.
+        logger.info(
+          `${stored.length - repos.length} uncurated repo(s) were not considered`
+        )
+      }
 
       // A repository that already has history has had this sweep done. Running
       // it again reproduces the same totals at the cost of thousands of
@@ -103,6 +120,7 @@ export function createSnapshotStarsTask(
       if (candidates.length === 0) {
         return {
           considered: repos.length,
+          uncurated: stored.length - repos.length,
           swept: 0,
           skippedLarge: tooLarge.length,
           skippedExisting: alreadyDone.length,
@@ -164,6 +182,7 @@ export function createSnapshotStarsTask(
 
       return {
         considered: repos.length,
+        uncurated: stored.length - repos.length,
         swept: result.meta.swept ?? 0,
         months: result.meta.months ?? 0,
         weeks: result.meta.weeks ?? 0,

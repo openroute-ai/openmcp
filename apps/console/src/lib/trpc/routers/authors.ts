@@ -7,7 +7,7 @@ import {
   refreshAuthorProfile,
   upsertAuthor,
 } from "@/lib/github/service/hall-of-fame"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 /**
  * The author directory.
@@ -29,7 +29,7 @@ export const authorsRouter = createTRPCRouter({
    * about. A search term narrows it, for the same reason a list this size needs
    * one.
    */
-  list: protectedProcedure
+  list: adminProcedure
     .input(
       z.object({ search: z.string().trim().max(200).optional() }).optional()
     )
@@ -66,7 +66,7 @@ export const authorsRouter = createTRPCRouter({
    * A failure is returned rather than thrown, so a rate limit reads as a
    * refresh that did not happen instead of an error page over a byline.
    */
-  refresh: protectedProcedure
+  refresh: adminProcedure
     .input(z.object({ username: z.string().min(1).max(100) }))
     .mutation(async ({ ctx, input }) => {
       const result = await refreshAuthorProfile(ctx.db, input.username)
@@ -86,7 +86,7 @@ export const authorsRouter = createTRPCRouter({
    * nothing to refresh them from and a console is the only way to set them. A
    * later profile refresh leaves them alone for that reason.
    */
-  update: protectedProcedure
+  update: adminProcedure
     .input(
       z.object({
         username: z.string().min(1).max(100),

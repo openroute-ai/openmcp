@@ -25,6 +25,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { authErrorMessage } from "@/lib/auth/auth-error"
+import { landingPathFor } from "@/lib/auth/role"
 
 export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
   const t = useTranslations("Auth")
@@ -43,9 +44,12 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
     await authClient.signUp.email(
       { name, email, password },
       {
-        onSuccess: () => {
+        onSuccess: ({ data }) => {
           toast.success(t("accountCreated"))
-          router.push("/dashboard")
+          // Read from the response rather than hard-coded: the account this
+          // creates is an ordinary one, so it belongs on `/console`, and asking
+          // the shared helper means a second sign-up surface cannot disagree.
+          router.push(landingPathFor(data?.user))
           router.refresh()
         },
         onError: (ctx) => {

@@ -23,7 +23,8 @@ stays at the app root, and `@/` resolves to `src/`.
 
 | Route                     | Description                                           |
 | ------------------------- | ----------------------------------------------------- |
-| `/dashboard`              | Overview: counts, task status, recent runs            |
+| `/dashboard`              | Overview: counts, task status, recent runs (admin)    |
+| `/console`                | Repository list for a signed-in non-admin             |
 | `/dashboard/rankings`     | Week / month / rising-stars rankings                  |
 | `/dashboard/tasks`        | Task schedule, enable/disable, run on demand          |
 | `/dashboard/projects`     | Projects with repository stats, skills, last sync     |
@@ -90,7 +91,11 @@ database**. On top of those it defines the migrated GitHub-sync domain in
 `src/db/schema/github.ts`:
 
 - `repos` — repository statistics, plus the README, its translation, the icon
-  and the OSS image URLs written by their own tasks.
+  and the OSS image URLs written by their own tasks. A repository is
+  **collected** by being stored here, and **curated** once a project points at
+  it: only curated repositories are deep-refreshed, star-swept and turned into
+  authors by the scheduled tasks, so an uncurated entry keeps its metadata
+  current without becoming a project.
 - `projects`, `project_skills` — a repository's projects and the parsed
   `SKILL.md` documents, with `synced_to_web_at` / `last_sync_error` recording
   the downstream push outcome.
@@ -145,6 +150,30 @@ pnpm --filter console db:migrate
 pnpm --filter console db:seed   # optional: task definitions before first deploy
 pnpm --filter console dev
 ```
+
+
+### Accounts and roles
+
+The console serves two audiences from one deployment: an operator curates the
+catalogue from `/dashboard`, and anyone else signed in uses `/console`, which is
+the repository list and nothing else. The role is stored on `user.role` (shared
+schema). The column defaults to `user`, so new accounts land on `/console`.
+
+- An `admin` sees `/dashboard`; every other signed-in account sees `/console`.
+- Layout gates are UX (`/dashboard` redirects non-admins to `/console`, and
+  `/console` redirects admins to `/dashboard`), and the real authorization is on
+  each tRPC procedure: `adminProcedure` refuses anyone whose `role !== "admin"`,
+  and the routers reflect the split (`repos.list` and `repos.create` are
+  `protectedProcedure` for non-admins, while everything else is admin-only).
+
+To bootstrap the first operator:
+
+```bash
+pnpm --filter console db:role -- <email>  # promote to admin
+pnpm --filter console db:role -- <email> --list  # check current role
+pnpm --filter console db:role -- <email> user  # demote back
+```
+
 
 ### Drizzle commands
 

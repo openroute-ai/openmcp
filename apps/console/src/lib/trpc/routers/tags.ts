@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { projectsToTags, tags } from "@/db/schema"
 import { deleteTag, listTags, upsertTag } from "@/lib/github/service/tag"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 /**
  * Tag vocabulary management.
@@ -21,7 +21,7 @@ export const tagsRouter = createTRPCRouter({
    * shows in full, so a second round trip to discover a second page would only
    * add a way for an editor to miss a tag that exists.
    */
-  list: protectedProcedure.query(async ({ ctx }) => listTags(ctx.db)),
+  list: adminProcedure.query(async ({ ctx }) => listTags(ctx.db)),
 
   /**
    * Creates a tag, or edits the mutable fields of one that already exists.
@@ -31,7 +31,7 @@ export const tagsRouter = createTRPCRouter({
    * editor retype a tag's name without orphaning the assignments that
    * reference its code.
    */
-  upsert: protectedProcedure
+  upsert: adminProcedure
     .input(
       z.object({
         code: z
@@ -57,7 +57,7 @@ export const tagsRouter = createTRPCRouter({
    * from a ranked project would change what the rankings say without telling
    * anyone, and the caller can unassign it first if that was the intent.
    */
-  remove: protectedProcedure
+  remove: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const [tag] = await ctx.db
