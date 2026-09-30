@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { authors, skills } from '@workspace/db'
 import { buildMinimalSkillPackage, buildSkillPackage } from '@/lib/agent-install/skill-package'
-import { auth } from '@/lib/auth'
+import { resolveStoreAuth } from '@/lib/agent-install/store-mcp'
 import { db } from '@/lib/db'
 import { filesFromSkillRow } from '@/lib/security-scan'
 import { createZipStore } from '@/lib/zip/create-zip-store'
@@ -45,7 +45,7 @@ function zipResponse(buffer: Buffer, filename: string) {
 
 /**
  * Shared handler for `/api/skills/[id]/package` and `/api/skills/[id]/download`.
- * Requires login; paid skills additionally require `skill_entitlements`.
+ * Requires login (session cookie, Bearer API Key, or OAuth token); paid skills additionally require `skill_entitlements`.
  */
 export async function serveSkillPackage(request: Request, idOrSlug: string) {
   try {
@@ -58,11 +58,10 @@ export async function serveSkillPackage(request: Request, idOrSlug: string) {
       return NextResponse.json({ error: '技能未找到' }, { status: 404 })
     }
 
-    const session = await auth.api.getSession({ headers: request.headers })
-    const userId = session?.user?.id ?? null
+    const { userId } = await resolveStoreAuth(request)
 
     if (!userId) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
+      return NextResponse.json({ error: '请先登录（支持 Session / API Key / OAuth）' }, { status: 401 })
     }
     if (resolved.skill.status !== 'published') {
       return NextResponse.json({ error: '技能未上架' }, { status: 403 })

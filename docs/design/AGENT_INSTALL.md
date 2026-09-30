@@ -251,16 +251,25 @@ x-litellm-api-key: sk-...
 | 阶段 | 状态 | Commit message |
 |------|------|----------------|
 | P0 | ✅ | `feat(openmcp): P0 agent install prompts and detail CTAs` |
-| P1 | ✅ | `feat(openmcp): P1 OpenMCP Store MCP search get install` |
+| P1 | ✅（本仓 `apps/web`） | `feat(web): Store MCP search/get/install + Device Code OAuth` |
 
-### P1 代码锚点
+### P1 代码锚点（monorepo）
 
 | 模块 | 路径 |
 |------|------|
-| HTTP MCP | `src/app/api/mcp/store/route.ts` |
-| Handler | `src/lib/agent-install/store-mcp/handler.ts` |
-| Tools | `src/lib/agent-install/store-mcp/tools.ts` |
-| API Key 鉴权 | `src/lib/agent-install/store-mcp/auth.ts`（SHA-256 ↔ `api_keys.key`） |
+| HTTP MCP | `apps/web/src/app/api/mcp/store/route.ts` |
+| Handler | `apps/web/src/lib/agent-install/store-mcp/handler.ts` |
+| Tools | `apps/web/src/lib/agent-install/store-mcp/tools.ts` |
+| API Key / OAuth 鉴权 | `apps/web/src/lib/agent-install/store-mcp/auth.ts`（SHA-256 ↔ `api_keys.key` / `oauth_tokens.token_hash`） |
+| Device Code | `apps/web/src/app/api/mcp/store/oauth/{device,token,authorize}/route.ts` + `/device` UI |
+| apps/api 薄代理 | `apps/api/src/routes/mcp/store.ts` → 需 `OPENMCP_WEB_BASE_URL` |
+
+### 已知缺口（诚实记录）
+
+- Cursor / Claude Code **不会**自动解析 `authMode` / `deviceCodeUrl`；Device Code 轮询需 Agent 侧实现，或直接用 API Key。
+- 尚无 `/.well-known/oauth-protected-resource` 发现文档。
+- Authorization Code Flow UI 已有；深度链接 IDE 回调为后续。
+- `install-callback` 登记安装列表未在本批强制接通（表已存在）。
 
 ### 手动验证（P1）
 

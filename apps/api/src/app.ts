@@ -13,6 +13,7 @@ import { auth } from "./lib/auth"
 import { env } from "./lib/env"
 import health from "./routes/health"
 import hello from "./routes/hello"
+import storeMcp from "./routes/mcp/store"
 
 const app = new Hono()
 const apiV1 = new OpenAPIHono()
@@ -41,6 +42,8 @@ app.use(
   "/api/v1/*",
   cors({
     origin: hasExplicitOrigins ? env.BETTER_AUTH_TRUSTED_ORIGINS : "*",
+    allowHeaders: ["Content-Type", "Authorization", "x-litellm-api-key"],
+    allowMethods: ["POST", "GET", "OPTIONS", "ALL"],
     credentials: hasExplicitOrigins,
   })
 )
@@ -67,6 +70,12 @@ apiV1.doc("/open-api", {
 })
 
 app.route("/api/v1", apiV1)
+
+// Store MCP proxy: no CSRF (agents use Bearer), longer timeout for upstream package builds.
+const storeProxy = new Hono()
+storeProxy.use("*", timeout(60000))
+storeProxy.route("/", storeMcp)
+app.route("/api/v1/mcp/store", storeProxy)
 
 app.get(
   "/docs",

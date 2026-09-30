@@ -36,6 +36,32 @@ The server starts on `http://localhost:8080` by default (override with `PORT`).
 | `GET/POST` | `/api/auth/*` | Better Auth endpoints |
 | `GET` | `/api/v1/health` | Health check |
 | `GET` | `/api/v1/hello` | Hello world |
+| `ALL` | `/api/v1/mcp/store/*` | Store MCP proxy (requires `OPENMCP_WEB_BASE_URL`) |
+
+## Store MCP
+
+Marketplace Store MCP (`search_assets` / `get_asset` / `install_asset`) is implemented in **apps/web** at `/api/mcp/store` so it can share `packages/db` and skill acquire/entitlement logic.
+
+This API process exposes a thin proxy at `/api/v1/mcp/store` when `OPENMCP_WEB_BASE_URL` is set (e.g. `https://www.openmcp.cn` or `http://localhost:20001`). Without it, the route returns `501` with registration hints.
+
+Preferred agent registration (Cursor `mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "openmcp-store": {
+      "url": "https://www.openmcp.cn/api/mcp/store",
+      "headers": {
+        "Authorization": "Bearer YOUR_OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Device Code (optional): `POST {WEB}/api/mcp/store/oauth/device` → user visits `/device` → poll `.../oauth/token`.
+
+See `docs/design/AGENT_INSTALL.md`.
 
 ## Testing with HTTPie
 

@@ -11,8 +11,8 @@ export const runtime = 'nodejs'
  * uuid or slug. `?format=json` returns the file manifest instead of a ZIP, and
  * `?version=x.x.x` pins a specific published version.
  *
- * Every skill requires a session, and paid skills additionally require an
- * entitlement, so the archive is never handed out to anonymous callers.
+ * Every skill requires login (session / Bearer API Key / OAuth token); paid
+ * skills additionally require an entitlement.
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params

@@ -25,6 +25,8 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(1),
     BETTER_AUTH_URL: z.url().optional(),
     BETTER_AUTH_TRUSTED_ORIGINS: commaSeparatedList,
+    /** Web app base for Store MCP proxy (e.g. https://www.openmcp.cn). */
+    OPENMCP_WEB_BASE_URL: z.url().optional(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
