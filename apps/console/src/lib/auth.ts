@@ -7,7 +7,7 @@ import {
 import { phoneNumber } from "better-auth/plugins"
 import { APIError } from "better-auth/api"
 import { db } from "@/db/client"
-import { schema as consoleSchema } from "@/db/schema"
+import { authSchema } from "@/db/schema"
 import { getRateLimitStorage } from "@/lib/redis"
 import { smsCaptchaConfig } from "@/lib/sms-captcha"
 import { sendSmsCode } from "@/lib/sms"
@@ -23,7 +23,7 @@ const tempEmailDomain = process.env.CONSOLE_TEMP_EMAIL_DOMAIN ?? "console.local"
 
 export const auth = createAuth(db, {
   baseURL: process.env.CONSOLE_BETTER_AUTH_URL ?? "http://localhost:3001",
-  schema: consoleSchema,
+  schema: authSchema,
   secret: process.env.BETTER_AUTH_SECRET!,
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS
     ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((s) => s.trim())

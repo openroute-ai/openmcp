@@ -33,8 +33,13 @@ export type CreateAuthOptions = {
   /**
    * Override the drizzle schema used by the adapter. Apps extending the
    * shared user table (e.g. phone number columns) can pass their own table.
+   *
+   * Not typed as `Partial<typeof schema>`: per-app tables may add or omit
+   * columns relative to the marketplace schema (console user has phone
+   * fields but not ban/customer columns), and colliding names like `repos`
+   * are intentionally different shapes.
    */
-  schema?: Partial<typeof schema>
+  schema?: Record<string, unknown>
 }
 
 export function createAuth(
