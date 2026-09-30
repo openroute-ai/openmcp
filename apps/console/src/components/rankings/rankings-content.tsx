@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { IconChevronUp } from "@tabler/icons-react"
 import type { Rankings } from "@/lib/github/service/rankings"
 import type { RisingStarsReport } from "@/lib/github/service/rising-stars"
 import { RisingStarCategoriesDialog } from "@/components/rankings/rising-star-categories-dialog"
@@ -69,6 +70,18 @@ function resolvePeriod(
   return options[0]?.value ?? ""
 }
 
+/**
+ * Star movement, coloured the way the Chinese market reads it: red is up, green
+ * is down. The console's own `--radar-*` tokens, registered in the shared
+ * stylesheet but valued locally, so web keeps its palette and the radar gets a
+ * red that survives a dark background.
+ */
+const DELTA_TONE = {
+  up: "text-radar-up",
+  down: "text-radar-down",
+  flat: "text-muted-foreground",
+} as const
+
 /** The columns a ranking and the Rising Stars report share. */
 interface Row {
   name: string
@@ -109,12 +122,25 @@ function useFormatNumbers() {
   const format = useFormatter()
   return {
     stars: (value: number) => format.number(value),
-    delta: (value: number) => `+${format.number(value)}`,
+    /**
+     * A signed count, not a magnitude.
+     *
+     * The prefix used to be a literal `+`, which rendered a drop of 120 stars
+     * as `+-120` — and a fixed green class meant a falling project was coloured
+     * as the good news. Both are now decided by the sign, and the arrow is a
+     * second channel so the reading does not depend on colour alone.
+     */
+    delta: (value: number) =>
+      value > 0
+        ? `+${format.number(value)}`
+        : value < 0
+          ? `\u2212${format.number(Math.abs(value))}`
+          : "0",
     // `Intl` already localises the decimal separator, so a percentage needs
     // no translation of its own.
     growth: (value: number | null) =>
       value === null
-        ? "—"
+        ? "\u2014"
         : format.number(value * 100, {
             style: "percent",
             maximumFractionDigits: 1,
@@ -159,10 +185,10 @@ function RankingsTable({ rows, pending }: { rows: Row[]; pending: boolean }) {
   }
 
   return (
-    <Table>
+    <Table className="text-sm">
       <TableHeader>
-        <TableRow>
-          <TableHead className="w-12">{t("column.rank")}</TableHead>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-12 pl-4">{t("column.rank")}</TableHead>
           <TableHead>{t("column.name")}</TableHead>
           <TableHead className="text-right">{t("column.stars")}</TableHead>
           <TableHead className="text-right">{t("column.delta")}</TableHead>
@@ -173,20 +199,32 @@ function RankingsTable({ rows, pending }: { rows: Row[]; pending: boolean }) {
       <TableBody>
         {rows.map((row, index) => (
           <TableRow key={`${row.fullName}-${index}`}>
-            <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+            <TableCell className="pl-4 text-muted-foreground tabular-nums">
+              {index + 1}
+            </TableCell>
             <TableCell>
               <div className="font-medium">{row.name}</div>
               <div className="text-xs text-muted-foreground">
                 {row.fullName}
               </div>
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right tabular-nums">
               {numbers.stars(row.stars)}
             </TableCell>
-            <TableCell className="text-right text-emerald-600">
+            <TableCell
+              className={`text-right tabular-nums ${DELTA_TONE[row.delta > 0 ? "up" : row.delta < 0 ? "down" : "flat"]}`}
+            >
+              {row.delta !== 0 && (
+                <IconChevronUp
+                  className={`mr-0.5 inline size-3 align-[-1px] ${
+                    row.delta > 0 ? "" : "-rotate-180"
+                  }`}
+                  aria-hidden
+                />
+              )}
               {numbers.delta(row.delta)}
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-right tabular-nums">
               {numbers.growth(row.relativeGrowth)}
             </TableCell>
             <TableCell>

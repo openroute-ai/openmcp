@@ -1,0 +1,86 @@
+/*
+ * OpenMCP 雷达 — 落地页专用层
+ *
+ * 只服务营销面（/ 未登录时的落地页）。应用外壳与列表页的涨跌色、主色在
+ * app/[locale]/theme.css，不在这里。
+ *
+ * 这里放的是只有营销面才需要的东西：半透明玻璃表面、品牌渐变文字、
+ * 风险行的左侧色条、悬浮动效。理由是落地页是全宽滚动面，下方内容会透上来，
+ * 实心卡片会读成后台管理界面；应用外壳则相反，需要稳定的对比度。
+ */
+
+/*
+ * 玻璃表面。light 用白叠白，dark 用石板灰叠石板灰——不叠纯黑，仪器面板的底色
+ * 是石板而不是黑。
+ */
+@layer utilities {
+    :root {
+        --glass: oklch(1 0 0 / 0.72);
+        --glass-strong: oklch(1 0 0 / 0.9);
+        --glass-border: oklch(0.147 0.004 49.25 / 0.12);
+        --ink: oklch(0.17 0.017 240);
+    }
+
+    .dark {
+        --glass: oklch(0.22 0.018 240 / 0.6);
+        --glass-strong: oklch(0.24 0.02 240 / 0.82);
+        --glass-border: oklch(0.985 0.001 106.423 / 0.14);
+    }
+}
+
+@layer components {
+    /* 品牌渐变文字：只用于 h1 里的关键词，不用于正文 */
+    .text-gradient-brand {
+        background-image: linear-gradient(
+            100deg,
+            var(--brand),
+            var(--aqua) 55%,
+            var(--brand2)
+        );
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    /*
+     * 风险行的左侧色条。风险信号靠形状可扫视，不依赖红/绿的语义判断
+     * —— §5.9.3 方案 A。
+     */
+    .radar-alert-bar {
+        position: relative;
+    }
+
+    .radar-alert-bar::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
+        width: 2px;
+        border-start-start-radius: inherit;
+        border-end-start-radius: inherit;
+        background: var(--radar-alert-bar);
+    }
+}
+
+@keyframes radar-floaty {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+@layer utilities {
+    /*
+     * 首屏仪表面板的悬浮动效。respects prefers-reduced-motion —— 页面动效是装饰性的，
+     * 不该压过内容阅读。
+     */
+    @media (prefers-reduced-motion: no-preference) {
+        .animate-floaty {
+            animation: radar-floaty 7s ease-in-out infinite;
+        }
+    }
+}

@@ -18,6 +18,13 @@
 | [ADMIN_REVIEW_QUEUE_UED.md](./ADMIN_REVIEW_QUEUE_UED.md) | Admin 人工复核 UED |
 | [design-github-repos-skills-webhook-sync.md](./design-github-repos-skills-webhook-sync.md) | GitHub → openmcp webhook 同步 |
 
+## 商业 / 选型决策
+
+| 文档 | 说明 |
+|------|------|
+| [OPENMCP_COMMERCIAL_PLAN.md](./OPENMCP_COMMERCIAL_PLAN.md) | 平台商业闭环：市场 × 网关 × 分成 |
+| [CONSOLE_RADAR_COMMERCIAL_PLAN.md](./CONSOLE_RADAR_COMMERCIAL_PLAN.md) | **`apps/console` = OpenMCP 雷达开源选型决策引擎：商业方案 × 与 web 的 API 协同契约** |
+
 ## 已迁出
 
 n8n 工作流社区相关设计已迁至 **`apps/base/docs/`**（含 WORKFLOW_*、`llm-schema-usage-analysis.md`），不定义 OpenMCP 核心。

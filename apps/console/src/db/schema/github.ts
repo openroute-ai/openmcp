@@ -185,28 +185,57 @@ export const projects = pgTable(
   ]
 )
 
-export const tags = pgTable("tags", {
-  id: text("id").primaryKey(),
-  code: text("code").notNull().unique(),
-  name: text("name").notNull(),
-  description: text("description"),
-  aliases: jsonb("aliases").$type<string[]>(),
-  /**
-   * Whether projects carrying this tag are left out of the rankings.
-   *
-   * The source app compared every project's tags against a constant and left a
-   * TODO to move it here. The column is that move: it is the source of truth
-   * at ranking time, migration `0003` sets it for the three codes the source
-   * excluded, and tag creation applies `TAGS_EXCLUDED_FROM_RANKINGS` as the
-   * default so a fresh install behaves like the source did without the
-   * comparison happening anywhere at ranking time.
-   */
-  excludeFromRankings: boolean("exclude_from_rankings")
-    .notNull()
-    .default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at"),
-})
+export const tags = pgTable(
+  "tags",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    aliases: jsonb("aliases").$type<string[]>(),
+    /**
+     * Whether projects carrying this tag are left out of the rankings.
+     *
+     * The source app compared every project's tags against a constant and left a
+     * TODO to move it here. The column is that move: it is the source of truth
+     * at ranking time, migration `0003` sets it for the three codes the source
+     * excluded, and tag creation applies `TAGS_EXCLUDED_FROM_RANKINGS` as the
+     * default so a fresh install behaves like the source did without the
+     * comparison happening anywhere at ranking time.
+     */
+    excludeFromRankings: boolean("exclude_from_rankings")
+      .notNull()
+      .default(false),
+    /**
+     * Human-in-the-loop review state, added for radar's AI auto-classification
+     * (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.3).
+     *
+     * The classifier proposes, an operator confirms. `confidence` is the
+     * model's own score and `evidence` the README sentence it cited, so a
+     * reviewer judges the reason rather than the conclusion — that is what makes
+     * a 2000-repo batch a 10x-leverage task instead of 2000 decisions.
+     *
+     * `reviewed_at` being null is the work queue, not an error: a tag applied
+     * with no review yet is a pending suggestion, and it is still queryable
+     * because low-confidence unreviewed tags are exactly what the review UI
+     * sorts by. `confidence` is nullable for the same reason — the manually
+     * applied tags that predate the classifier have no score.
+     */
+    confidence: doublePrecision("confidence"),
+    evidence: text("evidence"),
+    reviewedAt: timestamp("reviewed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    // The review queue reads "unreviewed, lowest confidence first", which needs
+    // both columns in one index.
+    index("tags_unreviewed_by_confidence_idx").on(
+      table.reviewedAt,
+      table.confidence
+    ),
+  ]
+)
 
 export const projectsToTags = pgTable(
   "projects_to_tags",
@@ -218,7 +247,104 @@ export const projectsToTags = pgTable(
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.tagId] })]
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.tagId] }),
+    // `setProjectTags` reads a project's tags and the tag picker lists codes;
+    // both go through this direction.
+    index("projects_to_tags_tag_id_idx").on(table.tagId),
+  ]
+)
+
+/**
+ * The axes a capability can be stated on.
+ *
+ * Kept as a closed set rather than a free string: "which projects deploy
+ * themselves" has to be answerable by a filter, and a free-word column answers
+ * it approximately at best. Each axis is filtered independently, which is why
+ * `deployment` is not folded into `category` — a self-hosted thing is usually
+ * also a server and also an application, so putting it in the category would
+ * make the two facts indistinguishable (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.3).
+ */
+export const CAPABILITY_AXES = [
+  /** What it is: language, library, service, framework. */
+  "category",
+  /** Implementation language. */
+  "language",
+  /** self-hosted | saas | api — orthogonal to `category`. */
+  "deployment",
+  /** Auth style: oauth | mtls | apikey | none. */
+  "auth",
+  /** What it talks to: postgres | kafka | grpc ... */
+  "dataSource",
+  /** Runtime requirement: kubernetes | docker | wasm. */
+  "runtime",
+] as const
+
+export type CapabilityAxis = (typeof CAPABILITY_AXES)[number]
+
+/**
+ * Closed vocabulary for one axis.
+ *
+ * Separate from `tags` on purpose. `tags` is the taxonomy an operator curates
+ * and the rankings filter on; capabilities are the machine-fillable properties
+ * that answer concrete filter questions ("Postgres", "K8s", "OAuth"). Mixing
+ * them is what produces a taxonomy nobody can filter.
+ */
+export const capabilities = pgTable(
+  "capabilities",
+  {
+    id: text("id").primaryKey(),
+    axis: text("axis").$type<CapabilityAxis>().notNull(),
+    /** Machine key within the axis, unique per axis rather than globally: `en` is
+     * one `language` value and would be a meaningless `category` one. */
+    code: text("code").notNull(),
+    label: text("label").notNull(),
+    description: text("description"),
+    /**
+     * Same review contract as `tags.confidence` — the classifier proposes and an
+     * operator confirms.
+     */
+    confidence: doublePrecision("confidence"),
+    reviewedAt: timestamp("reviewed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    uniqueIndex("capabilities_axis_code_unique").on(table.axis, table.code),
+    index("capabilities_axis_idx").on(table.axis),
+  ]
+)
+
+/**
+ * A project's capabilities.
+ *
+ * Long form of `projects_to_tags` and kept beside it rather than merged into
+ * it: tags are "this is a database", capabilities are "this speaks Postgres".
+ * A filter for the first is a taxonomy lookup, for the second a value
+ * existence check, and the two answer at different granularities.
+ */
+export const projectsToCapabilities = pgTable(
+  "projects_to_capabilities",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    capabilityId: text("capability_id")
+      .notNull()
+      .references(() => capabilities.id, { onDelete: "cascade" }),
+    /** The README sentence the classifier cited. Reviewable, not just auditable. */
+    evidence: text("evidence"),
+    confidence: doublePrecision("confidence"),
+    /** Classifier proposals an operator rejected, so a rerun does not re-propose them. */
+    rejected: boolean("rejected").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.capabilityId] }),
+    // The filter direction: "every project with capability X" and "every
+    // capability of project Y" both go through this.
+    index("projects_to_capabilities_capability_id_idx").on(table.capabilityId),
+  ]
 )
 
 /**
@@ -600,6 +726,7 @@ export const projectsRelations = relations(projects, ({ many, one }) => ({
   packages: many(packages),
   skills: many(projectSkills),
   projectsToTags: many(projectsToTags),
+  projectsToCapabilities: many(projectsToCapabilities),
   hallOfFameToProjects: many(hallOfFameToProjects),
 }))
 
@@ -613,6 +740,24 @@ export const projectsToTagsRelations = relations(projectsToTags, ({ one }) => ({
     references: [tags.id],
   }),
 }))
+
+export const capabilitiesRelations = relations(capabilities, ({ many }) => ({
+  projectsToCapabilities: many(projectsToCapabilities),
+}))
+
+export const projectsToCapabilitiesRelations = relations(
+  projectsToCapabilities,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [projectsToCapabilities.projectId],
+      references: [projects.id],
+    }),
+    capability: one(capabilities, {
+      fields: [projectsToCapabilities.capabilityId],
+      references: [capabilities.id],
+    }),
+  })
+)
 
 export const snapshotsRelations = relations(snapshots, ({ one }) => ({
   repo: one(repos, { fields: [snapshots.repoId], references: [repos.id] }),

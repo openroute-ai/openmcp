@@ -263,10 +263,10 @@ export function ProjectsContent() {
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <>
-            <Table>
+            <Table className="text-sm">
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-12 pl-4">
                     <span className="sr-only">{t("column.logo")}</span>
                   </TableHead>
                   <TableHead>{t("column.project")}</TableHead>
@@ -294,7 +294,7 @@ export function ProjectsContent() {
 
                   return (
                     <TableRow key={project.id}>
-                      <TableCell>
+                      <TableCell className="pl-4">
                         <ProjectLogo
                           name={project.name}
                           logo={project.logo}

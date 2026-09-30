@@ -57,6 +57,13 @@
       "when": 1790704200000,
       "tag": "0007_console_user_ban_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790760505075,
+      "tag": "0008_console_capabilities_and_tag_review",
+      "breakpoints": true
     }
   ]
 }

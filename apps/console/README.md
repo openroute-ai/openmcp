@@ -93,9 +93,35 @@ so local development that skips Redis is safe by default.
 
 ## Data model
 
-`src/db/schema.ts` re-uses the Better Auth tables from `@workspace/db/schema` so
-there is a single source of truth, but they are created in **this app's own
-database**. On top of those it defines the migrated GitHub-sync domain in
+`src/db/schema.ts` declares console's **own** copy of the four Better Auth
+tables — `user`, `session`, `account`, `verification` — plus the GitHub-sync
+domain in `src/db/schema/github.ts`. It deliberately imports **nothing** from
+`@workspace/db`.
+
+This used to be the other way round: the file re-exported all of
+`@workspace/db/schema`, which is web's entire schema (86 tables across blog,
+mcp, registry, catalog, workflow, personas, payment, oauth). Console's queries
+were unaffected, but `drizzle-kit generate` was not — diffing against
+`meta/0006_snapshot.json` produced a migration that would have `CREATE TABLE`d
+every one of those web tables inside `CONSOLE_DATABASE_URL`, and re-added
+columns an earlier migration had already added. The same import also handed all
+86 tables to Better Auth as its `schema`, of which it reads four.
+
+Two details are load-bearing and easy to undo by accident:
+
+- `session` deliberately omits `active_organization_id` / `impersonated_by`.
+  Those belong to Better Auth's organization plugin, which console does not
+  install (`src/lib/auth.ts` registers only `phoneNumber` and `openAPI`), so
+  importing the shared definition made every `generate` try to add two columns
+  nothing ever reads. If the organization plugin is ever enabled, add them here
+  in the same change.
+- The four tables must stay column-for-column identical to
+  `packages/db/src/auth-schema.ts`. That alignment used to be automatic through
+  the import; now it is a manual obligation, and the console-side definitions
+  carry the reasoning.
+
+The tables are created in **this app's own database** either way. On top of the
+auth tables it defines the migrated GitHub-sync domain in
 `src/db/schema/github.ts`:
 
 - `repos` — repository statistics, plus the README, its translation, the icon

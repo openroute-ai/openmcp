@@ -3,6 +3,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl"
 import { notFound } from "next/navigation"
 
 import "@workspace/ui/globals.css"
+import "./theme.css"
 import {
   ThemeProvider,
   ThemeScript,

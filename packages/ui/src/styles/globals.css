@@ -55,6 +55,31 @@
     --radius-4xl: calc(var(--radius) * 2.6);
     --font-sans: var(--font-sans);
 
+    /*
+     * 雷达专属 theme 命名空间（OpenMCP 雷达 · 决策 #15 分层一致）。
+     *
+     * 这里只「注册」名字，不给值。值定义在 apps/console/src/app/[locale]/landing.css，
+     * 那是雷达私有的 L2 定位层——改那里不会影响 web。
+     *
+     * 为什么注册必须放在本文件：本文件是唯一 `@import "tailwindcss"` 的样式表，
+     * 只有被 Tailwind 自己处理的文件才会展开 `@theme`。放在 landing.css 里
+     * `bg-brand` 这类工具类不会生成（原生 CSS 能透传，Tailwind at-rule 不能）。
+     *
+     * 对 web 是惰性的：web 不引用这些类名，未定义的值不会被用到。
+     */
+    --color-brand: var(--brand);
+    --color-brand2: var(--brand2);
+    --color-aqua: var(--aqua);
+    --color-glass: var(--glass);
+    --color-glass-strong: var(--glass-strong);
+    --color-glass-border: var(--glass-border);
+    --color-ink: var(--ink);
+    /* 红涨绿跌：与 --destructive 分开，「跌」和「危险」不是一回事 */
+    --color-radar-up: var(--radar-up);
+    --color-radar-down: var(--radar-down);
+    --color-radar-flat: var(--radar-flat);
+    --font-display: var(--font-sans);
+
     /* Layout: max-w-page / max-w-wide / max-w-article / max-w-form */
     --container-page: var(--layout-page-max);
     --container-wide: var(--layout-content-max);

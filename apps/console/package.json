@@ -33,7 +33,6 @@
     "@trpc/client": "^11.19.0",
     "@trpc/server": "^11.19.0",
     "@trpc/tanstack-react-query": "^11.19.0",
-    "@workspace/db": "workspace:*",
     "@workspace/sms-captcha": "workspace:^",
     "@workspace/ui": "workspace:*",
     "ai": "^7.0.0",
