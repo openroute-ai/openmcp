@@ -869,6 +869,58 @@ export const personaRankings = pgTable(
 /** 平台默认分成：Provider 获得 70%，平台抽成 30% */
 export const PROVIDER_REVENUE_SHARE = 0.7
 
+/**
+ * 网关消费账本：LiteLLM spend logs 的本地幂等副本。
+ *
+ * Marketplace 的 MCP/A2A 请求由客户端直连 LiteLLM，openmcp 无法拦截调用链，
+ * 因此只能在事后从 LiteLLM 拉日志回补扣款。`request_id` 的唯一约束就是幂等
+ * 键：同一条消费日志重复同步不会二次扣款。
+ *
+ * `overspendAmount` 记录余额已扣到 0 之后仍超出预算的部分 —— 留待对账，
+ * 不写成负余额。
+ */
+export const gatewaySpendRecords = pgTable(
+  'gateway_spend_records',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    /** LiteLLM 消费日志的请求 ID —— 幂等键 */
+    requestId: text('request_id').notNull(),
+    /** 消费用户（由 keyAlias 反查 api_keys 得出） */
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    apiKeyId: text('api_key_id'),
+    keyAlias: text('key_alias'),
+    /** 扣款金额（数值直传，不换算） */
+    spend: numeric('spend', { precision: 16, scale: 8 }).default('0').notNull(),
+    /** 余额被扣到 0 后仍超出预算的部分，留待对账，不写负余额 */
+    overspendAmount: numeric('overspend_amount', { precision: 16, scale: 8 }).default('0').notNull(),
+    totalTokens: integer('total_tokens').default(0).notNull(),
+    /** 命中的资产类型；null 表示该消费未能归属到市场资产 */
+    assetType: varchar('asset_type', { length: 20, enum: ['mcp', 'a2a'] }),
+    /** LiteLLM model 名，即 server_name / agent_name */
+    assetName: text('asset_name'),
+    /** Provider 归属，分成用 */
+    authorId: text('author_id').references(() => authors.id, { onDelete: 'set null' }),
+    model: text('model'),
+    /** 消费发生时间（LiteLLM startTime），与 createdAt 区分 */
+    occurredAt: timestamp('occurred_at').notNull(),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    unique('gateway_spend_records_request_id_unique').on(table.requestId),
+    index('gateway_spend_records_user_idx').on(table.userId),
+    index('gateway_spend_records_author_idx').on(table.authorId),
+    index('gateway_spend_records_occurred_at_idx').on(table.occurredAt),
+    index('gateway_spend_records_key_alias_idx').on(table.keyAlias),
+  ]
+)
+
+export type GatewaySpendRecord = typeof gatewaySpendRecords.$inferSelect
+export type NewGatewaySpendRecord = typeof gatewaySpendRecords.$inferInsert
+
 export const providerEarnings = pgTable(
   'provider_earnings',
   {
@@ -879,9 +931,19 @@ export const providerEarnings = pgTable(
       .notNull()
       .references(() => authors.id, { onDelete: 'cascade' }),
     buyerUserId: text('buyer_user_id').notNull(),
-    skillId: text('skill_id')
-      .notNull()
-      .references(() => skills.id, { onDelete: 'cascade' }),
+    /**
+     * Skill 销售分成时指向具体 Skill；MCP / A2A 调用分成为 null。
+     * 可空 —— 网关调用没有 Skill 概念。
+     */
+    skillId: text('skill_id').references(() => skills.id, { onDelete: 'cascade' }),
+    /**
+     * 网关消费分成时指向该次消费在账本里的行。唯一约束保证同一条消费日志
+     * 不会产生两条分成记录 —— 与 `gateway_spend_records.request_id` 的
+     * 幂等键配合，重复同步不会把分成算两遍。
+     */
+    gatewayRecordId: text('gateway_record_id').references(() => gatewaySpendRecords.id, {
+      onDelete: 'cascade',
+    }),
     entitlementId: text('entitlement_id'),
     grossAmount: decimal('gross_amount', { precision: 10, scale: 2 }).notNull(),
     platformFee: decimal('platform_fee', { precision: 10, scale: 2 }).notNull(),
@@ -900,6 +962,7 @@ export const providerEarnings = pgTable(
     index('provider_earnings_skill_idx').on(table.skillId),
     index('provider_earnings_status_idx').on(table.status),
     index('provider_earnings_created_at_idx').on(table.createdAt),
+    unique('provider_earnings_gateway_record_unique').on(table.gatewayRecordId),
   ]
 )
 

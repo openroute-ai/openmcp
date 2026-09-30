@@ -70,6 +70,12 @@ export const websiteConfig = {
     requireEmailVerification: false,
     autoSignInAfterVerification: true,
   },
+  blog: {
+    /** Blog list page size. */
+    paginationSize: 6,
+    /** How many related posts to show at the bottom of an article. */
+    relatedPostsSize: 3,
+  },
   mail: {
     provider: (process.env.MAIL_PROVIDER ?? 'nodemailer') as
       | 'resend'

@@ -727,6 +727,11 @@
         "description": "管理工作流分类",
         "loading": "加载中..."
       },
+      "blog": {
+        "title": "博客",
+        "description": "博客文章管理",
+        "loading": "加载中..."
+      },
       "userSubmissions": {
         "title": "用户提交",
         "description": "管理用户提交",

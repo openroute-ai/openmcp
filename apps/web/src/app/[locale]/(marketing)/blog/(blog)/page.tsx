@@ -1,0 +1,41 @@
+import BlogGridWithPagination from '@/components/blog/blog-grid-with-pagination'
+import { LOCALES } from '@/i18n/routing'
+import { getPaginatedBlogPosts } from '@/lib/blog/source'
+import { constructMetadata } from '@/lib/metadata'
+import { getUrlWithLocale } from '@/lib/urls/urls'
+import type { Locale } from '@/i18n/routing'
+import { getTranslations } from 'next-intl/server'
+
+export const dynamic = 'force-dynamic'
+
+export function generateStaticParams() {
+  return LOCALES.map((locale) => ({ locale }))
+}
+
+export async function generateMetadata({ params }: BlogPageProps) {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'Metadata' })
+  const pt = await getTranslations({ locale, namespace: 'BlogPage' })
+  const canonicalPath = '/blog'
+  return constructMetadata({
+    title: `${pt('title')} | ${t('title')}`,
+    description: pt('description'),
+    canonicalUrl: getUrlWithLocale(canonicalPath, locale),
+  })
+}
+
+interface BlogPageProps {
+  params: Promise<{
+    locale: Locale
+  }>
+}
+
+export default async function BlogPage({ params }: BlogPageProps) {
+  const { locale } = await params
+  const currentPage = 1
+  const { paginatedPosts, totalPages } = await getPaginatedBlogPosts({
+    locale,
+    page: currentPage,
+  })
+  return <BlogGridWithPagination posts={paginatedPosts} totalPages={totalPages} routePrefix={'/blog'} />
+}

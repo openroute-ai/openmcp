@@ -36,6 +36,13 @@
       "when": 1790681895781,
       "tag": "0004_user_phone_number_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790732276236,
+      "tag": "0005_gateway_spend_records",
+      "breakpoints": true
     }
   ]
 }

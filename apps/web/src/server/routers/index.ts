@@ -1,5 +1,6 @@
 import { a2aAgentsRouter } from '@/web/a2a-agents/router'
 import { adminA2aAgentsRouter } from '@/web/a2a-agents/router-admin'
+import { adminBlogRouter } from '@/web/blog/router-admin'
 import { dashboardRouter } from './web/dashboard'
 import { apiKeysRouter } from './web/apiKeys'
 import { authorsRouter } from '@/web/authors/router'
@@ -74,6 +75,7 @@ export const appRouter = router({
     sessions: adminSessionsRouter,
     securityReview: adminSkillReviewsRouter,
     newsletterSubscriptions: adminNewsletterSubscriptionsRouter,
+    blog: adminBlogRouter,
   }),
 })
 
