@@ -1,0 +1,23 @@
+# OpenMCP 模块设计文档索引
+
+产品真相来源（仓库级）：[../../docs/PRODUCT.md](../../docs/PRODUCT.md)
+
+## 核心（优先阅读）
+
+| 文档 | 说明 |
+|------|------|
+| [SKILLS_PUBLISH_POLICY.md](./SKILLS_PUBLISH_POLICY.md) | **上架 / 扫描门控 / certified 统一规范** |
+| [USER_MARKETPLACE.md](./USER_MARKETPLACE.md) | 普通用户浏览与免费/付费获取 |
+| [SKILL_USER_DOWNLOAD_INSTALL.md](./SKILL_USER_DOWNLOAD_INSTALL.md) | 下载 / 安装 / 下载列表 / Agent OAuth（登录必需） |
+| [AGENT_INSTALL.md](./AGENT_INSTALL.md) | 「装进 Agent」提示词 + Store MCP |
+| [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md) | **API Key 架构：LiteLLM 代理签发 + 本地索引 + 删除同步** |
+| [LITELLM_BUDGET_SYNC.md](./LITELLM_BUDGET_SYNC.md) | **网关预算桥：余额 → `max_budget` + 余额不足拦截（数值直传，不换算）** |
+| [SKILL_DETAIL_EVAL_DESIGN.md](./SKILL_DETAIL_EVAL_DESIGN.md) | 详情页 × 门控 × 评测结合方案 |
+| [OPENMCP_EVAL_V1.md](./OPENMCP_EVAL_V1.md) | **openmcp-eval-v1 维度字典与启发式公式** |
+| [PROVIDER_GATEWAY_REGISTRATION_UED.md](./PROVIDER_GATEWAY_REGISTRATION_UED.md) | Provider 注册 MCP/A2A/Skills UED |
+| [ADMIN_REVIEW_QUEUE_UED.md](./ADMIN_REVIEW_QUEUE_UED.md) | Admin 人工复核 UED |
+| [design-github-repos-skills-webhook-sync.md](./design-github-repos-skills-webhook-sync.md) | GitHub → openmcp webhook 同步 |
+
+## 已迁出
+
+n8n 工作流社区相关设计已迁至 **`apps/base/docs/`**（含 WORKFLOW_*、`llm-schema-usage-analysis.md`），不定义 OpenMCP 核心。
