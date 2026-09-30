@@ -10,41 +10,37 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { IconCirclePlusFilled } from "@tabler/icons-react"
-import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 
 /** A key of the `Nav` messages, so a missing label fails the build. */
 export type NavKey = keyof (typeof defaultMessages)["Nav"]
 
 export function NavMain({
   items,
+  actions,
 }: {
   items: {
     key: NavKey
     url: string
     icon?: React.ReactNode
   }[]
+  /**
+   * The one-off buttons above the links, such as the operator console's "quick
+   * create". Passed in rather than imported, because what belongs there depends
+   * on the audience: the user console has no create-project action, and a
+   * sidebar that rendered one would offer a mutation the server refuses.
+   */
+  actions?: React.ReactNode
 }) {
   const t = useTranslations("Nav")
 
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <CreateProjectDialog
-              trigger={
-                <SidebarMenuButton
-                  tooltip={t("quickCreate")}
-                  className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
-                >
-                  <IconCirclePlusFilled />
-                  <span>{t("quickCreate")}</span>
-                </SidebarMenuButton>
-              }
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {actions ? (
+          <SidebarMenu>
+            <SidebarMenuItem>{actions}</SidebarMenuItem>
+          </SidebarMenu>
+        ) : null}
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.key}>

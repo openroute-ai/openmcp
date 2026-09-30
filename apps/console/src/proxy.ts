@@ -3,13 +3,23 @@ import { getSessionCookie } from "better-auth/cookies"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { DEFAULT_LOCALE, LOCALES, routing } from "@/i18n/routing"
+import { Routes } from "@/lib/routes"
 
 const intlMiddleware = createIntlMiddleware(routing)
 
-const AUTH_ROUTES = ["/sign-in", "/sign-up"]
+const AUTH_ROUTES = [Routes.signIn, Routes.signUp]
 
-/** Where an authenticated visitor lands. */
-const DEFAULT_LANDING = "/dashboard"
+/**
+ * Where an authenticated visitor lands.
+ *
+ * The root, not a console, because the proxy can only see that a session cookie
+ * is *present* — reading the account behind it would mean a database round trip
+ * on every request, and the cookie can be stale. The root resolves the session
+ * and redirects on to the console that matches the account's role, so the
+ * role-dependent half of this decision lives in one place
+ * (`landingPathFor`) instead of being guessed at from a cookie.
+ */
+const DEFAULT_LANDING = Routes.root
 
 /**
  * The request pipeline: authentication, then locale.

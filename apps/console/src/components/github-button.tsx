@@ -15,7 +15,10 @@ export function GitHubButton() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/dashboard",
+        // The root, not a console: the callback is a full page load that has no
+        // session object to read a role from — it has cookies. The root reads
+        // the session and sends the account to the console it belongs on.
+        callbackURL: "/",
       })
     } catch {
       toast.error(t("githubFailed"))

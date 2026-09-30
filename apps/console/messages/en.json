@@ -41,7 +41,8 @@
     "openMenu": "Open user menu",
     "toggleSidebar": "Toggle sidebar",
     "signedOut": "Signed out",
-    "repos": "Repositories"
+    "repos": "Repositories",
+    "myRepos": "My repositories"
   },
   "Status": {
     "pending": "Pending",
@@ -628,5 +629,9 @@
     "cancel": "Cancel",
     "deleteSucceeded": "Deleted {name} and {count, plural, one {# project} other {# projects}}",
     "deleteFailed": "Could not delete the repository"
+  },
+  "Console": {
+    "title": "My repositories",
+    "description": "The repositories collected for this console. Publishing one is an administrator's decision; adding one here is all you need to do."
   }
 }

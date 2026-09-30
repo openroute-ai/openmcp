@@ -14,7 +14,7 @@ import {
 } from "@/lib/github/service/repo"
 import { createConsoleLogger } from "@/lib/tasks/runner"
 import { projects, repos } from "@/db/schema"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure, protectedProcedure } from "../init"
 
 /** How many projects point at a repository. */
 async function countProjectsForRepo(db: Db, id: string): Promise<number> {
@@ -26,7 +26,7 @@ async function countProjectsForRepo(db: Db, id: string): Promise<number> {
 }
 
 /**
- * The repository registry, seen from an operator rather than a project.
+ * The repository registry.
  *
  * A repository is not a project. Curating one turns it into a project with a
  * description, a status and a slot on the site; plenty of repositories here are
@@ -34,6 +34,14 @@ async function countProjectsForRepo(db: Db, id: string): Promise<number> {
  * discovery sweep and never curated at all. Those orphans are invisible from the
  * project pages, and they are not free — every one of them is a row the daily
  * GitHub sweep spends requests on forever. This router is how they are found.
+ *
+ * **This is the only router a non-admin can reach**, and only its two read/write
+ * procedures: `list` and `create`. Everything an operator curates — the
+ * description and homepage an editor owns, the refresh, the delete that cascades
+ * into projects — is `adminProcedure`, because a repository row is an editorial
+ * decision and an editorial decision is not something a signed-in account gets
+ * to make. The two audiences see the same list, so the split is in the
+ * procedures rather than in a second query that would drift from this one.
  */
 export const reposRouter = createTRPCRouter({
   /**
@@ -164,6 +172,12 @@ export const reposRouter = createTRPCRouter({
    *
    * Accepts every shape a human is likely to paste — a URL, an SSH remote, a
    * bare `owner/name` — through the same parser the ingest route uses.
+   *
+   * Available to any signed-in account, because "record a repository someone
+   * wants tracked" is the whole of what `/console` may do. It is not curation:
+   * the row it writes points at nothing, is not a project, and is not synced as
+   * one until an admin links a project to it (see
+   * `src/lib/tasks/tasks/update-github-data.ts`).
    */
   create: protectedProcedure
     .input(z.object({ repository: z.string().min(1).max(500) }))
@@ -219,7 +233,7 @@ export const reposRouter = createTRPCRouter({
    * Every field is optional and an absent one is left alone, so this is a
    * partial write rather than a whole-row replace.
    */
-  update: protectedProcedure
+  update: adminProcedure
     .input(
       z.object({
         id: z.string().min(1),
@@ -279,7 +293,7 @@ export const reposRouter = createTRPCRouter({
    * a scheduled one cannot produce different data. It is a mutation rather than
    * a query because it costs several API calls and writes.
    */
-  refresh: protectedProcedure
+  refresh: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const repo = await getRepoById(ctx.db, input.id)
@@ -331,7 +345,7 @@ export const reposRouter = createTRPCRouter({
    * while a curation decision is not. `force` is how an operator says they
    * meant it, and the confirmation states the project count either way.
    */
-  delete: protectedProcedure
+  delete: adminProcedure
     .input(
       z.object({
         id: z.string().min(1),

@@ -4,7 +4,7 @@ import { z } from "zod"
 import { projects, projectSkills, repos } from "@/db/schema"
 import { syncEnv } from "@/lib/env"
 import { pushSkill } from "@/lib/github/service/push-skill"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 const skillStatusSchema = z
   .enum(["all", "pending", "synced", "error"])
@@ -21,7 +21,7 @@ function pattern(term: string): string {
 }
 
 export const skillsRouter = createTRPCRouter({
-  list: protectedProcedure
+  list: adminProcedure
     .input(
       z.object({
         status: skillStatusSchema,
@@ -95,7 +95,7 @@ export const skillsRouter = createTRPCRouter({
    * owner and name, and because the detail page links out to the source — a
    * skill row alone cannot answer either.
    */
-  byId: protectedProcedure
+  byId: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const [row] = await ctx.db
@@ -135,7 +135,7 @@ export const skillsRouter = createTRPCRouter({
    * are indistinguishable downstream. The task remains the thing that sweeps
    * the queue; this is the button for the row someone is looking at.
    */
-  push: protectedProcedure
+  push: adminProcedure
     .input(
       z.object({
         projectId: z.string().min(1),

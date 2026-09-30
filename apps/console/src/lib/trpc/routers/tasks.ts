@@ -7,7 +7,7 @@ import { createBufferingLogger, runTask } from "@/lib/tasks/runner"
 import { installTaskRegistry } from "@/lib/tasks/registry"
 import { seedDefinitions } from "@/lib/tasks/seed"
 import { nextRunAt, type PeriodState } from "@/lib/tasks/schedule"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 import { ERROR_CODES, SKIP_CODES } from "@/lib/trpc/error-codes"
 
 const statusSchema = z.enum([
@@ -21,7 +21,7 @@ const statusSchema = z.enum([
 const nameSchema = z.string().min(1)
 
 export const tasksRouter = createTRPCRouter({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: adminProcedure.query(async ({ ctx }) => {
     const now = new Date()
     const [rows, latest] = await Promise.all([
       ctx.db
@@ -127,7 +127,7 @@ export const tasksRouter = createTRPCRouter({
     )
   }),
 
-  executions: protectedProcedure
+  executions: adminProcedure
     .input(
       z.object({
         status: statusSchema.optional(),
@@ -176,7 +176,7 @@ export const tasksRouter = createTRPCRouter({
       return { items: rows, total: Number(rowCount?.value ?? 0) }
     }),
 
-  setEnabled: protectedProcedure
+  setEnabled: adminProcedure
     .input(z.object({ name: nameSchema, enabled: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db
@@ -197,7 +197,7 @@ export const tasksRouter = createTRPCRouter({
    * when it cannot use it, so a malformed value is a default-year run that is
    * visible in the result rather than a failure.
    */
-  runNow: protectedProcedure
+  runNow: adminProcedure
     .input(
       z.object({
         name: nameSchema,

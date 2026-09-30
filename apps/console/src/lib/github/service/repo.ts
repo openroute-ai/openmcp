@@ -319,6 +319,43 @@ export async function listAllRepos(db: Db): Promise<RepoRow[]> {
   return db.select().from(repos).orderBy(repos.addedAt)
 }
 
+/**
+ * Every stored repository an administrator has curated, meaning one with at
+ * least one project pointing at it.
+ *
+ * The distinction this exists to draw is between a repository that has been
+ * *collected* and one that has been *published*. Both are stored, and both are
+ * kept current in their metadata, but only a curated one is a project: it is
+ * what the sweep deep-refreshes, what the project list is built from, and what
+ * an author's page counts. A repository nobody has curated is a candidate — the
+ * scheduled sweep still fetches it, so the list a user sees is current, but
+ * nothing is derived from it.
+ *
+ * An inner join, so a repository with no project is not in the result at all
+ * rather than present with an empty project list: callers here want the
+ * "publishes something" subset, and the cheaper query is the same one the
+ * absence test needs.
+ */
+export async function listCuratedRepos(db: Db): Promise<RepoRow[]> {
+  const rows = await db
+    .select({ repo: repos, projectId: projects.id })
+    .from(repos)
+    .innerJoin(projects, eq(projects.repoId, repos.id))
+    .orderBy(repos.addedAt)
+
+  // Deduped here rather than with `selectDistinct`, matching how
+  // `listReposByOwner` handles the same join: `repos.id` is the primary key, so
+  // the duplicates are exact copies, and the first of them keeps the row.
+  const seen = new Set<string>()
+  const curated: RepoRow[] = []
+  for (const row of rows) {
+    if (seen.has(row.repo.id)) continue
+    seen.add(row.repo.id)
+    curated.push(row.repo)
+  }
+  return curated
+}
+
 export interface OwnerRepos {
   owner: string
   ownerId: number
@@ -332,12 +369,18 @@ export interface OwnerRepos {
  * Projects are attached to their repository rather than the owner, so a
  * repository with several curated projects contributes all of them and the
  * author's page is the union across their repositories.
+ *
+ * An inner join, and that is the point of the function rather than a detail of
+ * it: an author page is derived from published projects, so an owner whose only
+ * repositories are uncollected candidates has nothing to be listed under. A
+ * left join would hand the sweep an author per candidate owner, each with an
+ * empty project set, and those rows are what an authors directory reads.
  */
 export async function listReposByOwner(db: Db): Promise<OwnerRepos[]> {
   const rows = await db
     .select({ repo: repos, projectId: projects.id })
     .from(repos)
-    .leftJoin(projects, eq(projects.repoId, repos.id))
+    .innerJoin(projects, eq(projects.repoId, repos.id))
     .orderBy(repos.owner, repos.addedAt)
 
   const byOwner = new Map<string, OwnerRepos>()
@@ -355,17 +398,13 @@ export async function listReposByOwner(db: Db): Promise<OwnerRepos[]> {
       byOwner.set(row.repo.owner, entry)
     }
 
+    // The join emits one row per project, so a repository seen before needs its
+    // project set extended rather than pushed again.
     const repo = entry.repos.find((candidate) => candidate.id === row.repo.id)
-    if (!repo) {
-      entry.repos.push({ id: row.repo.id, projectIds: [] })
-    }
-
-    // The join emits one row per project, and a project with no id here is a
-    // repository that is not curated at all.
-    if (row.projectId) {
-      entry.repos
-        .find((candidate) => candidate.id === row.repo.id)
-        ?.projectIds.push(row.projectId)
+    if (repo) {
+      repo.projectIds.push(row.projectId)
+    } else {
+      entry.repos.push({ id: row.repo.id, projectIds: [row.projectId] })
     }
   }
 

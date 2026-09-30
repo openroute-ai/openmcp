@@ -9,7 +9,7 @@ import {
   taskExecutions,
   taskStatus,
 } from "@/db/schema"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -20,7 +20,7 @@ function byStatus(
 }
 
 export const overviewRouter = createTRPCRouter({
-  snapshot: protectedProcedure.query(async ({ ctx }) => {
+  snapshot: adminProcedure.query(async ({ ctx }) => {
     const dayAgo = new Date(Date.now() - DAY_MS)
 
     const [

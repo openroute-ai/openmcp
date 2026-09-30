@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client"
 import { LocaleLink } from "@/i18n/navigation"
 import { NavMain, type NavKey } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
+import { IconCirclePlusFilled } from "@tabler/icons-react"
 import {
   IconDashboard,
   IconChartBar,
@@ -43,6 +45,13 @@ const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
   { key: "syncJobs", url: "/dashboard/sync", icon: <IconRepeat /> },
 ]
 
+/**
+ * The operator console's sidebar.
+ *
+ * Only ever rendered behind `/dashboard`, whose layout has already established
+ * that the account is an admin, so the links here are links the account is
+ * allowed to follow.
+ */
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations("Nav")
   const { data: session } = authClient.useSession()
@@ -71,7 +80,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain
+          items={navMain}
+          actions={
+            <CreateProjectDialog
+              trigger={
+                <SidebarMenuButton
+                  tooltip={t("quickCreate")}
+                  className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
+                >
+                  <IconCirclePlusFilled />
+                  <span>{t("quickCreate")}</span>
+                </SidebarMenuButton>
+              }
+            />
+          }
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

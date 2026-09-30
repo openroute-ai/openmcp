@@ -9,7 +9,7 @@ import {
   repos,
 } from "@/db/schema"
 import { retryProjectSyncJob } from "@/lib/github/service/resync"
-import { createTRPCRouter, protectedProcedure } from "../init"
+import { createTRPCRouter, adminProcedure } from "../init"
 
 export const syncRouter = createTRPCRouter({
   /**
@@ -23,7 +23,7 @@ export const syncRouter = createTRPCRouter({
    * query in the type system instead of hand-written SQL against column names.
    * The trade is reading a few rows more than the page needs.
    */
-  list: protectedProcedure
+  list: adminProcedure
     .input(
       z.object({
         status: z.enum(SYNC_JOB_STATUSES).optional(),
@@ -119,7 +119,7 @@ export const syncRouter = createTRPCRouter({
    * the readme task owns, and rerunning the project pipeline is the action that
    * actually covers it.
    */
-  retry: protectedProcedure
+  retry: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const [readmeJob] = await ctx.db
