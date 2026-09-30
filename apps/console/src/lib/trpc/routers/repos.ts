@@ -12,9 +12,20 @@ import {
   upsertRepo,
   type Db,
 } from "@/lib/github/service/repo"
+import {
+  lastNWeeks,
+  monthlyBars,
+  periodTrends,
+} from "@/lib/github/service/snapshot"
 import { createConsoleLogger } from "@/lib/tasks/runner"
-import { projects, repos } from "@/db/schema"
+import { projects, repoWeeklyStars, repos, snapshots } from "@/db/schema"
 import { createTRPCRouter, adminProcedure, protectedProcedure } from "../init"
+
+/** How many months of star history the chart shows. */
+const CHART_MONTHS = 12
+
+/** How many weeks of star history the chart shows. */
+const CHART_WEEKS = 12
 
 /** How many projects point at a repository. */
 async function countProjectsForRepo(db: Db, id: string): Promise<number> {
@@ -179,6 +190,139 @@ export const reposRouter = createTRPCRouter({
    * one until an admin links a project to it (see
    * `src/lib/tasks/tasks/update-github-data.ts`).
    */
+  /**
+   * One repository, in full, for the detail page a reader opens from the list.
+   *
+   * `protectedProcedure` rather than `adminProcedure`, and read-only in
+   * consequence: it is the one query behind `/console`'s detail page, and a
+   * page that is only ever shown to an operator would not need one. Nothing
+   * here writes, and the fields it returns are GitHub's own — no curation
+   * decision, no `override` flag, no refresh control — so a signed-in account
+   * reading it learns the same thing reading the row on GitHub.
+   *
+   * The child rows come back with the repository rather than behind their own
+   * procedures, for the reason `projects.byId` gives: the page has no
+   * interaction that would change them, so a second round trip would only put
+   * a skeleton between the header and the tables below it.
+   *
+   * The linked projects are the reason a reader opens this page at all. From
+   * the list a repository is a count; here it is the projects that count
+   * belongs to, and whether they are published is the question the reader came
+   * to answer. So they are named in full rather than summarised, and their
+   * status and type come along because "is this live" and "is it a plugin" are
+   * what distinguishes one from another.
+   *
+   * Star history is included whole and computed here, so the chart, the
+   * headline numbers and the history table are one read of one set of rows
+   * rather than three that could disagree.
+   */
+  byId: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const [repo] = await ctx.db
+        .select({
+          id: repos.id,
+          owner: repos.owner,
+          name: repos.name,
+          ownerId: repos.ownerId,
+          description: repos.description,
+          descriptionZh: repos.descriptionZh,
+          homepage: repos.homepage,
+          iconUrl: repos.iconUrl,
+          openGraphImageUrl: repos.openGraphImageUrl,
+          topics: repos.topics,
+          languages: repos.languages,
+          licenseSpdxId: repos.licenseSpdxId,
+          stars: repos.stars,
+          forks: repos.forks,
+          watchersCount: repos.watchersCount,
+          contributorCount: repos.contributorCount,
+          mentionableUsersCount: repos.mentionableUsersCount,
+          pullRequestsCount: repos.pullRequestsCount,
+          releasesCount: repos.releasesCount,
+          commitCount: repos.commitCount,
+          defaultBranch: repos.defaultBranch,
+          archived: repos.archived,
+          pushedAt: repos.pushedAt,
+          createdAt: repos.createdAt,
+          lastCommit: repos.lastCommit,
+          addedAt: repos.addedAt,
+          updatedAt: repos.updatedAt,
+          readmeContent: repos.readmeContent,
+          readmeContentZh: repos.readmeContentZh,
+          latestReleaseName: repos.latestReleaseName,
+          latestReleaseTagName: repos.latestReleaseTagName,
+          latestReleasePublishedAt: repos.latestReleasePublishedAt,
+          latestReleaseUrl: repos.latestReleaseUrl,
+        })
+        .from(repos)
+        .where(eq(repos.id, input.id))
+        .limit(1)
+
+      if (!repo) {
+        throw new TRPCError({ code: "NOT_FOUND" })
+      }
+
+      const [linked, snapshotRows, weeklyRows] = await Promise.all([
+        ctx.db
+          .select({
+            id: projects.id,
+            name: projects.name,
+            owner: projects.owner,
+            slug: projects.slug,
+            description: projects.description,
+            status: projects.status,
+            type: projects.type,
+            logo: projects.logo,
+            url: projects.url,
+            updatedAt: projects.updatedAt,
+          })
+          .from(projects)
+          .where(eq(projects.repoId, repo.id))
+          .orderBy(asc(projects.name)),
+        ctx.db
+          .select({ year: snapshots.year, months: snapshots.months })
+          .from(snapshots)
+          .where(eq(snapshots.repoId, repo.id))
+          .orderBy(asc(snapshots.year)),
+        // Only the weeks the chart can show. The table holds a row per week
+        // since the first stargazer, which for an old repository is years of
+        // rows, and the page needs a year of them at most.
+        ctx.db
+          .select({
+            year: repoWeeklyStars.year,
+            week: repoWeeklyStars.week,
+            stars: repoWeeklyStars.stars,
+          })
+          .from(repoWeeklyStars)
+          .where(eq(repoWeeklyStars.repoId, repo.id))
+          .orderBy(desc(repoWeeklyStars.year), desc(repoWeeklyStars.week))
+          .limit(CHART_WEEKS),
+      ])
+
+      const months = snapshotRows.flatMap((row) => row.months ?? [])
+
+      return {
+        ...repo,
+        fullName: `${repo.owner}/${repo.name}`,
+        repoUrl: `https://github.com/${repo.owner}/${repo.name}`,
+        projects: linked,
+        snapshots: snapshotRows,
+        trends: {
+          bars: monthlyBars(months, CHART_MONTHS, new Date()),
+          weeks: lastNWeeks(CHART_WEEKS, new Date()).map((yearWeek) => ({
+            yearWeek,
+            stars:
+              weeklyRows.find(
+                (row) =>
+                  row.year === yearWeek.year && row.week === yearWeek.week
+              )?.stars ?? 0,
+          })),
+          periods: periodTrends(months, weeklyRows),
+        },
+      }
+    }),
+
   create: protectedProcedure
     .input(z.object({ repository: z.string().min(1).max(500) }))
     .mutation(async ({ ctx, input }) => {

@@ -677,6 +677,52 @@
   },
   "Console": {
     "title": "我的仓库",
-    "description": "为本控制台收集的仓库。是否发布由管理员决定，在这里你只需添加仓库。"
+    "description": "为本控制台收集的仓库。是否发布由管理员决定，在这里你只需添加仓库。",
+    "detail": "仓库详情",
+    "onGitHub": "在 GitHub 上"
+  },
+  "RepoDetail": {
+    "notFoundTitle": "未找到仓库",
+    "notFoundDescription": "该仓库已不存在，或链接指向了另一个仓库。",
+    "backToRepos": "全部仓库",
+    "archived": "已归档",
+    "homepage": "主页",
+    "readOnly": "只读",
+    "readOnlyDescription": "你可以查看该仓库的全部信息。修改、刷新和删除由管理员在运营控制台完成。",
+    "repository": "仓库",
+    "repositoryDescription": "GitHub 最近一次上报的信息，以及本站记录的时间",
+    "linkedProjects": "关联项目",
+    "linkedProjectsDescription": "已收录的项目。未收录不代表有问题，只是还没有被管理员发布。",
+    "noProjects": "还没有项目指向该仓库。",
+    "history": "历史",
+    "historyDescription": "最近 {count} 个月的 star 记录",
+    "field": {
+      "stars": "Star 数",
+      "forks": "Fork 数",
+      "watchers": "关注者",
+      "contributors": "贡献者",
+      "commits": "提交数",
+      "pullRequests": "Pull Request",
+      "releases": "发布数",
+      "mentionable": "可提及用户",
+      "license": "许可证",
+      "defaultBranch": "默认分支",
+      "languages": "语言",
+      "topics": "主题",
+      "lastCommit": "最近提交",
+      "pushed": "最近推送",
+      "repoCreated": "仓库创建时间",
+      "added": "收录时间",
+      "updated": "更新时间",
+      "latestRelease": "最新版本",
+      "owner": "归属者",
+      "repoId": "仓库 ID"
+    },
+    "column": {
+      "project": "项目",
+      "type": "类型",
+      "status": "状态",
+      "updated": "更新时间"
+    }
   }
 }

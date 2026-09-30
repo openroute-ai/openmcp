@@ -15,7 +15,7 @@ import { getLocale } from "next-intl/server"
 
 import { localeRedirect } from "@/i18n/navigation"
 import { auth } from "@/lib/auth"
-import type { RoleBearing } from "@/lib/auth/role"
+import { landingPathFor, type RoleBearing } from "@/lib/auth/role"
 import { type RoutePath } from "@/lib/routes"
 
 /**
@@ -44,4 +44,24 @@ export async function getSessionUser(): Promise<RoleBearing | null> {
  */
 export async function redirectTo(href: RoutePath): Promise<void> {
   localeRedirect({ href, locale: await getLocale() })
+}
+
+/**
+ * Sends a visitor who *is* signed in away from `/sign-in` and `/sign-up`.
+ *
+ * The proxy cannot do this: it sees that a session cookie is present, not that
+ * the session behind it is valid, and bouncing on presence alone is what turned
+ * an expired cookie into an endless `/sign-in` → `/` → `/sign-in` chain. Asking
+ * better-auth settles it the same way the root and the two layouts settle it,
+ * and `landingPathFor` keeps the destination consistent with theirs.
+ *
+ * The counterpart of the two gates: `getSessionUser` sends a visitor *without* a
+ * session to the sign-in page, this sends one *with* a session to their console.
+ */
+export async function requireUnauth(): Promise<void> {
+  const user = await getSessionUser()
+
+  if (user) {
+    await redirectTo(landingPathFor(user))
+  }
 }

@@ -13,6 +13,8 @@
  * redirect built with the wrong locale would drop a `/zh` visitor onto English.
  */
 
+import { LOCALES } from "@/i18n/routing"
+
 /** The root, which resolves the landing path from the session's role. */
 export const Routes = {
   root: "/",
@@ -37,9 +39,6 @@ export type RoutePath = (typeof Routes)[keyof typeof Routes]
  *
  * The public JSON API under `/api` needs no entry: the proxy's matcher already
  * excludes `api`, so those were always reachable.
- *
- * Locale prefixes are not applied here, for the same reason as `Routes` above —
- * `isPublicPath` compares against a prefix-stripped path.
  */
 export const PublicRoutes = {
   /** The week / month / rising-stars rankings, with a `range` query. */
@@ -51,20 +50,35 @@ export const PublicRoutes = {
 } as const
 
 /**
- * True when a path — with any locale prefix already stripped — is public.
+ * True when a path is public, with or without a locale prefix.
  *
  * Prefix rather than exact match, because `/rankings` and `/categories` are
  * section roots with children, and `/projects` only ever has an id segment.
  * That is safe without a trailing-separator check only because no gated route
  * starts with one of these strings: `/projects` is the sole `/projects*` path
  * and the console's own list lives at `/console`.
+ *
+ * The locale segment is stripped here rather than by the caller because the
+ * caller's `detectLocalePrefix` reports `null` for the *default* locale — it
+ * has to, so that `localize` does not add a prefix nobody asked for — which
+ * leaves `/zh/rankings` looking like an unprefixed path. Matching on that would
+ * gate the prefixed spelling of every public page, and the prefix is what a
+ * visitor who picked a language arrives with.
  */
-export function isPublicPath(
-  pathname: string,
-  localePrefix: string | null
-): boolean {
-  const path = localePrefix ? `/${localePrefix}${pathname}` : pathname
+export function isPublicPath(pathname: string): boolean {
+  const path = stripLocalePrefix(pathname)
   return Object.values(PublicRoutes).some(
     (route) => path === route || path.startsWith(`${route}/`)
   )
+}
+
+/** `/zh/rankings` -> `/rankings`; a path with no locale segment is unchanged. */
+function stripLocalePrefix(pathname: string): string {
+  for (const locale of LOCALES) {
+    if (pathname === `/${locale}`) return "/"
+    if (pathname.startsWith(`/${locale}/`)) {
+      return pathname.slice(locale.length + 1)
+    }
+  }
+  return pathname
 }

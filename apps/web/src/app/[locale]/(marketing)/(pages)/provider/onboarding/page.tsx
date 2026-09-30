@@ -50,8 +50,8 @@ export default async function ProviderOnboardingPage({
   return (
     <ProviderAuthGate>
       <ProviderSubmitShell
-        title={t('entry.pageTitle')}
-        description={t('entry.pageDescription')}
+        title={t('pageTitle')}
+        description={t('pageDescription')}
         activeStep={2}
       >
         <OnboardingEntry />

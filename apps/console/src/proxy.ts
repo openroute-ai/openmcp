@@ -9,22 +9,15 @@ const intlMiddleware = createIntlMiddleware(routing)
 
 const AUTH_ROUTES = [Routes.signIn, Routes.signUp]
 
-/**
- * Where an authenticated visitor lands.
- *
- * The root, not a console, because the proxy can only see that a session cookie
- * is *present* — reading the account behind it would mean a database round trip
- * on every request, and the cookie can be stale. The root resolves the session
- * and redirects on to the console that matches the account's role, so the
- * role-dependent half of this decision lives in one place
- * (`landingPathFor`) instead of being guessed at from a cookie.
- */
-const DEFAULT_LANDING = Routes.root
+/** True when the path is one of the auth pages, in any locale. */
+function isAuthRoute(pathname: string, localePrefix: string | null): boolean {
+  return AUTH_ROUTES.some((route) => localize(route, localePrefix) === pathname)
+}
 
 /**
  * The request pipeline: authentication, then locale.
  *
- * The auth checks run first so a redirect can name the locale the visitor
+ * The auth check runs first so a redirect can name the locale the visitor
  * arrived with; the intl middleware then rewrites what is left over.
  *
  * A public path still falls through to `intlMiddleware`, not to a bare `NextResponse`:
@@ -35,27 +28,30 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = getSessionCookie(request)
   const localePrefix = detectLocalePrefix(pathname)
-  const isAuthRoute = AUTH_ROUTES.some(
-    (route) => localize(route, localePrefix) === pathname
-  )
 
   // The radar's public pages. Gating them would mean a shared link, a search
   // result, or an agent fetching a URL all land on a login page, so they are
   // the one non-auth path that passes through without a cookie.
-  const needsAuth = !sessionCookie && !isAuthRoute && !isPublicPath(pathname, localePrefix)
+  const needsAuth =
+    !sessionCookie &&
+    !isAuthRoute(pathname, localePrefix) &&
+    !isPublicPath(pathname)
 
   if (needsAuth) {
     return NextResponse.redirect(
-      new URL(localize(AUTH_ROUTES[0]!, localePrefix), request.url)
+      new URL(localize(Routes.signIn, localePrefix), request.url)
     )
   }
 
-  if (sessionCookie && isAuthRoute) {
-    return NextResponse.redirect(
-      new URL(localize(DEFAULT_LANDING, localePrefix), request.url)
-    )
-  }
-
+  // Deliberately NOT bouncing a cookie-carrying visitor off the auth pages.
+  // Cookie presence is not proof of a valid session: a stale cookie would send
+  // `/sign-in` to the root, the root would resolve the session, find nobody and
+  // send the very same request back to `/sign-in` — an endless redirect chain
+  // (`ERR_TOO_MANY_REDIRECTS`) instead of a sign-in form. The auth pages own
+  // that decision server-side via `requireUnauth`, which validates the session
+  // and therefore agrees with what the layouts and the root would do.
+  //
+  // `apps/web` reached the same conclusion; see the note in its `src/proxy.ts`.
   return intlMiddleware(request)
 }
 

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@workspace/ui/components/button'
-import { Checkbox } from '@workspace/ui/components/checkbox'
 import { Input } from '@workspace/ui/components/input'
 import { Label } from '@workspace/ui/components/label'
+import { LegalConsent } from './legal-consent'
 import {
   KYC_DOCS_FOR_ENTITY,
   KYC_DOCS_FOR_REPRESENTATIVE,
@@ -13,6 +13,7 @@ import {
   KycLockNotice,
   KycStatusBanner,
   KycSubmitButton,
+  legalDocumentPath,
   type KycEntityType,
   type KycRepresentative,
 } from './kyc-shared'
@@ -41,8 +42,10 @@ const REPRESENTATIVES = ['legal_person', 'authorized'] as const satisfies readon
  */
 export function KycCompanyForm() {
   const t = useTranslations('ProviderPage.kyc')
+  const locale = useLocale()
   const [representative, setRepresentative] = useState<KycRepresentative | undefined>(undefined)
   const form = useKycForm({ entityType: ENTITY, representative })
+  const authorizationLetterTemplate = legalDocumentPath('templates/authorization-letter', locale)
 
   const onSelectRepresentative = (next: KycRepresentative) => {
     setRepresentative(next)
@@ -57,6 +60,14 @@ export function KycCompanyForm() {
     ...KYC_DOCS_FOR_ENTITY.company.filter((doc) => doc.key === 'businessLicense'),
     ...(representative ? KYC_DOCS_FOR_REPRESENTATIVE[representative] : []),
   ]
+
+  // The authorisation letter gets a row of its own. It is the one document that
+  // is filled in on a template, stamped and scanned, so it carries a download
+  // link and needs the full width to sit beside the upload control — in a
+  // two-column grid it would be squeezed next to an ID scan, and the two are
+  // never the same size.
+  const letterDoc = visibleDocs.find((doc) => doc.key === 'authorizationFile')
+  const identityDocs = visibleDocs.filter((doc) => doc.key !== 'authorizationFile')
 
   return (
     <div className='space-y-6'>
@@ -172,35 +183,42 @@ export function KycCompanyForm() {
             )}
           </fieldset>
 
-          <div className='grid gap-4 sm:grid-cols-2'>
-            {visibleDocs.map((doc) => (
-              <KycDocUpload
-                key={doc.key}
-                docKey={doc.key}
-                label={t(doc.labelKey)}
-                hint={doc.hintKey ? t(doc.hintKey) : undefined}
-                required
-                value={form.values.kycDocuments[doc.key]}
-                onChange={(url) => form.setDoc(doc.key, url)}
-              />
-            ))}
-          </div>
+          {identityDocs.length > 0 && (
+            <div className='grid gap-4 sm:grid-cols-2'>
+              {identityDocs.map((doc) => (
+                <KycDocUpload
+                  key={doc.key}
+                  docKey={doc.key}
+                  label={t(doc.labelKey)}
+                  hint={doc.hintKey ? t(doc.hintKey) : undefined}
+                  required
+                  value={form.values.kycDocuments[doc.key]}
+                  onChange={(url) => form.setDoc(doc.key, url)}
+                />
+              ))}
+            </div>
+          )}
+
+          {letterDoc && (
+            <KycDocUpload
+              key={letterDoc.key}
+              docKey={letterDoc.key}
+              label={t(letterDoc.labelKey)}
+              hint={letterDoc.hintKey ? t(letterDoc.hintKey) : undefined}
+              templateHref={authorizationLetterTemplate}
+              required
+              value={form.values.kycDocuments[letterDoc.key]}
+              onChange={(url) => form.setDoc(letterDoc.key, url)}
+            />
+          )}
 
           <p className='text-muted-foreground text-xs'>{t('validation.exclusiveDetail')}</p>
 
-          <div className='space-y-2'>
-            <label className='flex cursor-pointer items-start gap-2 text-sm'>
-              <Checkbox
-                checked={form.values.agreedTerms}
-                onCheckedChange={(checked) => form.setField('agreedTerms', checked === true)}
-                className='mt-0.5'
-              />
-              <span className='text-muted-foreground'>{t('fields.agreedTerms')}</span>
-            </label>
-            {form.fieldError('agreedTerms') && (
-              <p className='text-destructive text-xs'>{form.fieldError('agreedTerms')}</p>
-            )}
-          </div>
+          <LegalConsent
+            checked={form.values.agreedTerms}
+            onCheckedChange={(checked) => form.setField('agreedTerms', checked)}
+            error={form.fieldError('agreedTerms')}
+          />
 
           {form.serverError && (
             <p className='rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm'>

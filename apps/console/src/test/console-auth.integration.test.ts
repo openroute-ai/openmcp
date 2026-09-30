@@ -164,6 +164,43 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     expect(typeof result.total).toBe("number")
   })
 
+  it("lets a signed-in non-admin read one repository in full", async () => {
+    // The detail page behind a row of the list. It has to be readable, or the
+    // list offers a link that answers not-found, which is the one outcome worse
+    // than not having the page.
+    //
+    // The id comes from the list rather than being written in, so the case does
+    // not depend on the catalogue holding a particular repository: a fixture id
+    // would make this pass as a NOT_FOUND and assert nothing.
+    const caller = createCaller(fakeUserContext(db))
+    const { items } = await caller.repos.list({ limit: 1, offset: 0 })
+    const id = items[0]?.id
+    if (!id) return
+
+    const repo = await caller.repos.byId({ id })
+
+    // The rows the page renders, named so a column dropped from the query
+    // fails here rather than as an empty table on screen.
+    expect(repo.id).toBe(id)
+    expect(repo.fullName).toBe(`${repo.owner}/${repo.name}`)
+    expect(repo.repoUrl).toBe(`https://github.com/${repo.owner}/${repo.name}`)
+    expect(Array.isArray(repo.projects)).toBe(true)
+    expect(Array.isArray(repo.snapshots)).toBe(true)
+    expect(repo.trends.bars).toHaveLength(12)
+    expect(repo.trends.weeks).toHaveLength(12)
+  })
+
+  it("refuses an unknown repository to a signed-in non-admin", async () => {
+    // The read is not a lookup that falls open: an id nobody owns is
+    // NOT_FOUND, and a page that rendered an empty repository instead would be
+    // indistinguishable from one that works.
+    const caller = createCaller(fakeUserContext(db))
+
+    await expect(
+      caller.repos.byId({ id: "no-such-repository" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
+  })
+
   it("refuses the repository mutations to a signed-in non-admin", async () => {
     // `repos.create` is the exception and is covered above; these are the ones
     // that would let an ordinary account edit or remove an entry, or spend the
@@ -179,6 +216,63 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     await expect(
       caller.repos.update({ id: "any-id", description: "rewritten" })
     ).rejects.toMatchObject({ code: "FORBIDDEN" })
+  })
+
+  it("hands a signed-in non-admin no write procedure on this router", async () => {
+    // The completeness check the case above cannot make. That one names the
+    // three mutations it knows about, so a fourth added to the router without a
+    // role check would pass every test in this file.
+    //
+    // Which procedures exist is read from the router rather than listed here,
+    // and each is called through the caller with an argument object that
+    // satisfies every input in this router at once, so no case fails on
+    // validation instead of on the role. Classification is by outcome: tRPC
+    // checks the role before the resolver runs, so an operator procedure answers
+    // FORBIDDEN having touched nothing, and a read answers with a row or
+    // NOT_FOUND. A read is therefore anything that is not FORBIDDEN.
+    const caller = createCaller(fakeUserContext(db))
+    const { items } = await caller.repos.list({ limit: 1, offset: 0 })
+
+    const input = {
+      id: items[0]?.id ?? "any-id",
+      // Unparseable on purpose: `repos.create` is one of the allowed ones, and
+      // a real `owner/name` would send it to GitHub to test a role split.
+      repository: "not a repository url",
+      force: false,
+      description: null,
+      filter: "all",
+      search: "",
+      limit: 1,
+      offset: 0,
+    }
+
+    // The two reads `/console` is built on, and the one write an ordinary
+    // account may make. Everything else has to be refused.
+    const allowed = new Set(["repos.list", "repos.byId", "repos.create"])
+
+    // The caller's procedures are individually typed, and this loop is the one
+    // place that has to reach all of them without naming them, so the router is
+    // widened here and only here.
+    const procedures = caller.repos as unknown as Record<
+      string,
+      (input: unknown) => Promise<unknown>
+    >
+
+    for (const name of Object.keys(procedures)) {
+      const procedure = procedures[name]
+      if (!procedure) continue
+
+      const outcome = await procedure(input).then(
+        () => "allowed",
+        (error: { code?: string }) => error.code
+      )
+
+      if (allowed.has(name)) {
+        expect(outcome, name).not.toBe("FORBIDDEN")
+      } else {
+        expect(outcome, name).toBe("FORBIDDEN")
+      }
+    }
   })
 
   it("admits an admin to the same procedures it refuses others", async () => {

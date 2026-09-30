@@ -12,6 +12,10 @@ node_modules
 .env.test.local
 .env.production.local
 .env.production
+# Env copies parked under another name; a `git add -A` would otherwise commit
+# them, and they carry the same secrets the entries above protect.
+.env-back
+.env-*
 # Testing
 coverage
 

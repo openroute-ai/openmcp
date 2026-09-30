@@ -677,6 +677,52 @@
   },
   "Console": {
     "title": "My repositories",
-    "description": "The repositories collected for this console. Publishing one is an administrator's decision; adding one here is all you need to do."
+    "description": "The repositories collected for this console. Publishing one is an administrator's decision; adding one here is all you need to do.",
+    "detail": "Repository detail",
+    "onGitHub": "On GitHub"
+  },
+  "RepoDetail": {
+    "notFoundTitle": "Repository not found",
+    "notFoundDescription": "This repository no longer exists, or the link points at another one.",
+    "backToRepos": "All repositories",
+    "archived": "Archived",
+    "homepage": "Homepage",
+    "readOnly": "Read-only",
+    "readOnlyDescription": "You can read everything recorded about this repository. Editing, refreshing and deleting are an administrator's job, in the operator console.",
+    "repository": "Repository",
+    "repositoryDescription": "What GitHub last reported, and when this site recorded it",
+    "linkedProjects": "Linked projects",
+    "linkedProjectsDescription": "The projects curated from this repository. No project here is not a problem, only that nobody has published it yet.",
+    "noProjects": "No project points at this repository yet.",
+    "history": "History",
+    "historyDescription": "Star history for the last {count} months",
+    "field": {
+      "stars": "Stars",
+      "forks": "Forks",
+      "watchers": "Watchers",
+      "contributors": "Contributors",
+      "commits": "Commits",
+      "pullRequests": "Pull requests",
+      "releases": "Releases",
+      "mentionable": "Mentionable users",
+      "license": "License",
+      "defaultBranch": "Default branch",
+      "languages": "Languages",
+      "topics": "Topics",
+      "lastCommit": "Last commit",
+      "pushed": "Last push",
+      "repoCreated": "Repository created",
+      "added": "First seen",
+      "updated": "Repository updated",
+      "latestRelease": "Latest release",
+      "owner": "Owner",
+      "repoId": "Repository id"
+    },
+    "column": {
+      "project": "Project",
+      "type": "Type",
+      "status": "Status",
+      "updated": "Updated"
+    }
   }
 }

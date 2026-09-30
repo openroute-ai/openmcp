@@ -3628,8 +3628,9 @@
         "businessLicense": "营业执照",
         "legalPersonIdFront": "法人身份证人像面",
         "legalPersonIdBack": "法人身份证国徽面",
-        "authorizationFile": "授权文件",
-        "authorizationFileHint": "由法人签署，授权账户操作人代表企业进行操作。",
+        "authorizationFile": "授权书",
+        "authorizationFileHint": "由法人签署并加盖公章，授权账户操作人代表企业进行操作。请先下载模板，填写完整并盖章后，再上传扫描件。",
+        "authorizationFileTemplate": "下载授权书模板",
         "authorizerIdFront": "授权人身份证人像面",
         "authorizerIdBack": "授权人身份证国徽面"
       },
@@ -3650,7 +3651,8 @@
         "idNumberHint": "企业请填写统一社会信用代码，仅用于实名审核。",
         "payChannel": "收款通道",
         "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
-        "agreedTerms": "我已阅读并同意《提供者服务协议》与市场规则。",
+        "agreedTermsPrefix": "我已阅读并同意",
+        "agreedTermsJoin": "与",
         "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。",
         "representative": "办理人身份",
         "representativeHint": "决定需要提交哪一套证件材料。",
@@ -3658,6 +3660,13 @@
         "representativeLegalPersonDetail": "上传法人身份证正反面，无需授权文件。",
         "representativeAuthorized": "授权经办人办理",
         "representativeAuthorizedDetail": "上传授权文件，并由授权人提供身份证正反面。"
+      },
+      "legal": {
+        "privacy": "《隐私政策》",
+        "terms": "《平台服务协议》",
+        "dialogDescription": "请在提交前完整阅读以下内容。",
+        "loadFailed": "文档加载失败，请检查网络后重试。",
+        "retry": "重新加载"
       },
       "payChannels": {
         "wechat": "微信",
