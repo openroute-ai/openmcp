@@ -16,7 +16,8 @@ Next.js 16 application serving the main user-facing dashboard.
 pnpm --filter dashboard dev
 ```
 
-Starts on `http://localhost:3000` by default.
+Starts on `http://localhost:20001` in development (`dev` passes `--port 20001`,
+`start` binds `PORT`), so it does not collide with `apps/console` on 20002.
 
 ## Scripts
 
