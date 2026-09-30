@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1790562124876,
-      "tag": "0000_acoustic_mariko_yashida",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1790579556696,
-      "tag": "0001_chunky_sphinx",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790589483091,
-      "tag": "0002_bright_major_mapleleaf",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790607509677,
-      "tag": "0003_funny_the_order",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790650759064,
-      "tag": "0004_drop-demo-tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790700000000,
-      "tag": "0005_repo_override_flags",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1790700600000,
-      "tag": "0006_console_user_role",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1790704200000,
-      "tag": "0007_console_user_ban_columns",
+      "when": 1790776761909,
+      "tag": "0000_faithful_chimera",
       "breakpoints": true
     },
     {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs"
 import { config } from "dotenv"
 import { defineConfig } from "drizzle-kit"
+import { toDiscreteCredentials } from "./src/db/ssl"
 
 // The app's own env file takes precedence, then the monorepo root. The
 // previous config only read `../../.env`, which meant `db:generate` failed
@@ -17,10 +18,18 @@ for (const path of [".env.local", "../../.env"]) {
 const url = process.env.CONSOLE_DATABASE_URL ?? ""
 
 export default defineConfig({
-  schema: "./src/db/schema.ts",
+  // `./src/db/drizzle-schema`, not `./src/db/schema`: the latter re-exports
+  // `@workspace/db/schema` wholesale, and drizzle-kit walks every export of
+  // the entry module, so it would generate migrations for the shared blog,
+  // workflow, persona and marketplace tables as well. The entry file spells
+  // out the twenty-two tables console owns.
+  schema: "./src/db/drizzle-schema.ts",
   out: "./src/db/drizzle",
   dialect: "postgresql",
-  dbCredentials: { url },
+  // The discrete form because drizzle-kit hands a `url` nothing but to
+  // `pg.Pool` and drops the `ssl` option next to it, which would leave a
+  // managed provider to accept a plaintext connection.
+  dbCredentials: url ? toDiscreteCredentials(url) : { url },
   strict: true,
   verbose: true,
 })

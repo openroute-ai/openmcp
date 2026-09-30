@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import { schema } from "./schema"
+import { resolveSsl } from "./ssl"
 
 /**
  * The pool is constructed eagerly, but `pg` does not open a connection until
@@ -17,9 +18,7 @@ export const pool = new Pool({
   max: Number(process.env.CONSOLE_DATABASE_POOL_MAX ?? 10),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
-  // Managed Postgres providers (Neon, Supabase, RDS) present a CA that is
-  // not in Node's trust store. Opt in with sslmode=require in the URL.
-  ...(process.env.CONSOLE_DATABASE_SSL === "true" ? { ssl: true } : {}),
+  ssl: resolveSsl(process.env.CONSOLE_DATABASE_URL),
 })
 
 export const db = drizzle({ client: pool, schema })

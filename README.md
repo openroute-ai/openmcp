@@ -43,11 +43,12 @@ pnpm --filter @workspace/db db:migrate
 pnpm dev
 ```
 
-| App | URL |
-| --- | --- |
-| API | `http://localhost:8080` --> `/docs` for Scala UI |
-| Dashboard | `http://localhost:3000` |
-| Docs | `http://localhost:6969` |
+| App       | URL                                              |
+| --------- | ------------------------------------------------ |
+| API       | `http://localhost:8080` --> `/docs` for Scala UI |
+| Dashboard | `http://localhost:20001`                         |
+| Console   | `http://localhost:20002`                         |
+| Docs      | `http://localhost:6969`                          |
 
 ## Common commands
 
