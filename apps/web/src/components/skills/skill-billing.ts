@@ -1,12 +1,7 @@
 import { formatCurrency } from '@/lib/utils/formatter'
 
 /**
- * Display-only billing helpers.
- *
- * These were previously exported from `skill-purchase.tsx`, but that file also
- * holds the checkout/download flow, which needs the payment + agent-install
- * seams that are not ported yet. Keeping the pure formatters here lets the
- * browse surfaces render prices without pulling in that coupling.
+ * Display-only billing helpers shared by list cards and the purchase CTA.
  */
 export type SkillBillingModel = 'one_time' | 'subscription' | 'pay_per_call' | null
 

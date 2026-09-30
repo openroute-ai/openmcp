@@ -380,7 +380,7 @@ export const skillsDataAccess = {
       })
       .from(skills)
       .innerJoin(authors, eq(skills.authorId, authors.id))
-      .where(eq(skills.id, id))
+      .where(and(eq(skills.id, id), eq(skills.status, 'published')))
       .limit(1)
 
     if (!row) return null
@@ -429,7 +429,11 @@ export const skillsDataAccess = {
   },
 
   getSkillBySlug: async (slug: string, locale: 'zh' | 'en' = 'zh') => {
-    const [row] = await db.select({ id: skills.id }).from(skills).where(eq(skills.slug, slug)).limit(1)
+    const [row] = await db
+      .select({ id: skills.id })
+      .from(skills)
+      .where(and(eq(skills.slug, slug), eq(skills.status, 'published')))
+      .limit(1)
     if (!row) return null
     return skillsDataAccess.getSkillById(row.id, locale)
   },

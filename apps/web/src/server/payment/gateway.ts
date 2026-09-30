@@ -1,7 +1,18 @@
-import { isPaymentSimulationEnabled, SimulatedTopUpGateway } from '@workspace/payment/topup'
+import {
+  AlipayTopUpGateway,
+  isPaymentSimulationEnabled,
+  SimulatedTopUpGateway,
+  WeChatTopUpGateway,
+} from '@workspace/payment/topup'
 import type { SimulatedTopUpGateway as SimulatedGateway } from '@workspace/payment/topup'
 import type { TopUpChannel, TopUpGateway } from '@workspace/payment/topup'
 import { websiteConfig } from '@/lib/config/website'
+import {
+  missingAlipayTopUpKeys,
+  missingWeChatTopUpKeys,
+  resolveAlipayTopUpCredentials,
+  resolveWeChatTopUpCredentials,
+} from './config'
 
 /**
  * Resolves the top-up gateway for a channel.
@@ -14,6 +25,11 @@ import { websiteConfig } from '@/lib/config/website'
  * A production build never gets the simulator: `SimulatedTopUpGateway` throws if
  * constructed with `NODE_ENV=production`, and the guard below fails closed
  * first so the error message is about the missing configuration.
+ *
+ * When simulation is off, a real WeChat (API v3 Native) or Alipay (precreate)
+ * adapter is constructed from env credentials. Missing credentials throw so
+ * callers (createPayment / webhooks) can surface a clear 501 / error instead of
+ * silently accepting an unverified body.
  */
 
 const gateways = new Map<TopUpChannel, TopUpGateway>()
@@ -36,6 +52,12 @@ export function isSimulationMode(): boolean {
   return isPaymentSimulationEnabled()
 }
 
+/** True when the named channel has every credential needed for a real gateway. */
+export function isProductionGatewayConfigured(channel: TopUpChannel): boolean {
+  if (channel === 'wechat') return missingWeChatTopUpKeys().length === 0
+  return missingAlipayTopUpKeys().length === 0
+}
+
 export function getTopUpGateway(channel: TopUpChannel): TopUpGateway {
   const cached = gateways.get(channel)
   if (cached) return cached
@@ -46,11 +68,33 @@ export function getTopUpGateway(channel: TopUpChannel): TopUpGateway {
     return gateway
   }
 
-  throw new Error(
-    `[payment] No top-up gateway is wired for "${channel}". ` +
-      'A real WeChat/Alipay native-pay adapter still needs to implement TopUpGateway; ' +
-      'set PAYMENT_SIMULATE=true to use the development simulator.'
-  )
+  const gateway = createProductionGateway(channel)
+  gateways.set(channel, gateway)
+  return gateway
+}
+
+function createProductionGateway(channel: TopUpChannel): TopUpGateway {
+  if (channel === 'wechat') {
+    const creds = resolveWeChatTopUpCredentials()
+    if (!creds) {
+      const missing = missingWeChatTopUpKeys()
+      throw new Error(
+        `[payment] WeChat top-up gateway is not configured (missing: ${missing.join(', ')}). ` +
+          'Set the WECHAT_* credentials, or PAYMENT_SIMULATE=true in development.'
+      )
+    }
+    return new WeChatTopUpGateway(creds)
+  }
+
+  const creds = resolveAlipayTopUpCredentials()
+  if (!creds) {
+    const missing = missingAlipayTopUpKeys()
+    throw new Error(
+      `[payment] Alipay top-up gateway is not configured (missing: ${missing.join(', ')}). ` +
+        'Set the ALIPAY_* credentials, or PAYMENT_SIMULATE=true in development.'
+    )
+  }
+  return new AlipayTopUpGateway(creds)
 }
 
 /** Channel configured for online payment, falling back to bank transfer. */

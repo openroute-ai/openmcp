@@ -66,3 +66,56 @@ export interface TopUpGateway {
    */
   verifyCallback(payload: string, signature: string, headers?: Headers): Promise<VerifyTopUpCallbackResult>
 }
+
+/**
+ * Credentials for the WeChat Pay Native (API v3) top-up adapter.
+ * Injected by the host; this package never reads `process.env`.
+ */
+export interface WeChatTopUpCredentials {
+  appId: string
+  mchId: string
+  /** APIv3 key (32 bytes) used to decrypt notification resources. */
+  apiV3Key: string
+  /** Merchant certificate serial used in the Authorization header. */
+  mchCertSerial: string
+  /** Merchant RSA private key (PEM). */
+  privateKey: string
+  /**
+   * WeChat Pay platform public key (PEM) used to verify
+   * `Wechatpay-Signature` on callbacks. Obtain from the merchant console
+   * ("微信支付公钥") or from a downloaded platform certificate.
+   */
+  platformPublicKey: string
+  notifyUrl: string
+}
+
+/**
+ * Credentials for the Alipay face-to-face / precreate top-up adapter.
+ */
+export interface AlipayTopUpCredentials {
+  appId: string
+  privateKey: string
+  /** Alipay platform public key (RSA2) for verifying async notifies. */
+  publicKey: string
+  gateway: string
+  notifyUrl: string
+}
+
+/** Keys a WeChat top-up gateway needs before it can be constructed. */
+export const WECHAT_TOPUP_REQUIRED_KEYS = [
+  'WECHAT_APP_ID',
+  'WECHAT_MCH_ID',
+  'WECHAT_API_V3_KEY',
+  'WECHAT_MCH_CERT_SERIAL',
+  'WECHAT_PRIVATE_KEY',
+  'WECHAT_PLATFORM_PUBLIC_KEY',
+  'WECHAT_NOTIFY_URL',
+] as const
+
+/** Keys an Alipay top-up gateway needs before it can be constructed. */
+export const ALIPAY_TOPUP_REQUIRED_KEYS = [
+  'ALIPAY_APP_ID',
+  'ALIPAY_PRIVATE_KEY',
+  'ALIPAY_PUBLIC_KEY',
+  'ALIPAY_NOTIFY_URL',
+] as const

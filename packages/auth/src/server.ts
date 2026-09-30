@@ -21,10 +21,28 @@ type DrizzleDatabase = Parameters<typeof drizzleAdapter>[0]
  */
 type BetterAuthTables = Pick<
   typeof schema,
-  "user" | "session" | "account" | "verification"
+  "session" | "account" | "verification"
 >
 
-export type AuthSchema = BetterAuthTables & Record<string, unknown>
+/**
+ * `user` is typed structurally rather than as the shared `user`, because an app
+ * is allowed to declare its own: `apps/console` keeps a local table that adds
+ * the phoneNumber columns, and it is a deliberate *subset* of the shared one
+ * (it omits `banned`, `banReason`, `banExpires` and `customerId`). Requiring an
+ * exact match would reject that — the column sets have to stay compatible with
+ * the shared table at runtime, but which optional columns an app actually
+ * persists is its own decision, and Better Auth surfaces a mismatch as
+ * `SCHEMA_MISMATCH` rather than at compile time.
+ *
+ * `object` rather than the shared table type: this package has no direct
+ * dependency on `drizzle-orm` (only a transitive one via `@workspace/db`), so
+ * naming `AnyPgTable` would mean adding a dependency for a single type. The
+ * constraint that matters is only that `user` is a table object the adapter can
+ * index at runtime.
+ */
+export type AuthSchema = BetterAuthTables & {
+  user: object
+} & Record<string, unknown>
 
 export type CreateAuthOptions = {
   baseURL: string

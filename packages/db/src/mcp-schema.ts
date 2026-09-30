@@ -139,6 +139,8 @@ export const skills = pgTable(
     version: varchar('version', { length: 100 }),
     /** 特性关键词列表 */
     features: jsonb('features').$type<string[] | null>(),
+    /** 搜索/筛选标签（可与 features 同步；catalog 统一用 tags） */
+    tags: jsonb('tags').$type<string[] | null>().default(sql`'[]'::jsonb`),
     /** 典型使用场景说明 */
     scenario: text('scenario'),
     priceType: varchar('price_type', {
@@ -209,6 +211,10 @@ export const skills = pgTable(
     // 目标运行平台标记：claude-code / codex / pi / opencode / openclaw ...
     // 不同平台技能格式不同（SKILL.md / CLAUDE.md / .codex/skills.md / PI.md 等），用于分发时生成对应安装方式
     platforms: jsonb('platforms').default(sql`'[]'::jsonb`).notNull(),
+    /** Provenance: where this row was last ingested from (e.g. console webhook). */
+    externalSource: varchar('external_source', { length: 50 }),
+    /** Last successful ingest from apps/console skills webhook / export. */
+    syncedFromConsoleAt: timestamp('synced_from_console_at'),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
   },
@@ -226,6 +232,8 @@ export const skills = pgTable(
     index('skills_popularity_idx').on(table.popularity),
     index('skills_published_at_idx').on(table.publishedAt),
     index('skills_forked_from_idx').on(table.forkedFromId),
+    index('skills_external_source_idx').on(table.externalSource),
+    index('skills_tags_gin_idx').using('gin', table.tags),
   ]
 )
 

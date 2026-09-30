@@ -158,6 +158,8 @@ export const mcpServers = pgTable(
     publishedAt: timestamp('published_at'),
     views: integer('views').default(0).notNull(),
     downloads: integer('downloads').default(0).notNull(),
+    /** 搜索/筛选标签 */
+    tags: jsonb('tags').$type<string[] | null>().default(sql`'[]'::jsonb`),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
@@ -171,6 +173,7 @@ export const mcpServers = pgTable(
     index('mcp_servers_litellm_idx').on(table.litellmServerId),
     index('mcp_servers_price_type_idx').on(table.priceType),
     index('mcp_servers_billing_model_idx').on(table.billingModel),
+    index('mcp_servers_tags_gin_idx').using('gin', table.tags),
   ]
 )
 
@@ -248,6 +251,8 @@ export const a2aAgents = pgTable(
     publishedAt: timestamp('published_at'),
     views: integer('views').default(0).notNull(),
     downloads: integer('downloads').default(0).notNull(),
+    /** 搜索/筛选标签 */
+    tags: jsonb('tags').$type<string[] | null>().default(sql`'[]'::jsonb`),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
@@ -260,6 +265,7 @@ export const a2aAgents = pgTable(
     index('a2a_agents_litellm_idx').on(table.litellmAgentId),
     index('a2a_agents_price_type_idx').on(table.priceType),
     index('a2a_agents_billing_model_idx').on(table.billingModel),
+    index('a2a_agents_tags_gin_idx').using('gin', table.tags),
   ]
 )
 

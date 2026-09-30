@@ -4,3 +4,5 @@ export {
   assertSimulationAllowed,
   isPaymentSimulationEnabled,
 } from './simulated'
+export { WeChatTopUpGateway } from './wechat'
+export { AlipayTopUpGateway } from './alipay'
