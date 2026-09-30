@@ -33,18 +33,11 @@ const CN_PHONE = /^1[3-9]\d{9}$/
 
 const tempEmailDomain = process.env.CONSOLE_TEMP_EMAIL_DOMAIN ?? "console.local"
 
-/**
- * Matches the route the app mounts the handler at (`app/api/auth/[...all]`).
- * Spelled out rather than imported so the path has one owner: a shared
- * `AUTH_PATH` constant would be a second thing to keep in step with the
- * directory, and it was the only constant console ever needed.
- */
-const AUTH_PATH = "/api/auth"
-
+// Better Auth's own defaults: `basePath` stays `/api/auth`, the directory the
+// handler is mounted at, and `baseURL` is read from `BETTER_AUTH_URL`. Setting
+// either here would be a second place to keep in step with the deployment, and
+// a stale one is exactly what makes a sign-in fail as an untrusted origin.
 export const auth = betterAuth({
-  basePath: AUTH_PATH,
-  baseURL: process.env.CONSOLE_BETTER_AUTH_URL ?? "http://localhost:3001",
-  secret: process.env.BETTER_AUTH_SECRET!,
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS
     ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((s) => s.trim())
     : [],
