@@ -2,9 +2,9 @@
 
 import { useTranslations } from 'next-intl'
 import { Button } from '@workspace/ui/components/button'
-import { Checkbox } from '@workspace/ui/components/checkbox'
 import { Input } from '@workspace/ui/components/input'
 import { Label } from '@workspace/ui/components/label'
+import { LegalConsent } from './legal-consent'
 import {
   KYC_DOCS_FOR_ENTITY,
   KycDocUpload,
@@ -110,21 +110,11 @@ export function KycIndividualForm() {
             ))}
           </div>
 
-          <div className='space-y-2'>
-            <label className='flex cursor-pointer items-start gap-2 text-sm'>
-              <Checkbox
-                checked={form.values.agreedTerms}
-                onCheckedChange={(checked) =>
-                  form.setField('agreedTerms', checked === true)
-                }
-                className='mt-0.5'
-              />
-              <span className='text-muted-foreground'>{t('fields.agreedTerms')}</span>
-            </label>
-            {form.fieldError('agreedTerms') && (
-              <p className='text-destructive text-xs'>{form.fieldError('agreedTerms')}</p>
-            )}
-          </div>
+          <LegalConsent
+            checked={form.values.agreedTerms}
+            onCheckedChange={(checked) => form.setField('agreedTerms', checked)}
+            error={form.fieldError('agreedTerms')}
+          />
 
           {form.serverError && (
             <p className='rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm'>

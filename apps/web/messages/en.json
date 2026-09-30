@@ -3681,7 +3681,8 @@
         "legalPersonIdFront": "Legal person's ID, photo side",
         "legalPersonIdBack": "Legal person's ID, emblem side",
         "authorizationFile": "Authorisation letter",
-        "authorizationFileHint": "Signed by the legal person, authorising the account operator to act on the company's behalf.",
+        "authorizationFileHint": "Signed by the legal person and stamped with the company seal, authorising the account operator to act for the company. Download the template, complete and stamp it, then upload the scan.",
+        "authorizationFileTemplate": "Download the authorisation letter template",
         "authorizerIdFront": "Authoriser's ID, photo side",
         "authorizerIdBack": "Authoriser's ID, emblem side"
       },
@@ -3702,7 +3703,8 @@
         "idNumberHint": "For companies this is the unified social credit code, used only for verification.",
         "payChannel": "Payout channel",
         "payChannelHint": "Tells the platform where to send your earnings. You can bind the account or QR code itself after verification is approved.",
-        "agreedTerms": "I have read and agree to the provider agreement and the marketplace terms.",
+        "agreedTermsPrefix": "I have read and agree to the",
+        "agreedTermsJoin": "and",
         "legalPersonIsAuthorizer": "The legal person is the account operator, so no separate authorisation letter is needed.",
         "representative": "Who is signing up",
         "representativeHint": "This decides which set of documents you need to submit.",
@@ -3710,6 +3712,13 @@
         "representativeLegalPersonDetail": "Upload both sides of the legal person's ID card. No authorisation letter needed.",
         "representativeAuthorized": "An authorised agent",
         "representativeAuthorizedDetail": "Upload the authorisation letter and both sides of the agent's ID card."
+      },
+      "legal": {
+        "privacy": "Privacy Policy",
+        "terms": "Platform Service Agreement",
+        "dialogDescription": "Please read the following in full before submitting.",
+        "loadFailed": "The document could not be loaded. Check your connection and try again.",
+        "retry": "Reload"
       },
       "payChannels": {
         "wechat": "WeChat Pay",

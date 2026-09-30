@@ -2,10 +2,11 @@
 
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, ShieldCheck, Upload, X } from 'lucide-react'
+import { Check, Download, ShieldCheck, Upload, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@workspace/ui/components/alert'
 import { Button } from '@workspace/ui/components/button'
 import { Spinner } from '@workspace/ui/components/spinner'
+import { DEFAULT_LOCALE, LOCALES } from '@/i18n/routing'
 import { cn } from '@/lib/utils'
 import { uploadFileToStorage } from '@/lib/storage/upload-client'
 
@@ -66,6 +67,26 @@ export type KycDocuments = Partial<Record<KycDocKey, string>>
 
 /** Accepted by the `kyc` upload scope on the server. */
 export const KYC_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
+
+/** Markdown documents the onboarding flow serves out of `public/`. */
+export type LegalDocument =
+  | 'legal/privacy'
+  | 'legal/terms'
+  | 'templates/authorization-letter'
+
+/**
+ * A legal document in the reader's language.
+ *
+ * The texts and templates are plain markdown under `public/`, so the browser
+ * fetches only the copy it is about to show instead of the build shipping every
+ * language into the bundle. An unexpected locale falls back to the default one
+ * rather than requesting a file that does not exist and rendering an empty
+ * dialog.
+ */
+export function legalDocumentPath(name: LegalDocument, locale: string): string {
+  const suffix = (LOCALES as readonly string[]).includes(locale) ? locale : DEFAULT_LOCALE
+  return `/${name}.${suffix}.md`
+}
 
 /** Fields shown for each entity type, with the label translation key. */
 export const KYC_DOCS_FOR_ENTITY: Record<
@@ -213,6 +234,11 @@ type KycDocUploadProps = {
   label: string
   hint?: string
   required?: boolean
+  /**
+   * Markdown template to download before filling the document in, e.g. the
+   * authorisation letter. `undefined` renders no download link.
+   */
+  templateHref?: string
   /** Existing stored URL, so a resubmission does not force a re-upload. */
   value?: string
   onChange: (url: string | undefined) => void
@@ -228,6 +254,7 @@ export function KycDocUpload({
   label,
   hint,
   required,
+  templateHref,
   value,
   onChange,
 }: KycDocUploadProps) {
@@ -263,6 +290,20 @@ export function KycDocUpload({
         {required && <span className='text-destructive'>*</span>}
       </div>
       {hint && <p className='text-muted-foreground text-xs'>{hint}</p>}
+      {templateHref && (
+        <p className='text-muted-foreground text-xs'>
+          {/* A download, not a navigation: the template is filled in, stamped
+              and uploaded, so leaving the form would lose the uploads. */}
+          <a
+            href={templateHref}
+            download
+            className='inline-flex items-center gap-1 underline underline-offset-4 hover:text-primary'
+          >
+            <Download className='size-3' />
+            {t('docs.authorizationFileTemplate')}
+          </a>
+        </p>
+      )}
 
       {value ? (
         <div className='flex items-center gap-3 rounded-md border p-3'>
