@@ -34,7 +34,6 @@ export const tasksRouter = createTRPCRouter({
           isEnabled: taskDefinitions.isEnabled,
           isRunning: taskStatus.isRunning,
           lastRunAt: taskStatus.lastRunAt,
-          nextRunAt: taskStatus.nextRunAt,
         })
         .from(taskDefinitions)
         .leftJoin(

@@ -498,6 +498,11 @@ export const taskStatus = pgTable(
       .references(() => taskDefinitions.id, { onDelete: "cascade" }),
     isRunning: boolean("is_running").notNull().default(false),
     lastRunAt: timestamp("last_run_at"),
+    /**
+     * Unused, and kept rather than dropped: nothing here reads it, because the
+     * next run a task is owed is derived from the cron expression and the
+     * execution history. Dropping the column needs its own migration.
+     */
     nextRunAt: timestamp("next_run_at"),
     lastExecutionId: text("last_execution_id"),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

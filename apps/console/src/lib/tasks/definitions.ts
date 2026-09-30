@@ -25,8 +25,6 @@ export interface TaskSeed {
   isDaily?: boolean
   isWeekly?: boolean
   isMonthly?: boolean
-  /** Tasks the Cron entrypoint runs on every tick, in order. */
-  alwaysRun?: boolean
 }
 
 /**
