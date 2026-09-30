@@ -2,6 +2,24 @@
 
 Shared Better Auth configuration and factory for the monorepo.
 
+## Who uses this
+
+`apps/web` and `apps/api`. Both share one database (`DATABASE_URL`), so one
+auth configuration is genuinely shared.
+
+`apps/console` deliberately does **not**. It has its own database
+(`CONSOLE_DATABASE_URL`), its own `user` table, and its own rate limiter, and
+builds its Better Auth instance directly in `src/lib/auth.ts`. Routing it
+through this package was what produced the `Endpoint path conflicts detected`
+error: `createAuth` concatenated the shared plugin list with the app's, and both
+declared `phoneNumber()`, so the same five endpoints registered twice. A
+console-side plugin change should not be able to collide with a shared default,
+and the two apps do not share a login surface to keep consistent.
+
+The two libraries are still on the same Better Auth version, so a schema change
+in `packages/db/src/auth-schema.ts` needs applying to console's `user` table
+separately — that is the cost of the split, and it is deliberate.
+
 ## Stack
 
 - [Better Auth](https://www.better-auth.com) with Drizzle adapter

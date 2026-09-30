@@ -27,13 +27,16 @@ export * from "./schema/github"
 export { repos, snapshots } from "./schema/github"
 
 /**
- * 扩展的 user 表：在共享 auth schema 基础上增加手机号登录所需的
- * phoneNumber / phoneNumberVerified。仅 console 使用（local `user` 遮蔽
- * `export *` 重新导出的共享 user 表），避免污染 web/api 的共享 schema。
+ * console 的 user 表：与共享 auth schema 逐字相同。
  *
- * `role` 与共享 schema 同名同义（"admin" | "user"），Better Auth 通过
- * `user.additionalFields` 把它带进 session，因此这里的默认值必须与共享
- * schema 一致；缺少该列会让 better-auth 的 schema 校验直接失败。
+ * console 有自己的数据库（`CONSOLE_DATABASE_URL`，与 web/api 的
+ * `DATABASE_URL` 分开），也不依赖 `@workspace/auth`，所以这份定义是 console
+ * 自己拥有的、不是共享 schema 的视图——它此前是共享表的一个**子集**（省略了
+ * `banned` / `banReason` / `banExpires` / `customerId`），靠注释维持一致。
+ * 现已补齐，Better Auth 的 admin plugin 需要的封禁列也不再缺失。
+ *
+ * `role` 与手机号两列的行为见下方注释；`role` 由 Better Auth 通过
+ * `user.additionalFields` 带进 session，缺列会让 schema 校验直接失败。
  */
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -49,11 +52,18 @@ export const user = pgTable("user", {
    * 平台角色。`/dashboard` 只对 admin 开放，其余登录用户落在 `/console`，
    * 只能查看仓库列表并添加仓库。见 `src/lib/auth/role.ts`。
    *
-   * 与共享 schema 逐字一致（可空 + 默认值），因此本表始终是共享 user 表的
-   * 真子集：console 多出的只有手机号两列，不会出现"同名同列不同类型"的
-   * 分叉。是否管理员一律按 `role === "admin"` 判断，null 视为普通用户。
+   * 是否管理员一律按 `role === "admin"` 判断，null 视为普通用户。
    */
   role: varchar("role", { length: 256 }).default("user"),
+  /**
+   * 封禁三列 + `customer_id`：Better Auth 内置的 admin plugin 会读写它们，
+   * `ban()` / `unbanUser()` 直接落到这几列上。省略它们不是"更小的表"，而是
+   * 少了几列——plugin 仍在运行，写入会因列不存在而失败。
+   */
+  banned: boolean("banned"),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
+  customerId: text("customer_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

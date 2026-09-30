@@ -6,8 +6,9 @@ A standalone shadcn dashboard app.
   app adds no component code to the shared package.
 - Uses its **own database** (`CONSOLE_DATABASE_URL`), separate from the shared
   `DATABASE_URL` used by `apps/web` and `apps/api`.
-- Authentication via `better-auth` (`@workspace/auth`), and all data access goes
-  through **tRPC v11** (`/api/trpc`).
+- Authentication via `better-auth`, configured directly in `src/lib/auth.ts`
+  rather than through a shared package, and all data access goes through
+  **tRPC v11** (`/api/trpc`).
 - The dashboard started as the shadcn `dashboard-01` block and has been
   rewired to read live data from this app's database; the starter demo tables
   (`sections`, `traffic`) were dropped once nothing read them.
@@ -56,9 +57,16 @@ does not confirm that the route exists.
 
 ## Authentication
 
-Email + password sign-in and sign-up run through Better Auth
-(`@workspace/auth`), the same package `apps/web` and `apps/api` use. Sessions
-are created by Better Auth and served by the route handlers under `/api/auth`.
+Email + password sign-in and sign-up run through Better Auth, configured
+directly in `src/lib/auth.ts`. Sessions are created by Better Auth and served
+by the route handlers under `/api/auth`.
+
+Console does **not** use `@workspace/auth` (which `apps/web` and `apps/api`
+share). It has its own database and its own `user` table, so there was no
+shared identity left to abstract; going through the shared package only meant
+its `phoneNumber()` plugin and console's own registered the same five endpoints
+twice, which Better Auth reports as an endpoint path conflict. Owning the
+configuration keeps one entry in the plugin list.
 
 `proxy.ts` redirects unauthenticated visitors to `/sign-in`; the tRPC routers
 additionally guard every procedure with `protectedProcedure`, so an
@@ -68,7 +76,7 @@ unauthenticated call returns HTTP 401 even if it bypasses the proxy.
 
 When `REDIS_URL` (or `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`) is set, the
 auth instance enables Better Auth's rate limiter backed by Redis
-(`createRedisRateLimitStorage` from `@workspace/auth`, keys
+(`createRedisRateLimitStorage` from `src/lib/rate-limit.ts`, keys
 `openmcp:console:auth:rate-limit:*`):
 
 - `/sign-in*` and `/sign-up*` are capped at **3 requests / 10 s per IP**

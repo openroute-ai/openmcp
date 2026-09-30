@@ -462,4 +462,181 @@ export function stampsInWeek(
   })
 }
 
+/**
+ * The last `count` months, oldest first, ending with the month before `today`.
+ *
+ * Ends on the previous month rather than the current one because a month is
+ * only complete at its end: charting the current month would draw a bar that
+ * is short for a reason that has nothing to do with the project, and would
+ * move every time the page was reloaded.
+ */
+export function lastNMonths(count: number, today: Date): YearMonth[] {
+  const months: YearMonth[] = []
+  // Counts back from the first of this month, which is already one step past
+  // the month before it. The cursor is pinned to day one on purpose:
+  // `setUTCMonth` keeps the day of the month, so stepping back from 31 May
+  // aims at 31 April, and a date that does not exist overflows forward into May
+  // again — which would chart the same month twice and drop one from the end.
+  const cursor = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)
+  )
+  for (let index = 0; index < count; index++) {
+    cursor.setUTCMonth(cursor.getUTCMonth() - 1)
+    months.push({
+      year: cursor.getUTCFullYear(),
+      month: cursor.getUTCMonth() + 1,
+    })
+  }
+  return months.reverse()
+}
+
+/** One bar: growth over a month, and the total that month closed at. */
+export interface MonthlyBar {
+  yearMonth: YearMonth
+  /**
+   * Growth over the month, or undefined when there is no history to measure it
+   * against. Undefined is not zero: a month with no prior month has an unknown
+   * delta, and drawing it as a flat bar would read as a project that stopped
+   * growing.
+   */
+  delta: number | undefined
+  total: number
+}
+
+/**
+ * Month-over-month growth for the last `count` months.
+ *
+ * Months with no data are left in as `undefined` rather than dropped, so the
+ * chart keeps a gap where the history has a gap. A dropped month is
+ * indistinguishable from a month of zero growth, and a repository that was
+ * never swept would chart as a project that stopped earning stars.
+ */
+export function monthlyBars(
+  months: SnapshotMonth[],
+  count: number,
+  today: Date
+): MonthlyBar[] {
+  const byMonth = new Map(
+    months.map((entry) => [entry.year * 100 + entry.month, entry])
+  )
+  const trends = new Map(
+    computeMonthlyTrend(
+      [...months].sort((a, b) => a.year - b.year || a.month - b.month)
+    ).map((trend) => [
+      trend.yearMonth.year * 100 + trend.yearMonth.month,
+      trend,
+    ])
+  )
+
+  return lastNMonths(count, today).map((yearMonth) => {
+    const key = yearMonth.year * 100 + yearMonth.month
+    const recorded = byMonth.get(key)
+    const trend = trends.get(key)
+    return {
+      yearMonth,
+      delta: recorded ? trend?.delta : undefined,
+      total: recorded ? (trend?.total ?? 0) : 0,
+    }
+  })
+}
+
+export interface PeriodTrends {
+  /** Stargazers gained in the most recent ISO week the sweep recorded. */
+  week: number | undefined
+  /** Growth over the most recent month with a predecessor. */
+  month: number | undefined
+  /** Growth over the twelve months ending with the most recent one. */
+  year: number | undefined
+  /** The most recent month's closing total. */
+  total: number | undefined
+}
+
+/**
+ * The headline growth figures, over the windows the stored history supports.
+ *
+ * Every figure is a delta against a *recorded* month rather than a difference
+ * between the latest month and the calendar today. The history is written by a
+ * stargazer sweep, so its last month can be any month in the past; subtracting
+ * it from today would report a project as having gained every star it has
+ * gained since it was last swept, in a single recent window.
+ *
+ * A window with no comparable history is `undefined` rather than zero, so the
+ * page can say it is unknown instead of reporting that nothing happened.
+ *
+ * `weekly` is passed in rather than derived here because the weekly figure
+ * cannot come from the monthly rows: a week that straddles two months is not
+ * recoverable from them, which is why the sweep records the split separately.
+ */
+export function periodTrends(
+  months: SnapshotMonth[],
+  weekly?: { year: number; week: number; stars: number }[]
+): PeriodTrends {
+  const ordered = [...months].sort(
+    (a, b) => a.year - b.year || a.month - b.month
+  )
+  const last = ordered[ordered.length - 1]
+  if (!last) {
+    return {
+      week: weekly ? latestWeekGain(weekly) : undefined,
+      month: undefined,
+      year: undefined,
+      total: undefined,
+    }
+  }
+
+  const trends = computeMonthlyTrend(ordered)
+  const lastTrend = trends[trends.length - 1]
+  const yearAgo = trends.find(
+    (trend) =>
+      trend.yearMonth.year === last.year - 1 &&
+      trend.yearMonth.month === last.month
+  )
+
+  return {
+    week: weekly ? latestWeekGain(weekly) : undefined,
+    month: lastTrend?.delta,
+    year:
+      lastTrend && yearAgo ? lastTrend.total - (yearAgo.total ?? 0) : undefined,
+    total: lastTrend?.total,
+  }
+}
+
+/**
+ * Stargazers gained in the most recent ISO week recorded for a repository.
+ *
+ * Read from the weekly table, which stores a gain per week rather than a
+ * running total, so the figure is already the window's growth. Undefined when
+ * the repository has no weekly history, which is every repository whose sweep
+ * predates the table or that has never been swept.
+ */
+export function latestWeekGain(
+  weeks: { year: number; week: number; stars: number }[]
+): number | undefined {
+  let latest: { year: number; week: number } | undefined
+  for (const row of weeks) {
+    if (
+      !latest ||
+      row.year > latest.year ||
+      (row.year === latest.year && row.week > latest.week)
+    ) {
+      latest = { year: row.year, week: row.week }
+    }
+  }
+  if (!latest) return undefined
+  return weeks.find(
+    (row) => row.year === latest!.year && row.week === latest!.week
+  )?.stars
+}
+
+/** The last `count` ISO weeks, oldest first, ending with the one containing `today`. */
+export function lastNWeeks(count: number, today: Date): YearWeek[] {
+  const weeks: YearWeek[] = []
+  const cursor = new Date(today.getTime())
+  for (let index = 0; index < count; index++) {
+    weeks.push(getIsoWeekNumber(cursor))
+    cursor.setUTCDate(cursor.getUTCDate() - 7)
+  }
+  return weeks.reverse()
+}
+
 export type { SnapshotRow }

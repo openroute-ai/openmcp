@@ -41,6 +41,11 @@ import { CreateProjectDialog } from "@/components/projects/create-project-dialog
 import { AuthorCard } from "@/components/authors/author-card"
 import { ProjectDeleteDialog } from "@/components/projects/project-delete-dialog"
 import { ProjectEditDialog } from "@/components/projects/project-edit-dialog"
+import {
+  AddPackageButton,
+  RemovePackageButton,
+} from "@/components/projects/project-packages"
+import { ProjectTrends } from "@/components/projects/project-trends"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import {
   DescriptionPair,
@@ -132,9 +137,7 @@ function AssetPreview({
 }) {
   const common = useTranslations("Common")
   if (!url) {
-    return (
-      <p className="text-sm text-muted-foreground">{common("none")}</p>
-    )
+    return <p className="text-sm text-muted-foreground">{common("none")}</p>
   }
   return (
     <div className="flex items-center gap-3">
@@ -175,7 +178,7 @@ export function ProjectDetail({ id }: { id: string }) {
   const latestJob = data?.jobs[0]
   const outstanding = Boolean(
     latestJob &&
-      (latestJob.status === "pending" || latestJob.status === "running")
+    (latestJob.status === "pending" || latestJob.status === "running")
   )
 
   // Poll only while something is outstanding. Keyed on that flag rather than on
@@ -294,7 +297,9 @@ export function ProjectDetail({ id }: { id: string }) {
                   <ExternalLink href={data.url}>{t("homepage")}</ExternalLink>
                 ) : null}
                 {data.twitter ? (
-                  <ExternalLink href={data.twitter}>{t("twitter")}</ExternalLink>
+                  <ExternalLink href={data.twitter}>
+                    {t("twitter")}
+                  </ExternalLink>
                 ) : null}
               </div>
             </div>
@@ -365,7 +370,11 @@ export function ProjectDetail({ id }: { id: string }) {
               </span>
               <div className="flex flex-wrap gap-1">
                 {data.tags.map((tag) => (
-                  <Badge key={tag.code} variant="secondary" title={tag.description ?? undefined}>
+                  <Badge
+                    key={tag.code}
+                    variant="secondary"
+                    title={tag.description ?? undefined}
+                  >
                     {tag.name || tag.code}
                   </Badge>
                 ))}
@@ -460,7 +469,9 @@ export function ProjectDetail({ id }: { id: string }) {
               </code>
             </Field>
             <Field label={t("field.languages")}>
-              <LabelRow items={list(data.languages) ? [list(data.languages)!] : []} />
+              <LabelRow
+                items={list(data.languages) ? [list(data.languages)!] : []}
+              />
             </Field>
             <Field label={t("field.topics")}>
               <LabelRow items={data.topics ?? []} />
@@ -484,7 +495,9 @@ export function ProjectDetail({ id }: { id: string }) {
             </Field>
             <Field label={t("field.homepage")}>
               {data.homepage ? (
-                <ExternalLink href={data.homepage}>{data.homepage}</ExternalLink>
+                <ExternalLink href={data.homepage}>
+                  {data.homepage}
+                </ExternalLink>
               ) : (
                 common("none")
               )}
@@ -538,9 +551,7 @@ export function ProjectDetail({ id }: { id: string }) {
                   {data.latestReleaseName ?? common("none")}
                 </span>
                 {data.latestReleaseTagName ? (
-                  <Badge variant="secondary">
-                    {data.latestReleaseTagName}
-                  </Badge>
+                  <Badge variant="secondary">{data.latestReleaseTagName}</Badge>
                 ) : null}
                 {data.latestReleaseUrl ? (
                   <ExternalLink href={data.latestReleaseUrl}>
@@ -572,13 +583,22 @@ export function ProjectDetail({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      {data.packages.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("packages")}</CardTitle>
-            <CardDescription>{t("packagesDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Shown even with no packages: the card is where a package gets added,
+          and a page with no packages would otherwise have nowhere to say so. */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="grid gap-1">
+              <CardTitle>{t("packages")}</CardTitle>
+              <CardDescription>{t("packagesDescription")}</CardDescription>
+            </div>
+            <AddPackageButton projectId={data.id} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {data.packages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("noPackages")}</p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -588,6 +608,9 @@ export function ProjectDetail({ id }: { id: string }) {
                   <TableHead>{t("column.gzip")}</TableHead>
                   <TableHead>{t("column.size")}</TableHead>
                   <TableHead>{t("column.dependencies")}</TableHead>
+                  <TableHead className="text-right">
+                    <span className="sr-only">{t("column.actions")}</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -601,7 +624,9 @@ export function ProjectDetail({ id }: { id: string }) {
                           {pkg.name}
                         </ExternalLink>
                         {pkg.deprecated ? (
-                          <Badge variant="outline">{t("deprecatedPackage")}</Badge>
+                          <Badge variant="outline">
+                            {t("deprecatedPackage")}
+                          </Badge>
                         ) : null}
                       </div>
                     </TableCell>
@@ -639,12 +664,54 @@ export function ProjectDetail({ id }: { id: string }) {
                         </span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <RemovePackageButton
+                        projectId={data.id}
+                        packageName={pkg.name}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      {data.trends ? (
+        <ProjectTrends
+          bars={data.trends.bars}
+          weeks={data.trends.weeks}
+          periods={data.trends.periods}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                sync.mutate(
+                  { id },
+                  {
+                    onSuccess: () => {
+                      toast.success(t("snapshotRecorded"))
+                      void queryClient.invalidateQueries({
+                        queryKey: trpc.projects.byId.queryKey({ id }),
+                      })
+                    },
+                    onError: (error) => {
+                      toast.error(t("snapshotFailed"), {
+                        description: error.message,
+                      })
+                    },
+                  }
+                )
+              }}
+            >
+              {busy ? <Spinner /> : <IconRefresh />}
+              {busy ? t("resyncing") : t("recordSnapshot")}
+            </Button>
+          }
+        />
       ) : null}
 
       {months.length > 0 ? (
@@ -668,9 +735,7 @@ export function ProjectDetail({ id }: { id: string }) {
               </TableHeader>
               <TableBody>
                 {months.map((month) => (
-                  <TableRow
-                    key={`${month.year}-${month.month}`}
-                  >
+                  <TableRow key={`${month.year}-${month.month}`}>
                     <TableCell className="text-muted-foreground">
                       {month.year}-{String(month.month).padStart(2, "0")}
                     </TableCell>
