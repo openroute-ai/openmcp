@@ -35,10 +35,11 @@ export type CreatePuzzleResult = {
 export async function getRandomImagePathFromGallery(
   galleryDir = "public/images/blog"
 ): Promise<string | null> {
-  const dir = path.join(process.cwd(), galleryDir)
+  // turbopackIgnore：NFT 无法静态解析 process.cwd()，会把整个项目（含 public）
+  // 打进 server bundle。真正需要追踪的是下面 fs.readdir 那一处读取。
+  const dir = path.join(/* turbopackIgnore: true */ process.cwd(), galleryDir)
   let entries: string[]
   try {
-    // turbopackIgnore：避免 NFT 静态追踪无法解析 process.cwd() 而误追踪整个项目
     entries = await fs.readdir(/* turbopackIgnore: true */ dir)
   } catch {
     return null
@@ -48,7 +49,7 @@ export async function getRandomImagePathFromGallery(
   )
   if (files.length === 0) return null
   const name = files[Math.floor(Math.random() * files.length)]!
-  return path.join(dir, name)
+  return path.join(/* turbopackIgnore: true */ dir, name)
 }
 
 /** 生成默认背景图（图库无图时使用），返回 Buffer */

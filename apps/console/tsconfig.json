@@ -3,6 +3,9 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
+      "@workspace/auth": ["../../packages/auth/src/index.ts"],
+      "@workspace/db/schema": ["../../packages/db/src/schema.ts"],
+      "@workspace/db": ["../../packages/db/src/index.ts"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [

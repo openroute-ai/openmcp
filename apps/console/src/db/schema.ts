@@ -1,34 +1,40 @@
 import * as authSchema from "@workspace/db/schema"
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import * as githubSchema from "./schema/github"
 
 export * from "@workspace/db/schema"
 export * from "./schema/github"
 
 /**
- * 扩展的 user 表：在共享 auth schema 基础上增加手机号登录所需的
- * phoneNumber / phoneNumberVerified。仅 console 使用（local `user` 遮蔽
- * `export *` 重新导出的共享 user 表），避免污染 web/api 的共享 schema。
+ * `repos` and `snapshots` exist in both the shared schema and console's own
+ * GitHub tables, and `export *` cannot decide between them: TypeScript reports
+ * TS2308 and drops the name entirely, so every console caller would silently
+ * resolve to the *shared* table instead. That table has `contributorsCount`
+ * where console's data has `contributorCount`, and a per-day `month` column
+ * where console stores an aggregated `months` array, which is where every
+ * schema type error in the GitHub services came from.
+ *
+ * An explicit re-export resolves the ambiguity in favour of console's tables,
+ * which are the ones the `drizzle-kit` migrations under `src/db/drizzle` were
+ * generated from and the only ones the console queries.
  */
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
-  phoneNumber: text("phone_number").unique(),
-  phoneNumberVerified: boolean("phone_number_verified")
-    .default(false)
-    .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-})
+export { repos, snapshots } from "./schema/github"
+
+/**
+ * The Better Auth `user` table, extended with the columns the phoneNumber
+ * plugin needs.
+ *
+ * The shared table already carries `phoneNumber` / `phoneNumberVerified` plus
+ * `role`, `banned`, `banReason`, `banExpires` and `customerId`. Console
+ * previously redeclared the table from scratch, which kept the phone columns but
+ * dropped the five Better Auth fields, and Better Auth refused every request
+ * with `SCHEMA_MISMATCH / missing-column user.role`. Redeclaring a table also
+ * silently diverges from the shared definition the moment either side adds a
+ * field, so the shared table is reused as-is instead.
+ */
+const { user, ...sharedAuthSchema } = authSchema
 
 export const schema = {
-  ...authSchema,
+  ...sharedAuthSchema,
   ...githubSchema,
   user,
 }
