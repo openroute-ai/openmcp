@@ -26,12 +26,28 @@ export interface ZonedParts {
   dayOfWeek: number
 }
 
-/** Wall-clock fields for a moment in a timezone. */
-export function zonedParts(
-  now: Date,
-  timeZone: string = APP_TIMEZONE
-): ZonedParts {
-  // en-US with a UTC timezone is the reliable way to read local fields
+/**
+ * Formatter cache, keyed by timezone.
+ *
+ * `Intl.DateTimeFormat` instances are immutable and reusable, but constructing
+ * one resolves locale data and costs roughly five times what formatting with an
+ * existing one does. This app asks "what time is it" constantly — every
+ * schedule, period, ranking window and label goes through `zonedParts` — and
+ * the answer only depends on the instant and the zone, so building a fresh
+ * formatter per call was pure repeated work. One test file that walks a
+ * schedule minute by minute constructed twenty thousand of them.
+ *
+ * The set of zones in use is the handful `APP_TIMEZONE` covers, so this stays
+ * small; a caller looping over arbitrary zones would grow it, but none does.
+ */
+const formatterCache = new Map<string, Intl.DateTimeFormat>()
+
+/** The cached formatter for a zone, built on first use. */
+function formatterFor(timeZone: string): Intl.DateTimeFormat {
+  const cached = formatterCache.get(timeZone)
+  if (cached) return cached
+
+  // en-US with an explicit zone is the reliable way to read local fields
   // without depending on the server's own locale or zone.
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -44,6 +60,16 @@ export function zonedParts(
     minute: "2-digit",
     second: "2-digit",
   })
+  formatterCache.set(timeZone, formatter)
+  return formatter
+}
+
+/** Wall-clock fields for a moment in a timezone. */
+export function zonedParts(
+  now: Date,
+  timeZone: string = APP_TIMEZONE
+): ZonedParts {
+  const formatter = formatterFor(timeZone)
 
   const parts: Record<string, string> = {}
   for (const part of formatter.formatToParts(now)) {

@@ -1,6 +1,7 @@
 import { useLocale, useNow, useTranslations } from "next-intl"
 
 import type { Locale } from "@/lib/config/i18n"
+import { APP_TIMEZONE } from "@/lib/time"
 
 const SECOND = 1000
 const MINUTE = 60 * SECOND
@@ -59,7 +60,7 @@ const DURATION_PARTS = 2
  * profile. The key space is the set of locales, so the cache cannot grow.
  */
 const relativeFormats = new Map<Locale, Intl.RelativeTimeFormat>()
-const dateTimeFormats = new Map<Locale, Intl.DateTimeFormat>()
+const dateTimeFormats = new Map<string, Intl.DateTimeFormat>()
 const unitFormats = new Map<string, Intl.NumberFormat>()
 const listFormats = new Map<Locale, Intl.ListFormat>()
 
@@ -72,17 +73,28 @@ const relativeFormat = (locale: Locale) => {
   return format
 }
 
-const dateTimeFormat = (locale: Locale) => {
-  let format = dateTimeFormats.get(locale)
+/** The fields a full timestamp shows, and the widths they are shown at. */
+const DEFAULT_DATE_TIME_FIELDS = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+} as const satisfies Intl.DateTimeFormatOptions
+
+const dateTimeFormat = (
+  locale: Locale,
+  timeZone: string,
+  fields: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormat => {
+  // Keyed on the field set as well as the locale and zone: a caller asking for
+  // a month name gets a different formatter from one asking for a full stamp,
+  // and the two must not share a cache entry.
+  const key = `${locale}|${timeZone}|${JSON.stringify(fields)}`
+  let format = dateTimeFormats.get(key)
   if (!format) {
-    format = new Intl.DateTimeFormat(locale, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    dateTimeFormats.set(locale, format)
+    format = new Intl.DateTimeFormat(locale, { timeZone, ...fields })
+    dateTimeFormats.set(key, format)
   }
   return format
 }
@@ -152,14 +164,28 @@ export function formatRelative(
  *
  * The old pattern was `MMM d, HH:mm`, which hardcodes an English month and a
  * month-first ordering; the options below are what each locale actually uses.
+ *
+ * `options` is honoured rather than dropped. A caller that names a timezone and
+ * a narrower field set gets exactly that: the ranking month label asks for
+ * `month: "long"` in `Asia/Shanghai`, and a formatter that ignored both would
+ * render it from the *server's* zone — on Vercel that is UTC, eight hours
+ * behind, so a period could be labelled with the wrong month. Beijing is the
+ * default rather than the server's zone for the same reason.
  */
 export function formatDateTime(
   value: Date | null | undefined,
-  { locale, empty }: FormatContext
+  { locale, empty }: FormatContext,
+  options: Intl.DateTimeFormatOptions = {}
 ): string {
   if (!value) return empty
 
-  return dateTimeFormat(locale).format(value)
+  const { timeZone = APP_TIMEZONE, ...fields } = options
+  const resolved =
+    Object.keys(fields).length > 0
+      ? (fields as Intl.DateTimeFormatOptions)
+      : DEFAULT_DATE_TIME_FIELDS
+
+  return dateTimeFormat(locale, timeZone, resolved).format(value)
 }
 
 /**
@@ -228,8 +254,15 @@ export function useFormats() {
   return {
     relative: (value: Date | null | undefined) =>
       formatRelative(value, context),
-    dateTime: (value: Date | null | undefined) =>
-      formatDateTime(value, context),
+    /**
+     * `options` is forwarded, so a caller that names a timezone or a narrower
+     * field set gets it. Dropping it here is what made a pinned
+     * `timeZone: APP_TIMEZONE` on a ranking label inert.
+     */
+    dateTime: (
+      value: Date | null | undefined,
+      options?: Intl.DateTimeFormatOptions
+    ) => formatDateTime(value, context, options),
     duration: (value: number | null | undefined) =>
       formatDuration(value, context),
   }

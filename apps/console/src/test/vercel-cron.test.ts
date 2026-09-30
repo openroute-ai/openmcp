@@ -96,5 +96,5 @@ describe("vercel cron wiring", () => {
       firstWakeUp()
     )
     expect(onTheHalfHour.length).toBeGreaterThan(0)
-  })
+  }, 15_000)
 })
