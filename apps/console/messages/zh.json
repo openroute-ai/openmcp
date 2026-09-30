@@ -110,6 +110,7 @@
     "monthly": "月榜",
     "risingStars": "新星榜",
     "period": "周期",
+    "timezoneNote": "所有周期、截止时间与页面日期均按北京时间（Asia/Shanghai）计算。",
     "year": "年份",
     "lastCompleteWeek": "最近完整周",
     "lastCompleteMonth": "最近完整月",

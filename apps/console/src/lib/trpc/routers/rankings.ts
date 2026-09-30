@@ -35,6 +35,7 @@ import {
   resolveWeekInput,
   resolveYearInput,
 } from "@/lib/rankings-web"
+import { zonedYear } from "@/lib/time"
 import { createTRPCRouter, protectedProcedure } from "../init"
 
 const yearSchema = z.number().int().min(2000).max(9999)
@@ -164,8 +165,10 @@ export const rankingsRouter = createTRPCRouter({
         .from(risingStarProjects),
     ])
 
+    // Beijing's year, so at 00:30 on 1 January the year being set up is the one
+    // that has just started rather than the one that ended a second ago.
     const years = new Set<number>([
-      new Date().getFullYear(),
+      zonedYear(),
       ...withHistory.map((row) => row.year),
       ...configured.map((row) => row.year),
       ...built.map((row) => row.year),

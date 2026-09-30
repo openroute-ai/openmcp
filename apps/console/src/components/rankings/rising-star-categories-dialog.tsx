@@ -28,6 +28,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 import { useTRPC } from "@/lib/trpc/client"
+import { APP_TIMEZONE } from "@/lib/time"
 
 /**
  * One category as the editor holds it.
@@ -359,8 +360,13 @@ export function RisingStarCategoriesDialog({ year }: { year: number }) {
               {categories.data?.updatedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {t("categoriesUpdatedAt", {
+                    // Written in Beijing time like every other date here, and
+                    // read in it too: an operator's own zone would put the save
+                    // on the wrong day for the eight hours either side of
+                    // midnight.
                     date: format.dateTime(categories.data.updatedAt, {
                       dateStyle: "medium",
+                      timeZone: APP_TIMEZONE,
                     }),
                   })}
                 </span>

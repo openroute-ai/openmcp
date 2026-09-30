@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
+import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Table,
   TableBody,
@@ -27,15 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
 import type { Rankings } from "@/lib/github/service/rankings"
 import type { RisingStarsReport } from "@/lib/github/service/rising-stars"
 import { RisingStarCategoriesDialog } from "@/components/rankings/rising-star-categories-dialog"
+import { APP_TIMEZONE } from "@/lib/time"
 import { useTRPC } from "@/lib/trpc/client"
 
 /** Padded so a month value sorts and reads the same as a two-digit one. */
@@ -46,13 +42,19 @@ function monthValue(year: number, month: number): string {
 /**
  * The month name comes from the reader's locale, so this formats rather than
  * indexing an English array.
+ *
+ * The date is built in UTC and read in Beijing, which is the only combination
+ * that names the month the period actually is: `new Date(year, month - 1, 1)`
+ * builds midnight in the *reader's* zone, so a reader east of Beijing would see
+ * the previous month's name for a month that has already begun.
  */
 function useFormatMonth() {
   const format = useFormatter()
   return (year: number, month: number) =>
-    format.dateTime(new Date(year, month - 1, 1), {
+    format.dateTime(new Date(Date.UTC(year, month - 1, 1)), {
       year: "numeric",
       month: "long",
+      timeZone: APP_TIMEZONE,
     })
 }
 
@@ -136,9 +138,21 @@ function TagsCell({ tags }: { tags: string[] }) {
   )
 }
 
-function RankingsTable({ rows }: { rows: Row[] }) {
+function RankingsTable({ rows, pending }: { rows: Row[]; pending: boolean }) {
   const t = useTranslations("Rankings")
+  const common = useTranslations("Common")
   const numbers = useFormatNumbers()
+
+  if (pending && rows.length === 0) {
+    // Not "nothing ranked": a period change refetches, and saying the period is
+    // empty while the new numbers are on the way reads as data loss.
+    return (
+      <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
+        <Spinner />
+        {common("loading")}
+      </div>
+    )
+  }
 
   if (rows.length === 0) {
     return <p className="px-4 text-sm text-muted-foreground">{t("noRanked")}</p>
@@ -189,10 +203,12 @@ function RankingCard({
   title,
   description,
   rows,
+  pending,
 }: {
   title: string
   description: string
   rows: Row[]
+  pending: boolean
 }) {
   return (
     <Card>
@@ -201,9 +217,32 @@ function RankingCard({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <RankingsTable rows={rows} />
+        <RankingsTable rows={rows} pending={pending} />
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * One ranking family: a heading, the period it is showing, and its tables.
+ *
+ * The three families are stacked rather than tabbed, because they answer
+ * different questions at the same time — "what moved last week", "what moved
+ * last month", "what rose this year" — and a tab made two of them invisible,
+ * along with whether either had data at all.
+ */
+function RankingSection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {children}
+    </section>
   )
 }
 
@@ -212,7 +251,7 @@ function RankingCard({
  *
  * The list comes from the server rather than being generated from the
  * calendar, so a period that was never swept is not offered as a choice that
- * would render empty. `label` is passed in because the three tabs are not
+ * would render empty. `label` is passed in because the three sections are not
  * choosing the same kind of thing — a week and a month are both a "period", a
  * year is not.
  */
@@ -256,7 +295,6 @@ export function RankingsContent() {
   const t = useTranslations("Rankings")
   const formatMonth = useFormatMonth()
   const trpc = useTRPC()
-  const [tab, setTab] = React.useState("weekly")
 
   const periods = useQuery(trpc.rankings.periods.queryOptions())
   const risingYears = useQuery(trpc.rankings.risingStarYears.queryOptions())
@@ -325,6 +363,16 @@ export function RankingsContent() {
     )
   )
 
+  /**
+   * Each section refetches off its own period, keyed by that period.
+   *
+   * Nothing to do on change: the period is part of the query key, so choosing a
+   * week refetches the week, choosing a month refetches the month, and the two
+   * sections keep the numbers they already have rather than blanking while an
+   * unrelated section reloads. Saving categories invalidates every query on the
+   * page from the dialog, which is what makes a category edit show up here at
+   * the same moment it is saved.
+   */
   const weekly = useQuery(
     trpc.rankings.weekly.queryOptions(
       // Year and week are only meaningful together: passing a bare week would
@@ -353,14 +401,10 @@ export function RankingsContent() {
     rising.data && risingYear ? risingYear : t("risingDefaultYear")
 
   return (
-    <Tabs value={tab} onValueChange={setTab} className="w-full">
-      <TabsList className="grid w-full max-w-md grid-cols-3">
-        <TabsTrigger value="weekly">{t("weekly")}</TabsTrigger>
-        <TabsTrigger value="monthly">{t("monthly")}</TabsTrigger>
-        <TabsTrigger value="rising">{t("risingStars")}</TabsTrigger>
-      </TabsList>
+    <div className="flex flex-col gap-8">
+      <p className="text-sm text-muted-foreground">{t("timezoneNote")}</p>
 
-      <TabsContent value="weekly" className="flex flex-col gap-4">
+      <RankingSection title={t("weekly")}>
         <PeriodSelect
           id="rankings-week"
           label={t("period")}
@@ -374,15 +418,17 @@ export function RankingsContent() {
           title={t("trendingTitle")}
           description={t("trendingDescription", { period: weekLabel })}
           rows={rankedRows(weekly.data?.trending ?? [])}
+          pending={weekly.isPending}
         />
         <RankingCard
           title={t("growthTitle")}
           description={t("growthDescription", { period: weekLabel })}
           rows={rankedRows(weekly.data?.byRelativeGrowth ?? [])}
+          pending={weekly.isPending}
         />
-      </TabsContent>
+      </RankingSection>
 
-      <TabsContent value="monthly" className="flex flex-col gap-4">
+      <RankingSection title={t("monthly")}>
         <PeriodSelect
           id="rankings-month"
           label={t("period")}
@@ -396,15 +442,17 @@ export function RankingsContent() {
           title={t("trendingTitle")}
           description={t("trendingDescription", { period: monthLabel })}
           rows={rankedRows(monthly.data?.trending ?? [])}
+          pending={monthly.isPending}
         />
         <RankingCard
           title={t("growthTitle")}
           description={t("growthDescription", { period: monthLabel })}
           rows={rankedRows(monthly.data?.byRelativeGrowth ?? [])}
+          pending={monthly.isPending}
         />
-      </TabsContent>
+      </RankingSection>
 
-      <TabsContent value="rising" className="flex flex-col gap-4">
+      <RankingSection title={t("risingStars")}>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <PeriodSelect
             id="rankings-rising-year"
@@ -447,8 +495,9 @@ export function RankingsContent() {
           title={t("risingStars")}
           description={t("risingDescription", { year: yearLabel })}
           rows={risingRows(rising.data?.projects ?? [])}
+          pending={rising.isPending}
         />
-      </TabsContent>
-    </Tabs>
+      </RankingSection>
+    </div>
   )
 }

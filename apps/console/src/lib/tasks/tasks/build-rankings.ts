@@ -28,6 +28,7 @@ import {
   type YearWeek,
 } from "@/lib/github/snapshot-dates"
 import { ossClient } from "@/lib/oss/client"
+import { zonedCivilDate } from "@/lib/time"
 import type { Task } from "@/lib/tasks/runner"
 import { SKIP_CODES } from "@/lib/trpc/error-codes"
 
@@ -125,7 +126,7 @@ export function periodFileName(target: YearWeek | YearMonth): string {
 }
 
 /**
- * The most recent period that has finished.
+ * The most recent period that has finished, in the team's timezone.
  *
  * A week runs Monday to Sunday and a month runs to its last day, so both are
  * taken as "the one before the current one". Ranking a period that is still
@@ -136,6 +137,12 @@ export function periodFileName(target: YearWeek | YearMonth): string {
  * Always the previous period, including on the final day of a month, so the
  * rule has no boundary case where a half-completed period is published a day
  * early.
+ *
+ * The calendar is Beijing's, not the server's. A server on UTC is still on
+ * Sunday at Beijing Monday 00:30, and asking it for the last complete week
+ * there answers with the week before last — eight hours a day of publishing a
+ * ranking for the wrong seven days, and the same off-by-one at every month and
+ * year boundary.
  */
 export function lastCompletePeriod(period: "week", now: Date): YearWeek
 export function lastCompletePeriod(period: "month", now: Date): YearMonth
@@ -143,15 +150,17 @@ export function lastCompletePeriod(
   period: "week" | "month",
   now: Date
 ): YearWeek | YearMonth {
+  const civil = zonedCivilDate(now)
+
   if (period === "week") {
     // Seven days back, not one. Yesterday is only in the previous week when
     // today is a Monday; from any other weekday it is still the current week,
     // which would publish the week being ranked right now.
-    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const lastWeek = new Date(civil.getTime() - 7 * 24 * 60 * 60 * 1000)
     return getIsoWeekNumber(lastWeek)
   }
 
-  const thisMonth = monthOf(now)
+  const thisMonth = monthOf(civil)
   return thisMonth.month === 1
     ? { year: thisMonth.year - 1, month: 12 }
     : { year: thisMonth.year, month: thisMonth.month - 1 }

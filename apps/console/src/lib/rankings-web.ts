@@ -14,12 +14,19 @@
 
 import type { YearMonth, YearWeek } from "@/lib/github/snapshot-dates"
 import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
+import { zonedYear } from "@/lib/time"
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 
-/** The year the Rising Stars report defaults to: the one that just ended. */
+/**
+ * The year the Rising Stars report defaults to: the one that just ended.
+ *
+ * Beijing's calendar year, so a run at Beijing 00:30 on 1 January reports 2025
+ * rather than 2024 — the year that just ended there is still the previous one
+ * in UTC.
+ */
 export function defaultYear(now: Date = new Date()): number {
-  return now.getFullYear() - 1
+  return zonedYear(now) - 1
 }
 
 function isYear(value: number): boolean {
@@ -69,7 +76,7 @@ export function resolveWeekInput(
   if (input.week !== undefined) {
     return {
       ok: true,
-      value: { year: input.year ?? now.getFullYear(), week: input.week },
+      value: { year: input.year ?? zonedYear(now), week: input.week },
     }
   }
   return { ok: true, value: lastCompletePeriod("week", now) }
@@ -89,7 +96,7 @@ export function resolveMonthInput(
   if (input.month !== undefined) {
     return {
       ok: true,
-      value: { year: input.year ?? now.getFullYear(), month: input.month },
+      value: { year: input.year ?? zonedYear(now), month: input.month },
     }
   }
   return { ok: true, value: lastCompletePeriod("month", now) }

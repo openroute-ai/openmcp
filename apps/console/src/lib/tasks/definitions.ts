@@ -14,7 +14,11 @@
  * period a run belongs to.
  */
 
-export const SCHEDULE_TIMEZONE = "Asia/Shanghai"
+import { APP_TIMEZONE, zonedParts } from "@/lib/time"
+
+export { zonedParts } from "@/lib/time"
+
+export const SCHEDULE_TIMEZONE = APP_TIMEZONE
 
 export interface TaskSeed {
   name: string
@@ -290,61 +294,4 @@ export function matchesCron(
   if (dayOfMonthRestricted) return dayOfMonthMatches
   if (dayOfWeekRestricted) return dayOfWeekMatches
   return true
-}
-
-/** Wall-clock fields for a moment in a timezone. */
-export function zonedParts(
-  now: Date,
-  timeZone: string
-): {
-  year: number
-  minute: number
-  hour: number
-  second: number
-  day: number
-  month: number
-  dayOfWeek: number
-} {
-  // en-US with a UTC timezone is the reliable way to read local fields
-  // without depending on the server's own locale or zone.
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour12: false,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  })
-
-  const parts: Record<string, string> = {}
-  for (const part of formatter.formatToParts(now)) {
-    if (part.type !== "literal") parts[part.type] = part.value
-  }
-
-  const weekdays: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  }
-
-  const weekday = parts.weekday
-
-  return {
-    // Intl renders midnight as "24" in some locales under hour12: false, so
-    // it is reduced back into 0-23.
-    hour: Number(parts.hour) % 24,
-    minute: Number(parts.minute),
-    second: Number(parts.second),
-    year: Number(parts.year),
-    day: Number(parts.day),
-    month: Number(parts.month),
-    dayOfWeek: weekday === undefined ? 0 : (weekdays[weekday] ?? 0),
-  }
 }

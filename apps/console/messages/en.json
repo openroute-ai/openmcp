@@ -110,6 +110,7 @@
     "monthly": "Monthly",
     "risingStars": "Rising Stars",
     "period": "Period",
+    "timezoneNote": "Every period, cutoff and date on this page is computed in Beijing time (Asia/Shanghai).",
     "year": "Year",
     "lastCompleteWeek": "Last complete week",
     "lastCompleteMonth": "Last complete month",

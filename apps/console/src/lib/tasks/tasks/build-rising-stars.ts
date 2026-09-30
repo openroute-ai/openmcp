@@ -15,6 +15,7 @@
 
 import { buildRisingStarsForYear } from "@/lib/github/service/rising-stars"
 import { ossClient } from "@/lib/oss/client"
+import { defaultYear } from "@/lib/rankings-web"
 import type { RankingsStore } from "@/lib/tasks/tasks/build-rankings"
 import type { Task } from "@/lib/tasks/runner"
 import { SKIP_CODES } from "@/lib/trpc/error-codes"
@@ -57,8 +58,7 @@ export function createBuildRisingStarsTask(
     async run({ db, logger, input }) {
       const now = options.now ?? (() => new Date())
       const store = options.store ?? ossClient
-      const year =
-        options.year ?? requestedYear(input) ?? now().getFullYear() - 1
+      const year = options.year ?? requestedYear(input) ?? defaultYear(now())
 
       const report = await buildRisingStarsForYear(db, year, now())
 
