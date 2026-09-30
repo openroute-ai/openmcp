@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import type React from 'react'
 import Container from '@/components/layout/container'
 import { Logo } from '@/components/layout/logo'
+import { NewsletterSignupForm } from '@/components/layout/newsletter-signup-form'
 import { LocaleLink } from '@/i18n/navigation'
 import { getFooterLinks } from '@/lib/config/footer-config'
 import { getSocialLinks } from '@/lib/config/social-config'
@@ -72,6 +73,10 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
               </ul>
             </div>
           ))}
+
+          <div className='col-span-2 items-start md:col-span-2'>
+            <NewsletterSignupForm />
+          </div>
         </div>
       </Container>
 

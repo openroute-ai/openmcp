@@ -20,6 +20,35 @@ import { uploadFileToStorage } from '@/lib/storage/upload-client'
 
 export type KycEntityType = 'individual' | 'company'
 
+/**
+ * Who is signing up on the company's behalf, for company KYC.
+ *
+ * The two are mutually exclusive: `validateKycDocuments` rejects a payload that
+ * carries documents for both, because the reviewer could not otherwise tell
+ * which party is the actual counterparty.
+ */
+export type KycRepresentative = 'legal_person' | 'authorized'
+
+/** Documents required by each branch of company KYC. */
+export const KYC_DOCS_FOR_REPRESENTATIVE: Record<
+  KycRepresentative,
+  { key: KycDocKey; labelKey: string; hintKey?: string }[]
+> = {
+  legal_person: [
+    { key: 'legalPersonIdFront', labelKey: 'docs.legalPersonIdFront' },
+    { key: 'legalPersonIdBack', labelKey: 'docs.legalPersonIdBack' },
+  ],
+  authorized: [
+    {
+      key: 'authorizationFile',
+      labelKey: 'docs.authorizationFile',
+      hintKey: 'docs.authorizationFileHint',
+    },
+    { key: 'authorizerIdFront', labelKey: 'docs.authorizerIdFront' },
+    { key: 'authorizerIdBack', labelKey: 'docs.authorizerIdBack' },
+  ],
+}
+
 export const KYC_DOC_KEYS = [
   'idCardFront',
   'idCardBack',

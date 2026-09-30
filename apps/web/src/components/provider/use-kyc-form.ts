@@ -7,12 +7,19 @@ import {
   type KycDocKey,
   type KycDocuments,
   type KycEntityType,
+  type KycRepresentative,
 } from './kyc-shared'
 
 interface KycFormOptions {
   entityType: KycEntityType
-  /** Company only: skips the authorisation letter when the legal person signs. */
-  legalPersonIsAuthorizer?: boolean
+  /**
+   * Company only: which set of identity documents the operator is uploading.
+   *
+   * The two are mutually exclusive, so this selects a branch rather than
+   * toggling an extra requirement. `undefined` means "not chosen yet", which is
+   * what the individual form leaves it at.
+   */
+  representative?: KycRepresentative
 }
 
 interface KycFormValues {
@@ -37,6 +44,9 @@ const SERVER_ERROR_KEYS: Record<string, string> = {
   '企业实名必须上传营业执照': 'serverErrors.businessLicenseMissing',
   '请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）': 'serverErrors.companyDocsMissing',
   '请补全授权人身份证正反面': 'serverErrors.authorizerIdMissing',
+  '请补全法人身份证正反面': 'serverErrors.legalPersonIdMissing',
+  '已上传授权文件，还需补全授权人身份证正反面': 'serverErrors.authorizationFileIncomplete',
+  '法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新提交': 'serverErrors.docsExclusive',
   '请先选择认证主体类型': 'serverErrors.entityMissing',
   '请完善实名资料（联系人、证件号、收款通道）后再提交': 'serverErrors.detailsIncomplete',
   '保存入驻信息失败': 'serverErrors.saveFailed',
@@ -57,7 +67,7 @@ const readDocMap = (metadata: unknown): KycDocuments => {
  * mirror `validateKycDocuments` / `isCompleteSubmission` so a form the browser
  * accepts is one the server should accept too.
  */
-export function useKycForm({ entityType, legalPersonIsAuthorizer }: KycFormOptions) {
+export function useKycForm({ entityType, representative }: KycFormOptions) {
   const t = useTranslations('ProviderPage.kyc')
 
   const profileQuery = trpc.providers.getMyProfile.useQuery(undefined, { retry: false })
@@ -126,6 +136,33 @@ export function useKycForm({ entityType, legalPersonIsAuthorizer }: KycFormOptio
     })
   }, [])
 
+  /**
+   * Drop documents that belong to the branch the operator just left.
+   *
+   * The two branches are mutually exclusive, so switching must not leave the
+   * previous set in the payload: the server would reject the submission with an
+   * exclusivity error the form has no field to explain.
+   */
+  const clearDocsExcept = useCallback((keep: KycDocKey[]) => {
+    setTouched(true)
+    setDraft((current) => {
+      const base: KycFormValues = current ?? {
+        contactName: '',
+        idNumber: '',
+        companyName: '',
+        payChannelType: '',
+        agreedTerms: false,
+        kycDocuments: {},
+      }
+      const docs: KycDocuments = {}
+      for (const [key, url] of Object.entries(base.kycDocuments) as [KycDocKey, string][]) {
+        // `businessLicense` is required on every branch, so it always survives.
+        if (keep.includes(key) || key === 'businessLicense') docs[key] = url
+      }
+      return { ...base, kycDocuments: docs }
+    })
+  }, [])
+
   const errors = useMemo<FieldErrors>(() => {
     const next: FieldErrors = {}
     if (!values.contactName.trim()) next.contactName = t('validation.contactName')
@@ -142,18 +179,43 @@ export function useKycForm({ entityType, legalPersonIsAuthorizer }: KycFormOptio
         next.kycDocuments = t('validation.idCardDocs')
       }
     } else {
+      // Mirrors `validateKycDocuments` on the server. The two paths are
+      // alternatives, so validation follows the selected `representative`
+      // instead of demanding documents from both.
       if (!has('businessLicense')) {
         next.kycDocuments = t('validation.businessLicense')
-      } else if (!has('authorizerIdFront') || !has('authorizerIdBack')) {
-        next.kycDocuments = t('validation.authorizerId')
-      } else if (!legalPersonIsAuthorizer && !has('authorizationFile')) {
-        next.kycDocuments = t('validation.authorizationFile')
+      } else if (representative === 'authorized') {
+        if (!has('authorizationFile')) {
+          next.kycDocuments = t('validation.authorizationFileOnly')
+        } else if (!has('authorizerIdFront') || !has('authorizerIdBack')) {
+          next.kycDocuments = t('validation.authorizerId')
+        }
+      } else if (representative === 'legal_person') {
+        if (!has('legalPersonIdFront') || !has('legalPersonIdBack')) {
+          next.kycDocuments = t('validation.legalPersonId')
+        }
+      } else {
+        // No branch chosen yet: ask for the choice, not for documents belonging
+        // to a branch the operator has not opted into.
+        next.kycDocuments = t('validation.representativeRequired')
+      }
+
+      // Catches a payload that mixes both paths, which the branch validation
+      // above cannot see: the server rejects it too, so flag it here rather
+      // than letting the round-trip fail.
+      if (!next.kycDocuments) {
+        const legalPersonOk = has('legalPersonIdFront') && has('legalPersonIdBack')
+        const authorizedOk =
+          has('authorizationFile') && has('authorizerIdFront') && has('authorizerIdBack')
+        if (legalPersonOk && authorizedOk) {
+          next.kycDocuments = t('validation.exclusive')
+        }
       }
     }
 
     if (!values.agreedTerms) next.agreedTerms = t('validation.agreedTerms')
     return next
-  }, [values, entityType, legalPersonIsAuthorizer, t])
+  }, [values, entityType, representative, t])
 
   const errorCount = Object.keys(errors).length
   const isSubmitting = upsert.isPending
@@ -212,6 +274,7 @@ export function useKycForm({ entityType, legalPersonIsAuthorizer }: KycFormOptio
     touched,
     setField,
     setDoc,
+    clearDocsExcept,
     fieldError,
     submit,
     refresh,

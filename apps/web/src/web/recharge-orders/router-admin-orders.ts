@@ -173,9 +173,14 @@ export const adminRechargeOrdersRouter = createTRPCRouter({
   /**
    * Create an order on an admin's behalf (offline sale, migration, support).
    *
-   * Does not credit the wallet — an order created as `pending` is a record, not
-   * a payment. Crediting happens when the order transitions to `paid` through
-   * `updateRechargeOrder`, which routes into the idempotent settle path.
+   * An order created as anything other than `paid` does not credit the wallet:
+   * it is a record, not a payment.
+   *
+   * Creating an order *as* `paid` does credit it, by routing straight into
+   * `settleRechargeOrder` rather than inserting the terminal status. Inserting
+   * `paid` directly would leave a permanently uncredited order — the settle
+   * guard is `status <> 'paid'`, so the row could never be claimed afterwards
+   * and `paid` would be indistinguishable from a real settlement.
    */
   createRechargeOrder: adminProcedure.input(orderSchema).mutation(async ({ input }) => {
     // A user FK violation here is the common case (typo'd id), so surface it as
@@ -198,6 +203,11 @@ export const adminRechargeOrdersRouter = createTRPCRouter({
       return { success: false as const, error: '订单号已存在', data: null }
     }
 
+    // `paid` is owned by the settle path, so the insert always lands on a
+    // claimable status and the credit below can still move money.
+    const shouldSettle = input.status === 'paid'
+    const insertStatus = shouldSettle ? 'pending' : input.status
+
     const [order] = await db
       .insert(rechargeOrders)
       .values({
@@ -209,10 +219,12 @@ export const adminRechargeOrdersRouter = createTRPCRouter({
         currency: input.currency,
         paymentMethod: input.paymentMethod,
         type: input.paymentMethod,
-        status: input.status,
+        status: insertStatus,
         thirdPartyOrderId: input.thirdPartyOrderId ?? null,
         expiresAt: input.expiresAt,
-        paidAt: input.paidAt ?? null,
+        // `paidAt` is stamped by the settle path; honouring it here would claim
+        // money was received before it was.
+        paidAt: shouldSettle ? null : (input.paidAt ?? null),
         remark: input.remark ?? null,
         ip: input.ip ?? null,
         userAgent: input.userAgent ?? null,
@@ -222,6 +234,31 @@ export const adminRechargeOrdersRouter = createTRPCRouter({
     if (!order) {
       return { success: false as const, error: '创建充值订单失败', data: null }
     }
+
+    if (shouldSettle) {
+      const settlement = await settleRechargeOrder({
+        orderId: order.orderId,
+        reason: 'admin_marked_paid',
+        // Same rationale as `updateRechargeOrder`: the operator is attesting
+        // the money arrived, so a stale `expiresAt` must not strand the credit.
+        allowExpired: true,
+      })
+
+      if (!settlement.ok) {
+        // The order exists and is visible as `pending`, so the credit can be
+        // retried from the table instead of being silently lost with the insert.
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: settlement.error })
+      }
+
+      const [settled] = await db
+        .select()
+        .from(rechargeOrders)
+        .where(eq(rechargeOrders.id, order.id))
+        .limit(1)
+
+      return { success: true as const, data: settled ?? order }
+    }
+
     return { success: true as const, data: order }
   }),
 

@@ -787,6 +787,10 @@
           "invoice": {
             "title": "发票信息",
             "description": "开票抬头与税务资料"
+          },
+          "recharge": {
+            "title": "钱包与积分",
+            "description": "充值余额并查看积分流水"
           }
         }
       },
@@ -2404,11 +2408,21 @@
         "infringement": "侵权投诉：如 Skill 涉及版权问题，请发送邮件至 <link>service@openmcp.cn</link>，我们将在收到通知后及时核实并予以下架处理。",
         "copyright": "Copyright ©2025-Present 天津聚链科技有限公司版权所有",
         "icp": "津ICP备2023007973号"
+      },
+      "newsletter": {
+        "title": "订阅邮件通讯",
+        "description": "不定期推送产品更新与平台动态。",
+        "placeholder": "you@example.com",
+        "submit": "订阅",
+        "submitting": "订阅中…",
+        "success": "订阅成功，请查收确认邮件。",
+        "error": "订阅失败，请稍后重试。",
+        "emailRequired": "请输入邮箱地址。"
       }
     },
     "avatar": {
       "dashboard": "工作台",
-      "billing": "账单",
+      "wallet": "钱包",
       "settings": "设置"
     }
   },
@@ -2491,19 +2505,19 @@
       "messageMaxLength": "消息必须不超过 500 个字符"
     },
     "wechat": {
-      "title": "微信联系",
-      "description": "扫描二维码添加微信",
-      "contactWeChat": "微信联系",
-      "openDialog": "打开微信联系对话框",
+      "title": "微信联系我们",
+      "description": "使用微信扫描下方二维码添加我们为好友。",
+      "openDialog": "打开微信联系弹窗",
+      "contactWeChat": "微信联系我们",
+      "qrCodePlaceholder": "微信二维码",
       "qrCodeAlt": "微信二维码",
-      "qrCodePlaceholder": "二维码加载失败",
       "wechatId": "微信号",
       "copy": "复制",
       "copied": "已复制",
-      "copySuccess": "微信号已复制到剪贴板",
+      "copySuccess": "微信号已复制",
       "copyFailed": "复制失败，请手动复制",
-      "supportNote": "这是我们的技术支持微信，随时为您服务",
-      "instruction1": "请使用微信扫描上方二维码"
+      "supportNote": "微信号",
+      "instruction1": "打开微信扫描上方二维码即可添加我们为好友。"
     }
   },
   "WaitlistPage": {
@@ -3558,7 +3572,13 @@
         "payChannel": "收款通道",
         "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
         "agreedTerms": "我已阅读并同意《提供者服务协议》与市场规则。",
-        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。"
+        "legalPersonIsAuthorizer": "由法人本人作为账户操作人，无需额外授权文件。",
+        "representative": "办理人身份",
+        "representativeHint": "决定需要提交哪一套证件材料。",
+        "representativeLegalPerson": "法人本人办理",
+        "representativeLegalPersonDetail": "上传法人身份证正反面，无需授权文件。",
+        "representativeAuthorized": "授权经办人办理",
+        "representativeAuthorizedDetail": "上传授权文件，并由授权人提供身份证正反面。"
       },
       "payChannels": {
         "wechat": "微信",
@@ -3573,7 +3593,13 @@
         "businessLicense": "请上传营业执照",
         "authorizerId": "请上传授权人身份证正反面",
         "authorizationFile": "请上传授权文件，或勾选“由法人本人作为账户操作人”",
-        "agreedTerms": "请先同意服务协议再提交"
+        "agreedTerms": "请先同意服务协议再提交",
+        "legalPersonId": "请上传法人身份证正反面",
+        "legalPersonOrAuthorized": "请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）",
+        "exclusive": "法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新上传",
+        "exclusiveDetail": "两套材料只能二选一：法人身份证，或授权文件 + 授权人身份证。切换上方选项会清空另一套已上传的文件。",
+        "authorizationFileOnly": "请上传授权文件，并由授权人提供身份证正反面",
+        "representativeRequired": "请先选择办理人身份"
       },
       "serverErrors": {
         "locked": "实名认证审核中，资料已锁定，请等待审核通过或驳回后再修改。",
@@ -3584,7 +3610,10 @@
         "entityMissing": "请先选择认证主体类型。",
         "detailsIncomplete": "请完善实名资料（联系人、证件号、收款通道）后再提交。",
         "saveFailed": "保存入驻信息失败，请重试。",
-        "userMissing": "账户不存在。"
+        "userMissing": "账户不存在。",
+        "legalPersonIdMissing": "请补全法人身份证正反面。",
+        "authorizationFileIncomplete": "已上传授权文件，还需补全授权人身份证正反面。",
+        "docsExclusive": "法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新提交。"
       },
       "submit": {
         "label": "提交审核",
@@ -4114,6 +4143,46 @@
       "new": "最新",
       "popular": "热门",
       "free": "免费"
+    }
+  },
+  "Rankings": {
+    "title": "排行榜",
+    "backToRankings": "返回排行榜",
+    "viewAll": "查看全部",
+    "empty": "该周期暂无排行数据。",
+    "dimensions": {
+      "popular": "热门",
+      "recent": "最新"
+    },
+    "periods": {
+      "daily": "日榜",
+      "weekly": "周榜",
+      "monthly": "月榜"
+    },
+    "sections": {
+      "latest": "昨日",
+      "previous": "前天",
+      "lastWeek": "上周",
+      "lastMonth": "上月"
+    },
+    "navigation": {
+      "previous": "上一周期",
+      "next": "下一周期"
+    },
+    "pagination": {
+      "previous": "上一页",
+      "next": "下一页"
+    },
+    "complexity": {
+      "beginner": "入门",
+      "intermediate": "进阶",
+      "advanced": "高级"
+    },
+    "card": {
+      "newEntry": "新上榜",
+      "noChange": "与上期持平",
+      "rankChange": "较上期上升 {count} 位",
+      "popularityScore": "热度 {score}"
     }
   }
 }

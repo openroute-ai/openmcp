@@ -68,7 +68,12 @@ export type ProviderMetadata = {
 /**
  * 校验实名认证附件完整性。
  * - 个人：身份证正反面必传
- * - 企业：营业执照必传；法人身份证正反面 或（授权文件 + 授权人身份证正反面）二选一全套必传
+ * - 企业：营业执照必传；下面两条路径二选一，且互斥：
+ *   1. 法人本人办理：法人身份证正反面
+ *   2. 授权经办人办理：授权文件 + 授权人身份证正反面
+ *
+ * 互斥的原因：两套材料同时出现时无法判断谁是实际签约主体，人工审核只能靠猜，
+ * 所以两套齐备直接判为错误。
  */
 export function validateKycDocuments(
   entityType: 'individual' | 'company' | null | undefined,
@@ -86,11 +91,30 @@ export function validateKycDocuments(
     }
     const legalPersonOk = has('legalPersonIdFront') && has('legalPersonIdBack')
     const authorizedOk = has('authorizationFile') && has('authorizerIdFront') && has('authorizerIdBack')
+
+    // Report an incomplete upload on either path before the exclusivity check,
+    // otherwise someone who started one path gets a generic "pick one" message
+    // instead of being told which file is missing.
+    const legalPersonPartial = (has('legalPersonIdFront') || has('legalPersonIdBack')) && !legalPersonOk
+    const authorizerPartial =
+      (has('authorizerIdFront') || has('authorizerIdBack')) && !(has('authorizerIdFront') && has('authorizerIdBack'))
+
+    if (legalPersonPartial) {
+      return '请补全法人身份证正反面'
+    }
+    if (authorizerPartial) {
+      return '请补全授权人身份证正反面'
+    }
+    if (has('authorizationFile') && !authorizedOk) {
+      return '已上传授权文件，还需补全授权人身份证正反面'
+    }
+
+    // 两条路径互斥：两套材料同时出现时无法判断谁是实际签约主体，人工审核只能靠猜。
+    if (legalPersonOk && authorizedOk) {
+      return '法人身份证与（授权文件 + 授权人身份证）只能选择其中一种，请删除另一套后重新提交'
+    }
     if (!legalPersonOk && !authorizedOk) {
       return '请上传法人身份证正反面，或（授权文件 + 授权人身份证正反面）'
-    }
-    if (legalPersonOk && (!has('authorizerIdFront') || !has('authorizerIdBack'))) {
-      return '请补全授权人身份证正反面'
     }
   } else {
     return '请先选择认证主体类型'

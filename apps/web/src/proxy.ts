@@ -1,7 +1,7 @@
 import createMiddleware from "next-intl/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 import { routing, type Locale } from "@/i18n/routing"
-import { Routes, protectedRoutes } from "@/lib/routes"
+import { Routes, matchesRoute, protectedRoutes } from "@/lib/routes"
 
 /**
  * next-intl locale negotiation, combined with the auth gate.
@@ -33,12 +33,14 @@ function localize(pathname: string, locale: Locale): string {
  * True when `pathname` is, or lives under, a protected route. Compared on path
  * segments so `/admin/users` matches `/admin/users` and `/admin/users/42` but
  * not `/admin/users-archive`.
+ *
+ * Admin routes are part of `protectedRoutes`, so the signed-out redirect below
+ * covers them too. The role check for `/admin/*` cannot happen here: the proxy
+ * only sees cookie presence, not the session's role. That lives in the `/admin`
+ * layout, which resolves the session and redirects non-admins to the dashboard.
  */
 function isProtectedRoute(pathname: string): boolean {
-  return protectedRoutes.some((route) => {
-    if (pathname === route) return true
-    return pathname.startsWith(`${route}/`)
-  })
+  return matchesRoute(pathname, protectedRoutes)
 }
 
 export default function proxy(request: NextRequest) {
