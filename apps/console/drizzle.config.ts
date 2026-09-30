@@ -6,7 +6,7 @@ import { defineConfig } from "drizzle-kit"
 // previous config only read `../../.env`, which meant `db:generate` failed
 // for anyone who had filled in `apps/console/.env` (as `.env.example`
 // instructs) but not the root file.
-for (const path of [".env", "../../.env"]) {
+for (const path of [".env.local", "../../.env"]) {
   if (existsSync(path)) config({ path, override: false })
 }
 

@@ -1,6 +1,8 @@
 import Redis from "ioredis"
-import { createRedisRateLimitStorage } from "@workspace/auth"
-import type { RateLimitStorage } from "@workspace/auth"
+import {
+  createRedisRateLimitStorage,
+  type RateLimitStorage,
+} from "@/lib/rate-limit"
 
 function resolveRedisUrl() {
   const { REDIS_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD } = process.env

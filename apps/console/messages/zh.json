@@ -237,6 +237,17 @@
     "filterStatus": "按状态筛选",
     "status": {
       "all": "全部状态"
+    },
+    "filterType": "按类型筛选",
+    "type": {
+      "all": "全部类型"
+    },
+    "sortLabel": "项目排序",
+    "sort": {
+      "starsDesc": "Star 数从多到少",
+      "starsAsc": "Star 数从少到多",
+      "createdAtDesc": "最新创建优先",
+      "createdAtAsc": "最早创建优先"
     }
   },
   "ProjectDetail": {
@@ -313,7 +324,8 @@
       "contributors": "贡献者",
       "pullRequests": "PR",
       "releases": "发布",
-      "translated": "翻译"
+      "translated": "翻译",
+      "actions": "操作"
     },
     "readme": "README",
     "readmeDescription": "该仓库存储的文档，若已生成中文翻译则一并显示",
@@ -346,7 +358,40 @@
     "historyDescription": "Star 快照记录的前 {count} 个月",
     "verified": "已认证",
     "translatedYes": "已翻译",
-    "translatedNo": "未翻译"
+    "translatedNo": "未翻译",
+    "noPackages": "尚未发布任何包。",
+    "addPackage": "添加包",
+    "addPackageTitle": "添加一个包",
+    "addPackageDescription": "该项目发布的 npm 包名。带 scope 的名字是一个整体：@scope/name。",
+    "addPackageHint": "元数据会在下一次包同步任务中补齐，版本和下载量稍后才会出现。",
+    "packageNameLabel": "包名",
+    "packageAdded": "已添加包：{name}",
+    "packageAddFailed": "无法添加该包",
+    "removePackage": "移除",
+    "removePackageTitle": "要移除 {name} 吗？",
+    "removePackageDescription": "该项目将不再发布这个包。包本身会保留，包括版本、下载量和打包体积，之后重新添加这个名字会一并恢复。",
+    "removePackageLabel": "移除包 {name}",
+    "packageRemoved": "已移除包：{name}",
+    "packageRemoveFailed": "无法移除该包",
+    "trends": "趋势",
+    "trendsDescription": "来自 stargazer 扫描的 star 增长。空缺表示该月没有扫描过，而不是增长停滞。",
+    "trendThisWeek": "本周",
+    "trendThisMonth": "本月",
+    "trendThisYear": "今年",
+    "trendTotalStars": "Star 总数",
+    "trendMonthly": "按月",
+    "trendWeekly": "按周",
+    "trendUnitStars": "个 star",
+    "trendNoData": "暂无数据",
+    "trendNoMonthlyHistory": "这个仓库还没有月度 star 历史记录。运行一次 stargazer 扫描即可补齐。",
+    "trendNoWeeklyHistory": "这个仓库还没有周度 star 历史记录。",
+    "trendHint": "点选柱子查看数值。",
+    "trendReadout": "{period}：{value} {unit}",
+    "trendMonthTitle": "{year}-{month}：{value} 个 star",
+    "trendWeekTitle": "{year} 年第 {week} 周：{value} 个 star",
+    "recordSnapshot": "记录快照",
+    "snapshotRecorded": "快照已记录",
+    "snapshotFailed": "快照记录失败"
   },
   "CreateProject": {
     "trigger": "新建项目",

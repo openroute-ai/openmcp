@@ -44,8 +44,24 @@ export const PROJECT_TYPES = [
   "persona",
 ] as const
 
+/**
+ * The orders a project list can be read in, as the reference app spells them:
+ * the column, with a leading `-` for descending.
+ *
+ * Lives beside the enums rather than in the router because both ends need it —
+ * the endpoint validates against it and the picker offers it — and a list the
+ * client can request and the server will refuse is a dead control.
+ */
+export const PROJECT_SORTS = [
+  "-stars",
+  "stars",
+  "-createdAt",
+  "createdAt",
+] as const
+
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 export type ProjectType = (typeof PROJECT_TYPES)[number]
+export type ProjectSort = (typeof PROJECT_SORTS)[number]
 
 /**
  * The tags the source app excluded from every ranking.

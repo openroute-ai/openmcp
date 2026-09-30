@@ -129,6 +129,105 @@ export async function listPackagesForProject(
     .orderBy(packages.name)
 }
 
+/**
+ * A package name that npm could never serve.
+ *
+ * Checked when a name is typed rather than left to the registry: the daily
+ * task would otherwise spend a request per name per day forever, on a name
+ * that was a typo, and record nothing. The scope is part of the name, so a
+ * scoped name is one atom and not two.
+ */
+const NPM_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
+
+export function isValidPackageName(name: string): boolean {
+  return NPM_NAME.test(name)
+}
+
+/**
+ * A package that already belongs to a different project.
+ *
+ * `packages.projectId` holds one owner, so attaching a name that is already
+ * claimed would silently take it away from the project that published it —
+ * its rankings, its bundles and its detail page would all lose the package
+ * with nothing in the log. The two names are carried so the caller can say
+ * which project to look at.
+ */
+export class PackageOwnedError extends Error {
+  constructor(
+    readonly packageName: string,
+    readonly ownerName: string
+  ) {
+    super(`Package ${packageName} is already published by ${ownerName}`)
+    this.name = "PackageOwnedError"
+  }
+}
+
+/**
+ * Publishes a package name against a project.
+ *
+ * Idempotent, and deliberately not a delete-and-reinsert: a package row carries
+ * the version, the download history and the measured bundle size, all of which
+ * cost a network request to obtain. A name that has been seen before keeps all
+ * of it and only changes owner.
+ *
+ * A name already owned by another project is refused rather than taken over.
+ * Moving it is a decision about the other project, not this one, and the
+ * operator is better placed to make it on that project's own page.
+ */
+export async function attachPackage(
+  db: Db,
+  projectId: string,
+  name: string
+): Promise<void> {
+  const existing = await getPackage(db, name)
+
+  if (existing?.projectId && existing.projectId !== projectId) {
+    const [owner] = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(eq(projects.id, existing.projectId))
+      .limit(1)
+    throw new PackageOwnedError(name, owner?.name ?? existing.projectId)
+  }
+
+  if (!existing) {
+    // A row with no version yet. The daily package task fills the metadata in
+    // on its next run, so an attached name is listed before it has figures.
+    await db.insert(packages).values({ name, projectId })
+    return
+  }
+
+  await db
+    .update(packages)
+    .set({ projectId, updatedAt: new Date() })
+    .where(eq(packages.name, name))
+}
+
+/**
+ * Stops a project publishing a package, keeping the package itself.
+ *
+ * The association is cleared rather than the row deleted. The row is what the
+ * daily task reads to refresh versions and downloads, and what a re-attachment
+ * would want back; `bundles.name` also references it with a cascade, so a
+ * delete would discard a measurement that costs a request to take again. This
+ * is the same reasoning `upsertPackage` gives for never clearing ownership on
+ * its own: a project losing a package is a fact about the project, not a
+ * reason to forget the package.
+ *
+ * Scoped to the project that claims it, so a stale row in the UI cannot detach
+ * a package that has since been attached somewhere else.
+ */
+export async function detachPackage(
+  db: Db,
+  projectId: string,
+  name: string
+): Promise<void> {
+  await db
+    .update(packages)
+    .set({ projectId: null, updatedAt: new Date() })
+    .where(and(eq(packages.projectId, projectId), eq(packages.name, name)))
+}
+
 /** Packages that have a measured bundle and therefore can run in a browser. */
 export async function listBundles(
   db: Db,

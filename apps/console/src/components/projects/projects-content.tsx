@@ -13,8 +13,7 @@ import {
 } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import {
-} from "@workspace/ui/components/pagination"
+import {} from "@workspace/ui/components/pagination"
 import {
   Select,
   SelectContent,
@@ -42,10 +41,27 @@ import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
 import { useFormats } from "@/lib/i18n/format"
 import { DataPagination } from "@/components/data-pagination"
-import { PROJECT_STATUSES, type ProjectStatus } from "@/db/schema"
+import { PROJECT_SORTS, PROJECT_STATUSES, PROJECT_TYPES } from "@/db/schema"
+import type { ProjectSort, ProjectStatus, ProjectType } from "@/db/schema"
 
 /** Rows per page. Enough to scan, few enough that a page stays a page. */
 const PAGE_SIZE = 20
+
+/**
+ * Sort value to message key.
+ *
+ * The values are the wire format and read well in a URL, but `-stars` is a poor
+ * translation key: the leading dash is punctuation a translator will not know
+ * what to do with, and a key is the one thing here that cannot be inferred from
+ * its neighbours. A total over `PROJECT_SORTS` is what makes a new order fail
+ * the build rather than render blank.
+ */
+const SORT_LABELS = {
+  "-stars": "sort.starsDesc",
+  stars: "sort.starsAsc",
+  "-createdAt": "sort.createdAtDesc",
+  createdAt: "sort.createdAtAsc",
+} as const satisfies Record<ProjectSort, string>
 
 /**
  * How long typing pauses before the search is sent.
@@ -77,17 +93,18 @@ export function ProjectsContent() {
   const [search, setSearch] = React.useState("")
   const [term, setTerm] = React.useState("")
   const [status, setStatus] = React.useState<"all" | ProjectStatus>("all")
+  const [type, setType] = React.useState<"all" | ProjectType>("all")
+  const [sort, setSort] = React.useState<ProjectSort>("-createdAt")
   const [page, setPage] = React.useState(1)
   const [settled, setSettled] = React.useState<{
     term: string
     status: "all" | ProjectStatus
-  }>({ term, status: "all" })
+    type: "all" | ProjectType
+    sort: ProjectSort
+  }>({ term, status: "all", type: "all", sort: "-createdAt" })
 
   React.useEffect(() => {
-    const timer = setTimeout(
-      () => setTerm(search.trim()),
-      SEARCH_DEBOUNCE_MS
-    )
+    const timer = setTimeout(() => setTerm(search.trim()), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -95,11 +112,21 @@ export function ProjectsContent() {
   // is a position in a list that no longer exists, and it usually renders empty
   // rather than as an error.
   //
+  // The sort is in here for the same reason even though it changes the order
+  // rather than the contents: page five of a different order is a different
+  // set of rows, so keeping the offset would show a page that has no relation
+  // to the one the operator just asked for.
+  //
   // Adjusted during render rather than in an effect, because the page and the
   // term are two halves of one value and an effect would paint the stale page
   // once before correcting it.
-  if (term !== settled.term || status !== settled.status) {
-    setSettled({ term, status })
+  if (
+    term !== settled.term ||
+    status !== settled.status ||
+    type !== settled.type ||
+    sort !== settled.sort
+  ) {
+    setSettled({ term, status, type, sort })
     setPage(1)
   }
 
@@ -107,6 +134,8 @@ export function ProjectsContent() {
     trpc.projects.list.queryOptions({
       search: term || undefined,
       status: status === "all" ? undefined : status,
+      type: type === "all" ? undefined : type,
+      sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     })
@@ -185,6 +214,40 @@ export function ProjectsContent() {
                 {PROJECT_STATUSES.map((value) => (
                   <SelectItem key={value} value={value}>
                     {statusLabel(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* The type is the other half of what a project *is*, and it was
+                only ever shown as a column. Five types in a list of a few
+                hundred is a set narrow enough to be worth a control. */}
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as typeof type)}
+            >
+              <SelectTrigger className="w-40" aria-label={t("filterType")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("type.all")}</SelectItem>
+                {PROJECT_TYPES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {typeLabel(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sort}
+              onValueChange={(value) => setSort(value as ProjectSort)}
+            >
+              <SelectTrigger className="w-48" aria-label={t("sortLabel")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_SORTS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(SORT_LABELS[value])}
                   </SelectItem>
                 ))}
               </SelectContent>

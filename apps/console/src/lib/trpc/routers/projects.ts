@@ -1,10 +1,22 @@
-import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import {
+  PROJECT_SORTS,
   PROJECT_STATUSES,
   PROJECT_TYPES,
   bundles,
+  repoWeeklyStars,
   hallOfFame,
   hallOfFameToProjects,
   packages,
@@ -16,6 +28,7 @@ import {
   snapshots,
   tags,
 } from "@/db/schema"
+import type { ProjectSort } from "@/db/schema"
 import {
   InvalidRepoUrlError,
   createProjectFromRepo,
@@ -27,14 +40,88 @@ import {
   NO_DESCRIPTION,
   updateProject,
 } from "@/lib/github/service/project"
+import { listProjectTags, setProjectTags } from "@/lib/github/service/tag"
 import {
-  listProjectTags,
-  setProjectTags,
-} from "@/lib/github/service/tag"
+  lastNWeeks,
+  monthlyBars,
+  periodTrends,
+} from "@/lib/github/service/snapshot"
+import type { Db } from "@/lib/github/service/repo"
+import {
+  PackageOwnedError,
+  attachPackage,
+  detachPackage,
+  isValidPackageName,
+} from "@/lib/github/service/package"
 import { startProjectResync } from "@/lib/github/service/resync"
 import { parseGithubRepoUrl } from "@/lib/github/repo-url"
 import { createConsoleLogger } from "@/lib/tasks/runner"
 import { createTRPCRouter, adminProcedure } from "../init"
+
+/**
+ * Turns a sort key into the clauses that order a page of projects.
+ *
+ * Two things are not obvious here and both were wrong the first time a sort
+ * existed:
+ *
+ * `repos.stars` is nullable, because a repository that has not been synced yet
+ * has never had its count read. Postgres sorts nulls *first* under `DESC` by
+ * default, so the most-starred list would open with every unsynced project on
+ * it. The direction is chosen explicitly to put unknown counts last either way.
+ *
+ * The sort column is not unique — thousands of projects share a star count of
+ * zero, and every project in a batch import shares a `createdAt` to the second.
+ * Without a unique tiebreaker Postgres is free to return equal rows in any
+ * order, so a row can appear on both page one and page two, or on neither,
+ * depending on how the plan happened to execute. `id` settles it.
+ */
+function orderByFor(sort: ProjectSort) {
+  if (sort === "-stars") return [orderStars("desc"), asc(projects.id)]
+  if (sort === "stars") return [orderStars("asc"), asc(projects.id)]
+  if (sort === "createdAt") return [asc(projects.createdAt), asc(projects.id)]
+  return [desc(projects.createdAt), asc(projects.id)]
+}
+
+/**
+ * The star count in one direction, with the projects that have none last.
+ *
+ * `nullsLast()` would say this directly, but it lives on the index-aware column
+ * wrapper and `repos.stars` is a bare `PgColumn`, so the clause is spelled out
+ * instead. Only the star orders need it: `createdAt` is `notNull`.
+ */
+function orderStars(direction: "asc" | "desc") {
+  return sql`${repos.stars} ${sql.raw(direction)} nulls last`
+}
+
+/**
+ * Fails unless the project exists.
+ *
+ * The mutations below all take a project id from the client, and a stale tab can
+ * carry one that has since been deleted. Without this the write would either
+ * silently do nothing or, for an association, attach itself to nothing and
+ * report success — the caller would refresh and see no change, with nothing in
+ * the log to explain it.
+ */
+/** Months of growth the trend chart draws. A year reads as a trend, not a log. */
+const CHART_MONTHS = 12
+
+/** Weeks the weekly chart draws, and the most it ever reads from the table. */
+const CHART_WEEKS = 12
+
+async function requireProject(db: Db, id: string) {
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, id))
+    .limit(1)
+  if (!project) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Project not found",
+    })
+  }
+  return project
+}
 
 export const projectsRouter = createTRPCRouter({
   /**
@@ -120,7 +207,16 @@ export const projectsRouter = createTRPCRouter({
     .input(
       z.object({
         status: z.enum(PROJECT_STATUSES).optional(),
+        type: z.enum(PROJECT_TYPES).optional(),
         search: z.string().trim().max(200).optional(),
+        /**
+         * The order the page is read in, as the reference app spells it: the
+         * column with a leading `-` for descending. Validated against
+         * `PROJECT_SORTS` — the same constant the picker offers — so a sort the
+         * client can request but the server would reject cannot exist, and
+         * neither end needs to know the other's copy of the list.
+         */
+        sort: z.enum(PROJECT_SORTS).default("-createdAt"),
         limit: z.number().int().min(1).max(100).default(20),
         offset: z.number().int().min(0).default(0),
       })
@@ -129,6 +225,9 @@ export const projectsRouter = createTRPCRouter({
       const conditions: SQL[] = []
       if (input.status) {
         conditions.push(eq(projects.status, input.status))
+      }
+      if (input.type) {
+        conditions.push(eq(projects.type, input.type))
       }
 
       const term = input.search?.trim()
@@ -178,7 +277,7 @@ export const projectsRouter = createTRPCRouter({
           .from(projects)
           .leftJoin(repos, eq(projects.repoId, repos.id))
           .where(where)
-          .orderBy(desc(projects.createdAt))
+          .orderBy(...orderByFor(input.sort))
           .limit(input.limit)
           .offset(input.offset),
         ctx.db
@@ -340,103 +439,139 @@ export const projectsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" })
       }
 
-      const [skills, jobs, authors, projectTags, snapshotRows, packageRows] =
-        await Promise.all([
-          ctx.db
-            .select({
-              id: projectSkills.id,
-              skillDir: projectSkills.skillDir,
-              name: projectSkills.name,
-              description: projectSkills.description,
-              descriptionZh: projectSkills.descriptionZh,
-              // Carried as lengths rather than the documents: the page lists
-              // skills, and a SKILL.md per row would make the payload larger
-              // than the README it sits under.
-              readmeLength: sql<number>`length(coalesce(${projectSkills.readme}, ''))::int`,
-              readmeZhLength: sql<number>`length(coalesce(${projectSkills.readmeZh}, ''))::int`,
-              version: projectSkills.version,
-              contentHash: projectSkills.contentHash,
-              syncedToWebAt: projectSkills.syncedToWebAt,
-              lastSyncAttemptAt: projectSkills.lastSyncAttemptAt,
-              lastSyncError: projectSkills.lastSyncError,
-              updatedAt: projectSkills.updatedAt,
-            })
-            .from(projectSkills)
-            .where(eq(projectSkills.projectId, input.id))
-            .orderBy(asc(projectSkills.name)),
-          ctx.db
-            .select({
-              id: projectSyncJobs.id,
-              status: projectSyncJobs.status,
-              triggeredBy: projectSyncJobs.triggeredBy,
-              errorMessage: projectSyncJobs.errorMessage,
-              startedAt: projectSyncJobs.startedAt,
-              completedAt: projectSyncJobs.completedAt,
-              createdAt: projectSyncJobs.createdAt,
-            })
-            .from(projectSyncJobs)
-            .where(eq(projectSyncJobs.projectId, input.id))
-            .orderBy(desc(projectSyncJobs.createdAt))
-            .limit(20),
-          ctx.db
-            .select({
-              username: hallOfFame.username,
-              name: hallOfFame.name,
-              avatarUrl: hallOfFame.avatarUrl,
-              avatar: hallOfFame.avatar,
-              github: hallOfFame.github,
-              homepage: hallOfFame.homepage,
-              twitter: hallOfFame.twitter,
-              linkedin: hallOfFame.linkedin,
-              bio: hallOfFame.bio,
-              verified: hallOfFame.verified,
-              followers: hallOfFame.followers,
-              npmUsername: hallOfFame.npmUsername,
-              npmPackageCount: hallOfFame.npmPackageCount,
-            })
-            .from(hallOfFameToProjects)
-            .innerJoin(
-              hallOfFame,
-              eq(hallOfFameToProjects.username, hallOfFame.username)
-            )
-            .where(eq(hallOfFameToProjects.projectId, input.id))
-            .orderBy(asc(hallOfFame.username)),
-          ctx.db
-            .select({
-              code: tags.code,
-              name: tags.name,
-              description: tags.description,
-              aliases: tags.aliases,
-              excludeFromRankings: tags.excludeFromRankings,
-            })
-            .from(projectsToTags)
-            .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
-            .where(eq(projectsToTags.projectId, input.id))
-            .orderBy(asc(tags.code)),
-          ctx.db
-            .select({ year: snapshots.year, months: snapshots.months })
-            .from(snapshots)
-            .where(eq(snapshots.repoId, project.repoId))
-            .orderBy(asc(snapshots.year)),
-          ctx.db
-            .select({
-              name: packages.name,
-              version: packages.version,
-              monthlyDownloads: packages.monthlyDownloads,
-              dependencies: packages.dependencies,
-              devDependencies: packages.devDependencies,
-              deprecated: packages.deprecated,
-              updatedAt: packages.updatedAt,
-              bundleVersion: bundles.version,
-              bundleSize: bundles.size,
-              bundleGzip: bundles.gzip,
-              bundleError: bundles.errorMessage,
-            })
-            .from(packages)
-            .leftJoin(bundles, eq(bundles.name, packages.name))
-            .where(eq(packages.projectId, input.id))
-            .orderBy(asc(packages.name)),
-        ])
+      const [
+        skills,
+        jobs,
+        authors,
+        projectTags,
+        snapshotRows,
+        packageRows,
+        weeklyRows,
+      ] = await Promise.all([
+        ctx.db
+          .select({
+            id: projectSkills.id,
+            skillDir: projectSkills.skillDir,
+            name: projectSkills.name,
+            description: projectSkills.description,
+            descriptionZh: projectSkills.descriptionZh,
+            // Carried as lengths rather than the documents: the page lists
+            // skills, and a SKILL.md per row would make the payload larger
+            // than the README it sits under.
+            readmeLength: sql<number>`length(coalesce(${projectSkills.readme}, ''))::int`,
+            readmeZhLength: sql<number>`length(coalesce(${projectSkills.readmeZh}, ''))::int`,
+            version: projectSkills.version,
+            contentHash: projectSkills.contentHash,
+            syncedToWebAt: projectSkills.syncedToWebAt,
+            lastSyncAttemptAt: projectSkills.lastSyncAttemptAt,
+            lastSyncError: projectSkills.lastSyncError,
+            updatedAt: projectSkills.updatedAt,
+          })
+          .from(projectSkills)
+          .where(eq(projectSkills.projectId, input.id))
+          .orderBy(asc(projectSkills.name)),
+        ctx.db
+          .select({
+            id: projectSyncJobs.id,
+            status: projectSyncJobs.status,
+            triggeredBy: projectSyncJobs.triggeredBy,
+            errorMessage: projectSyncJobs.errorMessage,
+            startedAt: projectSyncJobs.startedAt,
+            completedAt: projectSyncJobs.completedAt,
+            createdAt: projectSyncJobs.createdAt,
+          })
+          .from(projectSyncJobs)
+          .where(eq(projectSyncJobs.projectId, input.id))
+          .orderBy(desc(projectSyncJobs.createdAt))
+          .limit(20),
+        ctx.db
+          .select({
+            username: hallOfFame.username,
+            name: hallOfFame.name,
+            avatarUrl: hallOfFame.avatarUrl,
+            avatar: hallOfFame.avatar,
+            github: hallOfFame.github,
+            homepage: hallOfFame.homepage,
+            twitter: hallOfFame.twitter,
+            linkedin: hallOfFame.linkedin,
+            bio: hallOfFame.bio,
+            verified: hallOfFame.verified,
+            followers: hallOfFame.followers,
+            npmUsername: hallOfFame.npmUsername,
+            npmPackageCount: hallOfFame.npmPackageCount,
+          })
+          .from(hallOfFameToProjects)
+          .innerJoin(
+            hallOfFame,
+            eq(hallOfFameToProjects.username, hallOfFame.username)
+          )
+          .where(eq(hallOfFameToProjects.projectId, input.id))
+          .orderBy(asc(hallOfFame.username)),
+        ctx.db
+          .select({
+            code: tags.code,
+            name: tags.name,
+            description: tags.description,
+            aliases: tags.aliases,
+            excludeFromRankings: tags.excludeFromRankings,
+          })
+          .from(projectsToTags)
+          .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
+          .where(eq(projectsToTags.projectId, input.id))
+          .orderBy(asc(tags.code)),
+        ctx.db
+          .select({ year: snapshots.year, months: snapshots.months })
+          .from(snapshots)
+          .where(eq(snapshots.repoId, project.repoId))
+          .orderBy(asc(snapshots.year)),
+        ctx.db
+          .select({
+            name: packages.name,
+            version: packages.version,
+            monthlyDownloads: packages.monthlyDownloads,
+            dependencies: packages.dependencies,
+            devDependencies: packages.devDependencies,
+            deprecated: packages.deprecated,
+            updatedAt: packages.updatedAt,
+            bundleVersion: bundles.version,
+            bundleSize: bundles.size,
+            bundleGzip: bundles.gzip,
+            bundleError: bundles.errorMessage,
+          })
+          .from(packages)
+          .leftJoin(bundles, eq(bundles.name, packages.name))
+          .where(eq(packages.projectId, input.id))
+          .orderBy(asc(packages.name)),
+        // Only the weeks the chart can show. The table holds a row per week
+        // since the first stargazer, which for an old repository is years of
+        // rows, and the page needs a year of them at most.
+        ctx.db
+          .select({
+            year: repoWeeklyStars.year,
+            week: repoWeeklyStars.week,
+            stars: repoWeeklyStars.stars,
+          })
+          .from(repoWeeklyStars)
+          .where(eq(repoWeeklyStars.repoId, project.repoId))
+          .orderBy(desc(repoWeeklyStars.year), desc(repoWeeklyStars.week))
+          .limit(CHART_WEEKS),
+      ])
+
+      // Computed here rather than in the browser so the chart, the headline
+      // numbers and the history table below them cannot disagree: they are one
+      // read of one set of rows.
+      const months = snapshotRows.flatMap((row) => row.months ?? [])
+      const trends = {
+        bars: monthlyBars(months, CHART_MONTHS, new Date()),
+        weeks: lastNWeeks(CHART_WEEKS, new Date()).map((yearWeek) => ({
+          yearWeek,
+          stars:
+            weeklyRows.find(
+              (row) => row.year === yearWeek.year && row.week === yearWeek.week
+            )?.stars ?? 0,
+        })),
+        periods: periodTrends(months, weeklyRows),
+      }
 
       return {
         ...project,
@@ -446,6 +581,7 @@ export const projectsRouter = createTRPCRouter({
         tags: projectTags,
         snapshots: snapshotRows,
         packages: packageRows,
+        ...(trends === undefined ? {} : { trends }),
       }
     }),
 
@@ -528,6 +664,65 @@ export const projectsRouter = createTRPCRouter({
    * it can assign, so toggling two and saving is one round trip that cannot
    * lose the edits to a read-modify-write race against a second operator.
    */
+  /**
+   * Publishes an npm package name against this project.
+   *
+   * The name is only checked for shape here. Whether it exists on the registry
+   * is the daily task's business, and a lookup in this request would make
+   * adding a package depend on npm being reachable.
+   */
+  addPackage: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(214)
+          .refine(isValidPackageName, "Invalid package name"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireProject(ctx.db, input.id)
+
+      try {
+        await attachPackage(ctx.db, input.id, input.name)
+      } catch (error) {
+        if (error instanceof PackageOwnedError) {
+          // A conflict about a different project is not a failure the operator
+          // can fix by retrying, so it is a conflict rather than a bad request.
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: error.message,
+            cause: error,
+          })
+        }
+        throw error
+      }
+
+      return { name: input.name }
+    }),
+
+  /**
+   * Stops this project publishing a package.
+   *
+   * The package row itself survives — see `detachPackage` — so re-adding the
+   * name later keeps the version, the downloads and the measured bundle size.
+   */
+  removePackage: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        name: z.string().trim().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireProject(ctx.db, input.id)
+      await detachPackage(ctx.db, input.id, input.name)
+      return { name: input.name }
+    }),
+
   setTags: adminProcedure
     .input(
       z.object({
@@ -536,17 +731,7 @@ export const projectsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const [project] = await ctx.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.id, input.id))
-      if (!project) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Project not found",
-        })
-      }
-
+      await requireProject(ctx.db, input.id)
       await setProjectTags(ctx.db, input.id, input.codes)
       return listProjectTags(ctx.db, input.id)
     }),

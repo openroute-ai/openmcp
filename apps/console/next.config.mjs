@@ -13,7 +13,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts")
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@workspace/ui", "@workspace/auth", "@workspace/db"],
+  transpilePackages: ["@workspace/ui", "@workspace/db"],
 }
 
 export default withNextIntl(nextConfig)
