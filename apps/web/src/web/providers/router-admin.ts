@@ -1,10 +1,19 @@
 import { and, count, desc, eq, like, or } from "drizzle-orm"
 import z from "zod"
 import { db } from "@/lib/db"
-import { authors, providerProfiles, providerKycSubmissions, user, session, organization } from "@workspace/db"
+import { authors, providerProfiles, providerKycSubmissions, providerStatements, user, session, organization } from "@workspace/db"
 import type { OrganizationMetadata } from "@workspace/db"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "./settlement"
+import {
+  adminGetStatement,
+  adminListPayableStatements,
+  adminListStatements,
+  confirmStatement as confirmStatementForAdmin,
+  markStatementPaid,
+  unbilledEarningsTotal,
+} from "./statements"
+import { adminListRefundableEntitlements, refundSkillEntitlement } from "./refunds"
 
 export const adminProvidersRouter = createTRPCRouter({
   /**
@@ -357,6 +366,180 @@ export const adminProvidersRouter = createTRPCRouter({
         return { success: true, data }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : '更新提现申请失败' }
+      }
+    }),
+
+  /**
+   * 月度账单列表。
+   *
+   * 与 `listPayoutRequests` 并存而非替换：老的提现申请是"创作者随时提",
+   * 账单是"按月结"，两者的状态机不同（账单不允许创作者挑金额），迁移期
+   * 两个入口都要能查到历史记录。
+   */
+  listStatements: adminProcedure
+    .input(
+      z.object({
+        status: z.enum(['pending', 'confirmed', 'paid', 'rolled']).optional(),
+        period: z
+          .string()
+          .regex(/^\d{4}-\d{2}$/, 'period must be YYYY-MM')
+          .optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const data = await adminListStatements(input)
+        return { success: true, data }
+      } catch (error) {
+        console.error('listStatements', error)
+        return { success: false, error: '获取账单列表失败', data: [] }
+      }
+    }),
+
+  /** 打款清单：已确认待打款，按打款日排序，带是否到期。 */
+  listPayableStatements: adminProcedure.query(async () => {
+    try {
+      const data = await adminListPayableStatements()
+      return { success: true, data }
+    } catch (error) {
+      console.error('listPayableStatements', error)
+      return { success: false, error: '获取打款清单失败', data: [] }
+    }
+  }),
+
+  /** 账单明细：核对这张账单聚合了哪些收入行。 */
+  getStatementDetail: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const data = await adminGetStatement(input.id)
+        if (!data) return { success: false, error: '账单不存在', data: null }
+        return { success: true, data }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '获取账单明细失败',
+          data: null,
+        }
+      }
+    }),
+
+  /**
+   * 财务代确认（创作者逾期未确认时的兜底）。
+   *
+   * 保留这条而不是只靠自动确认：自动确认在 19 日跑，若当天 cron 挂了，
+   * 20 日的打款会被"账单尚未确认"挡住，而这里是财务能立刻解开的那一步。
+   */
+  confirmStatement: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await db
+        .select({ authorId: providerStatements.authorId })
+        .from(providerStatements)
+        .where(eq(providerStatements.id, input.id))
+        .limit(1)
+      if (!row) return { success: false, error: '账单不存在' }
+
+      const result = await confirmStatementForAdmin({
+        authorId: row.authorId,
+        statementId: input.id,
+        userId: ctx.user.id,
+        onBehalf: true,
+      })
+      return result.ok
+        ? { success: true, data: result.statement }
+        : { success: false, error: result.error }
+    }),
+
+  /**
+   * 登记打款（线下转账已完成后回填凭证号）。
+   *
+   * 幂等：重复提交返回 `alreadyPaid: true`，不会把 `paidAt` 刷新或二次置
+   * 收入行 `paid`。
+   */
+  markStatementPaid: adminProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        payoutReference: z.string().min(1).max(200),
+        adminNote: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await markStatementPaid({
+        statementId: input.id,
+        adminUserId: ctx.user.id,
+        payoutReference: input.payoutReference,
+        adminNote: input.adminNote,
+      })
+      return result.ok
+        ? { success: true, data: result.statement, alreadyPaid: result.alreadyPaid }
+        : { success: false, error: result.error }
+    }),
+
+  /** 未出账收入总额，用于后台提示"还有多少没进账单"。 */
+  unbilledEarnings: adminProcedure.query(async () => {
+    try {
+      return { success: true, data: await unbilledEarningsTotal() }
+    } catch (error) {
+      console.error('unbilledEarnings', error)
+      return { success: false, error: '获取待出账金额失败', data: { count: 0, net: 0 } }
+    }
+  }),
+
+  /**
+   * 退款：撤销买家权益 + 退回平台余额 + 冲回创作者分成。
+   *
+   * 幂等由 `skill_entitlements.status` 承担——重复调用返回"已退款"，不会
+   * 二次退钱。`reason` 必填：创作者在账单里看到的负数行只有这一句解释。
+   */
+  /**
+   * 可退款权益列表。退款接口需要一个能列出 `skill_entitlements` 的入口，
+   * 否则运营只能靠猜 id 去调退款。
+   */
+  listRefundableEntitlements: adminProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(['active', 'revoked', 'all']).optional(),
+          search: z.string().max(200).optional(),
+          limit: z.number().int().min(1).max(200).optional(),
+          offset: z.number().int().min(0).optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      try {
+        return { success: true as const, data: await adminListRefundableEntitlements(input ?? {}) }
+      } catch (error) {
+        return {
+          success: false as const,
+          error: error instanceof Error ? error.message : '获取可退款权益失败',
+          data: null,
+        }
+      }
+    }),
+
+  refundEntitlement: adminProcedure
+    .input(
+      z.object({
+        entitlementId: z.string(),
+        reason: z.string().min(1).max(500),
+        amount: z.number().positive().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const data = await refundSkillEntitlement({
+          entitlementId: input.entitlementId,
+          adminUserId: ctx.user.id,
+          reason: input.reason,
+          amount: input.amount,
+        })
+        return data.ok ? { success: true, data } : { success: false, error: data.error }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : '退款失败' }
       }
     }),
 

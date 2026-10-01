@@ -1250,7 +1250,8 @@
       "tabs": {
         "skills": "Skill sales",
         "gateway": "Gateway income",
-        "payouts": "Payout requests"
+        "payouts": "Payout requests",
+        "statements": "Monthly statements"
       },
       "stats": {
         "calls30": "Calls (Last 30 Days)",
@@ -1320,6 +1321,35 @@
         "requested": "Payout request submitted",
         "requestFailed": "Failed to request payout",
         "payAccountRequired": "Bind a WeChat / Alipay payout account first"
+      },
+      "statements": {
+        "tab": "Monthly statements",
+        "title": "Monthly statements",
+        "description": "Generated on the 5th of the following month, due for confirmation by the 19th, paid offline on the 20th. Unconfirmed statements are confirmed automatically.",
+        "summaryPending": "Awaiting confirmation",
+        "summaryConfirmed": "Awaiting payout",
+        "summaryPaid": "Paid",
+        "summaryRolled": "To be offset",
+        "tablePeriod": "Period",
+        "tableNet": "Net income",
+        "tableCarryover": "Offset from last month",
+        "tableSettlement": "Settlement",
+        "tableStatus": "Status",
+        "tableAction": "Action",
+        "tableEmpty": "No statements yet — one is generated on the 5th of each month",
+        "statusPending": "Awaiting confirmation",
+        "statusConfirmed": "Awaiting payout",
+        "statusPaid": "Paid",
+        "statusRolled": "Negative — carried into next month",
+        "confirm": "Confirm statement",
+        "confirming": "Submitting…",
+        "rollHint": "This period settles negative (refunds exceed income). It is neither confirmed nor paid; the shortfall is offset next month.",
+        "deadlineHint": "Confirm by {date}; after that it is confirmed automatically",
+        "deadlinePassed": "The confirmation deadline has passed, so this was confirmed automatically",
+        "toastConfirmed": "Statement confirmed",
+        "toastConfirmFailed": "Failed to confirm the statement",
+        "detailTitle": "Statement breakdown",
+        "detailEmpty": "No breakdown"
       }
     },
     "organization": {

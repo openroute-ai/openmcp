@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/
 import { getAuthorForUser, requireAuthorForUser } from "./author"
 import { providersDataAccess } from "./index"
 import { listMyEarnings, listMyPayoutRequests, requestPayout } from "./settlement"
+import { confirmStatement, listMyStatements, settlementPeriodFor, statementTimeline } from "./statements"
 
 export const providersRouter = createTRPCRouter({
   getMyProfile: protectedProcedure.query(async ({ ctx }) => {
@@ -100,6 +101,68 @@ export const providersRouter = createTRPCRouter({
       return { success: false, error: error instanceof Error ? error.message : '获取分成失败' }
     }
   }),
+
+  /**
+   * 我的月度账单。
+   *
+   * 结算改按月后这是创作者的主入口，`listMyEarnings` 退化为"账单生成前的
+   * 实时明细"，两者并存因为前者是账单快照、后者会随退款clawback 变动。
+   */
+  listMyStatements: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const { authorId } = await getAuthorForUser(ctx.user.id)
+      // 与 `listMyEarnings` 一样返回空壳而非空数组：页面读`data.rows` 和
+      // `data.summary`，返回 `[]` 会让汇总消失而不是显示为 0。
+      if (!authorId)
+        return {
+          success: true,
+          data: { rows: [], summary: { pending: 0, confirmed: 0, paid: 0, rolled: 0 } },
+        }
+      return { success: true, data: await listMyStatements(authorId) }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : '获取账单失败' }
+    }
+  }),
+
+  /**
+   * 某期时间线（次月 5 日出账 / 19 日确认截止 / 20 日打款）。
+   *
+   * 缺省返回**上一期**——创作者打开页面时关心的永远是"上一期账单什么时候
+   * 截止"，而不是需要自己去算 `YYYY-MM` 的某个历史月份。
+   */
+  getStatementTimeline: protectedProcedure
+    .input(z.object({ period: z.string().regex(/^\d{4}-\d{2}$/).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      try {
+        const { authorId } = await getAuthorForUser(ctx.user.id)
+        if (!authorId) return { success: true, data: null }
+        return { success: true, data: statementTimeline(input?.period ?? settlementPeriodFor(new Date())) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : '获取结算时间线失败' }
+      }
+    }),
+
+  /**
+   * 创作者确认账单。
+   *
+   * 过了 19 日会被自动确认，所以"当前可确认"要查出来给页面禁用按钮——
+   * 否则用户点了只会拿到一句"未到确认时间"，像是坏了。
+   */
+  confirmStatement: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { authorId } = await requireAuthorForUser(ctx.user.id)
+        const result = await confirmStatement({
+          authorId,
+          statementId: input.id,
+          userId: ctx.user.id,
+        })
+        return result.ok ? { success: true, data: result.statement } : { success: false, error: result.error }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : '确认账单失败' }
+      }
+    }),
 
   listMyPayoutRequests: protectedProcedure.query(async ({ ctx }) => {
     try {

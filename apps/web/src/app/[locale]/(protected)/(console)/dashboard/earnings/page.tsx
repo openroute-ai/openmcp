@@ -53,6 +53,29 @@ export default function EarningsPage() {
     { retry: false }
   )
   const { data: profileRes } = trpc.providers.getMyProfile.useQuery(undefined, { retry: false })
+  const { data: statementsRes, refetch: refetchStatements } = trpc.providers.listMyStatements.useQuery(
+    undefined,
+    { retry: false }
+  )
+  const { data: timelineRes } = trpc.providers.getStatementTimeline.useQuery(undefined, { retry: false })
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const confirmStatement = trpc.providers.confirmStatement.useMutation({
+    onSuccess: (result) => {
+      setConfirmingId(null)
+      if (result.success) {
+        toast.success(t('statements.toastConfirmed'))
+        void refetchStatements()
+        void utils.providers.listMyStatements.invalidate()
+      } else {
+        toast.error(result.error || t('statements.toastConfirmFailed'))
+      }
+    },
+    onError: (mutationError) => {
+      setConfirmingId(null)
+      toast.error(mutationError.message || t('statements.toastConfirmFailed'))
+    },
+  })
 
   const [requesting, setRequesting] = useState(false)
   const requestPayout = trpc.providers.requestPayout.useMutation({
@@ -82,6 +105,17 @@ export default function EarningsPage() {
   const payouts = payoutsRes?.success ? payoutsRes.data : []
   const profile = profileRes?.success ? profileRes.data : null
   const payReady = profile?.payChannelStatus === 'ready'
+  const statements = statementsRes?.success ? statementsRes.data : null
+  const timeline = timelineRes?.success ? timelineRes.data : null
+
+  const statementStatusLabel = (status: string) => {
+    const key = `statements.status${status.charAt(0).toUpperCase()}${status.slice(1)}` as
+      | 'statements.statusPending'
+      | 'statements.statusConfirmed'
+      | 'statements.statusPaid'
+      | 'statements.statusRolled'
+    return t.has(key) ? t(key) : status
+  }
 
   const chartData: DailyUsage[] = (providerStats?.daily ?? []).map((row) => ({
     date: row.date,
@@ -219,6 +253,14 @@ export default function EarningsPage() {
                   >
                     {t('tabs.payouts')}
                   </TabsTrigger>
+                  <TabsTrigger
+                    value='statements'
+                    onClick={() =>
+                      document.getElementById('earnings-statements')?.scrollIntoView({ behavior: 'smooth' })
+                    }
+                  >
+                    {t('tabs.statements')}
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -342,6 +384,114 @@ export default function EarningsPage() {
                       ) : null}
                     </>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card id='earnings-statements'>
+                <CardHeader>
+                  <CardTitle className='text-base'>{t('statements.title')}</CardTitle>
+                  <CardDescription>
+                    {t('statements.description')}
+                    {timeline ? (
+                      <span className='mt-1 block'>
+                        {timeline.canConfirm
+                          ? t('statements.deadlineHint', {
+                              date: new Date(timeline.confirmDeadline).toLocaleDateString(dateLocale),
+                            })
+                          : t('statements.deadlinePassed')}
+                      </span>
+                    ) : null}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='grid gap-3 sm:grid-cols-4'>
+                    {(
+                      [
+                        ['summaryPending', statements?.summary.pending ?? 0],
+                        ['summaryConfirmed', statements?.summary.confirmed ?? 0],
+                        ['summaryPaid', statements?.summary.paid ?? 0],
+                        ['summaryRolled', statements?.summary.rolled ?? 0],
+                      ] as const
+                    ).map(([key, value]) => (
+                      <div key={key} className='rounded-lg border p-3'>
+                        <div className='text-muted-foreground text-xs'>{t(`statements.${key}`)}</div>
+                        <div className='mt-1 font-semibold text-xl tabular-nums'>
+                          {formatCurrency(value, 'CNY')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('statements.tablePeriod')}</TableHead>
+                        <TableHead>{t('statements.tableNet')}</TableHead>
+                        <TableHead>{t('statements.tableCarryover')}</TableHead>
+                        <TableHead>{t('statements.tableSettlement')}</TableHead>
+                        <TableHead>{t('statements.tableStatus')}</TableHead>
+                        <TableHead>{t('statements.tableAction')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(statements?.rows ?? []).length === 0 ? (
+                        <TableRow>
+                          <TableCell className='py-8 text-center text-muted-foreground' colSpan={6}>
+                            {t('statements.tableEmpty')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        (statements?.rows ?? []).map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell className='font-medium'>{row.period}</TableCell>
+                            <TableCell className='tabular-nums'>
+                              {formatCurrency(row.netAmount, row.currency)}
+                            </TableCell>
+                            <TableCell className='tabular-nums'>
+                              {/* carryover 恒为 0 或负数，直接显示会读成"减了 -30"，
+                                  这里取绝对值表达"抵扣了多少"。 */}
+                              {row.carryoverAmount < 0
+                                ? formatCurrency(-row.carryoverAmount, row.currency)
+                                : '—'}
+                            </TableCell>
+                            <TableCell className='tabular-nums'>
+                              {formatCurrency(row.settlement, row.currency)}
+                            </TableCell>
+                            <TableCell>
+                              <div>{statementStatusLabel(row.status)}</div>
+                              {row.status === 'rolled' ? (
+                                <div className='text-muted-foreground text-xs'>
+                                  {t('statements.rollHint')}
+                                </div>
+                              ) : null}
+                              {row.status === 'paid' && row.payoutReference ? (
+                                <div className='font-mono text-muted-foreground text-xs'>
+                                  {row.payoutReference}
+                                </div>
+                              ) : null}
+                            </TableCell>
+                            <TableCell>
+                              {row.status === 'pending' ? (
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  disabled={!timeline?.canConfirm || confirmingId === row.id}
+                                  onClick={() => {
+                                    setConfirmingId(row.id)
+                                    confirmStatement.mutate({ id: row.id })
+                                  }}
+                                >
+                                  {confirmingId === row.id
+                                    ? t('statements.confirming')
+                                    : t('statements.confirm')}
+                                </Button>
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
 
