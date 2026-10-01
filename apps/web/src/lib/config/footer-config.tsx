@@ -57,6 +57,11 @@ export function getFooterLinks(): NestedMenuItem[] {
           external: false,
         },
         {
+          title: t('resources.items.guide'),
+          href: Routes.UserGuide,
+          external: false,
+        },
+        {
           title: t('resources.items.docs'),
           href: Routes.Docs,
           external: false,

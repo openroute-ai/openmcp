@@ -152,9 +152,8 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
           </div>
 
           {/* blog post content */}
-          {/* in order to make the mdx.css work, we need to add the className prose to the div */}
-          {/* https://github.com/tailwindlabs/tailwindcss-typography */}
-          <div className='prose prose-neutral dark:prose-invert mt-10 max-w-article prose-img:rounded-lg'>
+          {/* `prose` 由 Fumadocs 的 typography 插件提供，见 `src/app/globals.css` */}
+          <div className='prose mt-10 max-w-article prose-headings:scroll-mt-24 prose-headings:font-medium prose-headings:tracking-tight prose-img:rounded-lg'>
             <Mdx
               components={getMDXComponents({
                 a: ({ href, ...props }) => {

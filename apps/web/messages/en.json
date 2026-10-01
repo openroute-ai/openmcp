@@ -2329,6 +2329,7 @@
         "title": "Resources",
         "items": {
           "blog": "Blog",
+          "guide": "User Guide",
           "docs": "Documentation",
           "changelog": "Release Notes",
           "roadmap": "Roadmap"
@@ -2764,6 +2765,23 @@
     "workflows": "Workflows",
     "models": "Models",
     "chat": "Chat"
+  },
+  "GuidePage": {
+    "eyebrow": "Getting started",
+    "ctaStart": "Start reading",
+    "ctaBrowse": "Browse Skills",
+    "toc": "On this page",
+    "facts": {
+      "time": "About 15 minutes",
+      "audience": "For first-time publishers",
+      "level": "No coding required"
+    },
+    "footerCta": {
+      "title": "Ready to publish your first Skill?",
+      "description": "Create an account and an API token, then publish a local Skill directory with the CLI. Once approved, it becomes searchable and installable by agents worldwide.",
+      "primary": "Browse Skills",
+      "secondary": "Create an account"
+    }
   },
   "Fumadocs": {
     "chat": {

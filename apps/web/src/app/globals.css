@@ -1,0 +1,9 @@
+/* Web 端唯一的 Tailwind 入口。
+   必须与 `@workspace/ui/globals.css` 处于同一个编译单元：fumadocs 的
+   `lib/base.css` 内部使用 `@apply`，独立样式表无法解析这些工具类。 */
+@import "@workspace/ui/globals.css";
+
+/* 把 Fumadocs 的 `--color-fd-*` 映射到本项目设计 token，
+   并启用 `fd-*` 工具类与 `prose` 排版。 */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";

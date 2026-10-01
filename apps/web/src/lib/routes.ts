@@ -76,6 +76,8 @@ export enum Routes {
   DashboardUsage = '/dashboard/usage',
   DashboardMonthlyBilling = '/dashboard/billing/monthly',
   DashboardEarnings = '/dashboard/earnings',
+
+  /** Public landing page, intentionally outside `userConsoleRoutes`. */
   UserGuide = '/guide',
 
   SettingsOverview = '/settings',
@@ -167,7 +169,6 @@ export const userConsoleRoutes = [
   Routes.MyAssetsMCP,
   Routes.MyAssetsA2A,
   Routes.MyAssetsSkills,
-  Routes.UserGuide,
 ]
 
 /** Routes that require a session: the user console plus the admin console. */

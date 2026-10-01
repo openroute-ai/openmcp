@@ -2,7 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { notFound } from "next/navigation"
 import type { Metadata, Viewport } from "next"
 
-import "@workspace/ui/globals.css"
+import "@/app/globals.css"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
