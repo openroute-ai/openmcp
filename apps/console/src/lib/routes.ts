@@ -55,6 +55,13 @@ export const PublicRoutes = {
   categories: "/categories",
   /** A single project's public detail, by id. */
   project: "/projects",
+  /**
+   * The FAQ. A question often arrives before the product does — as a shared
+   * link or a search result — so this one is a destination rather than a
+   * section of the landing page, and it has to be readable without an account
+   * for the same reason the other three are.
+   */
+  faq: "/faq",
 } as const
 
 /**

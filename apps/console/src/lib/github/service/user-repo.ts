@@ -18,7 +18,7 @@ type UserRepoInsert = typeof userRepos.$inferInsert
  * `$inferInsert` widens `source` and `status` to `| undefined`. That would force
  * every reader of a submission to handle a value the database cannot produce.
  */
-export type UserRepoSource = typeof userRepos.$inferSelect["source"]
+export type UserRepoSource = (typeof userRepos.$inferSelect)["source"]
 
 /**
  * 平台状态的判定式，直接写在 `repos` 与 `projects` 上。
@@ -79,6 +79,13 @@ export async function linkUserToRepo(
  *
  * 传空数组直接返回而不是发一条 `in ()` 的查询——drizzle 会把它变成永假条件，
  * 结果正确但多一次往返；调用点在批量路径上，空批次是常态而不是异常。
+ *
+ * `repos` 必须出现在 `FROM` 里：判定式读的是 `repos.archived`，而 UPDATE 的
+ * `SET` 里引用一张不在 `FROM` 的表，Postgres 直接报 `missing FROM-clause entry`。
+ * 所以这次写是 `update ... from repos`，`where` 里那句 `repos.id = repo_id` 不是
+ * 过滤条件而是连接条件——少了它，这条语句会把 `user_repos` 与整张 `repos` 笛卡尔
+ * 相乘，取到的那一行是任意的。`platform_synced_at` 也因此直接读 `repos.updated_at`，
+ * 不再需要子查询。
  */
 export async function recomputePlatformStates(
   db: Db,
@@ -91,9 +98,10 @@ export async function recomputePlatformStates(
     .update(userRepos)
     .set({
       platformStatus: platformStatusCase,
-      platformSyncedAt: sql`(select ${repos.updatedAt} from ${repos} where ${repos.id} = ${userRepos.repoId})`,
+      platformSyncedAt: sql`${repos.updatedAt}`,
     })
-    .where(inArray(userRepos.repoId, ids))
+    .from(repos)
+    .where(and(inArray(userRepos.repoId, ids), eq(repos.id, userRepos.repoId)))
 }
 
 /**

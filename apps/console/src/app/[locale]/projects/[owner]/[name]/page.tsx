@@ -1,11 +1,19 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { PublicStarTrend } from "@/components/public/public-star-trend"
+import { ProjectLogo } from "@/components/projects/project-logo"
+import { PublicAuthorCard } from "@/components/public/public-author-card"
+import { PublicReadme } from "@/components/public/public-readme"
+import { PublicRelatedProjects } from "@/components/public/public-related-projects"
 import { PublicShell } from "@/components/public/public-shell"
+import { PublicStarTrend } from "@/components/public/public-star-trend"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
-import { getPublicProjectDetail } from "@/lib/public/radar"
+import {
+  getPublicAuthor,
+  getPublicProjectDetail,
+  listRelatedPublicProjects,
+} from "@/lib/public/radar"
 
 /**
  * One project's public detail: identity, the numbers, and the day/week chart.
@@ -34,7 +42,8 @@ export async function generateMetadata({
 
   return {
     title: `${project.fullName} — OpenMCP 雷达`,
-    description: project.description || `${project.fullName} 的星标增长与公开数据。`,
+    description:
+      project.description || `${project.fullName} 的星标增长与公开数据。`,
     alternates: { canonical: `/projects/${project.owner}/${project.name}` },
     openGraph: {
       type: "website",
@@ -53,10 +62,21 @@ export default async function PublicProjectPage({
 }: {
   params: Promise<{ locale: string; owner: string; name: string }>
 }) {
-  const { owner, name } = await params
+  const { locale, owner, name } = await params
   const project = await getPublicProjectDetail(db, owner, name)
 
   if (!project) notFound()
+
+  // The author is the repository's owner, and the related projects are whatever
+  // else is tagged the same way. Both are independent of the detail read, so
+  // they are fetched alongside it rather than after it renders.
+  const [author, related] = await Promise.all([
+    getPublicAuthor(db, project.owner),
+    listRelatedPublicProjects(db, {
+      projectId: project.id,
+      tagCodes: project.tags,
+    }),
+  ])
 
   const daysGained = project.days.reduce((sum, day) => sum + day.stars, 0)
   const facts: [string, string][] = [
@@ -75,10 +95,20 @@ export default async function PublicProjectPage({
     <PublicShell>
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="grid gap-3 border-b border-border pb-6">
-          <LocaleLink href="/rankings" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+          <LocaleLink
+            href="/rankings"
+            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
             ← 返回公开榜单
           </LocaleLink>
-          <div className="flex flex-wrap items-baseline gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <ProjectLogo
+              name={project.name}
+              logo={project.logo}
+              avatar={project.avatar}
+              iconUrl={project.iconUrl}
+              className="size-10"
+            />
             <h1 className="font-display text-3xl font-bold tracking-tight">
               {project.fullName}
             </h1>
@@ -116,25 +146,52 @@ export default async function PublicProjectPage({
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <PublicStarTrend
-            days={project.days}
-            weeks={project.weeks}
-            hasWeeklyHistory={project.weeks.length > 0}
-          />
+          <div className="grid min-w-0 gap-8">
+            <PublicStarTrend
+              days={project.days}
+              weeks={project.weeks}
+              hasWeeklyHistory={project.weeks.length > 0}
+            />
 
-          <dl className="grid content-start gap-px overflow-hidden rounded-xl border border-border bg-border text-sm">
-            {facts.map(([label, value]) => (
-              <div key={label} className="flex items-baseline justify-between gap-3 bg-background px-4 py-2.5">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="text-right font-medium tabular-nums">{value}</dd>
-              </div>
-            ))}
-          </dl>
+            {/* Rendered whether or not a README is stored, rather than only when
+                one is: a project with no README yet is a normal state (the sync
+                that fetches it has not run), and hiding the whole section makes
+                the page indistinguishable from one where the reader simply forgot
+                to look. The card states the missing README instead of leaving a
+                gap where one should be. */}
+            <PublicReadme
+              readme={project.readme}
+              readmeZh={project.readmeZh}
+              locale={locale}
+            />
+          </div>
+
+          <aside className="grid min-w-0 content-start gap-4">
+            <dl className="grid gap-px overflow-hidden rounded-xl border border-border bg-border text-sm">
+              {facts.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex items-baseline justify-between gap-3 bg-background px-4 py-2.5"
+                >
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="text-right font-medium tabular-nums">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <PublicAuthorCard author={author} />
+            <PublicRelatedProjects projects={related} />
+          </aside>
         </div>
 
         <p className="mt-10 text-xs leading-relaxed text-muted-foreground">
-          页面上的每个数字都来自记录下来的 stargazer 到达时间，没有评分公式，也没有 AI 判定。
-          任何结论都可以用 <code className="rounded bg-muted px-1 py-0.5 font-mono">/api/rankings/week.json</code>{" "}
+          页面上的每个数字都来自记录下来的 stargazer
+          到达时间，没有评分公式，也没有 AI 判定。 任何结论都可以用{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono">
+            /api/rankings/week.json
+          </code>{" "}
           里的原始增量自己重算。
         </p>
       </div>

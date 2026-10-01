@@ -17,6 +17,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:radar": "tsx src/db/seed-radar.ts",
     "db:role": "tsx src/db/role.ts",
     "sync:run": "tsx src/lib/sync/cli.ts"
   },
@@ -33,7 +34,7 @@
     "@trpc/client": "^11.19.0",
     "@trpc/server": "^11.19.0",
     "@trpc/tanstack-react-query": "^11.19.0",
-"@vercel/postgres": "^0.10.0",
+    "@vercel/postgres": "^0.10.0",
     "@workspace/sms-captcha": "workspace:^",
     "@workspace/ui": "workspace:*",
     "ai": "^7.0.0",

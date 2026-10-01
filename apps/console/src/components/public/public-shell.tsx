@@ -1,4 +1,9 @@
-import { IconArrowLeft, IconChartBar, IconTags } from "@tabler/icons-react"
+import {
+  IconArrowLeft,
+  IconChartBar,
+  IconHelpCircle,
+  IconTags,
+} from "@tabler/icons-react"
 
 import { ThemeToggle } from "@/components/landing/theme"
 import { LocaleLink } from "@/i18n/navigation"
@@ -20,6 +25,7 @@ import { LocaleLink } from "@/i18n/navigation"
 const NAV = [
   { href: "/rankings", label: "公开榜单", icon: IconChartBar },
   { href: "/categories", label: "应用分类", icon: IconTags },
+  { href: "/faq", label: "常见问题", icon: IconHelpCircle },
 ] as const
 
 function PublicHeader() {

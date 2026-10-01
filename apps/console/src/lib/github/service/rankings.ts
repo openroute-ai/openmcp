@@ -35,6 +35,7 @@ import {
   type YearMonth,
   type YearWeek,
 } from "@/lib/github/snapshot-dates"
+import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { NO_DESCRIPTION } from "@/lib/github/service/project"
 import type { Db } from "@/lib/github/service/repo"
 
@@ -57,6 +58,18 @@ export interface RankedProject {
   tags: string[]
   ownerId: number
   createdAt: Date
+  /**
+   * Marks for the row, in the order they should be preferred. All null is
+   * normal and falls back to the project's initials.
+   *
+   * Published in the JSON endpoints too: a consumer rendering the list needs the
+   * mark to make it readable, and an additive field is a smaller change for them
+   * than a second endpoint that answers the same question differently.
+   */
+  logo: string | null
+  iconUrl: string | null
+  /** The owner's GitHub avatar, between the logo and the repository icon. */
+  avatar: string | null
 }
 
 export interface Rankings {
@@ -141,8 +154,10 @@ export async function buildRankingsForMonth(
 }
 
 /** The month before a given one, across the year boundary. */
-function previousMonth({ year, month }: YearMonth): YearMonth {
-  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+export function previousMonth({ year, month }: YearMonth): YearMonth {
+  return month === 1
+    ? { year: year - 1, month: 12 }
+    : { year, month: month - 1 }
 }
 
 /**
@@ -253,10 +268,13 @@ async function assemble(
       ),
       repoDescription: repos.description,
       ownerId: repos.ownerId,
+      owner: repos.owner,
       createdAt: repos.createdAt,
       projectId: projects.id,
       projectName: projects.name,
       projectDescription: projects.description,
+      logo: projects.logo,
+      iconUrl: repos.iconUrl,
       tagCode: tags.code,
       tagExcluded: tags.excludeFromRankings,
     })
@@ -283,9 +301,12 @@ async function assemble(
       fullName: string
       repoDescription: string | null
       ownerId: number
+      owner: string
       createdAt: Date
       projectName: string
       projectDescription: string
+      logo: string | null
+      iconUrl: string | null
       tagCodes: string[]
       excluded: boolean
     }
@@ -304,9 +325,12 @@ async function assemble(
       fullName: row.fullName,
       repoDescription: row.repoDescription,
       ownerId: row.ownerId,
+      owner: row.owner,
       createdAt: row.createdAt,
       projectName: row.projectName,
       projectDescription: row.projectDescription,
+      logo: row.logo,
+      iconUrl: row.iconUrl,
       tagCodes: row.tagCode ? [row.tagCode] : [],
       // Null when the project has no tags at all, which is not an exclusion.
       excluded: row.tagExcluded === true,
@@ -347,6 +371,9 @@ async function assemble(
       tags: project.tagCodes,
       ownerId: project.ownerId,
       createdAt: project.createdAt,
+      logo: project.logo,
+      iconUrl: project.iconUrl,
+      avatar: githubAvatarUrl(project.owner, { ownerId: project.ownerId }),
     })
   }
 

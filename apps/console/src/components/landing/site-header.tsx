@@ -61,17 +61,18 @@ function subscribeToAnnounce(listener: () => void) {
 }
 
 /**
- * The three destinations a visitor actually has: back here, the rankings, and
- * the category index. They are routes rather than `#anchors` because all three
- * are real pages that stand on their own — the rankings and the categories are
- * public and readable without an account, and are linked from shared articles
- * and by agents. Anchoring the header into this page's own sections would have
- * left the header dead everywhere else.
+ * The destinations a visitor actually has: back here, the rankings, the category
+ * index, and the FAQ. They are routes rather than `#anchors` because all four are
+ * real pages that stand on their own — they are public and readable without an
+ * account, and are linked from shared articles and by agents. Anchoring the
+ * header into this page's own sections would have left the header dead
+ * everywhere else.
  */
 const NAV_LINKS = [
   { label: "首页", href: "/" },
   { label: "榜单", href: "/rankings" },
   { label: "分类", href: "/categories" },
+  { label: "FAQ", href: "/faq" },
 ] as const;
 
 function AnnounceBar() {
