@@ -1,8 +1,11 @@
 "use client"
 
 import { useState, type FormEvent } from "react";
-import { IconChevronDown, IconDownload, IconMail } from "@tabler/icons-react";
+import { IconDownload, IconMail } from "@tabler/icons-react";
+import { FaqAccordion } from "@/components/faq/faq-accordion";
 import { Reveal } from "@/hooks/use-reveal";
+import { LocaleLink } from "@/i18n/navigation";
+import { FAQS } from "@/lib/faq";
 
 const TIERS = [
   {
@@ -73,7 +76,7 @@ export function Pricing() {
               }`}
             >
               {t.featured && (
-                <span className="mb-3 w-fit rounded-full bg-primary/25 px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
+                <span className="mb-3 w-fit rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
                   最受欢迎
                 </span>
               )}
@@ -190,36 +193,9 @@ export function ReportDownload() {
   );
 }
 
-const FAQS: [string, string][] = [
-  [
-    "数据从哪里来？",
-    "覆盖 GitHub、GitLab、Gitee、npm、PyPI、Maven，以及 OSV / NVD 漏洞库，每日更新。每条结论都附采集时间和可点开的证据，避免“一条结论全靠 AI 猜”。",
-  ],
-  [
-    "为什么不给一个综合评分？",
-    "我们试过，放弃了。star 多的项目在任何维度上都不会差，于是高分只是在复述「它已经很受欢迎」——把你的问题原样还给你。现在改为逐项原始量（周增量、增速加速度、发布间隔、贡献者活跃度、许可证状态），每项独立可查，判断权交给你。",
-  ],
-  [
-    "结论怎么复现？",
-    "雷达记录的是每个 stargazer 的到达时间，不是 star 总数。任取一周的增量都可以从时间戳重新算一遍；贡献者名单与时间序列同样公开，Bus Factor 你可以自己数。",
-  ],
-  [
-    "涨跌颜色为什么和股市软件一样？",
-    "红涨绿跌。这是中文用户的默认直觉，用西方惯例（绿涨红跌）会让每次读榜都多一次心算翻转。至于风险告警，我们刻意不用颜色表示——改用图标、标签文字和左侧色条，这样「跌」和「危险」不会被混为一谈。",
-  ],
-  [
-    "和 SCA 工具（Snyk / Sonatype）有什么区别？",
-    "SCA 工具在代码层面跑，扫描你已经引入的依赖。雷达面向“引入前”和“引入后仍在维护”的环节：一个项目在你上生产之前就已经在衰退，或者维护者已经散伙——这些信号在 SCA 里看不到，因为代码还在正常跑。",
-  ],
-  [
-    "支持私有化部署吗？",
-    "企业版支持私有化部署与内部代码库集成，包含 SSO 和审计日志，可预约演示后按需求报价。",
-  ],
-];
+const FAQS_PREVIEW = FAQS.slice(0, 5)
 
 export function Faq() {
-  const [open, setOpen] = useState<number | null>(0);
-
   return (
     <section id="faq" className="mx-auto max-w-3xl px-4 py-24">
       <Reveal>
@@ -228,53 +204,20 @@ export function Faq() {
         </div>
       </Reveal>
       <Reveal delay={80}>
-        <div className="mt-10 space-y-3">
-          {FAQS.map(([q, a], i) => {
-            const isOpen = open === i;
-            return (
-              <div
-                key={q}
-                className={`rounded-xl border backdrop-blur-md transition-colors ${
-                  isOpen ? "border-primary/40 bg-card" : "border-border bg-card"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-medium"
-                >
-                  {q}
-                  <IconChevronDown
-                    size={16}
-                    className={`shrink-0 text-muted-foreground transition-transform duration-300 ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                <div
-                  className={`grid overflow-hidden transition-all duration-300 ease-out ${
-                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <p className="min-h-0 px-5 pb-4 text-sm leading-relaxed text-muted-foreground">{a}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <FaqAccordion items={FAQS_PREVIEW} />
       </Reveal>
       <Reveal className="mt-8 text-center">
-        <a
-          href="#"
-          className="text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
+        <LocaleLink
+          href="/faq"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
         >
-          查看全部 FAQ <span aria-hidden>→</span>
-        </a>
+          查看全部 {FAQS.length} 个问题 <span aria-hidden>→</span>
+        </LocaleLink>
       </Reveal>
     </section>
-  );
+  )
 }
+
 
 export function FinalCta() {
   return (
@@ -282,10 +225,13 @@ export function FinalCta() {
       <Reveal>
         <div className="rounded-3xl bg-border p-1">
           <div className="rounded-[calc(1.5rem-4px)] border border-border bg-card/85 p-8 text-center backdrop-blur-xl md:p-14">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-primary-foreground md:text-4xl">
+            {/* Foreground tokens, not `primary-foreground`: this panel sits on
+                `bg-card`, and `primary-foreground` is the near-white that belongs
+                on `bg-primary`, so on the light theme it rendered white on white. */}
+            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl">
               下一次技术选型，先来看它是不是在变坏。
             </h2>
-            <p className="mt-3 text-sm text-primary-foreground/70">
+            <p className="mt-3 text-sm text-muted-foreground">
               榜单与异动全部免费公开 · 无需信用卡
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -297,7 +243,7 @@ export function FinalCta() {
               </a>
               <a
                 href="#download"
-                className="inline-flex items-center gap-2 rounded-xl border border-primary-foreground/20 bg-primary-foreground/5 px-6 py-3 text-sm font-medium text-primary-foreground/90 transition-colors hover:bg-primary-foreground/10"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 预约企业演示
               </a>

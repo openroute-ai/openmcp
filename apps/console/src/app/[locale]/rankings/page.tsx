@@ -1,16 +1,26 @@
-import { IconArrowDownRight, IconArrowUpRight } from "@tabler/icons-react"
-
+import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import {
-  PublicPageHeader,
-  PublicShell,
-} from "@/components/public/public-shell"
+  PublicProjectBoard,
+  type PublicProjectGroup,
+  type PublicProjectItem,
+} from "@/components/public/public-project-list"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
-import { buildRankingsForMonth, buildRankingsForWeek } from "@/lib/github/service/rankings"
+import {
+  buildRankingsForMonth,
+  buildRankingsForWeek,
+  previousMonth,
+  type RankedProject,
+} from "@/lib/github/service/rankings"
+import {
+  previousIsoWeek,
+  type YearMonth,
+  type YearWeek,
+} from "@/lib/github/snapshot-dates"
 import { resolveMonth, resolveWeek } from "@/lib/rankings-web"
 
 /**
- * The public rankings: this week, this month, or a named period.
+ * The public rankings: this week or this month, each beside the period before it.
  *
  * Anonymous and `force-dynamic` for the same reason the sibling JSON endpoints
  * are: a ranking that went stale would read as reality to whoever fetched it, and
@@ -18,10 +28,23 @@ import { resolveMonth, resolveWeek } from "@/lib/rankings-web"
  * therefore answer from the same service with the same default period, so the
  * HTML a reader sees and the JSON an agent reads cannot disagree.
  *
- * The sort is by absolute weekly gain rather than by percentage: a project going
- * from 4 stars to 8 is +100% and belongs nowhere near the top, and a percentage
- * ranking is the single easiest way to make a small list look like a ranking
- * system.
+ * Both periods come out of one render, which is the whole reason the previous
+ * period is here rather than a link to another page. A reader comparing this
+ * week against last week is the reader this ranking exists for, and two pages
+ * that load separately answer that question with two moments in time that are
+ * rarely the same one.
+ *
+ * The sort is by absolute gain over the period rather than by percentage: a
+ * project going from 4 stars to 8 is +100% and belongs nowhere near the top, and
+ * a percentage ranking is the single easiest way to make a small list look like a
+ * ranking system. The relative-growth order the service also computes stays in
+ * the JSON — it answers a real question, but not the one this page asks.
+ *
+ * Each period is capped at {@link PAGE_LIMIT}. The cap is the page's editorial
+ * choice and the JSON endpoints are not subject to it: an agent asking for a
+ * period's data wants all of it, while a reader wants the part that is a ranking.
+ * Both are served by the same service with the same sort, so the two answers can
+ * only differ in length.
  */
 
 export const dynamic = "force-dynamic"
@@ -31,15 +54,26 @@ const RANGES = [
   { value: "month", label: "本月" },
 ] as const
 
-/** Formats a gain with its sign, the way a reader scans a delta column. */
-function signed(value: number): string {
-  return `${value > 0 ? "+" : ""}${value}`
-}
+/**
+ * How many rows one period's list keeps.
+ *
+ * A ranking is a statement about the top of something, and "the top 12" is one a
+ * reader can hold in their head; the 13th place is not. The full set stays one
+ * request away in `/api/rankings/*.json`, which reads from the same service with
+ * the same sort, so a capped page and an uncapped endpoint cannot report two
+ * different orderings for the same period.
+ */
+const PAGE_LIMIT = 12
 
 export default async function PublicRankingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; year?: string; week?: string; month?: string }>
+  searchParams: Promise<{
+    range?: string
+    year?: string
+    week?: string
+    month?: string
+  }>
 }) {
   const params = new URLSearchParams(
     Object.entries(await searchParams).filter(
@@ -58,21 +92,90 @@ export default async function PublicRankingsPage({
   const week = weekResolved?.ok ? weekResolved.value : undefined
   const month = monthResolved?.ok ? monthResolved.value : undefined
 
-  const error = weekResolved && !weekResolved.ok ? weekResolved.error : monthResolved && !monthResolved.ok ? monthResolved.error : undefined
+  const error =
+    weekResolved && !weekResolved.ok
+      ? weekResolved.error
+      : monthResolved && !monthResolved.ok
+        ? monthResolved.error
+        : undefined
 
-  const rankings = week
-    ? await buildRankingsForWeek(db, week)
-    : month
-      ? await buildRankingsForMonth(db, month)
-      : undefined
+  // The previous period is derived from the resolved one rather than read off
+  // the query string, so asking for `?year=2026&week=38` compares week 38 with
+  // week 37 instead of comparing it with whichever week the default happens to
+  // be. Both reads are issued together so the two lists are always the same age.
+  const [current, previous] =
+    range === "week" && week
+      ? await Promise.all([
+          buildRankingsForWeek(db, week, { limit: PAGE_LIMIT }),
+          buildRankingsForWeek(db, previousIsoWeek(week), {
+            limit: PAGE_LIMIT,
+          }),
+        ])
+      : range === "month" && month
+        ? await Promise.all([
+            buildRankingsForMonth(db, month, { limit: PAGE_LIMIT }),
+            buildRankingsForMonth(db, previousMonth(month), {
+              limit: PAGE_LIMIT,
+            }),
+          ])
+        : [undefined, undefined]
 
-  const periodLabel = week
-    ? `${week.year} 第 ${week.week} 周`
-    : month
-      ? `${month.year}-${String(month.month).padStart(2, "0")}`
-      : range === "month"
-        ? "最近一个完整月份"
-        : "最近一个完整自然周"
+  // Both periods are described in one place so the two headings cannot end up
+  // labelling the same period twice or rolling the month back twice.
+  const periods =
+    range === "week" && week
+      ? [
+          {
+            title: "本周",
+            deltaLabel: "本周增量",
+            label: weekLabel(week),
+          },
+          {
+            title: "上周",
+            deltaLabel: "上周增量",
+            label: weekLabel(previousIsoWeek(week)),
+          },
+        ]
+      : range === "month" && month
+        ? [
+            {
+              title: "本月",
+              deltaLabel: "本月增量",
+              label: monthLabel(month),
+            },
+            {
+              title: "上月",
+              deltaLabel: "上月增量",
+              label: monthLabel(previousMonth(month)),
+            },
+          ]
+        : [
+            {
+              title: range === "month" ? "本月" : "本周",
+              deltaLabel: range === "month" ? "本月增量" : "本周增量",
+              label: undefined,
+            },
+            {
+              title: range === "month" ? "上月" : "上周",
+              deltaLabel: range === "month" ? "上月增量" : "上周增量",
+              label: undefined,
+            },
+          ]
+
+  const groups: PublicProjectGroup[] = [current, previous].map(
+    (rankings, index) => ({
+      title: periods[index]!.title,
+      deltaLabel: periods[index]!.deltaLabel,
+      periodLabel: periods[index]!.label,
+      items: (rankings?.trending ?? []).map(toItem),
+      emptyLabel:
+        index === 0
+          ? "这个周期还没有任何数据。项目需要先被采集过一次，榜单才会有数字。"
+          : "上一个周期没有记录。榜单只公布被完整采集过的周期。",
+    })
+  )
+
+  const periodLabel = periods[0]?.label ?? null
 
   return (
     <PublicShell>
@@ -95,7 +198,11 @@ export default async function PublicRankingsPage({
                 {r.label}
               </LocaleLink>
             ))}
-            <span className="text-xs text-muted-foreground">{periodLabel}</span>
+            {periodLabel ? (
+              <span className="text-xs text-muted-foreground">
+                {periodLabel}
+              </span>
+            ) : null}
           </div>
         </PublicPageHeader>
 
@@ -105,89 +212,53 @@ export default async function PublicRankingsPage({
           </p>
         )}
 
-        {error === undefined && rankings && rankings.trending.length === 0 && (
-          <p className="mt-6 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
-            这个区间还没有任何数据。项目需要先被采集过一次，榜单才会有数字。
-          </p>
-        )}
-
-        {rankings && rankings.trending.length > 0 && (
-          <div className="mt-6 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="w-10 py-2 font-medium">#</th>
-                  <th className="py-2 font-medium">项目</th>
-                  <th className="w-24 py-2 text-right font-medium">星标</th>
-                  <th className="w-28 py-2 text-right font-medium">
-                    {range === "month" ? "本月增量" : "本周增量"}
-                  </th>
-                  <th className="hidden w-40 py-2 font-medium sm:table-cell">分类</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankings.trending.map((project, index) => (
-                  <tr key={project.fullName} className="border-b border-border/60">
-                    <td className="py-2.5 tabular-nums text-muted-foreground">
-                      {index + 1}
-                    </td>
-                    <td className="py-2.5">
-                      <LocaleLink
-                        href={`/projects/${project.fullName}`}
-                        className="font-medium hover:underline"
-                      >
-                        {project.fullName}
-                      </LocaleLink>
-                      {project.description && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                          {project.description}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {project.stars.toLocaleString("en-US")}
-                    </td>
-                    <td
-                      className={`py-2.5 text-right font-semibold tabular-nums ${
-                        project.delta >= 0 ? "text-radar-up" : "text-radar-down"
-                      }`}
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {project.delta >= 0 ? (
-                          <IconArrowUpRight size={14} />
-                        ) : (
-                          <IconArrowDownRight size={14} />
-                        )}
-                        {signed(project.delta)}
-                      </span>
-                    </td>
-                    <td className="hidden py-2.5 sm:table-cell">
-                      <span className="flex flex-wrap gap-1">
-                        {project.tags.map((tag) => (
-                          <LocaleLink
-                            key={tag}
-                            href={`/categories/${tag}`}
-                            className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                          >
-                            {tag}
-                          </LocaleLink>
-                        ))}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {error === undefined && (
+          <div className="mt-6">
+            <PublicProjectBoard groups={groups} />
           </div>
         )}
 
         <p className="mt-8 text-xs text-muted-foreground">
-          同样的数据也可以直接取 JSON：
+          榜单每期只列前 {PAGE_LIMIT} 个。想取全量数据可以直接读 JSON：
           <code className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono">
             /api/rankings/{range}.json
           </code>
+          ，排序与这里一致。
         </p>
       </div>
     </PublicShell>
   )
+}
+
+/**
+ * One ranked project as the board's item.
+ *
+ * The id is the full name because a ranking is keyed on `repos.owner_name` and
+ * carries no project id: reusing the full name keeps the board's key equal to the
+ * ranking's own natural key rather than inventing a second one.
+ */
+function toItem(project: RankedProject): PublicProjectItem {
+  return {
+    id: project.fullName,
+    owner: project.fullName.split("/")[0] ?? project.fullName,
+    name: project.name,
+    fullName: project.fullName,
+    description: project.description,
+    stars: project.stars,
+    type: "",
+    status: "active",
+    tags: project.tags,
+    logo: project.logo,
+    iconUrl: project.iconUrl,
+    avatar: project.avatar,
+    delta: project.delta,
+  }
+}
+
+function weekLabel(week: YearWeek): string {
+  return `${week.year} 第 ${week.week} 周`
+}
+
+function monthLabel(month: YearMonth): string {
+  return `${month.year}-${String(month.month).padStart(2, "0")}`
 }

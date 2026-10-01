@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation"
 
-import {
-  PublicPageHeader,
-  PublicShell,
-} from "@/components/public/public-shell"
+import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
+import { PublicProjectBoard } from "@/components/public/public-project-list"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
 import { getTagByCode } from "@/lib/github/service/tag"
@@ -43,7 +41,10 @@ export default async function PublicTagPage({
           description={tag.description ?? `分类代码 ${tag.code}`}
         >
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <LocaleLink href="/categories" className="hover:text-foreground hover:underline">
+            <LocaleLink
+              href="/categories"
+              className="hover:text-foreground hover:underline"
+            >
               ← 全部分类
             </LocaleLink>
             <span>·</span>
@@ -54,51 +55,31 @@ export default async function PublicTagPage({
           </div>
         </PublicPageHeader>
 
-        {projects.length === 0 ? (
-          <p className="mt-6 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
-            这个分类下还没有公开项目。
-          </p>
-        ) : (
-          <div className="mt-6 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2 font-medium">项目</th>
-                  <th className="w-28 py-2 font-medium">类型</th>
-                  <th className="w-24 py-2 text-right font-medium">星标</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((project) => (
-                  <tr key={project.id} className="border-b border-border/60">
-                    <td className="py-2.5">
-                      <LocaleLink
-                        href={`/projects/${project.owner}/${project.name}`}
-                        className="font-medium hover:underline"
-                      >
-                        {project.fullName}
-                      </LocaleLink>
-                      {project.description && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                          {project.description}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-xs text-muted-foreground">
-                      {project.type}
-                      {project.status === "deprecated" && (
-                        <span className="ml-1.5 text-destructive">已弃用</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {project.stars.toLocaleString("en-US")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="mt-6">
+          <PublicProjectBoard
+            groups={[
+              {
+                title: "全部项目",
+                periodLabel: tag.code,
+                emptyLabel: "这个分类下还没有公开项目。",
+                items: projects.map((project) => ({
+                  id: project.id,
+                  owner: project.owner,
+                  name: project.name,
+                  fullName: project.fullName,
+                  description: project.description,
+                  stars: project.stars,
+                  type: project.type,
+                  status: project.status,
+                  tags: project.tags,
+                  logo: project.logo,
+                  avatar: project.avatar,
+                  iconUrl: project.iconUrl,
+                })),
+              },
+            ]}
+          />
+        </div>
       </div>
     </PublicShell>
   )

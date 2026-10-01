@@ -21,7 +21,7 @@
  * `lib/github/snapshot-dates.ts`.
  */
 
-import { and, asc, desc, eq, sql } from "drizzle-orm"
+import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
 import {
   repoDailyStats,
   repoMonthlyStats,
@@ -90,7 +90,9 @@ export type CounterName = (typeof COUNTERS)[number]["name"]
  * stars overnight ends up ranked as the month's biggest riser. `newStars` has
  * no level — the level *is* `stars` — so it is absent from {@link CounterLevels}.
  */
-export type CounterLevels = Partial<Record<Exclude<CounterName, "newStars">, number>>
+export type CounterLevels = Partial<
+  Record<Exclude<CounterName, "newStars">, number>
+>
 
 /** What moved during a period, which may not have a level of its own. */
 export type CounterChanges = Partial<Record<CounterName, number>>
@@ -113,9 +115,19 @@ export type CounterValues = StatsMeasurement
  * cannot describe all three without erasing it.
  */
 type StatsTable =
-  | typeof repoDailyStats
-  | typeof repoWeeklyStats
-  | typeof repoMonthlyStats
+  typeof repoDailyStats | typeof repoWeeklyStats | typeof repoMonthlyStats
+
+/**
+ * The part of a stats row a reader of the counters needs: its period, and one
+ * nullable number per counter column.
+ *
+ * A structural stand-in for the three row types Drizzle returns. They are typed
+ * as each table's own row, which no single type can accept as a union, and the
+ * counters are all the same shape — so the columns are described by name instead.
+ */
+type StatsCounterRow = { period: Date } & {
+  [column: string]: Date | number | string | null
+}
 
 const TABLES: Record<StatsCadence, StatsTable> = {
   day: repoDailyStats,
@@ -215,6 +227,14 @@ export async function upsertStatsRows(
 ): Promise<void> {
   if (rows.length === 0) return
   const table = TABLES[cadence]
+  // `toColumns` keys its result by the *property* names `COUNTERS` uses
+  // (`totalStars`), while the statement needs the database's column name. Handing
+  // the property name to `sql.raw` produced `excluded."totalStars"`, which
+  // Postgres reads as one identifier and answers `column does not exist`, so the
+  // name is resolved through the table's own column map instead. The quotes are
+  // the only thing written by hand: a column object renders as
+  // `"repo_daily_stats"."total_stars"`, which cannot be qualified by `excluded`.
+  const columnsByProperty = getTableColumns(table)
 
   for (const batch of chunk(rows, BATCH_SIZE)) {
     for (const group of groupBySignature(batch)) {
@@ -234,12 +254,14 @@ export async function upsertStatsRows(
           target: [table.repoId, table.period],
           set: {
             updatedAt: new Date(),
-            // The names come from COUNTERS, never from a caller, so quoting them
-            // is formatting rather than escaping.
+            // The names come from the table's own column map, never from a
+            // caller, so the statement never spells a column name by hand.
             ...Object.fromEntries(
-              Object.keys(columns).map((column) => [
-                column,
-                sql.raw(`excluded.${quoteIdentifier(column)}`),
+              Object.keys(columns).map((property) => [
+                property,
+                sql.raw(
+                  `excluded."${columnsByProperty[property as keyof typeof columnsByProperty]!.name}"`
+                ),
               ])
             ),
           },
@@ -248,13 +270,10 @@ export async function upsertStatsRows(
   }
 }
 
-/** Postgres quotes an identifier; the names here are all lower snake case. */
-function quoteIdentifier(name: string): string {
-  return `"${name}"`
-}
-
 /** Splits rows into batches that carry the same set of columns. */
-function groupBySignature<T extends { values: StatsMeasurement }>(rows: T[]): T[][] {
+function groupBySignature<T extends { values: StatsMeasurement }>(
+  rows: T[]
+): T[][] {
   const groups = new Map<string, T[]>()
   for (const row of rows) {
     const key = columnSignature(row.values)
@@ -325,7 +344,14 @@ export async function listMonthlyStats(
   return typeof limit === "number" ? query.limit(limit) : query
 }
 
-/** The most recent `count` weekly periods, oldest first. */
+/**
+ * The most recent `count` weekly periods, oldest first.
+ *
+ * Newest-first is what the database is asked for and oldest-first is what the
+ * caller gets, because a `LIMIT` keeps the *first* rows it is handed: ordering
+ * ascending and limiting returns the repository's oldest history, which is how a
+ * ten-year-old repository ends up charting its first weeks forever.
+ */
 export async function listRecentWeeklyStats(
   db: Db,
   repoId: string,
@@ -335,16 +361,13 @@ export async function listRecentWeeklyStats(
     .select()
     .from(repoWeeklyStats)
     .where(eq(repoWeeklyStats.repoId, repoId))
-    .orderBy(asc(repoWeeklyStats.period))
-    // Read one extra so a window that reaches back past the repository's
-    // history is detectable by comparing lengths, which is cheaper than a
-    // second count query on every chart render.
-    .limit(count + 1)
+    .orderBy(desc(repoWeeklyStats.period))
+    .limit(count)
 
-  return rows.slice(-count)
+  return rows.reverse()
 }
 
-/** The most recent `count` daily periods, oldest first. */
+/** The most recent `count` daily periods, oldest first, on the same ordering. */
 export async function listRecentDailyStats(
   db: Db,
   repoId: string,
@@ -354,10 +377,10 @@ export async function listRecentDailyStats(
     .select()
     .from(repoDailyStats)
     .where(eq(repoDailyStats.repoId, repoId))
-    .orderBy(asc(repoDailyStats.period))
-    .limit(count + 1)
+    .orderBy(desc(repoDailyStats.period))
+    .limit(count)
 
-  return rows.slice(-count)
+  return rows.reverse()
 }
 
 /** The instants of every monthly period that holds data anywhere, newest first. */
@@ -372,7 +395,10 @@ export async function listMonthlyPeriodStarts(
 
   // The distinct periods are sorted ascending by the query, so reversing gives
   // "most recent first" without a second ordering to keep consistent.
-  return rows.map((row) => row.period).reverse().slice(0, limit)
+  return rows
+    .map((row) => row.period)
+    .reverse()
+    .slice(0, limit)
 }
 
 /** The instants of every weekly period that holds data anywhere, newest first. */
@@ -385,7 +411,10 @@ export async function listWeeklyPeriodStarts(
     .from(repoWeeklyStats)
     .orderBy(asc(repoWeeklyStats.period))
 
-  return rows.map((row) => row.period).reverse().slice(0, limit)
+  return rows
+    .map((row) => row.period)
+    .reverse()
+    .slice(0, limit)
 }
 
 /**
@@ -638,7 +667,11 @@ function dailyArrivals(entries: StarHistoryEntry[]): Map<Date, number> {
 
   for (const entry of entries) {
     const monday = new Date((entry.week + 1) * 86_400_000)
-    for (let index = 0; index < entry.days.length && index < DAYS_PER_WEEK; index += 1) {
+    for (
+      let index = 0;
+      index < entry.days.length && index < DAYS_PER_WEEK;
+      index += 1
+    ) {
       const day = new Date(monday.getTime() + index * 86_400_000)
       arrivals.set(day, (arrivals.get(day) ?? 0) + (entry.days[index] ?? 0))
     }
@@ -707,7 +740,9 @@ export async function recordStargazers(
     )
     .onConflictDoUpdate({
       target: [repoStargazers.repoId, repoStargazers.login],
-      set: { starredAt: sql`greatest(${repoStargazers.starredAt}, excluded.starred_at)` },
+      set: {
+        starredAt: sql`greatest(${repoStargazers.starredAt}, excluded.starred_at)`,
+      },
     })
 
   return stargazers.length
@@ -728,10 +763,7 @@ export async function latestStargazerAt(
 }
 
 /** How many stargazers are stored for a repository. */
-export async function countStargazers(
-  db: Db,
-  repoId: string
-): Promise<number> {
+export async function countStargazers(db: Db, repoId: string): Promise<number> {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(repoStargazers)
@@ -746,16 +778,38 @@ export async function clearStats(db: Db, repoId: string): Promise<void> {
   await db.delete(repoMonthlyStats).where(eq(repoMonthlyStats.repoId, repoId))
 }
 
+/** One counter as a period recorded it: the level and the change together. */
+export interface CounterReading {
+  /** The level the period closed at, or null when it was not measured. */
+  total: number | null
+  /** Movement during the period, or null when it was not measured. */
+  delta: number | null
+}
+
+/**
+ * The counters one period carries, keyed by counter name.
+ *
+ * Partial because a row stores only what its writer measured: the star history
+ * writes stars, the daily sampler writes the rest, and a counter nobody measured
+ * is absent rather than zero — the same distinction a NULL column makes, kept on
+ * this side of the reader so no tooltip has to rediscover it.
+ */
+export type CounterReadings = Partial<Record<CounterName, CounterReading>>
+
 /** One day's arrivals, as a calendar day rather than an instant. */
 export interface DailyArrivals {
   day: string
   stars: number
+  /** Everything else the day's row recorded, for the reader's tooltip. */
+  counters?: CounterReadings
 }
 
 /** One week's arrivals, named by ISO year and week. */
 export interface WeeklyArrivals {
   yearWeek: YearWeek
   stars: number
+  /** Everything else the week's row recorded, for the reader's tooltip. */
+  counters?: CounterReadings
 }
 
 /** One bar of a monthly chart. */
@@ -839,7 +893,12 @@ export function periodTrends(
   )
   const last = ordered[ordered.length - 1]
   if (!last) {
-    return { week: latestWeekGain(weekly), month: undefined, year: undefined, total: undefined }
+    return {
+      week: latestWeekGain(weekly),
+      month: undefined,
+      year: undefined,
+      total: undefined,
+    }
   }
 
   const { year, month } = monthOfPeriod(last.period, timeZone)
@@ -898,7 +957,7 @@ export async function listDailyArrivals(
   // ordering ascending and limiting would return the repository's first `days`
   // days and call them a trailing window.
   const rows = await db
-    .select({ period: repoDailyStats.period, stars: repoDailyStats.deltaNewStars })
+    .select()
     .from(repoDailyStats)
     .where(eq(repoDailyStats.repoId, repoId))
     .orderBy(desc(repoDailyStats.period))
@@ -909,14 +968,19 @@ export async function listDailyArrivals(
   if (rows.length === 0) return []
 
   const counts = new Map(
-    rows.map((row) => [dayKeyOf(row.period, timeZone), row.stars ?? 0])
+    rows.map((row) => [dayKeyOf(row.period, timeZone), row])
   )
   const last = dayKeyOf(rows[rows.length - 1]!.period, timeZone)
   const first = addDays(last, -(rows.length - 1))
 
   const dense: DailyArrivals[] = []
   for (let day = first; day <= last; day = addDays(day, 1)) {
-    dense.push({ day, stars: counts.get(day) ?? 0 })
+    const row = counts.get(day)
+    dense.push({
+      day,
+      stars: row?.deltaNewStars ?? 0,
+      counters: row ? readingsOf(row) : undefined,
+    })
   }
   return dense
 }
@@ -934,11 +998,43 @@ export async function listWeeklyArrivals(
   weeks = WEEKLY_ARRIVALS_WINDOW,
   timeZone: string = APP_TIMEZONE
 ): Promise<WeeklyArrivals[]> {
-  const rows = await listRecentWeeklyStats(db, repoId, weeks)
+  const rows = await db
+    .select()
+    .from(repoWeeklyStats)
+    .where(eq(repoWeeklyStats.repoId, repoId))
+    .orderBy(desc(repoWeeklyStats.period))
+    .limit(weeks)
+
+  rows.reverse()
+
   return rows.map((row) => ({
     yearWeek: weekOfPeriod(row.period, timeZone),
     stars: row.deltaNewStars ?? 0,
+    counters: readingsOf(row),
   }))
+}
+
+/**
+ * A stats row as its counters, dropping the ones it does not carry.
+ *
+ * Driven by `COUNTERS` rather than by the row's own keys, so a counter added to
+ * that list shows up in every reader at once instead of needing a second edit in
+ * each one. A counter with no level but a change (`newStars`) is kept as a
+ * delta-only reading, and a counter with neither is absent from the result rather
+ * than present with two nulls: "not measured" and "measured as nothing" have to
+ * stay distinguishable all the way to the tooltip.
+ */
+function readingsOf(row: StatsCounterRow): CounterReadings {
+  const readings: CounterReadings = {}
+
+  for (const counter of COUNTERS) {
+    const total = counter.level ? (row[counter.level] as number | null) : null
+    const delta = row[counter.change] as number | null
+    if (total === null && delta === null) continue
+    readings[counter.name] = { total, delta }
+  }
+
+  return readings
 }
 
 /** The newest daily row's calendar day, or undefined when there is no history. */

@@ -64,12 +64,22 @@ const schema = {
     "*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
     img: [...(defaultSchema.attributes?.img ?? []), "width", "height", "align"],
     a: [...(defaultSchema.attributes?.a ?? []), "target"],
-    td: [...(defaultSchema.attributes?.td ?? []), "align", "colspan", "rowspan"],
-    th: [...(defaultSchema.attributes?.th ?? []), "align", "colspan", "rowspan"],
+    td: [
+      ...(defaultSchema.attributes?.td ?? []),
+      "align",
+      "colspan",
+      "rowspan",
+    ],
+    th: [
+      ...(defaultSchema.attributes?.th ?? []),
+      "align",
+      "colspan",
+      "rowspan",
+    ],
   },
 }
 
-type Language = "zh" | "en"
+export type Language = "zh" | "en"
 
 export interface ReadmeViewerProps {
   readmeContent: string | null
@@ -78,6 +88,8 @@ export interface ReadmeViewerProps {
   fallback?: React.ReactNode
   /** Whether the document starts expanded. */
   defaultOpen?: boolean
+  /** Which language to open the viewer in. */
+  initialLocale?: Language
 }
 
 export function ReadmeViewer({
@@ -85,6 +97,7 @@ export function ReadmeViewer({
   readmeContentZh,
   fallback,
   defaultOpen = true,
+  initialLocale = "zh",
 }: ReadmeViewerProps) {
   const t = useTranslations("ProjectDetail")
 
@@ -92,7 +105,15 @@ export function ReadmeViewer({
   // that holds the English text, because translation silently failed, is worse
   // than not offering it.
   const [language, setLanguage] = useState<Language>(
-    readmeContentZh ? "zh" : "en"
+    readmeContentZh
+      ? readmeContent?.trim()
+        ? (initialLocale ?? "zh")
+        : "zh"
+      : readmeContent
+        ? initialLocale === "zh" && readmeContentZh
+          ? "zh"
+          : "en"
+        : "en"
   )
 
   const source = language === "zh" ? readmeContentZh : readmeContent
@@ -193,7 +214,11 @@ function ReadmeBody({ source }: { source: string }) {
           {children}
         </pre>
       ),
-      code: ({ className, children, ...props }: React.ComponentProps<"code">) =>
+      code: ({
+        className,
+        children,
+        ...props
+      }: React.ComponentProps<"code">) =>
         className ? (
           <code {...props} className={className}>
             {children}
@@ -284,7 +309,9 @@ export function LabelRow({
 }) {
   const common = useTranslations("Common")
   if (items.length === 0) {
-    return <span className="text-sm text-muted-foreground">{common("none")}</span>
+    return (
+      <span className="text-sm text-muted-foreground">{common("none")}</span>
+    )
   }
   return (
     <div className="flex flex-wrap gap-1">

@@ -8,7 +8,7 @@
  * authenticate with a static bearer rather than a user session, because all of
  * them are machine-to-machine:
  *
- *   POST /api/internal/repos        register a repository we already hold
+ *   POST /api/internal/repos        register a repository by URL
  *   GET  /api/skills-sync/export    page through synced skill documents
  *   POST /api/cron/github           run the console scheduler on demand
  *
@@ -25,100 +25,44 @@
 
 import type { SkillWebhookData } from '@/lib/skills/ingest-console-skill'
 
-/** How long a machine-to-machine call may take before it is abandoned. */
+/** How long an ordinary machine-to-machine call may take before it is abandoned. */
 const REQUEST_TIMEOUT_MS = 10_000
 
 /**
- * The subset of the local `repos` row that console needs.
- *
- * Structural rather than a drizzle inference so the client can be called with
- * a projection instead of a full row: the README columns are the bulk of the
- * table and console does not accept them.
+ * A repository registration makes console fetch from GitHub, translate and
+ * push a webhook before it answers, so it needs far longer than an ordinary
+ * call. This is still a bound: a repository that cannot be read fails rather
+ * than pinning the caller's request open.
  */
-export type ConsoleRepoSource = {
-  owner: string
-  name: string
-  ownerId?: number | null
-  description?: string | null
-  homepage?: string | null
-  createdAt?: Date | string | null
-  pushedAt?: Date | string | null
-  defaultBranch?: string | null
-  stars?: number | null
-  /**
-   * jsonb, so typed as unknown rather than as the array it is expected to hold.
-   * The mapping filters to strings, which keeps a malformed row from reaching
-   * console's strict schema as something other than a 400.
-   */
-  topics?: unknown
-  archived?: boolean | null
-  commitCount?: number | null
-  lastCommit?: Date | string | null
-  mentionableUsersCount?: number | null
-  watchersCount?: number | null
-  licenseSpdxId?: string | null
-  pullRequestsCount?: number | null
-  releasesCount?: number | null
-  /**
-   * console tracks it, this app does not: the local `repos` table has no such
-   * column, so it is absent from every row this app can supply and goes over
-   * as 0. console's own stats task fills it in.
-   */
-  openIssuesCount?: number | null
-  languages?: unknown
-  forks?: number | null
-  openGraphImageUrl?: string | null
-  usesCustomOpenGraphImage?: boolean | null
-  latestReleaseName?: string | null
-  latestReleaseTagName?: string | null
-  latestReleasePublishedAt?: Date | string | null
-  latestReleaseUrl?: string | null
-  latestReleaseDescription?: string | null
-}
+const INGEST_TIMEOUT_MS = 180_000
 
-/**
- * console's `RepoInfo`, in the wire form its ingest schema parses.
- *
- * The schema is `strict()`, so a field that is not in this list is a 400 and
- * nothing more: adding one to the object literal is a deliberate act, and
- * `RepoInfo` gaining a field without it gaining one here shows up as a
- * validation error rather than as a silently dropped column.
- */
-export type ConsoleRepoInfo = {
-  name: string
-  fullName: string
-  owner: string
-  ownerId: number
-  description: string
-  homepage: string
-  createdAt: string
-  pushedAt: string
-  defaultBranch: string
-  stars: number
-  topics: string[]
-  archived: boolean
-  commitCount: number
-  lastCommit: string
-  mentionableUsersCount: number
-  watchersCount: number
-  licenseSpdxId: string
-  pullRequestsCount: number
-  openIssuesCount: number
-  releasesCount: number
-  languages: string[]
-  forks: number
-  openGraphImageUrl: string
-  usesCustomOpenGraphImage: boolean
-  latestReleaseName: string
-  latestReleaseTagName: string
-  latestReleasePublishedAt?: string | null
-  latestReleaseUrl: string
-  latestReleaseDescription: string
-}
+/** The project classification console creates for a registered repository. */
+export type ConsoleProjectType = 'application' | 'skill' | 'client' | 'server' | 'persona'
 
 export type ConsoleIngestResult = {
   ok: boolean
-  repo?: { id: string; full_name: string; stars: number | null }
+  /** `existing` when the repository already had a project on console. */
+  status?: 'created' | 'existing'
+  repo?: { full_name: string }
+  project?: {
+    id: string
+    name: string
+    slug: string
+    type: string
+    status: string
+    description: string
+  }
+  skills?: {
+    count?: number
+    translated?: number
+    empty?: boolean
+    found?: number
+    pushed?: number
+    failed?: number
+    results?: Array<{ skillDir: string; pushed: boolean; summary: string }>
+  } | null
+  /** Every stored skill reached this app's webhook. */
+  delivered?: boolean
   message?: string
 }
 
@@ -180,74 +124,6 @@ export function consoleSkillsExportConfigured(): boolean {
   return Boolean(consoleBaseUrl() && consoleSkillsToken())
 }
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
-
-function count(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
-}
-
-function list(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-}
-
-function isoDate(value: Date | string | null | undefined, fallback: Date): string {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
-  if (typeof value === 'string') {
-    const parsed = new Date(value)
-    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString()
-  }
-  return fallback.toISOString()
-}
-
-/**
- * Map a local `repos` row onto console's `RepoInfo`.
- *
- * Two defaults are load-bearing rather than cosmetic. `lastCommit` falls back
- * to `pushedAt` because console's schema requires it while the local column is
- * nullable, and sending the epoch would render as "committed in 1970" on the
- * other side. `ownerId` falls back to 0 because it is a required integer:
- * console only uses it to build an avatar URL, so a wrong value is visibly
- * wrong and recoverable, whereas omitting it is a 400 that drops the whole
- * repository. The same reasoning applies to the counters this app never
- * measured: they go over as 0, and console's own tasks correct them.
- */
-export function toConsoleRepoInfo(repo: ConsoleRepoSource, now = new Date()): ConsoleRepoInfo {
-  const pushedAt = isoDate(repo.pushedAt, now)
-  return {
-    name: repo.name,
-    fullName: `${repo.owner}/${repo.name}`,
-    owner: repo.owner,
-    ownerId: typeof repo.ownerId === 'number' && Number.isFinite(repo.ownerId) ? Math.floor(repo.ownerId) : 0,
-    description: text(repo.description),
-    homepage: text(repo.homepage),
-    createdAt: isoDate(repo.createdAt, now),
-    pushedAt,
-    defaultBranch: text(repo.defaultBranch),
-    stars: count(repo.stars),
-    topics: list(repo.topics),
-    archived: repo.archived === true,
-    commitCount: count(repo.commitCount),
-    lastCommit: isoDate(repo.lastCommit, new Date(pushedAt)),
-    mentionableUsersCount: count(repo.mentionableUsersCount),
-    watchersCount: count(repo.watchersCount),
-    licenseSpdxId: text(repo.licenseSpdxId),
-    pullRequestsCount: count(repo.pullRequestsCount),
-    openIssuesCount: count(repo.openIssuesCount),
-    releasesCount: count(repo.releasesCount),
-    languages: list(repo.languages),
-    forks: count(repo.forks),
-    openGraphImageUrl: text(repo.openGraphImageUrl),
-    usesCustomOpenGraphImage: repo.usesCustomOpenGraphImage === true,
-    latestReleaseName: text(repo.latestReleaseName),
-    latestReleaseTagName: text(repo.latestReleaseTagName),
-    latestReleasePublishedAt: repo.latestReleasePublishedAt ? isoDate(repo.latestReleasePublishedAt, now) : null,
-    latestReleaseUrl: text(repo.latestReleaseUrl),
-    latestReleaseDescription: text(repo.latestReleaseDescription),
-  }
-}
-
 /**
  * A console response, keeping the status so callers can tell "console is not
  * configured" (404) apart from "console rejected this" (400/401).
@@ -267,10 +143,10 @@ export class ConsoleApiError extends Error {
   }
 }
 
-async function request(path: string, init: RequestInit): Promise<Response> {
+async function request(path: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   return fetch(`${consoleBaseUrl()}${path}`, {
     ...init,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: 'no-store',
   })
 }
@@ -287,31 +163,43 @@ async function readError(res: Response): Promise<string> {
 }
 
 /**
- * Hand console a repository we already hold GitHub data for.
+ * Ask console to take over a repository, naming it by URL.
  *
- * console's ingest is upsert-only and leaves the columns its own tasks own
- * (README, translations, mirrored icons) alone, so pushing a partial view is
- * safe and pushing often is idempotent. It does not fetch from GitHub: it is
- * the ingest path for a collector that already queried the API, which is what
- * this app is for the repositories its crawler has seen.
+ * console holds the GitHub credentials and owns the repository, project and
+ * skill-document tables, so a bare URL is all this app has to send. console
+ * does the whole curation inline — fetch, create the project, sync the skill
+ * documents, then push them back through the webhook this app ingests — and
+ * its `delivered` flag says whether the skill reached us before it answered.
+ *
+ * This replaces the older "push the `RepoInfo` we happen to hold" ingest: this
+ * app never writes its own `repos` table outside the crawler, so most
+ * repositories a creator names have no local row to push, and the ones that do
+ * would only be re-sending data console is about to fetch anyway.
  *
  * Throws {@link ConsoleApiError}; callers on a user-facing path should catch,
  * because a console outage must not fail a creator's submission.
  */
-export async function ingestRepo(repo: ConsoleRepoSource): Promise<ConsoleIngestResult> {
+export async function ingestRepoByUrl(
+  repoUrl: string,
+  type: ConsoleProjectType = 'skill'
+): Promise<ConsoleIngestResult> {
   const token = consoleApiToken()
   if (!consoleBaseUrl() || !token) {
     throw new ConsoleApiError('console 未配置，无法登记仓库', 404)
   }
 
-  const res = await request('/api/internal/repos', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await request(
+    '/api/internal/repos',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url: repoUrl, type }),
     },
-    body: JSON.stringify(toConsoleRepoInfo(repo)),
-  })
+    INGEST_TIMEOUT_MS
+  )
 
   if (!res.ok) {
     throw new ConsoleApiError(await readError(res), res.status)

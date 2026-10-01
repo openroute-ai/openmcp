@@ -14,7 +14,8 @@
  */
 
 import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm"
-import { projects, projectsToTags, repos, tags } from "@/db/schema"
+import { hallOfFame, projects, projectsToTags, repos, tags } from "@/db/schema"
+import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import type { Db } from "@/lib/github/service/repo"
 import {
   listDailyArrivals,
@@ -85,6 +86,19 @@ export interface PublicProjectSummary {
   type: string
   status: string
   tags: string[]
+  /**
+   * Marks for the project's row, in the order they should be preferred.
+   *
+   * Every public list shows a project's mark, and a list of bare names is hard
+   * to scan past a wall of `acme/thing` — the logo is what makes a list readable
+   * as projects rather than as strings. Null on all three is normal and falls
+   * back to the project's initials.
+   */
+  logo: string | null
+  /** The repository icon the sync mirrored, the last mark before the initials. */
+  iconUrl: string | null
+  /** The owner's GitHub avatar, between the logo and the repository icon. */
+  avatar: string | null
 }
 
 const SUMMARY_COLUMNS = {
@@ -95,6 +109,20 @@ const SUMMARY_COLUMNS = {
   stars: repos.stars,
   type: projects.type,
   status: projects.status,
+  logo: projects.logo,
+  iconUrl: repos.iconUrl,
+  ownerId: repos.ownerId,
+}
+
+/**
+ * The owner avatar for a summary row, or null when the owner is not a login.
+ *
+ * Derived here rather than stored: every caller of `ProjectLogo` already builds
+ * this URL the same way, and a stored copy would go stale the moment somebody
+ * changed their GitHub profile picture.
+ */
+function avatarOf(row: { owner: string; ownerId: number }): string | null {
+  return githubAvatarUrl(row.owner, { ownerId: row.ownerId })
 }
 
 /** `owner/name`, which is what a reader recognises and what GitHub uses. */
@@ -174,6 +202,7 @@ export async function listPublicProjectsByTag(
     stars: row.stars ?? 0,
     fullName: fullNameOf(row),
     tags: byProject.get(row.id) ?? [],
+    avatar: avatarOf(row),
   }))
 }
 
@@ -187,10 +216,42 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   forks: number
   contributors: number | null
   releases: number
+  /** The upstream README, or null when it was never synced. */
+  readme: string | null
+  /** The translated README, or null when nothing has been translated. */
+  readmeZh: string | null
   /** Per-day arrivals, ascending, quiet days already filled as zero. */
   days: DailyArrivals[]
   /** Per-ISO-week arrivals, ascending. */
   weeks: WeeklyArrivals[]
+}
+
+/**
+ * An author as the public pages show them.
+ *
+ * A byline rather than an account: this is what the author directory records
+ * about the person behind a repository, and none of it is anything a signed-in
+ * user can edit from the public site. `username` doubles as the GitHub login,
+ * which is why the avatar and the profile link can be derived from it rather than
+ * trusted from a stored URL.
+ */
+export interface PublicAuthor {
+  username: string
+  name: string
+  bio: string | null
+  /**
+   * The mirrored copy, preferred because it is ours to serve; `avatarUrl` is the
+   * upstream GitHub URL and the fallback for an author whose mirror never ran.
+   */
+  avatar: string | null
+  avatarUrl: string | null
+  /** Followers at the last profile refresh, or null when never refreshed. */
+  followers: number | null
+  verified: boolean
+  homepage: string | null
+  twitter: string | null
+  linkedin: string | null
+  npmUsername: string | null
 }
 
 /**
@@ -228,16 +289,14 @@ export async function getPublicProjectDetail(
       forks: repos.forks,
       contributors: repos.contributorCount,
       releases: repos.releasesCount,
+      readme: repos.readmeContent,
+      readmeZh: repos.readmeContentZh,
       repoId: repos.id,
     })
     .from(projects)
     .innerJoin(repos, eq(projects.repoId, repos.id))
     .where(
-      and(
-        eq(projects.owner, owner),
-        eq(projects.name, name),
-        PUBLIC_WHERE
-      )
+      and(eq(projects.owner, owner), eq(projects.name, name), PUBLIC_WHERE)
     )
 
   const row = rows[0]
@@ -258,9 +317,11 @@ export async function getPublicProjectDetail(
     stars: row.stars ?? 0,
     type: row.type,
     status: row.status,
+    logo: row.logo,
+    iconUrl: row.iconUrl,
+    avatar: githubAvatarUrl(row.owner, { ownerId: row.ownerId }),
     tags: byProject.get(row.id) ?? [],
     url: row.url,
-    logo: row.logo,
     language: row.languages?.[0] ?? null,
     license: row.license,
     pushedAt: row.pushedAt,
@@ -268,10 +329,118 @@ export async function getPublicProjectDetail(
     forks: row.forks ?? 0,
     contributors: row.contributors,
     releases: row.releases ?? 0,
+    readme: row.readme,
+    readmeZh: row.readmeZh,
     days,
     weeks,
   }
 }
+
+/**
+ * The author behind a repository owner, or `undefined` when nobody is recorded.
+ *
+ * Keyed on the repository's owner because that is the only thing known about an
+ * author before anyone writes them down: `repos.authorId` exists but is
+ * unattached (see the schema), and `upsertAuthorFromRepo` records the owner as
+ * the author as a side effect of the repository existing. So a project with no
+ * entry here simply has no byline yet, which is a normal state rather than an
+ * error, and the page omits the card instead of inventing one.
+ */
+export async function getPublicAuthor(
+  db: Db,
+  username: string
+): Promise<PublicAuthor | undefined> {
+  const rows = await db
+    .select({
+      username: hallOfFame.username,
+      name: hallOfFame.name,
+      bio: hallOfFame.bio,
+      avatar: hallOfFame.avatar,
+      avatarUrl: hallOfFame.avatarUrl,
+      followers: hallOfFame.followers,
+      verified: hallOfFame.verified,
+      homepage: hallOfFame.homepage,
+      twitter: hallOfFame.twitter,
+      linkedin: hallOfFame.linkedin,
+      npmUsername: hallOfFame.npmUsername,
+    })
+    .from(hallOfFame)
+    .where(eq(hallOfFame.username, username))
+    .limit(1)
+
+  return rows[0]
+}
+
+/**
+ * Other public projects to offer a reader who liked this one.
+ *
+ * Ranked by how many tags the two projects share, then by stars, and capped at
+ * `limit` because this is a sidebar rather than a search result page. Sharing a
+ * tag is the whole signal: the table has no similarity score, and a project
+ * sharing two of a reader's interests is a better next click than the single
+ * most-starred repository that shares none of them.
+ *
+ * Hidden projects are excluded by `PUBLIC_WHERE`, and the project itself is
+ * excluded by id rather than by owner/name, because two projects can legitimately
+ * carry the same name under different owners.
+ */
+export async function listRelatedPublicProjects(
+  db: Db,
+  input: { projectId: string; tagCodes: string[]; limit?: number }
+): Promise<PublicProjectSummary[]> {
+  const limit = input.limit ?? RELATED_PROJECTS_LIMIT
+  if (input.tagCodes.length === 0) return []
+
+  const rows = await db
+    .select({
+      ...SUMMARY_COLUMNS,
+      shared: sql<number>`count(distinct ${projectsToTags.tagId})::int`,
+    })
+    .from(projectsToTags)
+    .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
+    .innerJoin(projects, eq(projectsToTags.projectId, projects.id))
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .where(
+      and(
+        inArray(tags.code, input.tagCodes),
+        ne(projects.id, input.projectId),
+        PUBLIC_WHERE
+      )
+    )
+    // Grouping by both primary keys is what lets the summary columns stay out of
+    // the list: Postgres only treats a column as implied when the grouped key is
+    // the primary key of that column's own table, so grouping by `projects.id`
+    // alone covers the project columns but leaves `repos.iconUrl` rejected.
+    .groupBy(projects.id, repos.id)
+    .orderBy(
+      desc(sql`count(distinct ${projectsToTags.tagId})`),
+      desc(repos.stars)
+    )
+    .limit(limit)
+
+  const byProject = await tagsByProject(
+    db,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    owner: row.owner,
+    fullName: fullNameOf(row),
+    description: row.description,
+    stars: row.stars ?? 0,
+    type: row.type,
+    status: row.status,
+    logo: row.logo,
+    iconUrl: row.iconUrl,
+    avatar: avatarOf(row),
+    tags: byProject.get(row.id) ?? [],
+  }))
+}
+
+/** How many related projects the sidebar offers. */
+const RELATED_PROJECTS_LIMIT = 5
 
 /** How many public projects there are, for the category page's summary line. */
 export async function countPublicProjects(db: Db): Promise<number> {

@@ -17,6 +17,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:radar": "tsx src/db/seed-radar.ts",
     "db:role": "tsx src/db/role.ts",
     "sync:run": "tsx src/lib/sync/cli.ts"
   },
