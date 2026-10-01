@@ -1,0 +1,117 @@
+---
+title: "批量 API 护栏"
+description: "防护批量输入文件中的记录，使批量作业无法将内容绕过本应在 /chat/completions 上拦截这些内容的护栏"
+---
+
+防护批量输入文件中的记录，使批量作业无法将内容绕过本应在 `/chat/completions` 上拦截这些内容的护栏
+
+## 工作原理
+
+批量作业分两步提交。你先将 `.jsonl` 文件上传到 `/v1/files` 并指定 `purpose=batch`，然后基于文件 ID 创建作业。记录只在提供方处执行，因此上传是 OpenMCP 持有其内容的唯一时刻。
+
+护栏正是在这里运行。每条记录都会按其 `url` 所指明的调用类型单独扫描，因此针对 `/v1/chat/completions` 的记录会收到与等效聊天请求完全相同的检查：
+
+```
+POST /v1/files  (purpose=batch)
+        │
+        ▼
+┌──────────────────────┐
+│    OpenMCP Proxy     │  scans every record against your pre_call guardrails
+└──────────┬───────────┘
+           │
+           │  record 1  clean          -> submitted unchanged
+           │  record 2  guardrail masks -> submitted with the mask applied
+           │  record 3  guardrail blocks -> left out of the file
+           │
+           ▼
+      Provider receives the remaining records
+```
+
+一条违规记录不会导致整个文件被拒绝。批量作业通常包含数千行，因此因为一行而拒绝全部内容通常不是你想要的结果。
+
+## 设置
+
+无需开启任何东西。任何在 `pre_call` 上运行的护栏都会应用于批量上传：
+
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: pii-guard
+    openmcp_params:
+      guardrail: presidio
+      mode: pre_call
+      default_on: true
+
+files_settings:
+  - custom_llm_provider: openai
+    api_key: os.environ/OPENAI_API_KEY
+```
+
+## 每条记录会发生什么
+
+会重写内容的护栏（例如 PII 掩码）会应用其改写结果，并以该形式提交记录。会阻止内容的护栏则意味着该记录会被从送达提供方的文件中排除，而作业的其余部分继续。
+
+护栏未提出异议的记录会按原样逐字节通过，因此启用护栏不会重新格式化文件的其他部分。
+
+## 上传响应
+
+响应是通常的文件对象，多了一个 `openmcp_batch_guardrail` 字段，仅当护栏修改了某些内容时才会出现：
+
+```bash
+curl -sS http://localhost:4000/v1/files \
+  -H "Authorization: Bearer sk-1234" \
+  -F purpose=batch \
+  -F file=@batch_input.jsonl
+```
+
+```json
+{
+  "id": "file-Cr85eqBTg1WiNb1S4ystvR",
+  "object": "file",
+  "purpose": "batch",
+  "bytes": 594,
+  "status": "processed",
+  "openmcp_batch_guardrail": {
+    "submitted_records": 3,
+    "modified_records": [
+      {"line": 2, "custom_id": "row-2", "action": "redacted", "guardrail": null},
+      {"line": 3, "custom_id": "row-3", "action": "dropped", "guardrail": "pii-guard"}
+    ]
+  }
+}
+```
+
+`submitted_records` 表示有多少记录到达提供方。`modified_records` 中的每条记录都同时通过其 `custom_id` 和你上传文件中的从 1 开始的 `line`（行号）来标识，因此你可以用任何一种方式与你的数据源核对。
+
+`action` 为 `redacted` 表示记录是以应用护栏改写结果的形式提交的，为 `dropped` 则表示该记录被排除在外。
+
+`guardrail` 标明是哪个护栏丢弃了记录（当护栏自我标识时）。它刻意报告护栏而不是原因：拒绝内容的护栏与在其 fail-closed 默认值下无法访问的护栏会以相同方式触发，因此此时无法区分这两种情况。名称会告诉你去检查什么。
+
+相同的结果也会写入代理日志以及日志回调读取的请求元数据中，因此被丢弃的记录在服务端可见，而非仅对调用方可见。
+
+## 上传何时会被拒绝
+
+有四种情况仍会使整个上传失败，而不是丢弃一条记录。
+
+如果所有记录都被阻止，就没有剩余内容可提交，因此上传返回 400，而不是创建空作业。
+
+如果护栏无法被访问，或以非内容判定方式失败，上传将返回 400 并携带该护栏自身的状态。丢弃从未真正被检查的记录会悄悄损失数据，因此文件会被拒绝。这涵盖配置为 fail-closed 但其后端宕机的护栏这种情况，否则很容易被误认为是策略拦截，因为许多集成以相同方式报告这两种情况。
+
+如果护栏配置为将敏感内容路由到不同模型，触发它的记录会返回 400 并指明行号。批量文件的每条记录都提交给同一个提供方，因此无法将该记录单独发送到别处。请在批处理之外发送它。
+
+如果记录的 `body` 不是对象，或不包含 `messages`、`prompt` 或 `input`，护栏就没有可读取的内容，上传将返回 400 并指明行号。在此之前，记录还会针对常规批量文件要求进行检查，因此无法解析或缺少 `custom_id`、`method`、`url` 或 `body` 的行会更早被拒绝，并带有自己的错误消息。
+
+## 限制
+
+只有运行在 `pre_call` 上的护栏才会处理批量记录。仅配置为 `post_call` 的护栏不参与，因为上传时没有可检查的响应。
+
+在决定运行什么时，记录自身主体中的 `guardrails` 键会被忽略，因此记录无法退出你的密钥或团队所选择的内容。它会保留在送达提供方的记录中。
+
+通过 `openmcp_params` 附加到特定部署的护栏是在路由之后应用的，而批量上传不经过路由，因此这些护栏不会应用于批量记录。
+
+记录会按有界的批次进行扫描，而不是一次性全部扫描，对于带有网络后端护栏的非常大的文件，上传时间会相应更长。扫描的记录数量没有上限。

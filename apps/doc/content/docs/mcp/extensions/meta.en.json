@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "index",
+    "client-matrix",
+    "skills",
+    "tasks",
+    "apps",
+    "auth"
+  ]
+}

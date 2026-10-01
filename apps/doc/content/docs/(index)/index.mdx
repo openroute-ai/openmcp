@@ -1,0 +1,67 @@
+---
+title: "文档"
+description: "OpenMCP AI 网关指南：MCP 网关、A2A 智能体网关和 Guardrails。"
+---
+
+OpenMCP AI 网关位于你的应用程序与模型、工具和智能体供应商之间。以下指南介绍了如何注册 MCP 服务器和 A2A 智能体、控制谁可以访问它们，以及如何对每个请求应用 Guardrails。
+
+## MCP 网关
+
+通过单个端点路由所有 MCP 服务器，然后按密钥、团队和组织管理工具。
+
+<Cards>
+  <Card title="MCP 概述" href="/docs/mcp-gateway">
+    添加 HTTP、SSE 和 STDIO MCP 服务器，并从任何客户端调用它们的工具
+  </Card>
+  <Card title="认证" href="/docs/mcp-gateway/authentication">
+    OAuth、AWS SigV4、OBO、ID-JAG 以及其他认证 MCP 服务器的方式
+  </Card>
+  <Card title="访问与治理" href="/docs/mcp-gateway/control">
+    按密钥、团队和组织控制工具，并追踪每次工具调用的成本
+  </Card>
+  <Card title="MCP 服务器" href="/docs/mcp-gateway/servers">
+    常用第三方 MCP 服务器的逐步配置指南
+  </Card>
+</Cards>
+
+## A2A 智能体网关
+
+在网关上接入 A2A 智能体，通过单个端点调用它们并追踪每个请求。
+
+<Cards>
+  <Card title="智能体网关概述" href="/docs/a2a-gateway">
+    在 OpenMCP 中添加 A2A 智能体、调用它们并读取它们的日志
+  </Card>
+  <Card title="调用智能体" href="/docs/a2a-gateway/invoking-agents">
+    使用 A2A 协议、SDK 或 OpenMCP API 调用智能体
+  </Card>
+  <Card title="智能体权限" href="/docs/a2a-gateway/agent-permissions">
+    限定哪些密钥、团队和组织可以访问智能体
+  </Card>
+  <Card title="成本追踪" href="/docs/a2a-gateway/cost-tracking">
+    将智能体的使用量和花费归属到调用方
+  </Card>
+</Cards>
+
+## Guardrails
+
+对进出的内容进行检测、脱敏和审核。
+
+<Cards>
+  <Card title="快速开始" href="/docs/guardrails">
+    在代理上配置提示注入检测和 PII 脱敏
+  </Card>
+  <Card title="自定义 Guardrails" href="/docs/guardrails/custom-guardrail">
+    编写你自己的 guardrail 类并在 OpenMCP 中注册
+  </Card>
+  <Card title="集成" href="/docs/guardrails/aim-security">
+    对 Bedrock、Presidio、Lakera、Azure 等提供即插即用支持
+  </Card>
+  <Card title="添加 Guardrail" href="/docs/guardrails/adding-guardrail-support">
+    为新的端点添加 guardrail 支持
+  </Card>
+</Cards>
+
+## 协议参考
+
+正在寻找协议规范而不是网关配置？请参阅 [MCP 协议文档](/docs/mcp) 和 [A2A 协议文档](/docs/a2a) 部分，或 [教程](/docs/tutorials)。

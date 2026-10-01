@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" fill="none" viewBox="0 0 400 400">
+  <!-- Background circle -->
+  <circle cx="200" cy="200" r="200" fill="#EAEAEA"/>
+  
+  <!-- Inner circle for avatar area -->
+  <circle cx="200" cy="200" r="180" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2"/>
+  
+  <!-- User icon - simplified head and shoulders -->
+  <g opacity="0.6">
+    <!-- Head circle -->
+    <circle cx="200" cy="140" r="50" fill="#666"/>
+    
+    <!-- Shoulders/body -->
+    <path d="M120 200c0-30 35.82-55 80-55s80 25 80 55v60H120V200Z" fill="#666"/>
+  </g>
+</svg>
+

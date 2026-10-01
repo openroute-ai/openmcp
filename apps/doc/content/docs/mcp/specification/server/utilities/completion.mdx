@@ -1,0 +1,201 @@
+---
+title: 补全
+---
+
+
+<div id="enable-section-numbers" />
+
+模型上下文协议（MCP）为服务端针对提示词和资源模板的参数提供自动补全建议，提供了一种标准化方式。当用户为特定提示词（按名称标识）或资源模板（按 URI 标识）填写参数值时，服务端可以提供上下文相关的建议。
+
+<Callout>
+  为简洁起见，本页中的请求示例省略了 `_meta` 请求元数据（`io.modelcontextprotocol/protocolVersion`、`io.modelcontextprotocol/clientInfo` 和 `io.modelcontextprotocol/clientCapabilities`）。每个请求**必须**包含所需的 `_meta` 字段；参见 [`_meta`](/docs/mcp/specification/2026-07-28/basic/index#meta)。
+</Callout>
+
+## 用户交互模型
+
+MCP 中的补全旨在支持类似于 IDE 代码补全的交互式用户体验。
+
+例如，应用可以在用户输入时在下拉菜单或弹出菜单中显示补全建议，并能够从可用选项中进行筛选和选择。
+
+不过，实现可以自由地通过任何适合自身需求的界面模式来展示补全——协议本身并不强制规定任何特定的用户交互模型。
+
+## 能力
+
+支持补全的服务端**必须**声明 `completions` 能力：
+
+```json
+{
+  "capabilities": {
+    "completions": {}
+  }
+}
+```
+
+## 协议消息
+
+### 请求补全
+
+要获取补全建议，客户端会发送 `completion/complete` 请求，通过引用类型指定正在被补全的对象：
+
+**请求：**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "completion/complete",
+  "params": {
+    "ref": {
+      "type": "ref/prompt",
+      "name": "code_review"
+    },
+    "argument": {
+      "name": "language",
+      "value": "py"
+    }
+  }
+}
+```
+
+**响应：**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "resultType": "complete",
+    "completion": {
+      "values": ["python", "pytorch", "pyside"],
+      "total": 10,
+      "hasMore": true
+    }
+  }
+}
+```
+
+对于具有多个参数的提示词或 URI 模板，客户端应在 `context.arguments` 对象中包含先前的补全，以便为后续请求提供上下文。
+
+**请求：**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "completion/complete",
+  "params": {
+    "ref": {
+      "type": "ref/prompt",
+      "name": "code_review"
+    },
+    "argument": {
+      "name": "framework",
+      "value": "fla"
+    },
+    "context": {
+      "arguments": {
+        "language": "python"
+      }
+    }
+  }
+}
+```
+
+**响应：**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "resultType": "complete",
+    "completion": {
+      "values": ["flask"],
+      "total": 1,
+      "hasMore": false
+    }
+  }
+}
+```
+
+### 引用类型
+
+协议支持两种类型的补全引用：
+
+| 类型           | 描述                                     | 示例                                             |
+| -------------- | ----------------------------------------- | --------------------------------------------------- |
+| `ref/prompt`   | 按名称引用提示词                          | `{"type": "ref/prompt", "name": "code_review"}`     |
+| `ref/resource` | 引用资源 URI 或 URI 模板                  | `{"type": "ref/resource", "uri": "file:///{path}"}` |
+
+### 补全结果
+
+服务端按相关性排序返回一个补全值数组，其中：
+
+- 每个响应最多 100 项
+- 可选的可用匹配总数
+- 指示是否存在其他结果的布尔值
+
+## 消息流程
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    Note over Client: User types argument
+    Client->>Server: completion/complete
+    Server-->>Client: Completion suggestions
+
+    Note over Client: User continues typing
+    Client->>Server: completion/complete
+    Server-->>Client: Refined suggestions
+```
+
+## 数据类型
+
+### CompleteRequest
+
+- `ref`：一个 `PromptReference` 或 `ResourceTemplateReference`。对于 `ResourceTemplateReference`，`uri` 是 URI 或 URI 模板。
+- `argument`：包含以下内容的对象：
+  - `name`：参数名称
+  - `value`：当前值
+- `context`：包含以下内容的对象：
+  - `arguments`：已解析的参数名称到其值的映射。
+
+### CompleteResult
+
+- `completion`：包含以下内容的对象：
+  - `values`：建议数组（最多 100 个）
+  - `total`：可选的匹配总数
+  - `hasMore`：是否存在其他结果的标志
+
+## 错误处理
+
+服务端**应当**对常见失败情况返回标准的 JSON-RPC 错误：
+
+- 方法未找到：`-32601`（不支持该能力）
+- 无效的提示词名称：`-32602`（参数无效）
+- 缺少必需的参数：`-32602`（参数无效）
+- 内部错误：`-32603`（内部错误）
+
+## 实现注意事项
+
+1. 服务端**应当**：
+   - 按相关性排序返回建议
+   - 在适当的情况下实现模糊匹配
+   - 对补全请求进行速率限制
+   - 验证所有输入
+
+2. 客户端**应当**：
+   - 对快速的补全请求进行防抖处理
+   - 在适当的情况下缓存补全结果
+   - 优雅地处理缺失或不完整的结果
+
+## 安全
+
+实现**必须**：
+
+- 验证所有补全输入
+- 实施适当的速率限制
+- 控制对敏感建议的访问
+- 防止基于补全的信息泄露

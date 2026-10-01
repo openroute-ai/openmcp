@@ -1,0 +1,144 @@
+---
+title: "大语言模型(LLM)作为评审"
+description: "每次大语言模型(LLM)响应后，护栏将对话和响应连同你的标准一起发送给评审模型。评审模型按标准返回裁定..."
+---
+
+## 概览
+
+| 属性 | 详情 |
+|-------|-------|
+| 描述 | 使用评审模型对每个大语言模型(LLM)响应进行 0-100 的加权标准评分，阻止或记录低于阈值的响应。 |
+| 提供者 | OpenMCP 原生（你代理上的任何 chat 模型或任何提供者模型都可以充当评审） |
+| 支持的操作 | `block`（当分数低于阈值时返回 HTTP 422）、`log`（记录裁定，放行响应） |
+| 支持的模式 | `post_call`（评审评估大语言模型(LLM)响应；请求未经评估直接通过） |
+| 流式支持 | 是。失败的裁定会终止流。 |
+| API 要求 | 评审模型的凭据，代理部署或提供者环境变量 |
+
+## 工作原理
+
+每次大语言模型(LLM)响应后，护栏将对话和响应连同你的标准一起发送给评审模型。评审模型按标准返回裁定（分数 0-100、推理、通过/失败）以及加权总分。如果总分低于 `overall_threshold` 且 `on_failure` 为 `block`，请求将返回 HTTP 422 并附带完整裁定；使用 `on_failure: log` 时响应会返回，裁定记录在请求的日志元数据（`eval_information`）中，在消费日志和日志集成中可见。
+
+每次评审响应都会对评审模型产生一次额外的大语言模型(LLM)调用成本。
+
+## 快速开始
+
+### 1. 在 OpenMCP config.yaml 上定义护栏
+
+在 `guardrails` 部分定义你的护栏：
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: chat-model
+    openmcp_params:
+      model: anthropic/{{anthropic_large}}
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: my-judge-model
+    openmcp_params:
+      model: anthropic/{{anthropic}}
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+guardrails:
+  - guardrail_name: "quality-judge"
+    openmcp_params:
+      guardrail: llm_as_a_judge
+      mode: post_call
+      judge_model: my-judge-model
+      overall_threshold: 80
+      on_failure: block
+      default_on: true
+      criteria:
+        - name: helpfulness
+          weight: 60
+          description: Is the response helpful and correct?
+        - name: tone
+          weight: 40
+          description: Is the response professional and polite?
+```
+
+标准权重之和必须为 100。`overall_threshold` 默认为 80，`on_failure` 默认为 `block`。
+
+### 2. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 3. 测试请求
+
+<Tabs items={["被阻止的请求","通过的请求"]}>
+<Tab>
+
+未通过标准的响应将被 HTTP 422 拒绝并附带裁定：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "chat-model",
+    "messages": [{"role": "user", "content": "hi"}]
+  }'
+```
+
+```json
+{
+  "error": {
+    "message": "LLM judge rejected response: score below threshold",
+    "code": "422",
+    "provider_specific_fields": {
+      "overall_score": 40.0,
+      "threshold": 80.0,
+      "verdicts": [
+        {"criterion_name": "helpfulness", "score": 40, "reasoning": "...", "passed": false, "weight": 60}
+      ],
+      "guardrail_name": "quality-judge"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+达到阈值的响应原样返回。使用 `on_failure: log` 时，即使是失败的响应也会返回；裁定记录在请求元数据的 `eval_information` 中，以便到达消费日志和日志回调。
+
+</Tab>
+</Tabs>
+
+## 从 Admin UI 创建护栏
+
+护栏可以完全从仪表板创建：护栏、添加新护栏、提供者 "OpenMCP LLM as a Judge"。评审模型下拉框从你代理的模型列表中填充，标准、阈值和失败操作对应上述配置字段。以这种方式创建的护栏存储在数据库中，启动时加载，无需配置文件条目。
+
+<img src="/images/docs/guardrails/llm_judge_ui_dropdown.png" />
+
+从沙盒中看到的被阻止响应；评审的拒绝终止了流：
+
+<img src="/images/docs/guardrails/llm_judge_playground_blocked.png" />
+
+## 评审模型凭据如何解析
+
+`judge_model` 首先根据代理的路由器解析。如果名称匹配已配置的部署（精确公共名称、通配符路由如 `anthropic/*` 或 `model_group_alias` 条目），评审调用将通过该部署并使用其凭据；这使得在 Admin UI 下拉框中选择的评审模型能够工作，因为其密钥存储在部署中而非环境中。路由器无法服务的名称将回退到 SDK，从环境变量解析凭据，如同直接的 `openmcp.completion` 调用。
+
+路由器路径有两个值得了解的结果。如果评审模型名称同时匹配部署和有效的提供者模型 ID，部署优先，因此使用部署的密钥而非环境密钥。通过部署的评审调用像任何其他调用一样参与该部署的速率和冷却计算，因此持续失败的评审可能会使其共享的用户流量部署进入冷却。评审调用本身以禁用重试和标准回退的方式发出，以确保配置的 `judge_model` 保持权威性。
+
+## 失败行为
+
+护栏在评审错误时失败开放：如果评审调用失败或返回无法解析的裁定，会记录警告，护栏状态记录为 `guardrail_failed_to_respond`，响应返回给调用者。Markdown 围栏的 JSON 裁定（某些评审模型会产生）正常解析，不计为失败。只有成功解析但低于阈值的裁定才会触发阻止。
+
+## 支持的参数
+
+```yaml
+guardrails:
+  - guardrail_name: string          # required, unique name
+    openmcp_params:
+      guardrail: llm_as_a_judge     # required
+      mode: post_call               # required, post_call is the only supported mode
+      judge_model: string           # required, proxy model name or provider model id
+      criteria:                     # required, at least one entry, weights sum to 100
+        - name: string
+          weight: number            # percent share of the overall score
+          description: string       # what the judge checks for this criterion
+      overall_threshold: number     # optional, 0-100, default 80
+      on_failure: block | log       # optional, default block
+      default_on: boolean           # optional, run on every request without being requested per-call
+```

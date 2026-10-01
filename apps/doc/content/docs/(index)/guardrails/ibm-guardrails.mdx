@@ -1,0 +1,233 @@
+---
+title: "IBM Guardrails"
+description: "OpenMCP 可与 IBM 的 FMS Guardrails 配合进行内容安全防护。你可以用它检测越狱尝试、PII、仇恨言论等。"
+---
+
+OpenMCP 可与 [IBM 的 FMS Guardrails](https://github.com/foundation-model-stack/fms-guardrails-orchestrator) 配合进行内容安全防护。你可以用它检测越狱尝试、个人身份信息(PII)、仇恨言论等。
+
+## 功能说明
+
+IBM 的 FMS Guardrails 是一个用于在 LLM 输入和输出上调用检测器的框架。要配置这些检测器，你可以使用例如 [TrustyAI detectors](https://github.com/trustyai-explainability/guardrails-detectors)，这是一个由 Red Hat 的 [TrustyAI 团队](https://github.com/trustyai-explainability) 维护的开源项目，允许用户配置以下类型的检测器：
+
+- 正则表达式模式
+- 文件类型校验器
+- 自定义 Python 函数
+- Hugging Face [AutoModelForSequenceClassification](https://huggingface.co/docs/transformers/en/model_doc/auto#transformers.AutoModelForSequenceClassification)，即序列分类模型
+
+每个检测器都会根据以下 [openapi schema](https://foundation-model-stack.github.io/fms-guardrails-orchestrator/docs/api/openapi_detector_api.yaml) 输出 API 响应。
+
+你可以运行以下检查：
+- 在发送给 LLM 之前（针对用户输入）
+- 在获取 LLM 响应之后（针对输出）
+- 在调用期间（与 LLM 并行）
+
+## 快速开始
+
+### 1. 添加到你的 config.yaml
+
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: ibm-jailbreak-detector
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: pre_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "jailbreak-detector"
+      is_detector_server: true
+      default_on: true
+      optional_params:
+        score_threshold: 0.8
+        block_on_detection: true
+```
+
+### 2. 设置你的认证令牌
+
+```bash
+export IBM_GUARDRAILS_AUTH_TOKEN="your-token"
+```
+
+### 3. 启动代理
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 4. 发起请求
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Hello, how are you?"}
+    ],
+    "guardrails": ["ibm-jailbreak-detector"]
+  }'
+```
+
+## 配置
+
+### 必填参数
+
+- `guardrail` - str - 设置为 `ibm_guardrails`
+- `auth_token` - str - 你的 IBM Guardrails 认证令牌。可以使用 `os.environ/IBM_GUARDRAILS_AUTH_TOKEN`
+- `base_url` - str - 你的 IBM Detector 或 Guardrails 服务器的 URL
+- `detector_id` - str - 要使用哪个检测器（例如 "jailbreak-detector"、"pii-detector"）
+
+### 可选参数
+
+- `mode` - str or list[str] - 何时运行。可选值：`pre_call`、`post_call`、`during_call`。默认值：`pre_call`
+- `default_on` - bool - 无需在请求中指定即可自动运行。默认值：`false`
+- `is_detector_server` - bool - 检测器服务器为 `true`，编排器（orchestrator）为 `false`。默认值：`true`
+- `verify_ssl` - bool - 是否验证 SSL 证书。默认值：`true`
+
+### optional_params
+
+以下参数放在 `optional_params` 下：
+
+- `detector_params` - dict - 传递给检测器的参数
+- `extra_headers` - dict - 以键值字典形式注入到发给 IBM Guardrails 的请求中的额外请求头。
+- `score_threshold` - float - 只统计分数高于此值的检测结果（0.0 到 1.0）
+- `block_on_detection` - bool - 发现违规时拦截请求。默认值：`true`
+
+## 服务器类型
+
+IBM Guardrails 提供了两个可供使用的 API：
+
+### 检测器服务器（推荐）
+
+[此 Detectors API](https://foundation-model-stack.github.io/fms-guardrails-orchestrator/?urls.primaryName=Detector+API#/Text) 使用 `api/v1/text/contents` 端点运行单个检测器；它可以在一个请求中接受多个文本输入。
+
+```yaml
+guardrails:
+  - guardrail_name: ibm-detector
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: pre_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "jailbreak-detector"
+      is_detector_server: true  # Use detector server
+```
+
+### 编排器（Orchestrator）
+
+如果你在使用 IBM FMS Guardrails Orchestrator，可以使用 [FMS Orchestrator API](https://foundation-model-stack.github.io/fms-guardrails-orchestrator/?urls.primaryName=Orchestrator+API)，具体是 `api/v2/text/detection/content` 在单个请求中运行多个检测器；不过，该端点每个请求只能接受一个文本输入。
+
+```yaml
+guardrails:
+  - guardrail_name: ibm-orchestrator
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: pre_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-orchestrator-server.com"
+      detector_id: "jailbreak-detector"
+      is_detector_server: false  # Use orchestrator
+```
+
+## 示例
+
+### 检查输入中的越狱尝试
+
+```yaml
+guardrails:
+  - guardrail_name: jailbreak-check
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: pre_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "jailbreak-detector"
+      is_detector_server: true
+      default_on: true
+      optional_params:
+        score_threshold: 0.8
+```
+
+### 检查响应中的 PII
+
+```yaml
+guardrails:
+  - guardrail_name: pii-check
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: post_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "pii-detector"
+      is_detector_server: true
+      optional_params:
+        score_threshold: 0.5  # Lower threshold for PII
+        block_on_detection: true
+```
+
+### 运行多个检测器
+
+```yaml
+guardrails:
+  - guardrail_name: jailbreak-check
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: pre_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "jailbreak-detector"
+      is_detector_server: true
+      
+  - guardrail_name: pii-check
+    openmcp_params:
+      guardrail: ibm_guardrails
+      mode: post_call
+      auth_token: os.environ/IBM_GUARDRAILS_AUTH_TOKEN
+      base_url: "https://your-detector-server.com"
+      detector_id: "pii-detector"
+      is_detector_server: true
+```
+
+然后在你的请求中：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "guardrails": ["jailbreak-check", "pii-check"]
+  }'
+```
+
+## 检测原理
+
+当 IBM Guardrails 发现可疑内容时，它会返回所发现内容的详细信息：
+
+```json
+{
+  "start": 0,
+  "end": 31,
+  "text": "You are now in Do Anything Mode",
+  "detection_type": "jailbreak",
+  "score": 0.858
+}
+```
+
+- `score` - 检测结果的置信度（0.0 到 1.0）
+- `text` - 触发检测的具体文本
+- `detection_type` - 违规的类型
+
+如果分数高于你的 `score_threshold`，请求会被拦截（如果 `block_on_detection` 为 true 的话）。
+
+## 延伸阅读
+
+- [按 API Key 控制护栏](./quick_start#-control-guardrails-per-api-key)
+- [GitHub 上的 IBM FMS Guardrails](https://github.com/foundation-model-stack/fms-guardrails-orchestr8)

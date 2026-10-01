@@ -1,0 +1,49 @@
+---
+title: '3. 智能体技能与智能体名片'
+---
+
+在 A2A 智能体能够执行任何操作之前，它需要定义自己*能*做什么（技能）以及智能体或客户端如何发现这些能力（智能体名片）。
+
+我们将使用位于 [`a2a-samples/samples/python/agents/helloworld/`](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/agents/helloworld) 的 `helloworld` 示例。
+
+## 智能体技能
+
+**智能体技能 (Agent Skill)** 描述了智能体可以执行的特定能力或功能。它是一个构建模块，告诉客户端该智能体擅长处理哪些类型的任务。
+
+`AgentSkill` 的属性（定义在 `a2a.types` 中）：
+
+- `id`：技能的唯一标识符。
+- `name`：人类可读的名称。
+- `description`：对技能功能的更详细说明。
+- `tags`：用于分类和发现的关键词。
+- `examples`：示例提示或使用场景。
+- `input_modes` / `output_modes`：支持的输入和输出媒体类型（如 "text/plain"、"application/json"）。
+- `security_requirements`：此技能所需的安全方案。
+
+在 `__main__.py` 中，你可以看到 Helloworld 智能体的技能定义：
+
+```python
+参考：`__main__.py:AgentSkill` — 完整源码见 [__main__.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/__main__.py)
+```
+
+这个技能非常简单：它的名称是"Returns hello world"，主要处理文本内容。
+
+## 智能体名片
+
+**智能体名片 (Agent Card)** 是一个 JSON 文档，由 A2A 服务端对外公开，通常位于 `.well-known/agent-card.json` 端点。它就像是智能体的电子名片。
+
+`AgentCard` 的关键属性（定义在 `a2a.types` 中）：
+
+- `name`、`description`、`version`：基本身份信息。
+- `supported_interfaces`：A2A 服务可用的端点和协议有序列表。
+- `capabilities`：支持的 A2A 特性，如 `streaming` 或 `extended_agent_card`。
+- `default_input_modes` / `default_output_modes`：智能体的默认媒体类型。
+- `skills`：智能体提供的 `AgentSkill` 对象列表。
+
+`helloworld` 示例的智能体名片定义如下：
+
+```python
+参考：`__main__.py:AgentCard` — 完整源码见 [__main__.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/__main__.py)
+```
+
+这张名片告诉我们智能体名为"Hello World Agent"，可通过 `http://127.0.0.1:9999/` 运行，支持文本交互，并拥有 `hello_world` 技能。

@@ -1,0 +1,222 @@
+---
+title: 如何通过 GitHub Actions 自动化发布
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+## 步骤 1：创建工作流文件
+
+在您的服务器项目目录中，创建一个 `.github/workflows/publish-mcp.yml` 文件。以下是针对基于 npm 的本地服务器的示例，但所有软件包类型的 MCP Registry 发布步骤都是相同的：
+
+```yaml OIDC authentication (recommended)
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags: ["v*"] # Triggers on version tags like v1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC authentication
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      ### Publish underlying npm package:
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --if-present
+
+      - name: Build package
+        run: npm run build --if-present
+
+      - name: Publish package to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      ### Publish MCP server:
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      # Optional:
+      # - name: Set version in server.json
+      #   run: |
+      #     VERSION=${GITHUB_REF#refs/tags/v}
+      #     jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
+```
+
+```yaml PAT authentication
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags: ["v*"] # Triggers on version tags like v1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      ### Publish underlying npm package:
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --if-present
+
+      - name: Build package
+        run: npm run build --if-present
+
+      - name: Publish package to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      ### Publish MCP server:
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github --token ${{ secrets.MCP_GITHUB_TOKEN }}
+
+      # Optional:
+      # - name: Set version in server.json
+      #   run: |
+      #     VERSION=${GITHUB_REF#refs/tags/v}
+      #     jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
+```
+
+```yaml DNS authentication
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags: ["v*"] # Triggers on version tags like v1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      ### Publish underlying npm package:
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --if-present
+
+      - name: Build package
+        run: npm run build --if-present
+
+      - name: Publish package to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      ### Publish MCP server:
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      # TODO: Replace `example.com` with your domain name
+      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login dns --domain example.com --private-key ${{ secrets.MCP_PRIVATE_KEY }}
+
+      # Optional:
+      # - name: Set version in server.json
+      #   run: |
+      #     VERSION=${GITHUB_REF#refs/tags/v}
+      #     jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
+```
+
+
+## 步骤 2：添加密钥（Secrets）
+
+根据您选择的认证方式，您可能需要向代码仓库添加一个密钥：
+
+- **GitHub OIDC 认证**：不需要专门的密钥。
+- **GitHub PAT 认证**：添加一个 `MCP_GITHUB_TOKEN` 密钥，值使用具有 `read:org` 和 `read:user` 作用域的 GitHub 个人访问令牌（PAT）。
+- **DNS 认证**：添加一个 `MCP_PRIVATE_KEY` 密钥，值使用您的 Ed25519 私钥。
+
+您可能还需要为软件包注册中心添加密钥。例如，上面的工作流需要一个包含您的 npm 令牌的 `NPM_TOKEN` 密钥。
+
+关于如何向代码仓库添加密钥的信息，请参阅 [在 GitHub Actions 中使用密钥](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)。
+
+## 步骤 3：打标签并发布
+
+创建并推送一个版本标签以触发工作流：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+该工作流将运行测试、构建软件包、将软件包发布到 npm，并将服务器发布到 MCP Registry。
+
+## 故障排除
+
+{/* prettier-ignore-start */}
+
+| 错误消息                         | 处理方法                                                                                                                          |
+| ---                              | ---                                                                                                                               |
+| "Authentication failed"          | 确保为 OIDC 设置了 `id-token: write` 权限，或检查密钥。                                                                          |
+| "Package validation failed"      | 验证您的软件包已成功发布到软件包注册中心（例如 npm、PyPI），并确认您的软件包包含[必要的验证信息](./package-types)。               |
+
+{/* prettier-ignore-end */}

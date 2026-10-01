@@ -1,0 +1,42 @@
+---
+title: '协议定义'
+---
+
+<Tabs items={['Protobuf', 'JSON']}>
+  <Tab>
+
+### Protobuf
+
+采用 Protocol Buffers（proto3 语法）的规范性 A2A 协议定义。
+这是 A2A 协议规范的权威来源。
+
+### 下载
+
+你可以直接下载 proto 文件：[`a2a.proto`](./spec/a2a.proto)
+
+### 定义
+
+```protobuf
+文件 `docs/spec/a2a.proto`
+```
+
+  </Tab>
+  <Tab>
+
+### JSON
+
+A2A 协议 JSON Schema 定义（符合 JSON Schema 2020-12）。
+该 schema 由 protocol buffer 定义自动生成，并打包到包含所有消息定义的单个文件中。
+
+### 下载
+
+你可以直接下载 schema 文件：[`a2a.json`](./spec/a2a.json)
+
+### 定义
+
+```json
+文件 `docs/spec/a2a.json`
+```
+
+  </Tab>
+</Tabs>

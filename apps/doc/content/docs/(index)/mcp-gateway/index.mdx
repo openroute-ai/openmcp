@@ -1,0 +1,1515 @@
+---
+title: "MCP 概述"
+description: "OpenMCP Proxy 提供了一个 MCP 网关，允许你为所有 MCP 工具使用固定端点，并按 Key、Team 控制 MCP 访问。"
+---
+
+OpenMCP Proxy 提供了一个 MCP 网关，允许你为所有 MCP 工具使用固定端点，并按 Key、Team 控制 MCP 的访问权限。 
+
+<img src="/images/docs/mcp-gateway/mcp_2.png" style={{width: '100%', display: 'block', margin: '2rem auto'}} />
+<p style={{textAlign: 'left', color: '#666'}}>
+  OpenMCP MCP 架构：搭配所有 OpenMCP 支持的模型使用 MCP 工具
+</p>
+
+## 概述
+| 功能 | 说明 |
+|---------|-------------|
+| MCP 操作 | • 列出工具<br/>• 调用工具 <br/>• 提示词 <br/>• 资源 |
+| 直接 REST API | [`/mcp-rest/tools/list` 和 `/mcp-rest/tools/call`](/docs/mcp-gateway/rest-api) — 无需 LLM 即可使用 curl 调用工具 |
+| 支持的 MCP 传输方式 | • Streamable HTTP<br/>• SSE<br/>• Standard Input/Output (stdio) |
+| OpenMCP 权限管理 | • 按 Key<br/>• 按 Team<br/>• 按组织 |
+
+<Callout type="warn" title="MCP 协议更新">
+
+从 OpenMCP v1.80.18 开始，OpenMCP MCP 协议版本为 `2025-11-25`。<br/> 
+OpenMCP 通过在每个工具名称前加上其 MCP 服务器名称来对多个 MCP 服务器进行命名空间隔离，因此新建的服务器现在必须使用符合 SEP-986 的名称；不符合规范的名称将无法再被添加。目前仍然违反 SEP-986 的现有服务器只会发出警告，但未来 MCP 侧的升级可能会完全阻止这些名称，因此我们建议在 MCP 强制执行使其不可用之前，主动更新任何旧版服务器名称。
+
+</Callout>
+
+## 添加你的 MCP
+
+### 前提条件
+
+要将 MCP 服务器存储在数据库中，你需要启用数据库存储：
+
+**环境变量：**
+```bash
+export STORE_MODEL_IN_DB=True
+```
+
+**或写入 config.yaml：**
+```yaml
+general_settings:
+  store_model_in_db: true
+```
+
+#### 细粒度数据库存储控制
+
+默认情况下，当 `store_model_in_db` 为 `true` 时，所有对象类型（模型、MCP、guardrails、向量存储等）都会存储在数据库中。如果你只想存储特定对象类型，请使用 `supported_db_objects` 设置。
+
+**示例：仅将 MCP 服务器存储在数据库中**
+
+```yaml title="config.yaml" showLineNumbers
+general_settings:
+  store_model_in_db: true
+  supported_db_objects: ["mcp"]  # Only store MCP servers in DB
+
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: sk-xxxxxxx
+```
+
+**查看所有可用的对象类型：** 配置设置 - supported_db_objects
+
+如果未设置 `supported_db_objects`，则所有对象类型都会从数据库加载（默认行为）。
+
+如需在设置完成后诊断连接问题，请从 MCP 排查指南中的[五分钟排查](/docs/mcp-gateway/troubleshoot#locate-the-error-source)和[症状矩阵](/docs/mcp-gateway/troubleshoot#symptom-matrix)开始。
+
+<Tabs items={["OpenMCP UI","config.yaml"]}>
+<Tab>
+
+在 OpenMCP UI 上，导航到"MCP Servers"并点击"Add New MCP Server"。
+
+在此表单中，你应该输入你的 MCP 服务器 URL 以及要使用的传输方式。
+
+OpenMCP 支持以下 MCP 传输方式：
+- Streamable HTTP
+- SSE (Server-Sent Events)
+- Standard Input/Output (stdio)
+
+<img src="/images/docs/mcp-gateway/add_mcp.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+<br/>
+<br/>
+
+### 添加 HTTP MCP 服务器
+
+该视频演示了如何在 OpenMCP UI 上添加和使用 HTTP MCP 服务器，并在 Cursor IDE 中使用它。
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/e2aebce78e8d46beafeb4bacdde31f14" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+<br/>
+<br/>
+
+### 添加 SSE MCP 服务器
+
+该视频演示了如何在 OpenMCP UI 上添加和使用 SSE MCP 服务器，并在 Cursor IDE 中使用它。
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/07e04e27f5e74475b9cf8ef8247d2c3e" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+<br/>
+<br/>
+
+### 添加 STDIO MCP 服务器
+
+对于 stdio MCP 服务器，请选择"Standard Input/Output (stdio)"作为传输类型，并以 JSON 格式提供 stdio 配置：
+
+<img src="/images/docs/mcp-gateway/add_stdio_mcp.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+<br/>
+<br/>
+
+### OAuth 配置与覆盖
+
+默认情况下，OpenMCP 会尝试 [OAuth 2.0 授权服务器发现](https://datatracker.ietf.org/doc/html/rfc8414)。当你在 UI 中创建 MCP 服务器并设置 `Authentication: OAuth` 时，OpenMCP 将定位提供方元数据，动态注册客户端，并在无需你提供任何额外信息的情况下执行基于 PKCE 的授权。
+
+**按需自定义 OAuth 流程：**
+
+<img src="/images/docs/mcp-gateway/mcp_oauth.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+- **提供显式的客户端凭据** – 如果 MCP 提供方不支持动态客户端注册，或者你更愿意自行管理客户端，请填写 `client_id`、`client_secret` 以及所需的 `scopes`。
+- **覆盖发现 URL** – 在某些环境中，OpenMCP 可能无法访问提供方的元数据端点。请使用可选的 `authorization_url`、`token_url` 和 `registration_url` 字段，将 OpenMCP 直接指向正确的端点。
+
+<br/>
+
+### AWS SigV4 认证
+
+对于托管在 [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore.html) 上的 MCP 服务器，请选择 **AWS SigV4** 作为认证类型。OpenMCP 将使用你的 AWS 凭据，通过 [Signature Version 4](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html) 对每个出站 MCP 请求进行签名。
+
+<img src="/images/docs/mcp-gateway/mcp_aws_sigv4_ui.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+填写你的 AWS 区域、服务名称（默认为 `bedrock-agentcore`），并可选择填写你的 AWS 访问密钥和秘密密钥。如果省略凭据，OpenMCP 将回退到 boto3 凭据链（IAM 角色、环境变量等）。
+
+[**查看完整的 SigV4 设置指南**](/docs/mcp-gateway/aws-sigv4)
+
+<br/>
+
+### 静态请求头
+
+有时你的 MCP 服务器需要在每个请求中携带特定的请求头。也许是一个 API key，也许是服务器期待的自定义请求头。除了配置认证外，你也可以直接设置它们。
+
+<img src="/images/docs/mcp-gateway/static_headers.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+这些请求头会随每个请求一起发送到服务器。仅此而已。
+
+**何时使用：**
+- 你的服务器需要不符合标准认证模式的自定义请求头
+- 你想要完全控制发送的确切请求头
+- 你在调试时需要在无需更改认证配置的情况下快速添加请求头
+
+### 服务器变量
+
+在服务器上存储凭据，并通过 `${VAR_NAME}` 在静态请求头或认证中引用它们（例如 `${DB_PROTOCOL}://${CORP_USERNAME}:${CORP_PASSWORD}@${DB_HOSTNAME}`）。将每个变量的作用域设为**实例级**（共享）或**按用户级**（每个用户提供自己的凭据）。
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/12878e2be19140069170c3a270b50d1c" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+**何时使用：**
+- 每个用户需要使用自己的静态凭据进行连接
+- 你想要在用户之间复用某些共享信息（例如数据库 URL）
+
+</Tab>
+
+<Tab>
+
+直接在 `config.yaml` 文件中添加你的 MCP 服务器：
+
+```yaml title="config.yaml" showLineNumbers
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: sk-xxxxxxx
+
+openmcp_settings:
+  # MCP Aliases - Map aliases to server names for easier tool access
+  mcp_aliases:
+    "github": "github_mcp_server"
+    "zapier": "zapier_mcp_server"
+    "deepwiki": "deepwiki_mcp_server"
+
+mcp_servers:
+  # HTTP Streamable Server
+  deepwiki_mcp:
+    url: "https://mcp.deepwiki.com/mcp"
+  # SSE Server
+  zapier_mcp:
+    url: "https://actions.zapier.com/mcp/sk-akxxxxx/sse"
+  
+  # Standard Input/Output (stdio) Server - CircleCI Example
+  circleci_mcp:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@circleci/mcp-server-circleci"]
+    env:
+      CIRCLECI_TOKEN: "your-circleci-token"
+      CIRCLECI_BASE_URL: "https://circleci.com"
+  
+  # Full configuration with all optional fields
+  my_http_server:
+    url: "https://my-mcp-server.com/mcp"
+    transport: "http"
+    description: "My custom MCP server"
+    auth_type: "api_key"
+    auth_value: "abc123"
+```
+
+**配置选项：**
+- **服务器名称**：为你的 MCP 服务器使用任意描述性名称（例如 `zapier_mcp`、`deepwiki_mcp`、`circleci_mcp`）
+- **server_id**：服务器可选且稳定的 id。请参阅[固定 `server_id`](#pinning-server_id)
+- **别名**：该名称会预先填入服务器名称（空格替换为 "_"），否则可编辑它作为工具名称中的前缀
+- **URL**：你的 MCP 服务器的端点 URL（HTTP/SSE 传输方式必填）
+- **传输方式**：可选的传输类型（默认为 `sse`）
+  - `sse` - SSE（服务器发送事件）传输方式
+  - `http` - Streamable HTTP 传输方式
+  - `stdio` - 标准输入/输出传输方式
+- **命令**：stdio 传输方式要执行的命令（stdio 必填）
+- **allow_all_keys**：设置为 `true` 可使该服务器对所有 OpenMCP API key 可用，即使该 key/团队没有在其 MCP 权限中列出该服务器。
+- **参数**：传递给命令的参数数组（stdio 可选）
+- **环境变量**：为 stdio 进程设置的环境变量（stdio 可选）
+- **描述**：服务器可选的描述信息
+- **认证类型**：可选的认证类型。支持的值：
+
+  如需选择指南、确切的凭据输入和上游请求示例，请参阅 [MCP 非 OAuth 认证](/docs/mcp-gateway/authentication)。
+
+  | 值 | 发送的请求头（受管理的 SSE/HTTP 传输方式） |
+  |-------|-------------|
+  | `none` | 不添加认证请求头 |
+  | `api_key` | `X-API-Key: <auth_value>` |
+  | `bearer_token` | `Authorization: Bearer <auth_value>` |
+  | `basic` | `Authorization: Basic <base64(auth_value)>`；将 `auth_value` 填写为原始的 `username:password` |
+  | `authorization` | `Authorization: <auth_value>`（原样透传，无前缀） |
+  | `token` | `Authorization: token <auth_value>`（GitHub 风格） |
+  | `oauth2` | `Authorization: Bearer <resolved_token>` — PKCE 或 M2M `client_credentials`。请参阅 [MCP OAuth](/docs/mcp-gateway/oauth) |
+  | `oauth2_token_exchange` | `Authorization: Bearer <exchanged_token>` — RFC 8693 On-Behalf-Of。请参阅 [MCP OBO 认证](/docs/mcp-gateway/obo-auth) |
+  | `oauth2_id_jag` | `Authorization: Bearer <access_token>` — 身份断言授权（Identity Assertion Authorization Grant，两段式）。请参阅 [MCP ID-JAG 认证](/docs/mcp-gateway/id-jag) |
+  | `true_passthrough` | 客户端的上游 `Authorization`，原样转发。请参阅 [MCP OAuth 透传](/docs/mcp-gateway/oauth-passthrough) |
+  | `oauth_delegate` | 在 OpenMCP 接纳之后，由客户端单独提供的上游 bearer 令牌。请参阅 [MCP OAuth 透传](/docs/mcp-gateway/oauth-passthrough) |
+  | `aws_sigv4` | 每个请求的 AWS SigV4 签名。请参阅 [MCP AWS SigV4](/docs/mcp-gateway/aws-sigv4) |
+
+  上面显示的请求头是默认值。在服务器上设置 `upstream_token_header`，可将解析后的令牌发送到 `Authorization` 之外的其他位置，这通常正是位于 API 网关之后的 MCP 服务器所需要的。请参阅 [MCP OAuth](/docs/mcp-gateway/oauth#sending-the-token-on-a-different-header)
+
+  注意：上表中的请求头描述的是受管理的 SSE/HTTP 传输路径。OpenAPI 工具路径在 `auth_type: api_key` 时发送的是 `Authorization: ApiKey <value>` 而不是 `X-API-Key`；已弃用的 `x-mcp-auth` 广播请求头同样使用 `ApiKey` 形式。
+
+- **额外请求头**：可选的、应从客户端转发到 MCP 服务器的额外请求头名称列表
+- **静态请求头**：可选的请求头键/值对映射，每个发往 MCP 服务器的请求都会包含。
+- **规范版本**：可选的 MCP 规范版本（默认为 `2025-06-18`）
+
+每种认证类型的示例：
+
+```yaml title="MCP auth examples (config.yaml)" showLineNumbers
+mcp_servers:
+  api_key_example:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: "api_key"
+    auth_value: "abc123"        # headers={"X-API-Key": "abc123"}
+
+  # NEW – OAuth 2.0 Client Credentials (v1.77.5)
+  oauth2_example:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: "oauth2"         # 👈 KEY CHANGE
+    authorization_url: "https://my-mcp-server.com/oauth/authorize" # optional override
+    token_url: "https://my-mcp-server.com/oauth/token"             # optional override
+    registration_url: "https://my-mcp-server.com/oauth/register"   # optional override
+    client_id: os.environ/OAUTH_CLIENT_ID
+    client_secret: os.environ/OAUTH_CLIENT_SECRET
+    scopes: ["tool.read", "tool.write"] # optional override
+
+  bearer_example:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: "bearer_token"
+    auth_value: "abc123"        # headers={"Authorization": "Bearer abc123"}
+
+  basic_example:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: "basic"
+    auth_value: "user:pass"  # headers={"Authorization": "Basic dXNlcjpwYXNz"}
+
+  custom_auth_example:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: "authorization"
+    auth_value: "Token example123"  # headers={"Authorization": "Token example123"}
+
+  # AWS SigV4 for Bedrock AgentCore MCP servers
+  agentcore_mcp:
+    url: "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/<url-encoded-ARN>/invocations"
+    transport: "http"
+    auth_type: "aws_sigv4"
+    aws_role_name: os.environ/AWS_ROLE_ARN          # optional — IAM role to assume
+    aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID  # optional — falls back to IAM role
+    aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+    aws_region_name: us-east-1
+    aws_service_name: bedrock-agentcore
+
+  # Example with extra headers forwarding
+  github_mcp:
+    url: "https://api.githubcopilot.com/mcp"
+    auth_type: "bearer_token"
+    auth_value: "ghp_example_token"
+    extra_headers: ["custom_key", "x-custom-header"]  # These headers will be forwarded from client
+
+  # Example with static headers
+  my_mcp_server:
+    url: "https://my-mcp-server.com/mcp"
+    static_headers: # These headers will be requested to the MCP server
+      X-API-Key: "abc123"
+      X-Custom-Header: "some-value"
+```
+
+### 固定 `server_id`
+
+OpenMCP 会根据配置服务器的名称和连接设置派生其 id。如果更改这些设置，id 会发生变化，已有的 key 或团队权限将不再匹配。
+
+当服务器发生变化时，设置 `server_id` 以保持相同的 id：
+
+```yaml
+mcp_servers:
+  internal_docs:
+    server_id: "internal-docs"
+    url: "https://docs.internal.example/mcp"
+    transport: "http"
+```
+
+如果服务器已经有权限，请从 `GET /v1/mcp/server` 或 Admin UI 获取其当前的 id，然后将该确切值设置为 `server_id`：
+
+```bash
+curl -s http://localhost:4000/v1/mcp/server \
+  -H "Authorization: Bearer sk-1234"
+```
+
+`server_id` 必须是非空字符串。配置条目不能复用其他条目的 id、名称或别名。与数据库支持的服务器冲突时只会记录一条警告：如果 id 匹配，则数据库服务器优先，config 中的那个将不可达；如果匹配的是该服务器的名称或别名，则引用该名称的权限会指向 config 服务器。
+
+如果启用了 `OPENMCP_USE_SHORT_MCP_TOOL_PREFIX`，更改 id 也会更改服务器的工具前缀。通过 UI 或 `/v1/mcp/server` 添加的服务器已经拥有稳定的 id。
+
+### MCP 演练
+
+- **Strands (STDIO)** – [观看教程](https://screen.studio/share/ruv4D73F)
+
+> 从 UI 添加它
+
+```json title="strands-mcp" showLineNumbers
+{
+  "mcpServers": {
+    "strands-agents": {
+      "command": "uvx",
+      "args": ["strands-agents-mcp-server"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": ["search_docs", "fetch_doc"]
+    }
+  }
+}
+```
+
+> config.yml
+
+```yaml title="config.yml – strands MCP" showLineNumbers
+mcp_servers:
+  strands_mcp:
+    transport: "stdio"
+    command: "uvx"
+    args: ["strands-agents-mcp-server"]
+    env:
+      FASTMCP_LOG_LEVEL: "INFO"
+```
+
+### MCP 别名
+
+你可以在 `openmcp_settings` 部分为你的 MCP 服务器定义别名。这样可以让你：
+
+1. **将友好名称映射到服务器名称**：使用更短、更好记的别名
+2. **覆盖服务器别名**：如果服务器没有定义别名，系统将使用 `mcp_aliases` 中第一个匹配的别名
+3. **确保唯一性**：每个服务器只使用第一个别名，防止冲突
+
+**示例：**
+```yaml
+openmcp_settings:
+  mcp_aliases:
+    "github": "github_mcp_server"      # Maps "github" alias to "github_mcp_server"
+    "zapier": "zapier_mcp_server"      # Maps "zapier" alias to "zapier_mcp_server"
+    "docs": "deepwiki_mcp_server"      # Maps "docs" alias to "deepwiki_mcp_server"
+    "github_alt": "github_mcp_server"  # This will be ignored since "github" already maps to this server
+```
+
+**好处：**
+- **简化的工具访问**：使用 `github_create_issue` 代替 `github_mcp_server_create_issue`
+- **一致的命名**：在整个组织中标准化别名模式
+- **轻松迁移**：无需破坏现有工具引用即可更改服务器名称
+
+</Tab>
+</Tabs>
+
+## 将 OpenAPI 规范转换为 MCP 服务器
+
+OpenMCP 可以将 OpenAPI 规范转换为 MCP 服务器，无需编写自定义服务器代码即可将任何 REST API 作为 MCP 工具开放。
+
+完整的设置、用法示例以及如何覆盖工具名称和描述，请参阅 **[从 OpenAPI 规范创建 MCP 的指南](/docs/mcp-gateway/openapi)**。
+
+## MCP OAuth
+
+OpenMCP 支持面向 MCP 服务器的 OAuth 2.0 —— 既包括面向用户的客户端使用的交互式 (PKCE) 流程，也包括面向后端服务的机器对机器 (M2M) `client_credentials`。
+
+设置说明、时序图和测试服务器，请参阅 **[MCP OAuth 指南](/docs/mcp-gateway/oauth)**。
+
+<details>
+<summary>OAuth 详细参考（点击展开）</summary>
+
+OpenMCP v1.77.6 为 MCP 服务器添加了对 OAuth 2.0 客户端凭据的支持。
+
+你可以在 `config.yaml` 中配置此功能，也可以直接在 OpenMCP UI 中配置（MCP Servers → Authentication → OAuth）。每个 `auth_type: oauth2` 服务器都必须通过 `oauth2_flow` 声明其流程：`authorization_code` 用于交互式浏览器登录（如下所示），`client_credentials` 用于机器对机器令牌。
+
+```yaml
+mcp_servers:
+  github_mcp:
+    url: "https://api.githubcopilot.com/mcp"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+    client_id: os.environ/GITHUB_OAUTH_CLIENT_ID
+    client_secret: os.environ/GITHUB_OAUTH_CLIENT_SECRET
+```
+
+[**查看 Claude Code 教程**](/docs/tutorials/claude_responses_api)
+
+### 工作原理
+
+```mermaid
+sequenceDiagram
+    participant Browser as User-Agent (Browser)
+    participant Client as Client
+    participant OpenMCP as OpenMCP Proxy
+    participant MCP as MCP Server (Resource Server)
+    participant Auth as Authorization Server
+
+    Note over Client,OpenMCP: Step 1 – Resource discovery
+    Client->>OpenMCP: GET /.well-known/oauth-protected-resource/{mcp_server_name}/mcp
+    OpenMCP->>Client: Return resource metadata
+
+    Note over Client,OpenMCP: Step 2 – Authorization server discovery
+    Client->>OpenMCP: GET /.well-known/oauth-authorization-server/{mcp_server_name}
+    OpenMCP->>Client: Return authorization server metadata
+
+    Note over Client,Auth: Step 3 – Dynamic client registration
+    Client->>OpenMCP: POST /{mcp_server_name}/register
+    OpenMCP->>Auth: Forward registration request
+    Auth->>OpenMCP: Issue client credentials
+    OpenMCP->>Client: Return client credentials
+
+    Note over Client,Browser: Step 4 – User authorization (PKCE)
+    Client->>Browser: Open authorization URL + code_challenge + resource
+    Browser->>Auth: Authorization request
+    Note over Auth: User authorizes
+    Auth->>Browser: Redirect with authorization code
+    Browser->>OpenMCP: Callback to OpenMCP with code
+    OpenMCP->>Browser: Redirect back with authorization code
+    Browser->>Client: Callback with authorization code
+
+    Note over Client,Auth: Step 5 – Token exchange
+    Client->>OpenMCP: Token request + code_verifier + resource
+    OpenMCP->>Auth: Forward token request
+    Auth->>OpenMCP: Access (and refresh) token
+    OpenMCP->>Client: Return tokens
+
+    Note over Client,MCP: Step 6 – Authenticated MCP call
+    Client->>OpenMCP: MCP request with access token + OpenMCP API key
+    OpenMCP->>MCP: MCP request with Bearer token
+    MCP-->>OpenMCP: MCP response
+    OpenMCP-->>Client: Return MCP response
+```
+
+**参与者**
+
+- **客户端** – 具备 MCP 能力的 AI 智能体（例如 Claude Code、Cursor 或其他 IDE/智能体），代表用户发起 OAuth 发现、授权和工具调用。
+- **OpenMCP Proxy** – 调解所有 OAuth 发现、注册、令牌交换和 MCP 流量，同时保护已存储的凭据。
+- **授权服务器** – 通过动态客户端注册、PKCE 授权和令牌端点颁发 OAuth 2.0 令牌。
+- **MCP 服务器（资源服务器）** – 受保护的 MCP 端点，接收 OpenMCP 已认证的 JSON-RPC 请求。
+- **用户代理（浏览器）** – 临时参与，以便最终用户在授权步骤中给予同意。
+
+**流程步骤**
+
+1. **资源发现**：客户端从 OpenMCP 的 `.well-known/oauth-protected-resource` 端点获取 MCP 资源元数据，以了解作用域和能力。
+2. **授权服务器发现**：客户端通过 OpenMCP 的 `.well-known/oauth-authorization-server` 端点获取 OAuth 服务器元数据（令牌端点、授权端点、支持的 PKCE 方法）。
+3. **动态客户端注册**：客户端通过 OpenMCP 注册，OpenMCP 将请求转发给授权服务器（RFC 7591）。如果提供方不支持动态注册，你可以在 OpenMCP 中预先存储 `client_id`/`client_secret`（例如 GitHub MCP），流程将以相同方式继续。
+4. **用户授权**：客户端启动浏览器会话（附带 code challenge 和资源提示）。用户批准访问后，授权服务器通过 OpenMCP 将代码发送回客户端。
+5. **令牌交换**：客户端携带授权代码、code verifier 和资源调用 OpenMCP。OpenMCP 与授权服务器进行交换，并返回已颁发的访问/刷新令牌。
+6. **MCP 调用**：持有有效令牌后，客户端将 MCP JSON-RPC 请求（外加 OpenMCP API key）发送给 OpenMCP，OpenMCP 将其转发到 MCP 服务器并中继工具响应。
+
+另请参阅官方 [MCP 授权流程](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization#authorization-flow-steps) 以获得更多参考。
+
+</details>
+
+## 将自定义请求头转发到 MCP 服务器
+
+OpenMCP 支持通过 `extra_headers` 配置参数，将额外的自定义请求头从 MCP 客户端转发到后端 MCP 服务器。这允许你传递 MCP 服务器所需的自定义认证令牌、API key 或其他请求头。
+
+**配置**
+
+<Tabs items={["config.yaml","在客户端动态设置"]}>
+<Tab>
+在 MCP 服务器配置中配置 `extra_headers`，以指定应转发哪些请求头名称：
+
+```yaml title="config.yaml with extra_headers" showLineNumbers
+mcp_servers:
+  github_mcp:
+    url: "https://api.githubcopilot.com/mcp"
+    auth_type: "bearer_token"
+    auth_value: "ghp_default_token"
+    extra_headers: ["custom_key", "x-custom-header", "Authorization"]
+    description: "GitHub MCP server with custom header forwarding"
+```
+</Tab>
+<Tab>
+
+当需要让用户访问[一组 MCP 服务器](/docs/mcp#control-mcp-access-for-end-users)时使用此功能。
+
+**格式：** `x-mcp-{server_alias}-{header_name}: value`
+
+这允许你为不同的 MCP 服务器使用不同的认证。
+
+**示例：**
+- `x-mcp-github-authorization: Bearer ghp_xxxxxxxxx` - 使用 Bearer 令牌的 GitHub MCP 服务器
+- `x-mcp-zapier-x-api-key: sk-xxxxxxxxx` - 使用 API key 的 Zapier MCP 服务器
+- `x-mcp-deepwiki-authorization: Basic base64_encoded_creds` - 使用 Basic 认证的 DeepWiki MCP 服务器
+
+如果访问组中的每个服务器都使用相同的凭据，请以 `x-mcp-{access_group}-{header_name}` 的形式发送一次，OpenMCP 会将其转发给每个 `access_groups` 包含该组的服务器。针对特定服务器的 `x-mcp-{server_alias}-{header_name}` 请求头在该服务器上仍然优先；组外的服务器永远不会收到组凭据。当一个服务器属于多个组，且这些组携带不同的凭据时，OpenMCP 不会转发其中任何凭据。
+
+```python title="Python Client with Server-Specific Auth" showLineNumbers
+from fastmcp import Client
+import asyncio
+
+# Standard MCP configuration with multiple servers
+config = {
+    "mcpServers": {
+        "mcp_group": {
+            "url": "http://localhost:4000/mcp/",
+            "headers": {
+                "x-mcp-servers": "dev_group", # assume this gives access to github, zapier and deepwiki
+                "x-openmcp-api-key": "Bearer sk-1234",
+                "x-mcp-github-authorization": "Bearer gho_token", 
+                "x-mcp-zapier-x-api-key": "sk-xxxxxxxxx",
+                "x-mcp-deepwiki-authorization": "Basic base64_encoded_creds",
+                "custom_key": "value"
+            }
+        }
+    }
+}
+
+# Create a client that connects to all servers
+client = Client(config)
+
+async def main():
+    async with client:
+        tools = await client.list_tools()
+        print(f"Available tools: {tools}")
+
+        # call mcp 
+        await client.call_tool(
+            name="github_mcp-search_issues",
+            arguments={'query': 'created:>2024-01-01', 'sort': 'created', 'order': 'desc', 'perPage': 30}
+        )
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
+
+**好处：**
+- **服务器专属认证**：每个 MCP 服务器可以使用不同的认证方法
+- **更好的安全性**：无需在所有服务器之间共享相同的认证令牌
+- **灵活的请求头名称**：支持不同的认证请求头类型（authorization、x-api-key 等）
+- **清晰分离**：每个服务器的认证都被明确标识
+
+</Tab>
+</Tabs>
+
+#### 客户端用法
+
+从 MCP 客户端连接时，请包含与 `extra_headers` 配置匹配的自定义请求头：
+
+<Tabs items={["Python FastMCP","Cursor IDE","HTTP Client"]}>
+<Tab>
+
+```python title="FastMCP Client with Custom Headers" showLineNumbers
+from fastmcp import Client
+import asyncio
+
+# MCP client configuration with custom headers
+config = {
+    "mcpServers": {
+        "github": {
+            "url": "http://localhost:4000/github_mcp/mcp",
+            "headers": {
+                "x-openmcp-api-key": "Bearer sk-1234",
+                "Authorization": "Bearer gho_token", 
+                "custom_key": "custom_value",
+                "x-custom-header": "additional_data"
+            }
+        }
+    }
+}
+
+# Create a client that connects to the server
+client = Client(config)
+
+async def main():
+    async with client:
+        # List available tools
+        tools = await client.list_tools()
+        print(f"Available tools: {tools}")
+        
+        # Call a tool if available
+        if tools:
+            result = await client.call_tool(tools[0].name, {})
+            print(f"Tool result: {result}")
+
+# Run the client
+asyncio.run(main())
+```
+
+</Tab>
+
+<Tab>
+
+```json title="Cursor MCP Configuration with Custom Headers" showLineNumbers
+{
+  "mcpServers": {
+    "GitHub": {
+      "url": "http://localhost:4000/github_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY",
+        "Authorization": "Bearer $GITHUB_TOKEN",
+        "custom_key": "custom_value",
+        "x-custom-header": "additional_data"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```bash title="cURL with Custom Headers" showLineNumbers
+curl --location 'http://localhost:4000/github_mcp/mcp' \
+--header 'Content-Type: application/json' \
+--header 'x-openmcp-api-key: Bearer sk-1234' \
+--header 'Authorization: Bearer gho_token' \
+--header 'custom_key: custom_value' \
+--header 'x-custom-header: additional_data' \
+--data '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+}'
+```
+
+</Tab>
+</Tabs>
+
+#### 工作原理
+
+1. **配置**：在你的 MCP 服务器配置中定义 `extra_headers`，填入要转发的请求头名称
+2. **客户端请求头**：在你的 MCP 客户端请求中包含相应的请求头
+3. **请求头转发**：OpenMCP 会自动将匹配的请求头转发到后端 MCP 服务器
+4. **认证**：后端 MCP 服务器会同时收到已配置的认证请求头和自定义请求头
+
+### 将请求头传递到 STDIO 环境变量
+
+如果你的 stdio MCP 服务器需要每个请求独立的凭据，你可以将客户端请求中的 HTTP 请求头直接映射到所启动 stdio 进程的环境变量中。使用 `${X-HEADER_NAME}` 语法在 env 值中引用请求头名称。OpenMCP 会从入站请求中读取该请求头，并在启动命令前设置环境变量。
+
+```json title="Forward X-GITHUB_PERSONAL_ACCESS_TOKEN header to stdio env" showLineNumbers
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${X-GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+在此示例中，当客户端携带 `X-GITHUB_PERSONAL_ACCESS_TOKEN` 请求头发起请求时，代理会将该值作为 `GITHUB_PERSONAL_ACCESS_TOKEN` 环境变量转发到 stdio 进程中。
+
+## 控制终端用户的 MCP 访问
+
+控制你的 AI 应用的终端用户可以访问哪些 MCP 服务器（例如内部聊天 UI 的用户）。在 `x-openmcp-end-user-id` 请求头中传递客户 ID，以：
+- 强制执行对象权限（限制他们可以访问的 MCP 服务器）
+- 应用客户专属预算
+- 按客户追踪花费
+
+**FastMCP 客户端示例：**
+
+```python title="Track customer spend with x-openmcp-end-user-id" showLineNumbers
+from fastmcp import Client
+import asyncio
+
+# MCP client configuration with customer tracking
+config = {
+    "mcpServers": {
+        "github": {
+            "url": "http://localhost:4000/github_mcp/mcp",
+            "headers": {
+                "x-openmcp-api-key": "Bearer sk-1234",
+                "x-openmcp-end-user-id": "customer_123",  # 👈 CUSTOMER ID
+                "Authorization": "Bearer gho_token"
+            }
+        }
+    }
+}
+
+client = Client(config)
+
+async def main():
+    async with client:
+        # All MCP calls will be tracked under customer_123
+        tools = await client.list_tools()
+        result = await client.call_tool(tools[0].name, {})
+        print(f"Tool result: {result}")
+
+asyncio.run(main())
+```
+
+**Cursor IDE 示例：**
+
+```json title="Cursor config with customer tracking" showLineNumbers
+{
+  "mcpServers": {
+    "GitHub": {
+      "url": "http://localhost:4000/github_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY",
+        "x-openmcp-end-user-id": "customer_123"
+      }
+    }
+  }
+}
+```
+
+**会发生什么：**
+- 强制执行客户专属的对象权限（只能访问被允许的 MCP 服务器）
+- 应用客户预算
+- 所有工具调用都归属于 `customer_123` 名下
+
+[了解更多客户管理信息 →](./proxy/customers)
+
+## 调用代理的 /v1/responses 端点
+
+在通过 OpenMCP Proxy 的 `/v1/responses` 端点使用 MCP 工具时，**务必在 tools 数组中使用 `server_url: "openmcp_proxy"`**。这会告诉代理使用其已配置的 MCP 服务器。
+
+<Callout type="warn" title="不要使用完整的代理 URL">
+
+当请求已经发往代理时，使用 `server_url: "https://your-proxy.com/mcp"` 是不正确的。代理需要字面值 `openmcp_proxy` 才能路由到其已配置的 MCP 服务器。
+
+</Callout>
+
+```bash title="Correct: Using openmcp_proxy" showLineNumbers
+curl --location 'https://your-proxy.com/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENMCP_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never"
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+### 向 MCP 服务器发送自定义请求头
+
+要向特定的 MCP 服务器传递自定义请求头（例如 API key、认证令牌），可以使用以下任一方式：
+
+**选项 1：请求头** – 在你的请求头中添加 `x-mcp-{server_alias}-{header_name}`。代理会将这些请求头转发到匹配的 MCP 服务器。
+
+```bash
+# Send Authorization header to the "weather2" MCP server
+--header 'x-mcp-weather2-authorization: Bearer your-token'
+
+# Send custom header to the "github" MCP server  
+--header 'x-mcp-github-x-api-key: your-api-key'
+```
+
+**选项 2：工具配置中的请求头** – 在工具定义中包含一个 `headers` 对象。这些请求头会与请求头合并。
+
+```json
+{
+    "type": "mcp",
+    "server_label": "openmcp",
+    "server_url": "openmcp_proxy",
+    "require_approval": "never",
+    "headers": {
+        "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+        "x-mcp-servers": "Zapier_MCP,dev-group",
+        "x-mcp-weather2-authorization": "Bearer your-weather-api-token"
+    }
+}
+```
+
+## 使用客户端凭据调用你的 MCP
+
+如果你希望将客户端认证令牌传递给 OpenMCP，再由 OpenMCP 将其传给你的 MCP 以完成对 MCP 的认证，请使用此方式。
+
+### 新的服务器专属认证请求头（推荐）
+
+你可以使用格式为 `x-mcp-{server_alias}-{header_name}` 的服务器专属请求头来指定 MCP 认证令牌。这允许你为不同的 MCP 服务器使用不同的认证。
+
+**好处：**
+- **服务器专属认证**：每个 MCP 服务器可以使用不同的认证方法
+- **更好的安全性**：无需在所有服务器之间共享相同的认证令牌
+- **灵活的请求头名称**：支持不同的认证请求头类型（authorization、x-api-key 等）
+- **清晰分离**：每个服务器的认证都被明确标识
+
+### 组级认证请求头
+
+当访问组中的服务器共享一个凭据时，以 `x-mcp-{access_group}-{header_name}` 的形式传递一次，而不必在每个服务器中重复。OpenMCP 会将其作为每个 `access_groups` 包含该组的服务器的默认凭据。针对特定服务器的 `x-mcp-{server_alias}-{header_name}` 请求头会覆盖该服务器的默认凭据；组外的服务器永远不会收到它；如果一个服务器属于多个携带不同凭据的组，则任何凭据都不会被转发。服务器别名和访问组名称共享 `x-mcp-` 请求头命名空间，因此一个别名与组名相同的服务器会继续将 `x-mcp-{alias}-*` 接收为其自身的凭据；请避免将服务器命名为其并不属于的访问组。
+
+```bash title="cURL Example with Group-Level Auth" showLineNumbers
+curl -X POST http://localhost:4000/mcp/dev_group \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "x-openmcp-api-key: Bearer sk-1234" \
+  -H "x-mcp-dev_group-authorization: Bearer SHARED_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### 旧版认证请求头（已弃用）
+
+你也可以使用 `x-mcp-auth` 请求头指定你的 MCP 认证令牌。该请求头会转发到所有 MCP 服务器，现已弃用，推荐使用服务器专属请求头。
+
+<Tabs items={["OpenAI API","OpenMCP Proxy","Cursor IDE","Streamable HTTP","Python FastMCP"]}>
+<Tab>
+
+#### 通过带服务器专属认证的 OpenAI Responses API 连接
+
+使用 OpenAI Responses API 并包含服务器专属的认证请求头：
+
+```bash title="cURL Example with Server-Specific Auth" showLineNumbers
+curl --location 'https://api.openai.com/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENAI_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+                "x-mcp-github-authorization": "Bearer YOUR_GITHUB_TOKEN",
+                "x-mcp-zapier-x-api-key": "YOUR_ZAPIER_API_KEY"
+            }
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+#### 通过带旧版认证的 OpenAI Responses API 连接
+
+使用 OpenAI Responses API，并包含用于 MCP 服务器认证的 `x-mcp-auth` 请求头：
+
+```bash title="cURL Example with Legacy MCP Auth" showLineNumbers
+curl --location 'https://api.openai.com/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENAI_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+                "x-mcp-auth": YOUR_MCP_AUTH_TOKEN
+            }
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+</Tab>
+
+<Tab>
+
+#### 通过带服务器专属认证的 OpenMCP Proxy Responses API 连接
+
+当你在调用 OpenMCP Proxy 发起指向 `/v1/responses` 端点的 LLM API 请求时，配合服务器专属认证使用此方式：
+
+```bash title="cURL Example with Server-Specific Auth" showLineNumbers
+curl --location '<your-openmcp-proxy-base-url>/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENMCP_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+                "x-mcp-github-authorization": "Bearer YOUR_GITHUB_TOKEN",
+                "x-mcp-zapier-x-api-key": "YOUR_ZAPIER_API_KEY"
+            }
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+#### 通过带旧版认证的 OpenMCP Proxy Responses API 连接
+
+当你在调用 OpenMCP Proxy 发起指向 `/v1/responses` 端点的 LLM API 请求时，配合 MCP 认证使用此方式：
+
+```bash title="cURL Example with Legacy MCP Auth" showLineNumbers
+curl --location '<your-openmcp-proxy-base-url>/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENMCP_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+                "x-mcp-auth": "YOUR_MCP_AUTH_TOKEN"
+            }
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+</Tab>
+
+<Tab>
+
+#### 通过带服务器专属认证的 Cursor IDE 连接
+
+直接在 Cursor IDE 中使用 OpenMCP MCP 工具并包含服务器专属认证：
+
+**设置步骤：**
+
+1. **打开 Cursor 设置**：使用 `⇧+⌘+J`（Mac）或 `Ctrl+Shift+J`（Windows/Linux）
+2. **转到 MCP 工具**：进入"MCP Tools"选项卡并点击"New MCP Server"
+3. **添加配置**：复制并粘贴下方的 JSON 配置，然后使用 `Cmd+S` 或 `Ctrl+S` 保存
+
+```json title="Cursor MCP Configuration with Server-Specific Auth" showLineNumbers
+{
+  "mcpServers": {
+    "OpenMCP": {
+      "url": "openmcp_proxy",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY",
+        "x-mcp-github-authorization": "Bearer $GITHUB_TOKEN",
+        "x-mcp-zapier-x-api-key": "$ZAPIER_API_KEY"
+      }
+    }
+  }
+}
+```
+
+#### 通过带旧版认证的 Cursor IDE 连接
+
+直接在 Cursor IDE 中使用 OpenMCP MCP 工具并包含你的 MCP 认证令牌：
+
+**设置步骤：**
+
+1. **打开 Cursor 设置**：使用 `⇧+⌘+J`（Mac）或 `Ctrl+Shift+J`（Windows/Linux）
+2. **转到 MCP 工具**：进入"MCP Tools"选项卡并点击"New MCP Server"
+3. **添加配置**：复制并粘贴下方的 JSON 配置，然后使用 `Cmd+S` 或 `Ctrl+S` 保存
+
+```json title="Cursor MCP Configuration with Legacy Auth" showLineNumbers
+{
+  "mcpServers": {
+    "OpenMCP": {
+      "url": "openmcp_proxy",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY",
+        "x-mcp-auth": "$MCP_AUTH_TOKEN"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+#### 通过带服务器专属认证的 Streamable HTTP 传输方式连接
+
+使用 HTTP 传输方式并配合服务器专属认证连接到 OpenMCP MCP：
+
+**服务器 URL：**
+```text showLineNumbers
+openmcp_proxy
+```
+
+**请求头：**
+```text showLineNumbers
+x-openmcp-api-key: Bearer YOUR_OPENMCP_API_KEY
+x-mcp-github-authorization: Bearer YOUR_GITHUB_TOKEN
+x-mcp-zapier-x-api-key: YOUR_ZAPIER_API_KEY
+```
+
+#### 通过带旧版认证的 Streamable HTTP 传输方式连接
+
+使用 HTTP 传输方式并配合 MCP 认证连接到 OpenMCP MCP：
+
+**服务器 URL：**
+```text showLineNumbers
+openmcp_proxy
+```
+
+**请求头：**
+```text showLineNumbers
+x-openmcp-api-key: Bearer YOUR_OPENMCP_API_KEY
+x-mcp-auth: Bearer YOUR_MCP_AUTH_TOKEN
+```
+
+该 URL 可用于任何支持 HTTP 传输方式的 MCP 客户端。`x-mcp-auth` 请求头将被转发到你的 MCP 服务器用于认证。
+
+</Tab>
+
+<Tab>
+
+#### 通过带服务器专属认证的 Python FastMCP 客户端连接
+
+使用 Python FastMCP 客户端，配合服务器专属认证连接到你的 OpenMCP MCP 服务器：
+
+```python title="Python FastMCP Example with Server-Specific Auth" showLineNumbers
+import asyncio
+import json
+
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+# Create the transport with your OpenMCP MCP server URL and server-specific auth headers
+server_url = "openmcp_proxy"
+transport = StreamableHttpTransport(
+    server_url,
+    headers={
+        "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+        "x-mcp-github-authorization": "Bearer YOUR_GITHUB_TOKEN",
+        "x-mcp-zapier-x-api-key": "YOUR_ZAPIER_API_KEY"
+    }
+)
+
+# Initialize the client with the transport
+client = Client(transport=transport)
+
+async def main():
+    # Connection is established here
+    print("Connecting to OpenMCP MCP server with server-specific authentication...")
+    async with client:
+        print(f"Client connected: {client.is_connected()}")
+
+        # Make MCP calls within the context
+        print("Fetching available tools...")
+        tools = await client.list_tools()
+
+        print(f"Available tools: {json.dumps([t.name for t in tools], indent=2)}")
+        
+        # Example: Call a tool (replace 'tool_name' with an actual tool name)
+        if tools:
+            tool_name = tools[0].name
+            print(f"Calling tool: {tool_name}")
+            
+            # Call the tool with appropriate arguments
+            result = await client.call_tool(tool_name, arguments={})
+            print(f"Tool result: {result}")
+
+# Run the example
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### 通过带旧版认证的 Python FastMCP 客户端连接
+
+使用 Python FastMCP 客户端，配合 MCP 认证连接到你的 OpenMCP MCP 服务器：
+
+```python title="Python FastMCP Example with Legacy MCP Auth" showLineNumbers
+import asyncio
+import json
+
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+# Create the transport with your OpenMCP MCP server URL and auth headers
+server_url = "openmcp_proxy"
+transport = StreamableHttpTransport(
+    server_url,
+    headers={
+        "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+        "x-mcp-auth": "Bearer YOUR_MCP_AUTH_TOKEN"
+    }
+)
+
+# Initialize the client with the transport
+client = Client(transport=transport)
+
+async def main():
+    # Connection is established here
+    print("Connecting to OpenMCP MCP server with authentication...")
+    async with client:
+        print(f"Client connected: {client.is_connected()}")
+
+        # Make MCP calls within the context
+        print("Fetching available tools...")
+        tools = await client.list_tools()
+
+        print(f"Available tools: {json.dumps([t.name for t in tools], indent=2)}")
+        
+        # Example: Call a tool (replace 'tool_name' with an actual tool name)
+        if tools:
+            tool_name = tools[0].name
+            print(f"Calling tool: {tool_name}")
+            
+            # Call the tool with appropriate arguments
+            result = await client.call_tool(tool_name, arguments={})
+            print(f"Tool result: {result}")
+
+# Run the example
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</Tab>
+</Tabs>
+
+### 自定义 MCP 认证请求头名称
+
+默认情况下，OpenMCP 使用 `x-mcp-auth` 将你的凭据传递给 MCP 服务器。你可以通过以下任一方式更改此请求头名称：
+1. 设置 `OPENMCP_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` 环境变量
+
+```bash title="Environment Variable" showLineNumbers
+export OPENMCP_MCP_CLIENT_SIDE_AUTH_HEADER_NAME="authorization"
+```
+
+2. 在 config.yaml 文件的 general settings 中设置 `mcp_client_side_auth_header_name`
+
+```yaml title="config.yaml" showLineNumbers
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: sk-xxxxxxx
+
+general_settings:
+  mcp_client_side_auth_header_name: "authorization"
+```
+
+#### 使用 authorization 请求头
+
+在此示例中，`authorization` 请求头将传递给 MCP 服务器用于认证。
+
+```bash title="cURL with authorization header" showLineNumbers
+curl --location '<your-openmcp-proxy-base-url>/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENMCP_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY",
+                "authorization": "Bearer sk-zapier-token-123"
+            }
+        }
+    ],
+    "input": "Run available tools",
+    "tool_choice": "required"
+}'
+```
+
+## 在 `/chat/completions` 中使用 MCP 工具
+
+<Callout type="info" title="适用于所有提供商">
+
+此流程**与提供商无关**：同一个 MCP 工具定义适用于 OpenMCP 背后的_每一个_ LLM 后端（OpenAI、Azure OpenAI、Anthropic、Amazon Bedrock、Vertex、自托管部署等）。
+
+</Callout>
+
+OpenMCP Proxy 还在传统的 `/v1/chat/completions` 端点上支持 MCP 感知的工具调用。直接在 `tools` 数组中提供 MCP 工具定义，OpenMCP 就会获取 MCP 服务器的工具并将其转换为兼容 OpenAI 的函数调用。当 `require_approval` 设置为 `"never"` 时，代理会自动执行返回的工具调用，并在返回助手响应之前将结果反馈给模型。
+
+```bash title="Chat Completions with MCP Tools" showLineNumbers
+curl --location '<your-openmcp-proxy-base-url>/v1/chat/completions' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENMCP_API_KEY" \
+--data '{
+  "model": "{{openai_small}}",
+  "messages": [
+    {"role": "user", "content": "Summarize the latest open PR."}
+  ],
+  "tools": [
+    {
+      "type": "mcp",
+      "server_url": "openmcp_proxy/github/mcp",
+      "server_label": "github_mcp",
+      "require_approval": "never"
+    }
+  ]
+}'
+```
+
+如果你省略 `require_approval`，或将其设置为 `"never"` 以外的任何值，MCP 工具调用会返回给客户端，以便你手动审查并执行它们，这与上游 OpenAI 的行为一致。
+
+## OpenMCP Proxy - 深入了解 MCP 网关
+OpenMCP 为管理员提供了一个 MCP 网关，可以将他们所有的 MCP 服务器添加到 OpenMCP。将 OpenMCP Proxy 与 MCP 结合使用的关键好处是：
+
+1. 为所有 MCP 工具使用固定端点
+2. 按 Key、Team 或 User 进行 MCP 权限管理
+
+该视频演示了如何将 MCP 服务器接入 OpenMCP Proxy、使用它并设置访问控制。
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/f7aa8d217879430987f3e64291757bfc" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+## OpenMCP Python SDK MCP 桥接器
+
+OpenMCP Python SDK 充当 MCP 桥接器，使 MCP 工具可以配合所有 OpenMCP 支持的模型使用。OpenMCP 为使用 MCP 提供了以下功能：
+
+- **列出**可用的 MCP 工具：OpenAI 客户端可以查看所有可用的 MCP 工具
+  - `openmcp.experimental_mcp_client.load_mcp_tools` 用于列出所有可用的 MCP 工具
+- **调用** MCP 工具：OpenAI 客户端可以调用 MCP 工具
+  - `openmcp.experimental_mcp_client.call_openai_tool` 用于在 MCP 服务器上调用 OpenAI 工具
+
+### 1. 列出可用的 MCP 工具
+
+在此示例中，我们将使用 `openmcp.experimental_mcp_client.load_mcp_tools` 列出任何 MCP 服务器上所有可用的 MCP 工具。此方法有两种用法：
+
+- `format="mcp"` - （默认）返回 MCP 工具
+  - 返回：`mcp.types.Tool`
+- `format="openai"` - 返回已转换为兼容 OpenAI API 工具的 MCP 工具。允许与 OpenAI 端点一起使用。
+  - 返回：`openai.types.chat.ChatCompletionToolParam`
+
+<Tabs items={["OpenMCP Python SDK","OpenAI SDK + OpenMCP Proxy"]}>
+<Tab>
+
+```python title="MCP Client List Tools" showLineNumbers
+# Create server parameters for stdio connection
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+import os
+import openmcp
+from openmcp import experimental_mcp_client
+
+server_params = StdioServerParameters(
+    command="python3",
+    # Make sure to update to the full absolute path to your mcp_server.py file
+    args=["./mcp_server.py"],
+)
+
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        # Initialize the connection
+        await session.initialize()
+
+        # Get tools
+        tools = await experimental_mcp_client.load_mcp_tools(session=session, format="openai")
+        print("MCP TOOLS: ", tools)
+
+        messages = [{"role": "user", "content": "what's (3 + 5)"}]
+        llm_response = await openmcp.acompletion(
+            model="{{openai_large}}",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            messages=messages,
+            tools=tools,
+        )
+        print("LLM RESPONSE: ", json.dumps(llm_response, indent=4, default=str))
+```
+
+</Tab>
+
+<Tab>
+
+在此示例中，我们将演示如何使用指向 OpenMCP 代理的 OpenAI SDK 调用 MCP 工具。这里的关键区别在于，我们使用 OpenAI SDK 发起 LLM API 请求
+
+```python title="MCP Client List Tools" showLineNumbers
+# Create server parameters for stdio connection
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+import os
+from openai import OpenAI
+from openmcp import experimental_mcp_client
+
+server_params = StdioServerParameters(
+    command="python3",
+    # Make sure to update to the full absolute path to your mcp_server.py file
+    args=["./mcp_server.py"],
+)
+
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        # Initialize the connection
+        await session.initialize()
+
+        # Get tools using openmcp mcp client
+        tools = await experimental_mcp_client.load_mcp_tools(session=session, format="openai")
+        print("MCP TOOLS: ", tools)
+
+        # Use OpenAI SDK pointed to OpenMCP proxy
+        client = OpenAI(
+            api_key="your-api-key",  # Your OpenMCP proxy API key
+            base_url="http://localhost:4000"  # Your OpenMCP proxy URL
+        )
+
+        messages = [{"role": "user", "content": "what's (3 + 5)"}]
+        llm_response = client.chat.completions.create(
+            model="{{openai_large}}",
+            messages=messages,
+            tools=tools
+        )
+        print("LLM RESPONSE: ", llm_response)
+```
+</Tab>
+</Tabs>
+
+### 2. 列出并调用 MCP 工具
+
+在此示例中，我们将使用 
+- `openmcp.experimental_mcp_client.load_mcp_tools` 列出任何 MCP 服务器上所有可用的 MCP 工具
+- `openmcp.experimental_mcp_client.call_openai_tool` 在 MCP 服务器上调用 OpenAI 工具
+
+第一个 LLM 响应会返回一个 OpenAI 工具列表。我们从 LLM 响应中取出第一个工具调用，并将其传递给 `openmcp.experimental_mcp_client.call_openai_tool`，以便在 MCP 服务器上调用该工具。
+
+#### `openmcp.experimental_mcp_client.call_openai_tool` 的工作原理
+
+- 接收来自 LLM 响应的 OpenAI 工具调用
+- 将 OpenAI 工具调用转换为 MCP 工具
+- 在 MCP 服务器上调用 MCP 工具
+- 返回 MCP 工具调用的结果
+
+<Tabs items={["OpenMCP Python SDK","OpenAI SDK + OpenMCP Proxy"]}>
+<Tab>
+
+```python title="MCP Client List and Call Tools" showLineNumbers
+# Create server parameters for stdio connection
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+import os
+import openmcp
+from openmcp import experimental_mcp_client
+
+server_params = StdioServerParameters(
+    command="python3",
+    # Make sure to update to the full absolute path to your mcp_server.py file
+    args=["./mcp_server.py"],
+)
+
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        # Initialize the connection
+        await session.initialize()
+
+        # Get tools
+        tools = await experimental_mcp_client.load_mcp_tools(session=session, format="openai")
+        print("MCP TOOLS: ", tools)
+
+        messages = [{"role": "user", "content": "what's (3 + 5)"}]
+        llm_response = await openmcp.acompletion(
+            model="{{openai_large}}",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            messages=messages,
+            tools=tools,
+        )
+        print("LLM RESPONSE: ", json.dumps(llm_response, indent=4, default=str))
+
+        openai_tool = llm_response["choices"][0]["message"]["tool_calls"][0]
+        # Call the tool using MCP client
+        call_result = await experimental_mcp_client.call_openai_tool(
+            session=session,
+            openai_tool=openai_tool,
+        )
+        print("MCP TOOL CALL RESULT: ", call_result)
+
+        # send the tool result to the LLM
+        messages.append(llm_response["choices"][0]["message"])
+        messages.append(
+            {
+                "role": "tool",
+                "content": str(call_result.content[0].text),
+                "tool_call_id": openai_tool["id"],
+            }
+        )
+        print("final messages with tool result: ", messages)
+        llm_response = await openmcp.acompletion(
+            model="{{openai_large}}",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            messages=messages,
+            tools=tools,
+        )
+        print(
+            "FINAL LLM RESPONSE: ", json.dumps(llm_response, indent=4, default=str)
+        )
+```
+
+</Tab>
+<Tab>
+
+在此示例中，我们将演示如何使用指向 OpenMCP 代理的 OpenAI SDK 调用 MCP 工具。这里的关键区别在于，我们使用 OpenAI SDK 发起 LLM API 请求
+
+```python title="MCP Client with OpenAI SDK" showLineNumbers
+# Create server parameters for stdio connection
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+import os
+from openai import OpenAI
+from openmcp import experimental_mcp_client
+
+server_params = StdioServerParameters(
+    command="python3",
+    # Make sure to update to the full absolute path to your mcp_server.py file
+    args=["./mcp_server.py"],
+)
+
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        # Initialize the connection
+        await session.initialize()
+
+        # Get tools using openmcp mcp client
+        tools = await experimental_mcp_client.load_mcp_tools(session=session, format="openai")
+        print("MCP TOOLS: ", tools)
+
+        # Use OpenAI SDK pointed to OpenMCP proxy
+        client = OpenAI(
+            api_key="your-api-key",  # Your OpenMCP proxy API key
+            base_url="http://localhost:4000"  # Your OpenMCP proxy URL
+        )
+
+        messages = [{"role": "user", "content": "what's (3 + 5)"}]
+        llm_response = client.chat.completions.create(
+            model="{{openai_large}}",
+            messages=messages,
+            tools=tools
+        )
+        print("LLM RESPONSE: ", llm_response)
+
+        # Get the first tool call
+        tool_call = llm_response.choices[0].message.tool_calls[0]
+        
+        # Call the tool using MCP client
+        call_result = await experimental_mcp_client.call_openai_tool(
+            session=session,
+            openai_tool=tool_call.model_dump(),
+        )
+        print("MCP TOOL CALL RESULT: ", call_result)
+
+        # Send the tool result back to the LLM
+        messages.append(llm_response.choices[0].message.model_dump())
+        messages.append({
+            "role": "tool",
+            "content": str(call_result.content[0].text),
+            "tool_call_id": tool_call.id,
+        })
+
+        final_response = client.chat.completions.create(
+            model="{{openai_large}}",
+            messages=messages,
+            tools=tools
+        )
+        print("FINAL RESPONSE: ", final_response)
+```
+
+</Tab>
+</Tabs>
+
+## FAQ
+
+**问：如何在 OpenMCP 后面的 MCP 服务器上使用 OAuth2 client_credentials（机器对机器）？**
+
+OpenMCP 支持自动管理 `client_credentials` 授权的令牌。在你的 MCP 服务器上配置 `client_id`、`client_secret` 和 `token_url`，OpenMCP 将自动获取、缓存和刷新令牌。设置说明请参阅 [MCP OAuth M2M 指南](/docs/mcp-gateway/oauth#machine-to-machine-m2m-auth)。
+
+**问：当我从 OpenMCP UI 获取 OAuth 令牌时，它存储在哪里？**
+
+UI 仅在 `sessionStorage` 中保留瞬时状态，以便 OAuth 重定向流程能够完成；令牌不会持久化到服务器或数据库中。
+
+**问：我遇到了 MCP 连接错误，应该检查什么？**
+
+从 MCP 排查指南中的[五分钟排查](/docs/mcp-gateway/troubleshoot#locate-the-error-source)开始：一条 curl 即可隔离出故障层（客户端 → OpenMCP 还是 OpenMCP → MCP），[症状矩阵](/docs/mcp-gateway/troubleshoot#symptom-matrix)将每个状态码和症状对应到相应的解决方案。如果需要升级处理，请先收集[支持包](/docs/mcp-gateway/troubleshoot#support-bundle)。

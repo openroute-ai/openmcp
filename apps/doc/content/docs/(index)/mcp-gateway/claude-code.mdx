@@ -1,0 +1,163 @@
+---
+title: "将 Claude Code 与 MCP 结合使用"
+description: "本教程演示如何通过 OpenMCP Proxy 将 MCP 服务端连接到 Claude Code。"
+---
+
+本教程演示如何通过 OpenMCP Proxy 将 MCP 服务端连接到 Claude Code。
+
+注意：OpenMCP 同样支持 MCP 服务端的 OAuth。[了解更多](https://www.openmcp.cn/docs/mcp#mcp-oauth)
+
+## 演示
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/e3721fc44e284c559dc4dca67ba7603a" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+## 连接 MCP 服务端
+
+您可以通过 OpenMCP Proxy 将 MCP 服务端连接到 Claude Code。
+
+1. 将 MCP 服务端添加到您的 `config.yaml`
+
+<Tabs items={["GitHub MCP","Atlassian MCP"]}>
+<Tab>
+
+在此示例中，我们将 Github MCP 服务端添加到我们的 `config.yaml`
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  github_mcp:
+    url: "https://api.githubcopilot.com/mcp"
+    transport: "http"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+    client_id: os.environ/GITHUB_OAUTH_CLIENT_ID
+    client_secret: os.environ/GITHUB_OAUTH_CLIENT_SECRET
+```
+
+</Tab>
+<Tab>
+
+在此示例中，我们将 Atlassian MCP 服务端添加到我们的 `config.yaml`
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  atlassian_mcp:
+    url: "https://mcp.atlassian.com/v1/mcp"
+    transport: "http"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="warn">
+
+`mcp_servers:` 下的服务端名称（例如 `atlassian_mcp`、`github_mcp`）**必须与** Claude Code URL 路径（`/<server_name>/mcp`）中使用的名称一致。不一致将导致 OAuth 过程中出现 404 错误。
+
+</Callout>
+
+2. 启动 OpenMCP Proxy
+
+由于 Claude Code 的 OAuth 回调需要一个可公开访问的 URL，请通过 ngrok 或类似工具暴露您的代理。
+
+```bash
+openmcp --config /path/to/config.yaml
+
+# RUNNING on http://0.0.0.0:4000
+```
+
+```bash
+# In a separate terminal — expose proxy for OAuth callbacks
+ngrok http 4000
+```
+
+3. 将 MCP 服务端添加到 Claude Code
+
+<Tabs items={["GitHub MCP","Atlassian MCP"]}>
+<Tab>
+
+```bash
+claude mcp add --transport http openmcp-github https://your-ngrok-url.ngrok-free.dev/github_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer sk-1234"
+```
+
+</Tab>
+<Tab>
+
+```bash
+claude mcp add --transport http openmcp-atlassian https://your-ngrok-url.ngrok-free.dev/atlassian_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer sk-1234"
+```
+
+</Tab>
+</Tabs>
+
+**参数说明：**
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `--transport http` | 对 MCP 连接使用 HTTP 传输方式 |
+| `openmcp-atlassian` | 此 MCP 服务端**在 Claude Code 上**的名称 —— 可以任意指定 |
+| `https://your-ngrok-url.ngrok-free.dev/atlassian_mcp/mcp` | OpenMCP 代理 URL。格式：`<PROXY_URL>/<server_name_on_openmcp>/mcp`。`atlassian_mcp` 部分**必须匹配** OpenMCP 代理配置中 `mcp_servers:` 下的键 |
+| `--header "x-openmcp-api-key: Bearer sk-1234"` | 用于向代理认证的 OpenMCP 虚拟 key |
+
+您也可以直接将 MCP 服务端添加到 `~/.claude.json` 文件中，而不使用 `claude mcp add`。[查看 Claude Code 文档](https://docs.anthropic.com/en/docs/claude-code/mcp)。
+
+<Callout type="info">
+
+对于需要 OAuth 的 MCP 服务端（例如 Atlassian），请为 OpenMCP 虚拟 key 使用 `x-openmcp-api-key` 而非 `Authorization`。`Authorization` 头是为 OAuth 流程保留的。
+
+</Callout>
+
+4. 通过 Claude Code 进行认证
+
+a. 启动 Claude Code
+
+```bash
+claude
+```
+
+b. 打开 MCP 菜单
+
+```bash
+/mcp
+```
+
+c. 选择 MCP 服务端（例如 `openmcp-atlassian`）
+
+d. 启动 OAuth 流程
+
+```bash
+> 1. Authenticate
+ 2. Reconnect
+ 3. Disable
+```
+
+e. 完成后，您应该会看到如下成功消息：
+
+<img src="/images/docs/mcp-gateway/oauth_2_success.png" alt="OAuth 2.0 Success" style={{ width: '500px', height: 'auto' }} />
+
+## 将 MCP 工具排除在上下文窗口之外（工具搜索）
+
+Claude Code 通常会将 MCP 工具 schema 排除在上下文窗口之外，并通过其内置的工具搜索按需加载。该流程要求每次请求都携带 `advanced-tool-use-2025-11-20` beta 头，并让 `tool_reference` 块在 API 中往返，因此自 Claude Code 2.1.70 起，只要 `ANTHROPIC_BASE_URL` 指向非 Anthropic 第一方主机，客户端就会自动关闭工具搜索。该决定在客户端发送任何请求之前就已做出，这就是为什么一旦 Claude Code 通过 OpenMCP 路由，`/context` 就会内嵌展示所有 MCP 工具 schema（几百个工具对应数万 tokens），也是为什么代理侧没有任何设置可以将其重新打开。
+
+OpenMCP 会在 `/v1/messages` 上原样透传 beta 头、`defer_loading` 和 `tool_reference` 块（并将 beta 翻译为 Bedrock 和 Vertex AI 对应的名称），因此修复方法在 Claude Code 一侧。工具搜索由 `ENABLE_TOOL_SEARCH` **环境变量**控制；它必须在 Claude Code 的环境中设置为 `true`。它没有对应的顶层设置键，因此在设置文件中单独写 `"enableToolSearch": true` 不会起任何作用。让 Claude Code（2.1.72 或更高版本）保持工具搜索开启：
+
+```bash
+export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
+export ANTHROPIC_AUTH_TOKEN=sk-1234
+export ENABLE_TOOL_SEARCH=true
+claude
+```
+
+我们建议将其持久化到 `.claude/settings.json` 的 `env` 块中，可以是项目的 `.claude/settings.json`，也可以是用户级的 `~/.claude/settings.json`（或用于覆盖整个团队的管理式设置文件），这样每个会话都会自动加载，无需记住 export 命令：
+
+```json
+{
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true"
+  }
+}
+```
+
+随后 `/context` 会将 MCP 工具列为 `loaded on-demand`，占 0 tokens，Claude 在首次需要某个工具时通过 `ToolSearch` 加载其 schema。`ENABLE_TOOL_SEARCH=auto`（或 `auto:N`）仅在工具 schema 超过上下文窗口 N% 时才延迟加载。完整选项列表请参阅 [Claude Code 文档](https://code.claude.com/docs/en/mcp#configure-tool-search)。

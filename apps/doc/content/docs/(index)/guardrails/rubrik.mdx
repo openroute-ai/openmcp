@@ -1,0 +1,193 @@
+---
+title: "Rubrik 护栏"
+description: "使用 Rubrik 的内容审核和日志集成，根据外部策略服务筛查提示词和响应，并批量记录所有 LLM 请求/响应。"
+---
+
+使用 Rubrik 的内容审核和日志集成，根据外部策略服务筛查提示词和响应，并批量记录所有 LLM 请求/响应。
+
+**主要功能：**
+
+- **提示词审核**（`pre_call`）：在调用 LLM 之前筛查提示词。适用于 OpenAI 和 Anthropic 两种线路格式。
+- **响应审核**（`post_call`）：在 LLM 返回后筛查助手的响应文本和工具调用。两者都可以被拦截。
+- **流式传输**：流会被缓冲，直到组装后的响应完成审核，因此任何被标记的分块都不会在拦截之前到达客户端。
+- **批量日志**：将所有 LLM 请求和响应记录到 Rubrik，支持可配置的采样和批处理。无论采样如何，拦截始终会被记录。
+- **故障开放**：如果 Rubrik 服务不可用，请求会被原样允许通过。
+
+---
+
+## 快速开始
+
+### 1. 配置 `config.yaml`
+
+凭据可以直接在 YAML 配置中设置，也可以通过环境变量设置。推荐使用配置方式。
+
+<Tabs items={["config.yaml (Recommended)","Environment Variables"]}>
+<Tab>
+
+```yaml
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "rubrik"
+    openmcp_params:
+      guardrail: rubrik
+      mode: ["pre_call", "post_call"]
+      api_key: "your-rubrik-api-key"
+      api_base: "https://your-rubrik-service.example.com"
+      default_on: true
+```
+
+你也可以在配置中引用环境变量：
+
+```yaml
+guardrails:
+  - guardrail_name: "rubrik"
+    openmcp_params:
+      guardrail: rubrik
+      mode: ["pre_call", "post_call"]
+      api_key: os.environ/RUBRIK_API_KEY
+      api_base: os.environ/RUBRIK_WEBHOOK_URL
+      default_on: true
+```
+
+</Tab>
+<Tab>
+
+作为替代方案，你可以完全通过环境变量配置 Rubrik 服务 URL 和 API 密钥。设置后，如果在配置中未提供 `api_base` / `api_key`，它们将用作回退。
+
+```bash
+export RUBRIK_WEBHOOK_URL="https://your-rubrik-service.example.com"
+export RUBRIK_API_KEY="your-rubrik-api-key"
+```
+
+使用最小配置：
+
+```yaml
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "rubrik"
+    openmcp_params:
+      guardrail: rubrik
+      mode: ["pre_call", "post_call"]
+      default_on: true
+```
+
+</Tab>
+</Tabs>
+
+### 2. 启动代理
+
+```bash
+openmcp --config config.yaml --port 4000
+```
+
+### 3. 测试它
+
+```bash
+curl -X POST http://localhost:4000/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "What is the weather in SF?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the weather for a location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {"type": "string"}
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ]
+  }'
+```
+
+---
+
+## 配置参考
+
+### YAML 配置参数
+
+这些在 `config.yaml` 中的 `guardrails.[].openmcp_params` 下设置：
+
+| 参数 | 是否必需 | 描述 |
+|-----------|----------|-------------|
+| `guardrail: rubrik` | 是 | 选择 Rubrik 护栏集成 |
+| `mode` | 是 | `"pre_call"` 用于提示词审核，`"post_call"` 用于响应审核，或包含两者的列表 |
+| `api_base` | 是 | Rubrik webhook 基础 URL。可使用 `os.environ/RUBRIK_WEBHOOK_URL`。如果省略，回退到 `RUBRIK_WEBHOOK_URL` 环境变量。 |
+| `api_key` | 否 | Rubrik API 密钥。可使用 `os.environ/RUBRIK_API_KEY`。如果省略，回退到 `RUBRIK_API_KEY` 环境变量。 |
+| `default_on` | 否 | 当为 `true` 时，护栏对所有请求运行。省略时解析为 `false`，调用方通过 `"guardrails": ["rubrik"]` 按请求选择启用 |
+
+### 环境变量
+
+这些是当 YAML 配置中未设置 `api_base` / `api_key` 时使用的可选回退。`RUBRIK_SAMPLING_RATE` 和 `RUBRIK_BATCH_SIZE` 只能通过环境变量设置。
+
+| 变量 | 是否必需 | 默认值 | 描述 |
+|----------|----------|---------|-------------|
+| `RUBRIK_WEBHOOK_URL` | 仅当配置中没有 `api_base` 时 | — | Rubrik webhook 服务的基础 URL |
+| `RUBRIK_API_KEY` | 否 | — | 用于向 Rubrik 服务认证的持有者令牌 |
+| `RUBRIK_SAMPLING_RATE` | 否 | `1.0` | 要**记录**的请求比例（0.0 到 1.0）。不影响始终运行的审核，也不影响拦截日志。设置为 `0.5` 可记录约 50% 的请求。 |
+| `RUBRIK_BATCH_SIZE` | 否 | `512` | 刷新前缓冲的日志条目数。日志也会按周期刷新。 |
+
+---
+
+## 内容审核如何工作
+
+在 `pre_call` 时，护栏将规范化后的提示词作为普通 OpenAI chat completions 请求发送到 `{api_base}/v1/before_prompt/openai/v1`。服务返回 `{}` 表示允许，或返回一个 chat completion，其 `choices[0].message.content` 携带拒绝内容。拒绝时永远不会调用 LLM。
+
+在 `post_call` 时，护栏将助手的文本和工具调用发送到 `{api_base}/v1/after_completion/openai/v1`。服务返回审核后的响应；被移除的工具调用或被替换的响应文本会被视为拦截。
+
+被拦截的请求会返回策略说明，并带有 `finish_reason: content_filter`，而不是原始响应。如果任一服务不可达或返回错误，护栏会**故障开放**，请求原样继续。
+
+### 请求/响应格式
+
+在 `post_call` 时，护栏发送一个 JSON 信封：
+
+```json
+{
+  "request": {
+    "messages": [...],
+    "model": "{{openai_large}}",
+    "tools": [...]
+  },
+  "response": {
+    "id": "chatcmpl-...",
+    "object": "chat.completion",
+    "choices": [{
+      "message": {
+        "role": "assistant",
+        "content": "...",
+        "tool_calls": [...]
+      }
+    }]
+  }
+}
+```
+
+`request.tools` 携带调用方声明的工具列表，以便服务可以将返回的工具调用与之比较。服务应返回一个 OpenAI chat completion，仅包含**允许的**工具调用，`content` 携带替换文本或拦截说明。
+
+---
+
+## 批量日志如何工作
+
+所有 LLM 请求（成功和失败）都会排队并分批发送到 `{api_base}/v1/openmcp/batch`。
+
+- 当队列达到 `RUBRIK_BATCH_SIZE`（默认 512）或按周期（默认 5 秒）时，日志会被刷新。这些默认值继承自 OpenMCP 的全局设置。
+- 使用 `RUBRIK_SAMPLING_RATE` 减少高流量部署中的日志量。采样只影响常规日志；审核始终运行，拦截始终记录。
+- 日志 ID 在所有提供商中都被规范化为 `openmcp_call_id`，因此一个请求的审核日志、拦截日志和批量日志共享一个关联键。

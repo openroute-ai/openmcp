@@ -1,0 +1,9 @@
+{
+  "title": "MCP Servers",
+  "pages": [
+    "index",
+    "slack",
+    "atlassian",
+    "linear"
+  ]
+}

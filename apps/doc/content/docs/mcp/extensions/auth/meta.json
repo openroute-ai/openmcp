@@ -1,0 +1,7 @@
+{
+  "pages": [
+    "index",
+    "enterprise-managed-authorization",
+    "oauth-client-credentials"
+  ]
+}

@@ -1,0 +1,311 @@
+---
+title: "OpenAI 内容审核"
+description: "在 guardrails 部分定义你的护栏："
+---
+
+## 概览
+
+| 属性 | 详情 |
+|-------|-------|
+| 描述 | 使用 OpenAI 内置的 Moderation API 检测和阻止有害内容，包括仇恨言论、骚扰、自残、色情内容和暴力。 |
+| 提供者 | [OpenAI Moderation API](https://platform.openai.com/docs/guides/moderation) |
+| 支持的操作 | `BLOCK`（检测到违规时返回 HTTP 400 异常） |
+| 支持的模式 | `pre_call`、`during_call`、`post_call` |
+| 流式支持 | ✅ 完全支持流式响应 |
+| API 要求 | OpenAI API 密钥 |
+
+## 快速开始
+
+### 1. 在 OpenMCP config.yaml 上定义护栏
+
+在 `guardrails` 部分定义你的护栏：
+
+<Tabs items={["Config.yaml","环境变量"]}>
+<Tab>
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "openai-moderation-pre"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "pre_call"
+      api_key: os.environ/OPENAI_API_KEY  # Optional if already set globally
+      model: "omni-moderation-latest"     # Optional, defaults to omni-moderation-latest
+      api_base: "https://api.openai.com/v1"  # Optional, defaults to OpenAI API
+```
+
+#### `mode` 的支持值
+
+- `pre_call` 在大语言模型(LLM)调用**之前**运行，处理**用户输入**
+- `during_call` 在大语言模型(LLM)调用**期间**运行，处理**用户输入**。与 `pre_call` 相同但与 LLM 调用并行运行。在护栏检查完成前不返回响应。
+- `post_call` 在大语言模型(LLM)调用**之后**运行，处理**大语言模型(LLM)响应**
+
+#### 支持的 OpenAI 内容审核模型
+
+- `omni-moderation-latest`（默认）- 最新的多模态审核模型
+- `text-moderation-latest` - 最新的纯文本审核模型
+
+</Tab>
+
+<Tab>
+
+设置你的 OpenAI API 密钥：
+
+```bash title="Setup Environment Variables"
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
+</Tab>
+</Tabs>
+
+### 2. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 3. 测试请求
+
+<Tabs items={["被阻止的请求","成功的调用"]}>
+<Tab>
+
+预期会失败，因为请求包含有害内容：
+
+```shell
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "I hate all people and want to hurt them"}
+    ],
+    "guardrails": ["openai-moderation-pre"]
+  }'
+```
+
+预期失败响应：
+
+```json
+{
+  "error": {
+    "message": {
+      "error": "Violated OpenAI moderation policy",
+      "moderation_result": {
+        "violated_categories": ["hate", "violence"],
+        "category_scores": {
+          "hate": 0.95,
+          "violence": 0.87,
+          "harassment": 0.12,
+          "self-harm": 0.01,
+          "sexual": 0.02
+        }
+      }
+    },
+    "type": "None",
+    "param": "None", 
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "What is the capital of France?"}
+    ],
+    "guardrails": ["openai-moderation-pre"]
+  }'
+```
+
+预期响应：
+
+```json
+{
+  "id": "chatcmpl-4a1c1a4a-3e1d-4fa4-ae25-7ebe84c9a9a2",
+  "created": 1741082354,
+  "model": "{{openai_large}}",
+  "object": "chat.completion",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "The capital of France is Paris.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "usage": {
+    "completion_tokens": 8,
+    "prompt_tokens": 13,
+    "total_tokens": 21
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## 高级配置
+
+### 输入和输出的多个护栏
+
+你可以为用户输入和大语言模型(LLM)响应配置单独的护栏：
+
+```yaml showLineNumbers title="Multiple Guardrails Config"
+guardrails:
+  - guardrail_name: "openai-moderation-input" 
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "pre_call"
+      api_key: os.environ/OPENAI_API_KEY
+      
+  - guardrail_name: "openai-moderation-output"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "post_call" 
+      api_key: os.environ/OPENAI_API_KEY
+```
+
+### 自定义 API 配置
+
+配置自定义 OpenAI API 端点或不同的模型：
+
+```yaml showLineNumbers title="Custom API Config"
+guardrails:
+  - guardrail_name: "openai-moderation-custom"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "pre_call"
+      api_key: os.environ/OPENAI_API_KEY
+      api_base: "https://your-custom-openai-endpoint.com/v1"
+      model: "text-moderation-latest"
+```
+
+## 流式支持
+
+OpenAI 内容审核护栏完全支持流式响应。在 `post_call` 模式下使用时，它将：
+
+1. 收集所有流式分块
+2. 组装完整响应
+3. 对完整内容应用审核
+4. 检测到违规时阻止整个流
+5. 内容安全时返回原始流
+
+```yaml showLineNumbers title="Streaming Config"
+guardrails:
+  - guardrail_name: "openai-moderation-streaming"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "post_call"  # Works with streaming responses
+      api_key: os.environ/OPENAI_API_KEY
+```
+
+## 内容类别
+
+OpenAI Moderation API 检测以下类别的有害内容：
+
+| 类别 | 描述 |
+|----------|-------------|
+| `hate` | 表达、煽动或促进基于种族、性别、民族、宗教、国籍、性取向、残疾状况或种姓的仇恨的内容 |
+| `harassment` | 骚扰、欺凌或恐吓个人的内容 |
+| `self-harm` | 宣传、鼓励或描绘自残行为的内容 |
+| `sexual` | 旨在引起性兴奋或推广性服务的内容 |
+| `violence` | 描绘死亡、暴力或身体伤害的内容 |
+
+每个类别都通过布尔标志和置信度分数（0.0 到 1.0）进行评估。
+
+## 错误处理
+
+当内容违反 OpenAI 的审核策略时：
+
+- **HTTP 状态**：400 Bad Request
+- **错误类型**：`HTTPException`
+- **错误详情**：包含违规类别和置信度分数
+- **行为**：请求立即被阻止
+
+## 最佳实践
+
+### 1. 对用户输入使用调用前审核
+
+```yaml
+guardrails:
+  - guardrail_name: "input-moderation"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "pre_call"  # Block harmful user inputs early
+```
+
+### 2. 对大语言模型(LLM)响应使用调用后审核
+
+```yaml
+guardrails:
+  - guardrail_name: "output-moderation"
+    openmcp_params:
+      guardrail: openai_moderation  
+      mode: "post_call"  # Ensure LLM responses are safe
+```
+
+### 3. 与其他护栏结合使用
+
+```yaml
+guardrails:
+  - guardrail_name: "openai-moderation"
+    openmcp_params:
+      guardrail: openai_moderation
+      mode: "pre_call"
+      
+  - guardrail_name: "custom-pii-detection"
+    openmcp_params:
+      guardrail: presidio
+      mode: "pre_call"
+```
+
+## 故障排除
+
+### 常见问题
+
+1. **API 密钥无效**：确保你的 OpenAI API 密钥已正确设置
+   ```bash
+   export OPENAI_API_KEY="sk-your-actual-key"
+   ```
+
+2. **速率限制**：OpenAI Moderation API 有速率限制。在高流量场景中监控使用情况。
+
+3. **网络问题**：验证与 OpenAI API 端点的连接。
+
+### 调试模式
+
+启用详细日志以排查问题：
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+查找以 `OpenAI Moderation:` 开头的日志以追踪护栏执行。
+
+## API 费用
+
+OpenAI Moderation API **免费使用**用于内容策略合规。这使其成为与其他商业内容审核服务相比具有成本效益的护栏选项。
+
+## 需要帮助？
+
+获取额外支持：
+- 查阅 [OpenAI Moderation API 文档](https://platform.openai.com/docs/guides/moderation)
+- 查阅 [OpenMCP 护栏文档](./quick_start)
+- 加入我们的 [Discord 社区](https://discord.gg/wuPM9dRgDw)

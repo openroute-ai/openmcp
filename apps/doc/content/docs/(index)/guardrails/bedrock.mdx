@@ -1,0 +1,414 @@
+---
+title: "Bedrock Guardrails"
+description: "如果你还没有设置或认证你的 Bedrock 提供商，请参阅《Bedrock 提供商设置与认证指南》。"
+---
+
+<Callout type="info">
+
+如果你还没有设置或认证你的 Bedrock 提供商，请参阅《Bedrock 提供商设置与认证指南》。
+
+</Callout>
+
+OpenMCP 通过 [Bedrock ApplyGuardrail API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ApplyGuardrail.html) 支持 Bedrock 护栏。
+
+## 快速开始
+### 1. 在 OpenMCP config.yaml 中定义护栏
+
+在 `guardrails` 部分定义你的护栏
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "bedrock-pre-guard"
+    openmcp_params:
+      guardrail: bedrock  # supported values: "aporia", "bedrock", "lakera"
+      mode: "during_call"
+      guardrailIdentifier: ff6ujrregl1q      # your guardrail ID on bedrock
+      guardrailVersion: "DRAFT"              # your guardrail version on bedrock
+      aws_region_name: os.environ/AWS_REGION # region guardrail is defined
+      aws_role_name: os.environ/AWS_ROLE_ARN # your role with permissions to use the guardrail
+      aws_external_id: os.environ/AWS_EXTERNAL_ID # only if that role's trust policy requires sts:ExternalId
+  
+```
+
+#### `mode` 支持的取值
+
+- `pre_call` 在 **LLM 调用之前** 运行，作用于**输入**
+- `post_call` 在 **LLM 调用之后** 运行，作用于**输入和输出**
+- `during_call` 在 **LLM 调用期间** 运行，作用于**输入**，与 `pre_call` 相同，但与 LLM 调用并行运行。护栏检查完成之前不会返回响应
+
+### 2. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 3. 测试请求
+
+**[Langchain、OpenAI SDK 使用示例](/docs/proxy/user_keys#request-format)**
+
+<Tabs items={["Unsuccessful call","Successful Call"]}>
+<Tab>
+
+此请求预期会失败，因为请求中的 `ishaan@berri.ai` 是 PII
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-npnwjPQciVRok5yNZgKmFQ" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi my email is ishaan@berri.ai"}
+    ],
+    "guardrails": ["bedrock-pre-guard"]
+  }'
+```
+
+失败时的预期响应
+
+```shell
+{
+  "error": {
+    "message": {
+      "error": "Violated guardrail policy",
+      "bedrock_guardrail_response": {
+        "action": "GUARDRAIL_INTERVENED",
+        "assessments": [
+          {
+            "topicPolicy": {
+              "topics": [
+                {
+                  "action": "BLOCKED",
+                  "name": "Coffee",
+                  "type": "DENY"
+                }
+              ]
+            }
+          }
+        ],
+        "blockedResponse": "Sorry, the model cannot answer this question. coffee guardrail applied ",
+        "output": [
+          {
+            "text": "Sorry, the model cannot answer this question. coffee guardrail applied "
+          }
+        ],
+        "outputs": [
+          {
+            "text": "Sorry, the model cannot answer this question. coffee guardrail applied "
+          }
+        ],
+        "usage": {
+          "contentPolicyUnits": 0,
+          "contextualGroundingPolicyUnits": 0,
+          "sensitiveInformationPolicyFreeUnits": 0,
+          "sensitiveInformationPolicyUnits": 0,
+          "topicPolicyUnits": 1,
+          "wordPolicyUnits": 0
+        }
+      }
+    },
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-npnwjPQciVRok5yNZgKmFQ" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["bedrock-pre-guard"]
+  }'
+```
+
+</Tab>
+
+</Tabs>
+
+## 流式处理
+
+流式响应会在 `post_call` 阶段进行扫描。默认情况下，流会被缓冲：每个块都会被保留，直到组装完成的响应通过一次 ApplyGuardrail OUTPUT 扫描，因此在拦截之前不会有任何被标记的内容到达客户端。在扫描完成之前，客户端看不到任何内容，扫描完成后整个响应会一次性到达。
+
+对于对延迟敏感的客户端（交互式聊天、编码智能体），你可以保持流持续传输，改为以审计模式运行扫描：
+
+```yaml
+guardrails:
+  - guardrail_name: "bedrock-post-guard"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "post_call"
+      guardrailIdentifier: ff6ujrregl1q
+      guardrailVersion: "DRAFT"
+      streaming_buffer_until_moderated: false
+      streaming_end_of_stream_only: true
+```
+
+现在，块会随到随发地流式传输到客户端，并在流结束时对组装完成的响应运行一次 OUTPUT 扫描。若发生违规，仍会以护栏的拦截消息终止流，但已经流式传输出去的内容已经被看到了：这是"检测并记录"，而非"预防"。无论哪种方式，扫描结果都会记录在请求 spend 日志的 `guardrail_information` 中。
+
+| 参数 | 默认值 | 描述 |
+|-----------|---------|-------------|
+| `streaming_buffer_until_moderated` | `true` | 保留每个流式块，直到流结束的内容审核通过，从而确保在拦截之前没有任何被标记的块到达客户端 |
+| `streaming_end_of_stream_only` | `false` | 只对组装完成的响应扫描一次流式输出，而不是逐个扫描抽样块 |
+| `streaming_sampling_rate` | `5` | 当既未缓冲也不是仅流结束时，每隔第 N 个块扫描一次累积的文本。必须至少为 1 |
+
+仅设置 `streaming_buffer_until_moderated: false` 时，护栏会在流式传输过程中每隔 `streaming_sampling_rate` 个块扫描一次累积的响应。每次采样扫描都是一次对整个已累积文本执行的独立 ApplyGuardrail 调用，因此会增加流中间的延迟并产生重复的 Bedrock 文本单元费用。除非你确实需要流中拦截，否则请将其与 `streaming_end_of_stream_only: true` 搭配使用。
+
+这些设置同时适用于 `/v1/chat/completions` 和原生 `/v1/messages` 流。
+
+## 无资源检查：InvokeGuardrailChecks
+
+使用 [InvokeGuardrailChecks API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeGuardrailChecks.html) 时，你无需在 AWS 中创建护栏。取而代之的是，在 config 中内联定义检查项；Bedrock 会为每个检查项返回一个分数，当分数达到你的阈值时，OpenMCP 会拦截该请求。
+
+请设置 `checks` 而不是 `guardrailIdentifier`（两者不能同时使用）。你的 AWS 凭据需要具有 `bedrock:InvokeGuardrailChecks` 权限。
+
+```yaml showLineNumbers title="openmcp proxy config.yaml"
+guardrails:
+  - guardrail_name: "bedrock-checks"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "pre_call"
+      aws_region_name: os.environ/AWS_REGION
+      checks:
+        contentFilter:
+          categories:
+            - category: VIOLENCE
+        promptAttack:
+          categories:
+            - category: JAILBREAK
+        sensitiveInformation:
+          entities:
+            - type: EMAIL
+      content_filter_threshold: 0.5
+      prompt_attack_threshold: 0.5
+      pii_confidence_threshold: 0.5
+```
+
+### 支持的检查项
+
+| 检查项 | 检测内容 | 阈值键 |
+|-------|-----------------|---------------|
+| `contentFilter` | 有害内容：`VIOLENCE`、`HATE`、`SEXUAL`、`MISCONDUCT`、`INSULTS` | `content_filter_threshold` |
+| `promptAttack` | `JAILBREAK`、`PROMPT_INJECTION`、`PROMPT_LEAKAGE` | `prompt_attack_threshold` |
+| `sensitiveInformation` | PII：`EMAIL`、`PHONE`、`NAME` 等[更多](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeGuardrailChecks.html) | `pii_confidence_threshold` |
+
+只包含你需要的检查项；至少需要一个。像 `promptAttack: {}` 这样的空配置会以 AWS 默认设置启用该检查项。
+
+### 拦截的工作原理
+
+分数范围为 0 到 1，每个阈值默认为 `0.5`。分数达到或超过阈值会以 HTTP 400 拦截请求；将阈值设为 `null` 则只记录该检查项的分数，永不拦截。如果 Bedrock 返回的 PII 结果被截断，则请求会被拦截（fail closed）。
+
+```json
+{
+  "error": {
+    "message": {
+      "error": "Violated guardrail policy",
+      "bedrock_guardrail_checks": [
+        {"check": "promptAttack", "category": "JAILBREAK", "severityScore": 0.91}
+      ]
+    },
+    "code": "400"
+  }
+}
+```
+
+`disable_exception_on_block: true`（见[下文](#disabling-exceptions-on-bedrock-block)）在这里同样适用；拦截时会返回 HTTP 200，并带有 `finish_reason: "content_filter"`。
+
+调用方无法削弱已配置的检查项：在此模式下，请求级别的护栏参数会被忽略，并且所有输入都会作为 `user` 内容进行检测，因此标记为 `system` 的注入无法绕过 prompt-attack 检查。
+
+## 使用 Bedrock Guardrails 进行 PII 掩码
+
+Bedrock 护栏支持 PII 检测和掩码功能。要启用此功能，你需要：
+
+1. 将 `mode` 设置为 `pre_call`，以便在 LLM 调用之前运行护栏检查
+2. 通过将 `mask_request_content` 和/或 `mask_response_content` 设置为 `true` 来启用掩码
+
+下面是在你的 config.yaml 中进行配置的方法：
+
+```yaml showLineNumbers title="openmcp proxy config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+  
+guardrails:
+  - guardrail_name: "bedrock-pre-guard"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "pre_call"  # Important: must use pre_call mode for masking
+      guardrailIdentifier: wf0hkdb5x07f
+      guardrailVersion: "DRAFT"
+      aws_region_name: os.environ/AWS_REGION
+      aws_role_name: os.environ/AWS_ROLE_ARN
+      mask_request_content: true    # Enable masking in user requests
+      mask_response_content: true   # Enable masking in model responses
+```
+
+使用此配置时，当 bedrock 护栏介入后，openmcp 会读取护栏返回的掩码输出并将其发送给模型。
+
+### 使用示例
+
+启用后，文本中的 PII 会被自动掩码。例如，如果用户发送：
+
+```
+My email is john.doe@example.com and my phone number is 555-123-4567
+```
+
+发送给模型的文本可能会被掩码为：
+
+```
+My email is [EMAIL] and my phone number is [PHONE_NUMBER]
+```
+
+这有助于保护敏感信息，同时仍能让模型理解请求的上下文。
+
+## 实验性功能：仅发送最新的用户消息
+
+当你通过 Bedrock 护栏串联很长的对话时，你可以通过在护栏的 `openmcp_params` 中设置 `experimental_use_latest_role_message_only: true`，选择一种更轻量的实验性行为。启用后，OpenMCP 只将最近的 `user` 消息（或在 post-call 检查期间的 assistant 输出）发送给 Bedrock，这样可以：
+
+- 避免较旧的 system/dev 消息被意外拦截
+- 使 Bedrock 负载更小，降低延迟和成本
+- 适用于代理钩子（`pre_call`、`during_call`）和 `/guardrails/apply_guardrail` 测试端点
+
+```yaml showLineNumbers title="openmcp proxy config.yaml"
+guardrails:
+  - guardrail_name: "bedrock-pre-guard"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "pre_call"
+      guardrailIdentifier: wf0hkdb5x07f
+      guardrailVersion: "DRAFT"
+      aws_region_name: os.environ/AWS_REGION
+      experimental_use_latest_role_message_only: true  # NEW
+```
+
+> ⚠️ 此标志目前是实验性的，默认值为 `false`，以保留旧版行为（整个消息历史）。我们将持续收集用户反馈，以决定是否将其设为默认值或更广泛地推出。
+
+## 禁用 Bedrock 拦截时的异常
+
+默认情况下，当 Bedrock 护栏拦截内容时，OpenMCP 会抛出 HTTP 400 异常。不过，你可以通过设置 `disable_exception_on_block: true` 来禁用此行为。在与 **OpenWebUI** 集成时这尤其有用，因为异常会中断聊天流程，破坏用户体验。
+
+禁用异常后，你不会收到错误，而是会得到一个包含 Bedrock 护栏修改/拦截后输出的成功响应。
+
+### 配置
+
+将 `disable_exception_on_block: true` 添加到你的护栏配置中：
+
+```yaml showLineNumbers title="openmcp proxy config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "bedrock-guardrail"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "post_call"
+      guardrailIdentifier: ff6ujrregl1q
+      guardrailVersion: "DRAFT"
+      aws_region_name: os.environ/AWS_REGION
+      aws_role_name: os.environ/AWS_ROLE_ARN
+      disable_exception_on_block: true  # Prevents exceptions when content is blocked
+```
+
+### 行为对比
+
+<Tabs items={["With Exceptions (Default)","Without Exceptions"]}>
+<Tab>
+
+当 `disable_exception_on_block: false`（默认值）时：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-npnwjPQciVRok5yNZgKmFQ" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "How do I make explosives?"}
+    ],
+    "guardrails": ["bedrock-guardrail"]
+  }'
+```
+
+**响应：HTTP 400 错误**
+```json
+{
+  "error": {
+    "message": {
+      "error": "Violated guardrail policy",
+      "bedrock_guardrail_response": {
+        "action": "GUARDRAIL_INTERVENED",
+        "blockedResponse": "I can't provide information on creating explosives."
+        // ... additional details
+      }
+    },
+    "type": "None",
+    "param": "None", 
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+当 `disable_exception_on_block: true` 时：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-npnwjPQciVRok5yNZgKmFQ" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "How do I make explosives?"}
+    ],
+    "guardrails": ["bedrock-guardrail"]
+  }'
+```
+
+**响应：HTTP 200 成功**
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "model": "{{openai_small}}",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "I can't provide information on creating explosives."
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 12,
+    "total_tokens": 22
+  }
+}
+```
+
+</Tab>
+</Tabs>

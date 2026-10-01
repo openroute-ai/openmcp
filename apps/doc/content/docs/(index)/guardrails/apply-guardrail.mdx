@@ -1,0 +1,180 @@
+---
+title: "应用护栏"
+description: "使用此端点直接调用在 OpenMCP 实例上配置的护栏。当你有需要直接调用护栏的服务时，这会非常有用。..."
+---
+
+使用此端点直接调用在 OpenMCP 实例上配置的护栏。当你有需要直接调用护栏的服务时，这会非常有用。
+
+## 支持的护栏类型
+
+此端点支持多种护栏类型，包括：
+- **Presidio** - PII 检测与掩码
+- **Bedrock** - AWS Bedrock 护栏，用于内容审核
+- **Lakera** - AI 安全护栏
+- **PANW Prisma AIRS** - 威胁检测、DLP 和策略执行
+- **自定义护栏** - 用户定义的护栏
+
+## 配置
+
+### Bedrock 护栏配置
+
+要通过 apply_guardrail 端点使用 Bedrock 护栏，请在 OpenMCP config.yaml 中配置你的护栏：
+
+```yaml
+guardrails:
+  - guardrail_name: "bedrock-content-guard"
+    openmcp_params:
+      guardrail: bedrock
+      mode: "pre_call"
+      guardrailIdentifier: "your-guardrail-id"  # Your actual Bedrock guardrail ID
+      guardrailVersion: "DRAFT"  # or your version number
+      aws_region_name: "us-east-1"  # Your AWS region
+      aws_role_name: "your-role-arn"  # Your AWS role with Bedrock permissions
+      default_on: true
+```
+
+**必需的 AWS 设置：**
+1. 在 AWS Console 中创建 Bedrock 护栏
+2. 获取护栏 ID 和版本
+3. 确保你的 AWS 凭证具有 Bedrock 权限
+4. 在 OpenMCP 配置中配置护栏
+
+## 用法
+---
+
+<Tabs items={["Presidio PII 护栏","Bedrock 护栏","带元数据的自定义护栏"]}>
+<Tab>
+
+在此示例中，`mask_pii` 是在 OpenMCP 上配置的 Presidio 护栏。
+
+```bash showLineNumbers title="Example calling the endpoint"
+curl -X POST 'http://localhost:4000/guardrails/apply_guardrail' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer your-api-key' \
+-d '{
+    "guardrail_name": "mask_pii",
+    "text": "My name is John Doe and my email is john@example.com",
+    "language": "en",
+    "entities": ["NAME", "EMAIL"]
+}'
+```
+
+</Tab>
+<Tab>
+
+在此示例中，`bedrock-content-guard` 是在 OpenMCP 上配置的 Bedrock 护栏。
+
+```bash showLineNumbers title="Example calling the endpoint"
+curl -X POST 'http://localhost:4000/guardrails/apply_guardrail' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer your-api-key' \
+-d '{
+    "guardrail_name": "bedrock-content-guard",
+    "text": "This is potentially harmful content that should be blocked",
+    "language": "en"
+}'
+```
+
+**注意**：对于 Bedrock 护栏，不使用 `entities` 参数，因为 Bedrock 会根据自身的策略进行内容审核。
+
+</Tab>
+<Tab>
+
+参数化的自定义护栏从 `request_data["metadata"]` 读取每次请求的配置。在请求体中发送可选的 `metadata`，它会被转发到你护栏的 `apply_guardrail` 方法。在此示例中，`my-topic-guardrail` 是一个自定义护栏，它会阻止提到 `metadata` 中任何 `forbidden_topics` 的文本。
+
+```bash showLineNumbers title="Example calling the endpoint"
+curl -X POST 'http://localhost:4000/guardrails/apply_guardrail' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer your-api-key' \
+-d '{
+    "guardrail_name": "my-topic-guardrail",
+    "text": "What are tax loopholes?",
+    "metadata": {
+        "forbidden_topics": ["tax", "finance"]
+    }
+}'
+```
+
+`metadata` 仅在客户端发送它时才会被转发，因此在省略它时，不依赖每次请求配置的护栏仍然保持不变地工作。
+
+</Tab>
+</Tabs>
+
+## 从 Admin UI 测试
+---
+
+护栏测试工作台（Admin UI 中的 `Guardrails` -> `Test Playground`）在输入文本下方有一个可选的 **Metadata** 字段。输入一个 JSON 对象，它会作为请求的 `metadata` 字段发送，让你无需离开仪表盘即可测试参数化的自定义护栏。无效的 JSON 会在请求发送前被内联拒绝。
+
+## 请求格式
+---
+
+请求体应遵循 ApplyGuardrailRequest 格式。
+
+#### 示例请求体
+
+```json
+{
+    "guardrail_name": "mask_pii",
+    "text": "My name is John Doe and my email is john@example.com",
+    "language": "en",
+    "entities": ["NAME", "EMAIL"]
+}
+```
+
+#### 必填字段
+- **guardrail_name** (string):  
+  要应用的护栏的标识符（例如 "mask_pii"）。
+- **text** (string):  
+  要通过护栏处理的输入文本。
+
+#### 可选字段
+- **language** (string):  
+  输入文本的语言（例如 "en" 表示英语）。
+- **entities** (array of strings):  
+  要处理或过滤的特定实体（例如 ["NAME", "EMAIL"]）。
+- **metadata** (object):  
+  每次请求的配置，作为 `request_data["metadata"]` 转发给护栏。覆盖 `apply_guardrail` 的自定义护栏负责读取它。仅在存在时才转发，因此省略它可保持现有行为不变。
+
+## 响应格式
+---
+
+响应将包含应用护栏后处理过的文本。
+
+#### 示例响应
+
+<Tabs items={["Presidio 响应","Bedrock 响应"]}>
+<Tab>
+
+```json
+{
+    "response_text": "My name is [REDACTED] and my email is [REDACTED]"
+}
+```
+
+</Tab>
+<Tab>
+
+```json
+{
+    "response_text": "This is potentially harmful content that should be blocked"
+}
+```
+
+**注意**：如果 Bedrock 护栏阻止了内容，端点将返回包含阻止原因的错误。
+
+</Tab>
+</Tabs>
+
+#### 响应字段
+- **response_text** (string):  
+  应用护栏后的文本。
+
+#### 错误响应
+
+如果护栏阻止了内容（例如 Bedrock 护栏），端点将返回一个错误：
+
+```json
+{
+    "detail": "Content blocked by Bedrock guardrail: Content violates policy"
+}
+```

@@ -1,0 +1,20 @@
+{
+  "title": "MCP 协议",
+  "description": "Model Context Protocol 文档",
+  "icon": "Plug",
+  "root": true,
+  "pages": [
+    "architecture",
+    "client-best-practices",
+    "client-concepts",
+    "overview",
+    "sdk",
+    "server-concepts",
+    "versioning",
+    "extensions",
+    "inspector",
+    "registry",
+    "security",
+    "specification"
+  ]
+}

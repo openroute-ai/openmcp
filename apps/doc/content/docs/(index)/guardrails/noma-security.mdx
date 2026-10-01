@@ -1,0 +1,421 @@
+---
+title: "Noma Security"
+description: "使用 Noma Security 通过 AI 内容审核和安全护栏保护你的 LLM 应用。"
+---
+
+使用 [Noma Security](https://noma.security/) 通过 AI 内容审核和安全护栏保护你的 LLM 应用。
+
+<Callout type="warn" title="Deprecated: guardrail: noma (Legacy)">
+
+`guardrail: noma` 已弃用，用户应迁移到 `guardrail: noma_v2`。
+旧版 `guardrail: noma` API 将在 2026 年 3 月 31 日之后不再受支持。
+
+为便于现有集成迁移，可保留 `guardrail: noma` 并设置 `use_v2: true`。
+设置 `use_v2: true` 后，请求会路由到 `noma_v2`；`monitor_mode` 和 `block_failures` 仍然适用，而 `anonymize_input` 会被忽略。
+
+</Callout>
+
+## Noma v2 护栏（推荐）
+
+### 快速开始
+
+```yaml showLineNumbers title="openmcp config.yaml"
+guardrails:
+  - guardrail_name: "noma-v2-guard"
+    openmcp_params:
+      guardrail: noma_v2
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      api_base: os.environ/NOMA_API_BASE
+```
+
+如果你想逐步迁移，暂时不更改护栏名称：
+
+```yaml showLineNumbers title="openmcp config.yaml"
+guardrails:
+  - guardrail_name: "noma-guard"
+    openmcp_params:
+      guardrail: noma
+      use_v2: true
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      api_base: os.environ/NOMA_API_BASE
+```
+
+### 支持的参数
+
+- **`guardrail`**：使用 `noma_v2`（推荐），或使用带 `use_v2: true` 的 `noma` 进行迁移
+- **`mode`**：`pre_call`、`post_call`、`during_call`、`pre_mcp_call`、`during_mcp_call`
+- **`api_key`**：Noma API 密钥（Noma SaaS 必需，自管理部署可选）
+- **`api_base`**：Noma API 基础 URL（默认为 `https://api.noma.security/`）
+- **`application_id`**：应用标识符。如果省略，v2 会检查动态 `extra_body.application_id`，然后是配置/环境变量中的 `application_id`；否则将被省略。
+- **`monitor_mode`**：如果为 `true`，以仅监控模式运行而不拦截（默认为 `false`）
+- **`block_failures`**：如果为 `true`，在护栏技术故障时故障关闭（默认为 `true`）
+- **`use_v2`**：使用 `guardrail: noma` 时的迁移开关
+
+### 环境变量
+
+```shell
+export NOMA_API_KEY="your-api-key-here"
+export NOMA_API_BASE="https://api.noma.security/"       # Optional
+export NOMA_APPLICATION_ID="my-app"                     # Optional
+export NOMA_MONITOR_MODE="false"                        # Optional
+export NOMA_BLOCK_FAILURES="true"                       # Optional
+```
+
+### 多护栏
+
+为输入和输出应用不同的 v2 配置：
+
+```yaml showLineNumbers title="openmcp config.yaml"
+guardrails:
+  - guardrail_name: "noma-v2-input"
+    openmcp_params:
+      guardrail: noma_v2
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+
+  - guardrail_name: "noma-v2-output"
+    openmcp_params:
+      guardrail: noma_v2
+      mode: "post_call"
+      api_key: os.environ/NOMA_API_KEY
+```
+
+### 传递额外参数
+
+这在 v2 中通过 `extra_body` 支持。  
+目前，`noma_v2` 会消费动态 `application_id`。
+
+```shell showLineNumbers title="Curl Request"
+curl 'http://0.0.0.0:4000/v1/chat/completions' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ],
+    "guardrails": {
+      "noma-v2-guard": {
+        "extra_body": {
+          "application_id": "my-specific-app-id"
+        }
+      }
+    }
+  }'
+```
+## Noma 护栏（旧版）
+
+## 快速开始
+
+### 1. 在 OpenMCP config.yaml 中定义护栏
+
+在 `guardrails` 部分下定义你的护栏：
+
+```yaml showLineNumbers title="openmcp config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "noma-guard"
+    openmcp_params:
+      guardrail: noma
+      mode: "during_call"
+      api_key: os.environ/NOMA_API_KEY
+      api_base: os.environ/NOMA_API_BASE
+  - guardrail_name: "noma-pre-guard"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      api_base: os.environ/NOMA_API_BASE
+```
+
+#### `mode` 支持的值
+
+- `pre_call` 在 LLM 调用**之前**运行，作用于**输入**
+- `post_call` 在 LLM 调用**之后**运行，作用于**输入和输出**
+- `during_call` 在 LLM 调用**期间**运行，作用于**输入**。与 `pre_call` 相同，但与 LLM 调用并行运行。在护栏检查完成之前不返回响应
+- `pre_mcp_call`：在执行前扫描 MCP 工具调用输入
+- `during_mcp_call`：实时监控 MCP 工具调用
+
+### 2. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 3. 测试请求
+
+<Tabs items={["Unsuccessful call","Successful Call"]}>
+<Tab>
+
+由于请求包含有害内容，预计会失败：
+
+```shell showLineNumbers title="Curl Request"
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Tell me how to hack into someone's email account"}
+    ]
+  }'
+```
+
+失败时的预期响应：
+
+```json
+{
+  "error": {
+    "message": "{\n      \"error\": \"Request blocked by Noma guardrail\",\n      \"details\": {\n        \"prompt\": {\n          \"harmfulContent\": {\n            \"result\": true,\n            \"confidence\": 0.95\n          }\n        }\n      }\n    }",
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```shell showLineNumbers title="Curl Request"
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "What is the capital of France?"}
+    ]
+  }'
+```
+
+预期响应：
+
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "model": "{{openai_small}}",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The capital of France is Paris."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 9,
+    "completion_tokens": 12,
+    "total_tokens": 21
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## 支持的参数
+
+```yaml
+guardrails:
+  - guardrail_name: "noma-guard"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      api_base: os.environ/NOMA_API_BASE
+      ### OPTIONAL ###
+      # application_id: "my-app"
+      # monitor_mode: false
+      # block_failures: true
+      # anonymize_input: false
+```
+
+### 必需参数
+
+- **`api_key`**：你的 Noma Security API 密钥（在 YAML 配置中设置为 `os.environ/NOMA_API_KEY`）
+
+### 可选参数
+
+- **`api_base`**：Noma API 基础 URL（默认为 `https://api.noma.security/`）
+- **`application_id`**：你的应用标识符（默认为 `"openmcp"`）
+- **`monitor_mode`**：如果为 `true`，记录违规但不拦截（默认为 `false`）
+- **`block_failures`**：如果为 `true`，在护栏 API 失败时拦截请求（默认为 `true`）
+- **`anonymize_input`**：如果为 `true`，将敏感内容替换为匿名化版本（默认为 `false`）
+
+## 环境变量
+
+你可以设置这些环境变量，而不是在配置中硬编码值：
+
+```shell
+export NOMA_API_KEY="your-api-key-here"
+export NOMA_API_BASE="https://api.noma.security/"   # Optional
+export NOMA_APPLICATION_ID="my-app"                 # Optional
+export NOMA_MONITOR_MODE="false"                    # Optional
+export NOMA_BLOCK_FAILURES="true"                   # Optional
+export NOMA_ANONYMIZE_INPUT="false"                 # Optional
+```
+
+## 高级配置
+
+### 监控模式
+
+使用监控模式测试你的护栏而不拦截请求：
+
+```yaml
+guardrails:
+  - guardrail_name: "noma-monitor"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      monitor_mode: true  # Log violations but don't block
+```
+
+### 处理 API 故障
+
+控制 Noma API 不可用时的行为：
+
+```yaml
+guardrails:
+  - guardrail_name: "noma-failopen"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      block_failures: false  # Allow requests to proceed if guardrail API fails
+```
+
+### 内容匿名化
+
+启用匿名化以替换敏感内容而不是拦截：
+
+```yaml
+guardrails:
+  - guardrail_name: "noma-anonymize"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      anonymize_input: true  # Replace sensitive data with anonymized version
+```
+
+### 多护栏
+
+为输入和输出应用不同的配置：
+
+```yaml
+guardrails:
+  - guardrail_name: "noma-strict-input"
+    openmcp_params:
+      guardrail: noma
+      mode: "pre_call"
+      api_key: os.environ/NOMA_API_KEY
+      block_failures: true
+
+  - guardrail_name: "noma-monitor-output"
+    openmcp_params:
+      guardrail: noma
+      mode: "post_call"
+      api_key: os.environ/NOMA_API_KEY
+      monitor_mode: true
+```
+
+## ✨ 传递额外参数
+
+使用 `extra_body` 向 Noma Security API 调用传递额外参数，例如为特定请求动态设置应用 ID。
+
+<Tabs items={["OpenAI Python","Curl"]}>
+<Tab>
+
+```python
+import openai
+client = openai.OpenAI(
+    api_key="your-api-key",
+    base_url="http://0.0.0.0:4000"
+)
+
+response = client.chat.completions.create(
+    model="{{openai_small}}",
+    messages=[{"role": "user", "content": "Hello, how are you?"}],
+    extra_body={
+        "guardrails": {
+            "noma-guard": {
+                "extra_body": {
+                    "application_id": "my-specific-app-id"
+                }
+            }
+        }
+    }
+)
+```
+</Tab>
+
+<Tab>
+
+```shell
+curl 'http://0.0.0.0:4000/v1/chat/completions' \
+    -H 'Content-Type: application/json' \
+    -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Hello, how are you?"
+        }
+    ],
+    "guardrails": {
+        "noma-guard": {
+            "extra_body": {
+                "application_id": "my-specific-app-id"
+            }
+        }
+    }
+}'
+```
+</Tab>
+</Tabs>
+
+这允许你为特定请求覆盖默认的 `application_id` 参数，对于跨不同应用或组件跟踪使用情况很有用。
+
+## 响应详情
+
+当内容被拦截时，Noma 会在 `message` 字段中以 JSON 形式提供关于违规的详细信息，结构如下：
+
+```json
+{
+  "error": "Request blocked by Noma guardrail",
+  "details": {
+    "prompt": {
+      "harmfulContent": {
+        "result": true,
+        "confidence": 0.95
+      },
+      "sensitiveData": {
+        "email": {
+          "result": true,
+          "entities": ["user@example.com"]
+        }
+      },
+      "bannedTopics": {
+        "violence": {
+          "result": true,
+          "confidence": 0.88
+        }
+      }
+    }
+  }
+}
+```

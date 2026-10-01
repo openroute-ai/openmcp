@@ -1,0 +1,170 @@
+---
+title: '扩展'
+---
+
+Agent2Agent（A2A）协议为智能体间通信提供了坚实的基础。然而，特定领域或高级用例往往需要超出通用方法的额外结构、自定义数据或新的交互模式。扩展是 A2A 在基础协议之上叠加新能力的强大机制。
+
+扩展允许使用新数据、要求、RPC 方法和状态机来扩展 A2A 协议。智能体在其 Agent Card 中声明对特定扩展的支持，客户端随后可以在向智能体发出的请求中，选择启用某扩展提供的行为。扩展通过 URI 标识，并由各自的规范定义。任何人都可以定义、发布和实现扩展。
+
+扩展的灵活性，使得在不碎片化核心标准的前提下定制 A2A 成为可能，从而促进创新和特定领域的优化。
+
+## 扩展的范围
+
+扩展可能的使用方式被有意设计得非常宽泛，以便能够将 A2A 扩展到已知用例之外。
+不过，一些可预见的应用包括：
+
+- **纯数据扩展**：在 Agent Card 中暴露新的结构化信息，不影响请求-响应流程。例如，扩展可以添加关于智能体 GDPR 合规性的结构化数据。
+- **Profile 扩展**：在核心请求-响应消息之上叠加额外的结构和状态变更要求。这类扩展实际上充当核心 A2A 协议的 profile，收窄允许值的范围（例如，要求所有消息使用符合特定 schema 的 `DataParts`）。这还可以包括通过元数据增强任务状态机中的现有状态。例如，扩展可以定义当 `TaskStatus.state` 为 'working' 且 `TaskStatus.message.metadata["generating-image"]` 为 true 时的 'generating-image' 子状态。
+- **方法扩展（扩展技能）**：在协议定义的核心方法集之外添加全新的 RPC 方法。扩展技能（Extended Skill）是指智能体通过实现定义新 RPC 方法的扩展而获得或暴露的能力或功能。例如，`task-history` 扩展可以添加 `tasks/search` RPC 方法来检索以前的任务列表，从而有效地为智能体提供一项新的扩展技能。
+- **状态机扩展**：为任务状态机添加新状态或状态转换。
+
+## 示例扩展列表
+
+| 扩展 | 描述 |
+| :-------- | :------------ |
+| [Secure Passport 扩展](https://github.com/a2aproject/a2a-samples/tree/main/extensions/secure-passport) | 增加一个受信任的、可提供即时个性化并降低开销的上下文层（v1）。 |
+| [Hello World 或时间戳扩展](https://github.com/a2aproject/a2a-samples/tree/main/extensions/timestamp) | 一个简单的扩展，演示如何通过向 `Message` 和 `Artifact` 对象的 `metadata` 字段添加时间戳来增强基础 A2A 类型（v1）。 |
+| [可追溯性扩展](https://github.com/a2aproject/a2a-samples/tree/main/samples/python/extensions/traceability) | 探索可追溯性扩展（Traceability Extension）的 Python 实现和基本用法（v1）。 |
+| [Agent 网关协议（AGP）扩展](https://github.com/a2aproject/a2a-samples/tree/main/extensions/agp) | 一种引入自主小队（Autonomous Squads，ASq）、并根据声明的能力路由 Intent 载荷的核心协议层或路由扩展，可提升可扩展性（v1）。 |
+
+## 扩展治理
+
+A2A 组织使用正式的治理框架来管理扩展的提出、开发、推广和维护。官方扩展使用 `https://a2a-protocol.org/extensions/` URI 前缀，托管在 `a2aproject` 组织下，仓库名带有 `ext-` 前缀（实验性扩展使用 `experimental-ext-`）。
+
+<Callout title="URI 命名空间">
+
+`https://a2a-protocol.org/extensions/` 前缀是规范性的命名空间，用于在 Agent Card 和协议消息中提供全局唯一的扩展标识符。该前缀下的各个 URI（例如 `https://a2a-protocol.org/extensions/{name}/v1`）标识特定的扩展及其版本。这些 URI 是标识符，不期望 HTTP 访问。详细信息请参阅治理文档中的 [URI 命名空间](/docs/a2a/extension-and-binding-governance)。
+
+
+</Callout>
+
+完整的治理流程——包括层级、生命周期、SDK 支持和法律要求——请参阅
+[扩展与协议绑定治理](/docs/a2a/extension-and-binding-governance)
+页面。
+
+## 限制
+
+有一些对协议的更改，扩展是不允许的，主要是为了防止破坏核心类型验证：
+
+- **更改核心数据结构的定义**：例如，向协议定义的数据结构添加新字段或移除必填字段。扩展应将自定义属性放在核心数据结构上自带的 `metadata` 映射中。
+- **为枚举类型添加新值**：扩展应使用现有的枚举值，并在 `metadata` 字段中注明附加的语义含义。
+
+## 扩展声明
+
+智能体通过在其 `AgentCapabilities` 对象中纳入 `AgentExtension` 对象，在 Agent Card 中声明对扩展的支持。
+
+> 类型表：`AgentExtension`（由 Protobuf 定义自动生成）
+
+以下是一个带扩展的 Agent Card 示例：
+
+```json
+      }
+    ]
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+  ]
+}
+```
+
+## 必选扩展
+
+虽然扩展通常提供可选功能，但某些智能体可能有更严格的要求。当 Agent Card 将扩展声明为 `required: true` 时，它向客户端表明扩展的某些方面会影响请求的构造或处理方式，客户端必须遵守。智能体不应将纯数据扩展标记为必选。如果客户端未请求启用必选扩展，或未能遵循其协议，智能体应以适当的错误拒绝传入的请求。
+
+## 扩展规范
+
+扩展的详细行为和结构由其**规范**定义。虽然未强制规定确切格式，但至少应包含：
+
+- 标识扩展的特定 URI。
+- `AgentExtension` 对象中 `params` 字段所指定对象的 schema 及其含义。
+- 客户端与智能体之间传送的任何额外数据结构的 schema。
+- 新请求-响应流程、额外端点或实现扩展所需的任何其他逻辑的详情。
+
+## 扩展依赖
+
+扩展可能依赖其他扩展。这可以是必选依赖（扩展在缺少依赖对象时无法运行），也可以是可选依赖（存在另一个扩展时启用额外功能）。扩展规范应记录这些依赖。客户端的职责是按照扩展规范中的列表，启用一个扩展及其所有必选依赖。
+
+## 扩展启用
+
+扩展默认处于未启用状态，为不了解扩展的客户端提供基线体验。客户端和智能体通过协商确定某个请求启用哪些扩展。
+
+1. **客户端请求**：客户端通过在向智能体发出的 HTTP 请求中包含 `A2A-Extensions` 头部来请求启用扩展。该值是客户端打算启用的扩展 URI 的逗号分隔列表。
+2. **智能体处理**：智能体负责识别请求中受支持的扩展并执行启用。智能体不支持的所请求扩展可以被忽略。
+3. **响应**：一旦智能体识别出所有已启用的扩展，响应**应该**包含 `A2A-Extensions` 头部，列出该请求成功启用的所有扩展。
+
+<img src="/images/docs/a2a/Screenshot_2025-09-04_at_13.03.31.original.png" alt="A2A Extension Flow Diagram" width="1568" height="834" />
+
+**展示扩展启用的示例请求：**
+
+```http
+POST /agents/eightball HTTP/1.1
+Host: example.com
+Content-Type: application/json
+A2A-Extensions: https://example.com/ext/konami-code/v1
+Content-Length: 519
+{
+  "jsonrpc": "2.0",
+  "method": "SendMessage",
+  "id": "1",
+  "params": {
+    "message": {
+      "messageId": "1",
+      "role": "ROLE_USER",
+      "parts": [{"text": "Oh magic 8-ball, will it rain today?"}]
+    },
+    "metadata":
+  }
+}
+```
+
+**回显已启用扩展的对应响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+A2A-Extensions: https://example.com/ext/konami-code/v1
+Content-Length: 338
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "message": {
+      "messageId": "2",
+      "role": "ROLE_AGENT",
+      "parts": [{"text": "That's a bingo!"}]
+    }
+  }
+}
+```
+
+## 实现注意事项
+
+虽然 A2A 协议定义了扩展的功能，但本节提供关于其实现的指南——编写、版本控制和分发扩展实现的最佳实践。
+
+- **版本控制**：扩展规范不断演进。制定清晰的版本控制策略至关重要，以确保客户端和智能体能够协商出兼容的实现。
+    - **建议**：使用扩展的 URI 作为主要版本标识符，理想情况下包含版本号（例如 `https://example.com/ext/my-extension/v1`）。
+    - **破坏性变更**：当对扩展的逻辑、数据结构或必需参数引入破坏性变更时，必须使用新的 URI。
+    - 处理不匹配：如果客户端请求的版本不受智能体支持，智能体**应该**忽略对该扩展的启用请求；它**必须不**回退到不同的版本。
+- **可发现性与发布**：
+    - **规范托管**：扩展规范文档**应该**托管在扩展的 URI 处。
+    - **永久标识符**：鼓励作者为自己的扩展 URI 使用永久标识符服务（例如 `w3id.org`），以防止链接失效。
+    - **社区注册表**：A2A [扩展治理](#extension-governance) 框架定义了托管在 `a2aproject` 组织下的官方和实验性扩展的分层体系，包括提出和推广扩展的生命周期。
+- **打包与复用（A2A SDK 和库）**：
+    为促进采用，扩展逻辑应打包成可复用的库，以便集成到现有的 A2A 客户端和服务器应用中。
+    - 扩展实现应作为其语言生态中的标准包分发（例如，Python 的 PyPI 包，TypeScript/JavaScript 的 npm 包）。
+    - 目标是让开发者获得流畅的集成体验。设计良好的扩展包应允许开发者用最少的代码将其添加到服务器中，例如：
+
+        ```python
+        参考：`__main__.py` — 完整源码见 [__main__.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/adk_expense_reimbursement/__main__.py)
+        ```
+
+        此示例展示了 A2A SDK 或库（如 Python 中的 `a2a.server`）如何促进 A2A 智能体和扩展的实现。
+
+- **安全性**：扩展会修改 A2A 协议的核心行为，因此会引入新的安全考量：
+
+    - **输入验证**：扩展引入的任何新数据字段、参数或方法**必须**经过严格验证。将来自外部方的所有扩展相关数据视为不受信任的输入。
+    - **必选扩展的作用范围**：在 Agent Card 中将扩展标记为 `required: true` 时需谨慎。这会为所有客户端建立硬性依赖，只应用于对智能体的核心功能和安全性至关重要的扩展（例如，消息签名扩展）。
+    - **认证与授权**：如果扩展添加了新方法，实现**必须**确保这些方法受到与核心 A2A 方法相同的认证和授权检查。扩展**必须不**提供绕过智能体主要安全控制的方式。
+
+更多信息，请参阅 [A2A Extensions: Empowering Custom Agent Functionality](https://developers.googleblog.com/en/a2a-extensions-empowering-custom-agent-functionality/) 博客文章。

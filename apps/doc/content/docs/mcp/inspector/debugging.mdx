@@ -1,0 +1,369 @@
+---
+title: 调试
+description: 调试模型上下文协议（Model Context Protocol, MCP）集成的综合指南
+---
+
+
+在开发 MCP 服务端或将它们与应用程序集成时，有效的调试必不可少。本指南涵盖 MCP 生态中可用的调试工具和方法。
+
+## 调试工具概览
+
+MCP 在不同层面提供多种调试工具：
+
+1. **[MCP Inspector](/docs/mcp/tools/inspector)**：交互式、与传输无关的
+   测试 UI。可连接 stdio 或 Streamable HTTP 服务端，调用
+   [工具](/docs/mcp/specification/latest/server/tools)、
+   [提示词](/docs/mcp/specification/latest/server/prompts)和
+   [资源](/docs/mcp/specification/latest/server/resources)，并观察
+   通知流。这应该是你的第一站。
+2. **服务端日志**：通过 stderr 输出结构化日志（stdio 传输）或通过
+   [OpenTelemetry](https://opentelemetry.io/)（所有传输）。
+   通过协议发送的[日志](/docs/mcp/specification/2026-07-28/server/utilities/logging)
+   （`notifications/message`）自协议版本 `2026-07-28` 起已被弃用。
+3. **客户端开发者工具**：大多数 MCP 客户端会暴露日志和连接
+   状态。见下文[在 Claude Desktop 中调试](#debugging-in-claude-desktop)
+   中的一个示例，或查阅你客户端的文档。
+
+## 实现日志
+
+### 服务端日志
+
+当构建一个使用本地
+[stdio 传输](/docs/mcp/specification/2026-07-28/basic/transports/stdio)的服务端时，所有
+写入 stderr（标准错误）的消息都会被宿主应用自动捕获。
+
+<Callout type="warn">
+
+本地 MCP 服务端不应将消息记录到 stdout（标准输出），因为这
+会干扰协议运行。
+
+</Callout>
+
+对于使用
+[Streamable HTTP 传输](/docs/mcp/specification/2026-07-28/basic/transports/streamable-http)的服务端，
+stderr 不会被客户端捕获。请使用你自己的服务端日志聚合
+或 [OpenTelemetry](https://opentelemetry.io/) 记录日志，并使用标准 HTTP
+工具（curl、浏览器 DevTools 的 Network 面板）检查请求和 SSE
+流。
+
+<Callout type="warn">
+
+下面的 `notifications/message` 机制自协议
+版本 `2026-07-28` 起已被弃用。在弃用期内它仍然可用。
+
+</Callout>
+
+对于所有[传输](/docs/mcp/specification/latest/basic/transports)，请记录服务端在运行时正在做什么：
+
+```python Python
+import logging
+
+from mcp.server import MCPServer
+
+logger = logging.getLogger(__name__)
+
+mcp = MCPServer("reports")
+
+
+@mcp.tool()
+async def fetch_report(report_id: str) -> str:
+    """Fetch a report by id."""
+    logger.info("Fetching report %s", report_id)
+    return f"Report {report_id} is ready."
+```
+
+```typescript TypeScript
+await server.sendLoggingMessage({
+  level: "info",
+  data: "Server started successfully",
+});
+```
+
+
+MCP 定义了八个
+[RFC 5424 严重级别](/docs/mcp/specification/latest/server/utilities/logging#log-levels)
+（`debug` 到 `emergency`）。客户端通过在请求的 `_meta` 中设置
+[`io.modelcontextprotocol/logLevel`](/docs/mcp/specification/2026-07-28/server/utilities/logging#per-request-log-level)
+字段，按请求选择是否接收日志消息。服务端绝不能为省略
+该字段的请求发送 `notifications/message`。
+
+应记录的重要事件：
+
+- 启动步骤
+- 资源访问
+- 工具执行
+- 错误情况
+- 性能指标
+
+## 常见问题
+
+以下示例使用 Claude Desktop 的
+[`claude_desktop_config.json`](/docs/mcp/develop/connect-local-servers)；同一
+原则适用于任何基于 stdio 的 MCP 客户端。
+
+### 工作目录
+
+当 MCP 客户端启动一个 stdio 服务端时：
+
+- 通过客户端配置启动的服务端的工作目录可能未定义
+  （在 macOS 上可能像 `/`），因为客户端可以从任何地方启动
+- 始终在配置和 `.env` 文件中使用绝对路径，以确保
+  可靠运行
+- 要通过命令行直接测试服务端时，工作目录将
+  是你运行命令的地方
+
+例如在 `claude_desktop_config.json` 中，请使用：
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/username/data"
+      ]
+    }
+  }
+}
+```
+
+而不是像 `./data` 这样的相对路径
+
+### 环境变量
+
+通过 stdio 启动的 MCP 服务端只自动继承有限子集的环境变量（具体集合取决于平台）。
+
+要覆盖默认变量或提供你自己的变量，可以在
+`claude_desktop_config.json` 中指定 `env` 键：
+
+```json
+{
+  "mcpServers": {
+    "myserver": {
+      "command": "mcp-server-myapp",
+      "env": {
+        "MYAPP_API_KEY": "some_key"
+      }
+    }
+  }
+}
+```
+
+### 服务端启动
+
+常见的启动问题：
+
+1. **路径问题**
+   - 服务端可执行文件路径不正确
+   - 缺少必需文件
+   - 权限问题
+   - 尝试对 `command` 使用绝对路径
+
+2. **配置错误**
+   - JSON 语法无效
+   - 缺少必需字段
+   - 类型不匹配
+
+3. **环境问题**
+   - 缺少环境变量
+   - 变量值不正确
+   - 权限限制
+
+### 连接问题
+
+当服务端无法连接时：
+
+1. 检查客户端日志
+2. 确认服务端进程正在运行
+3. 使用 [Inspector](/docs/mcp/tools/inspector) 单独测试
+4. 验证
+   [协议兼容性](/docs/mcp/learn/versioning#negotiation)：调用
+   [`server/discover`](/docs/mcp/specification/2026-07-28/server/discover) 查看服务端
+   支持哪些协议版本。`UnsupportedProtocolVersionError`
+   （`-32022`）会在其 `data` 字段中列出服务端支持的版本
+5. 检查
+   [按请求的 `_meta` 字段](/docs/mcp/specification/2026-07-28/basic/index#meta)：
+   每个请求都必须携带 `io.modelcontextprotocol/protocolVersion` 和
+   `io.modelcontextprotocol/clientCapabilities`，客户端还应
+   包含 `io.modelcontextprotocol/clientInfo`。缺少任一
+   必需字段的请求会以错误 `-32602`（Invalid params）被拒绝，这也是
+   许多其他格式错误的输入所返回的代码。如果服务端需要
+   请求的 `clientCapabilities` 未声明的能力（例如
+   [elicitation](/docs/mcp/specification/2026-07-28/client/elicitation)），它会返回
+   `MissingRequiredClientCapabilityError`（`-32021`）并指明缺失的
+   能力。检查请求的 `_meta` 和
+   [`server/discover`](/docs/mcp/specification/2026-07-28/server/discover) 的响应，
+   以确认双方都声明了你所期望的内容
+
+## 在 Claude Desktop 中调试
+
+Claude Desktop 是众多 MCP 客户端之一。它可用于
+macOS 和 Windows。
+
+### 检查服务端状态
+
+点击聊天输入框中的 "Add files, connectors, and more" 加号图标，然后
+悬停在 **Connectors** 菜单上查看已连接的服务端和可用
+工具。
+
+<img src="/images/docs/mcp/available-mcp-tools.png" alt="Available MCP tools" />
+
+### 查看日志
+
+日志文件写入以下位置：
+
+- macOS：`~/Library/Logs/Claude`
+- Windows：`%APPDATA%\Claude\logs`
+
+```bash macOS
+tail -n 20 -F ~/Library/Logs/Claude/mcp*.log
+```
+
+```powershell Windows
+type "$env:AppData\Claude\logs\mcp*.log"
+```
+
+
+日志捕获：
+
+- 服务端连接事件
+- 配置问题
+- 运行时错误
+- 消息交换
+
+### 使用 Chrome DevTools
+
+在 Claude Desktop 内访问 Chrome 的开发者工具来调查
+客户端侧错误：
+
+1. 创建一个 `developer_settings.json` 文件，将 `allowDevTools` 设为 true：
+
+```bash macOS
+echo '{"allowDevTools": true}' > ~/Library/Application\ Support/Claude/developer_settings.json
+```
+
+```powershell Windows
+'{"allowDevTools": true}' | Set-Content "$env:AppData\Claude\developer_settings.json"
+```
+
+
+2. 打开 DevTools：`Command-Option-I`（macOS）或 `Ctrl+Alt+I`（Windows）
+
+注意：你会看到两个 DevTools 窗口：
+
+- 主内容窗口
+- 应用标题栏窗口
+
+使用 **Console** 面板检查客户端侧错误。
+
+使用 **Network** 面板检查：
+
+- 消息 payload
+- 连接耗时
+
+## 调试工作流
+
+### 开发周期
+
+1. 初始开发
+   - 使用 [Inspector](/docs/mcp/tools/inspector) 进行基础测试
+   - 实现核心功能
+   - 添加日志点
+
+2. 集成测试
+   - 在你目标 MCP 客户端中测试
+   - 监控日志
+   - 检查错误处理
+
+### 测试改动
+
+要高效地测试改动：
+
+- **配置改动**：重启 MCP 客户端
+- **服务端代码改动**：重启客户端（对于 Claude Desktop，需完全退出
+  并重新打开；仅关闭窗口是不够的）
+- **快速迭代**：开发期间使用 [Inspector](/docs/mcp/tools/inspector)
+
+## 最佳实践
+
+### 日志策略
+
+1. **结构化日志**
+   - 使用一致格式
+   - 包含上下文
+   - 添加时间戳
+   - 跟踪请求 ID
+
+2. **错误处理**
+   - 记录堆栈跟踪
+   - 包含错误上下文
+   - 跟踪错误模式
+   - 监控恢复情况
+
+3. **性能跟踪**
+   - 记录操作耗时
+   - 监控资源使用
+   - 跟踪消息大小
+   - 测量延迟
+
+### 安全注意事项
+
+调试时：
+
+1. **敏感数据**
+   - 清理日志
+   - 保护凭据
+   - 屏蔽个人信息
+
+2. **访问控制**
+   - 验证权限
+   - 检查认证
+   - 监控访问模式
+
+关于 MCP 攻击向量和缓解措施的完整论述，参见
+[安全最佳实践](/docs/mcp/tutorials/security/security_best_practices)。
+
+## 获取帮助
+
+遇到问题时：
+
+1. **第一步**
+   - 检查服务端日志
+   - 使用 [Inspector](/docs/mcp/tools/inspector) 测试
+   - 复查配置
+   - 验证环境
+
+2. **支持渠道**
+   - [GitHub issues](https://github.com/modelcontextprotocol/modelcontextprotocol/issues)
+   - [GitHub discussions](https://github.com/modelcontextprotocol/modelcontextprotocol/discussions)
+
+3. **提供信息**
+   - 日志摘录
+   - 配置文件
+   - 复现步骤
+   - 环境详情
+
+## 后续步骤
+
+<Cards>
+  <Card
+    title="MCP Inspector"
+    href="/docs/mcp/tools/inspector"
+  >
+    学习使用 MCP Inspector
+  </Card>
+  <Card
+    title="构建 MCP 服务端"
+    href="/docs/mcp/develop/build-server"
+  >
+    从零开始构建服务端的完整过程
+  </Card>
+  <Card
+    title="连接本地服务端"
+    href="/docs/mcp/develop/connect-local-servers"
+  >
+    完整的 claude_desktop_config.json 参考与故障排查
+  </Card>
+</Cards>

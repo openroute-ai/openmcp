@@ -1,0 +1,118 @@
+---
+title: 主要变更
+---
+
+
+<div id="enable-section-numbers" />
+
+本文档列出了自上一版本 [2025-11-25](/docs/mcp/specification/2025-11-25) 以来，
+Model Context Protocol（MCP）规范所做的更改。
+
+## 主要变更
+
+1. 从 Streamable HTTP 传输中移除协议级别的会话和 `Mcp-Session-Id` 请求头。列表端点（`tools/list`、`resources/list`、`prompts/list`）不再因连接而异。需要跨调用保存状态的服务端，改为使用显式的、由服务端生成的句柄，并以普通工具参数的形式传递（[SEP-2567](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2567)）。
+
+2. 使 MCP 无状态化：移除 `initialize`/`notifications/initialized` 握手。现在每个请求都在 `_meta` 中携带其协议版本和客户端能力（`io.modelcontextprotocol/protocolVersion`、`io.modelcontextprotocol/clientCapabilities`）。客户端**应当**在每次请求中标识自身（`io.modelcontextprotocol/clientInfo`），服务端**应当**在每个结果（result）的 `_meta` 中标识自身（`io.modelcontextprotocol/serverInfo`）。版本不匹配时返回 `UnsupportedProtocolVersionError`（[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575)）。
+
+3. 新增 `server/discover`：服务端**必须**实现此 RPC，以公布其支持的协议版本、能力和身份。客户端可以在任何其他请求之前调用它，以预先进行版本选择，或将其用作 STDIO 上的向后兼容性探测（[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575)）。
+
+4. 将 HTTP GET 端点以及 `resources/subscribe`/`resources/unsubscribe` 替换为 `subscriptions/listen`：一种单一的长生命周期 POST 响应流，用于经用户选择加入的服务端到客户端变更通知。客户端选择接收特定类型（`toolsListChanged`、`promptsListChanged`、`resourcesListChanged`、`resourceSubscriptions`）；服务端确认并为其通知附加 `io.modelcontextprotocol/subscriptionId` 标签。诸如 `notifications/progress` 和 `notifications/message` 这类请求作用域的通知，继续在其相关请求的响应流上流动，而不在 `subscriptions/listen` 流上（[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575)）。
+
+5. 移除 `ping`、`logging/setLevel` 和 `notifications/roots/list_changed`。日志级别现通过 `_meta` 中的 `io.modelcontextprotocol/logLevel` 按请求设置；对于未包含此字段的请求，服务端**不得**发出 `notifications/message`（[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575)）。
+
+6. 将实验性的任务（tasks）移出核心协议，转为正式的扩展（`io.modelcontextprotocol/tasks`）。重新设计的扩展用通过 `tasks/get` 进行的轮询取代了阻塞式的 `tasks/result` 方法，并新增了面向客户端到服务端输入的 `tasks/update`，移除了 `tasks/list`，并允许服务端在无需逐请求选择加入的情况下主动返回任务句柄（[SEP-2663](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2663)）。
+
+7. 引入多轮往返请求（MRTR）模式，取代了先前发送服务端发起的请求（如 `roots/list`、`sampling/createMessage` 或 `elicitation/create`）的做法。服务端返回 `InputRequiredResult`（`resultType: "input_required"`），其 `inputRequests` 字段携带处理该请求所需的额外信息请求。客户端通过重试原始请求，并以 `inputResponses` 提供所请求的信息。[SEP-2322](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2322)。
+
+8. 所有结果（result）现在都必须携带必填的 `resultType` 字段：普通结果为 `"complete"`，[多轮往返请求](/docs/mcp/specification/2026-07-28/basic/patterns/mrtr)的中间结果为 `"input_required"`。对于早期协议服务端返回的省略了该字段的结果，客户端**必须**将其视为 `"complete"`（[SEP-2322](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2322)）。
+
+9. 从 Streamable HTTP 传输中移除 SSE 流可恢复性和消息重新投递（`Last-Event-ID` 请求头和 SSE 事件 ID）。断裂的响应流会丢失在途请求；客户端**必须**将其作为具有新请求 ID 的新请求重新发出（[SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575)）。
+
+## 次要变更
+
+1. 在 `ClientCapabilities` 和 `ServerCapabilities` 中新增 `extensions` 字段，以支持核心协议之外的可选[扩展](/docs/mcp/extensions/overview)。
+2. 文档化 `_meta` 键（`traceparent`、`tracestate`、`baggage`）的 OpenTelemetry 跟踪上下文传播约定（[SEP-414](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/414)）。
+3. 服务端**应当**以确定性顺序从 `tools/list` 返回工具，以支持客户端侧缓存并提高 LLM 提示词缓存的命中率。
+4. 要求 Streamable HTTP POST 请求携带标准 MCP 请求头（`Mcp-Method`、`Mcp-Name`），并通过 `x-mcp-header` 支持来自工具参数的自定义请求头（[SEP-2243](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2243)）。
+5. 要求 `tools/list`、`prompts/list`、`resources/list`、`resources/read` 和 `resources/templates/list` 返回的结果带有 `ttlMs` 和 `cacheScope` 字段，通过新的 `CacheableResult` 接口实现。`ttlMs` 是一个新鲜度提示（以毫秒为单位），允许客户端缓存响应并减少轮询；`cacheScope`（`"public"` 或 `"private"`）控制共享的中间层是否可以缓存响应。这两个字段与现有的 `listChanged` 通知互为补充（[SEP-2549](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2549)）。
+6. 将资源未找到的错误码从 `-32002` 改为 `-32602`（Invalid Params），以与 JSON-RPC 规范保持一致。
+7. 授权服务端**应当**在授权响应中包含 `iss` 参数，遵循
+   [RFC 9207](https://datatracker.ietf.org/doc/html/rfc9207) 的要求，MCP 客户端在兑换授权码之前**必须**根据记录的签发方（issuer）校验存在的
+   `iss`（[SEP-2468](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2468)）。
+8. 要求 MCP 客户端在动态客户端
+   注册期间指定合适的 `application_type`，以避免 OpenID Connect 重定向 URI 冲突
+   （[SEP-837](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/837)）。
+9. 澄清客户端凭据绑定到为其签发它们的授权服务端：
+   客户端**必须**按签发方标识符保存持久化的凭据，**不得**在不同的授权服务端处
+   复用它们，并且**必须**在授权服务端
+   变更时重新注册（[SEP-2352](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2352)）。
+10. 放宽 `inputSchema` 和 `outputSchema`，允许使用任意 JSON Schema 2020-12 关键字，并
+    放宽 `structuredContent`，允许任意 JSON 值。新增 `$ref` 解析要求以及
+    组合（composition）关键字的资源边界
+    （[SEP-2106](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2106)）。
+11. 移除 `notifications/elicitation/complete` 通知以及
+    URL 模式征询请求的 `elicitationId` 字段——两者均是在
+    `2025-11-25` 中引入的。在
+    [多轮往返请求](/docs/mcp/specification/2026-07-28/basic/patterns/mrtr)模式下，
+    客户端通过重试原始请求来获悉带外（out-of-band）交互的结果，
+    因此服务端发起的完成信号——以及用于将其关联起来的标识符——
+    不再适合该协议。需要在多次重试之间关联一次
+    征询的服务端，可在 `requestState` 中编码自己的标识符。
+12. 定义一份[错误码分配策略](/docs/mcp/specification/2026-07-28/basic/index#error-codes)，
+    对 JSON-RPC 服务端错误范围进行划分：`-32000` 至 `-32019` 仍为
+    实现自定义（现有 SDK 的使用方式被沿用），`-32020` 至 `-32099` 则
+    保留给 MCP 规范。相应重新编号本草案引入的错误码——`HeaderMismatch` `-32001` → `-32020`、`MissingRequiredClientCapability`
+    `-32003` → `-32021`、`UnsupportedProtocolVersion` `-32004` → `-32022`——并
+    将 `HeaderMismatchError` 加入模式（schema），此前它仅存在于传输层的正文中。
+
+## 已弃用（Deprecated）
+
+此处列出的特性仍属于规范的一部分，但按照[特性生命周期与弃用策略](#)安排移除计划。新的实现不应采用它们。[已弃用特性注册表](/docs/mcp/specification/2026-07-28/deprecated)跟踪当前处于已弃用状态的所有特性。
+
+1. 弃用 Roots、Sampling 和 Logging 特性
+   （[SEP-2577](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2577)）。
+   这些特性在弃用窗口期内保持完全可用，但新的
+   实现不应再增添对它们的支持。建议的迁移方式：通过工具参数、资源 URI 或服务端
+   配置传递目录或文件，以取代 Roots；直接与 LLM 提供方的 API
+   集成，以取代 Sampling；在 stdio 下用 `stderr` 记录日志，或使用 OpenTelemetry 以取代
+   Logging。
+
+2. 在特性生命周期策略下，将 HTTP+SSE 传输（自协议版本
+   `2025-03-26` 起被弃用）重新归类为"已弃用"
+   （[SEP-2596](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2596)）。
+   请迁移到 [Streamable HTTP](/docs/mcp/specification/2026-07-28/basic/transports/streamable-http)。
+
+3. 将 `includeContext` 的取值 `"thisServer"` 和 `"allServers"`
+   （自协议版本 `2025-11-25` 起被软弃用）重新归类为"已弃用"
+   （[SEP-2596](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2596)）。
+   请省略该字段或使用 `"none"`；这些取值将不晚于
+   Sampling 特性本身被移除。
+
+4. 弃用 OAuth 2.0 动态客户端注册协议
+   （[RFC7591](https://datatracker.ietf.org/doc/html/rfc7591)），不再将其作为客户端注册
+   机制，转而采用
+   [客户端 ID 元数据文档](/docs/mcp/specification/2026-07-28/basic/authorization/client-registration#client-id-metadata-documents)
+   （[PR #2858](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2858)）。
+   对于不支持客户端 ID 元数据文档的授权服务端，
+   该协议仍可用于向后兼容。
+
+## 其他模式（schema）变更
+
+1. `schema.json` 现已正确反映 TypeScript 定义中 minimum/maximum/default 为 `number` 类型而不仅仅是 `integer`。这源于使用 `--defaultNumberType integer` 运行生成器所致（[PR#2710](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2710)）。
+
+## 治理与流程更新
+
+1. 采纳[特性生命周期与弃用策略](#)，
+   定义 Active（活跃）、Deprecated（已弃用）和 Removed（已移除）特性状态、至少
+   十二个月的弃用窗口，以及一份
+   [已弃用特性注册表](/docs/mcp/specification/2026-07-28/deprecated)
+   （[SEP-2596](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2596)）。
+
+## 流程变更
+
+1. 正式确立基于 PR 的 SEP 工作流，在 `seps/` 目录中使用 markdown 文件、采用基于 PR 的编号、明确发起人职责，并通过 PR 标签进行状态管理（[SEP-1850](https://github.com/modelcontextprotocol/specification/pull/1850)）。
+
+## 完整变更日志
+
+有关自上一协议修订版以来所有更改的完整列表，
+[请参见 GitHub](https://github.com/modelcontextprotocol/specification/compare/2025-11-25...2026-07-28)。

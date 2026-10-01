@@ -1,0 +1,258 @@
+---
+title: "A2A 智能体认证头"
+description: "将认证凭据（Bearer 令牌、API 密钥等）从客户端转发到后端 A2A 智能体。"
+---
+
+将认证凭据（Bearer 令牌、API 密钥等）从客户端转发到后端 A2A 智能体。
+
+## 概述
+
+当 OpenMCP 将请求代理到后端 A2A 智能体时，该智能体可能需要自己的认证头。有三种方式可以提供它们：
+
+| 方法 | 谁配置 | 工作原理 |
+|---|---|---|
+| **静态头** | 管理员（UI / API） | 始终发送，与客户端请求无关 |
+| **转发客户端头** | 管理员（UI / API） | 指定要提取并转发的客户端请求头名称 |
+| **基于约定** | 客户端（无需管理员配置） | 客户端发送 `x-a2a-{agent_name}-{header}` — 自动路由 |
+
+三种方法可以组合使用。发生键冲突时**静态头始终优先**。
+
+---
+
+## 方法 1：静态头
+
+由管理员配置、始终发送到后端智能体的头。适用于服务端到服务端的令牌或不应被客户端看到或覆盖的内部凭据。
+
+<Tabs items={["UI","REST API"]}>
+<Tab>
+
+1. 前往 OpenMCP 控制台中的 **Agents**。
+2. 创建或编辑一个智能体。
+3. 打开 **Authentication Headers** 面板。
+4. 在 **Static Headers** 下，点击 **Add Static Header** 并填写头名称和值。
+
+</Tab>
+<Tab>
+
+```bash
+curl -X POST http://localhost:4000/v1/agents \
+  -H "Authorization: Bearer sk-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_name": "my-agent",
+    "agent_card_params": { ... },
+    "static_headers": {
+      "Authorization": "Bearer internal-server-token",
+      "X-Internal-Service": "openmcp-proxy"
+    }
+  }'
+```
+
+要更新现有智能体：
+
+```bash
+curl -X PATCH http://localhost:4000/v1/agents/{agent_id} \
+  -H "Authorization: Bearer sk-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "static_headers": {
+      "Authorization": "Bearer new-token"
+    }
+  }'
+```
+
+</Tab>
+</Tabs>
+
+**客户端调用（无需特殊头）：**
+
+```bash
+curl -X POST http://localhost:4000/a2a/my-agent \
+  -H "Authorization: Bearer sk-client-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0", "id": "1", "method": "message/send",
+    "params": { "message": { "role": "user", "parts": [{"kind": "text", "text": "Hello"}], "messageId": "msg-1" } }
+  }'
+```
+
+后端智能体会收到 `Authorization: Bearer internal-server-token`，而客户端永远无法知道该值。
+
+---
+
+## 方法 2：转发客户端头
+
+管理员指定一份头**名称**列表。当客户端发送包含这些头的请求时，OpenMCP 提取它们的值并转发给后端智能体。客户端控制值；管理员控制哪些头可以被转发。
+
+<Tabs items={["UI","REST API"]}>
+<Tab>
+
+1. 前往 OpenMCP 控制台中的 **Agents**。
+2. 创建或编辑一个智能体。
+3. 打开 **Authentication Headers** 面板。
+4. 在 **Forward Client Headers** 下，输入头名称并按 **Enter**（例如 `x-api-key`、`Authorization`）。
+
+</Tab>
+<Tab>
+
+```bash
+curl -X POST http://localhost:4000/v1/agents \
+  -H "Authorization: Bearer sk-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_name": "my-agent",
+    "agent_card_params": { ... },
+    "extra_headers": ["x-api-key", "x-user-token"]
+  }'
+```
+
+</Tab>
+</Tabs>
+
+**客户端调用（包含要转发的头）：**
+
+```bash
+curl -X POST http://localhost:4000/a2a/my-agent \
+  -H "Authorization: Bearer sk-client-key" \
+  -H "x-api-key: user-secret-value" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+后端智能体会收到 `x-api-key: user-secret-value`。
+
+<Callout type="info">
+
+头名称匹配**不区分大小写**。如果客户端发送 `X-API-Key` 而 `extra_headers` 列出了 `x-api-key`，它们会匹配。
+
+</Callout>
+
+---
+
+## 方法 3：基于约定的转发
+
+客户端可以使用命名约定将头转发到特定智能体，而无需任何管理员预配置：
+
+```
+x-a2a-{agent_name_or_id}-{header_name}: value
+```
+
+OpenMCP 自动解析这些头，并且只路由到匹配的智能体。
+
+**示例：**
+
+| 客户端发送的头 | 智能体名称/ID | 转发为 |
+|---|---|---|
+| `x-a2a-my-agent-authorization: Bearer tok` | `my-agent` | `authorization: Bearer tok` |
+| `x-a2a-my-agent-x-api-key: secret` | `my-agent` | `x-api-key: secret` |
+| `x-a2a-abc123-authorization: Bearer tok` | 智能体 ID `abc123` | `authorization: Bearer tok` |
+
+```bash
+curl -X POST http://localhost:4000/a2a/my-agent \
+  -H "Authorization: Bearer sk-client-key" \
+  -H "x-a2a-my-agent-authorization: Bearer agent-specific-token" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+同一请求中发送的 `x-a2a-other-agent-authorization` 头**不会**被转发给 `my-agent`；它会被静默忽略。
+
+<Callout type="info" title="同时匹配智能体名称和智能体 ID">
+
+既可读名称（例如 `my-agent`）也可用 UUID（例如 `abc123-...`）。对客户端而言任选其一即可。
+
+</Callout>
+
+---
+
+## 合并优先级
+
+当多种方法提供相同的头名称时，**静态头优先**：
+
+```
+dynamic (forwarded/convention)  →  merged  ←  static (overlays, wins)
+```
+
+示例：
+
+| 来源 | `Authorization` 值 |
+|---|---|
+| 客户端发送（通过 `extra_headers` 或约定） | `Bearer client-token` |
+| 管理员配置的 `static_headers` | `Bearer server-token` |
+| **后端智能体实际收到的内容** | **`Bearer server-token`** |
+
+这确保了管理员控制的凭据不会被客户端请求覆盖。
+
+---
+
+## 组合使用全部三种方法
+
+```bash
+# Register agent with static + forwarded headers
+curl -X POST http://localhost:4000/v1/agents \
+  -H "Authorization: Bearer sk-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_name": "my-agent",
+    "agent_card_params": { ... },
+    "static_headers": {
+      "X-Internal-Token": "secret123"
+    },
+    "extra_headers": ["x-user-id"]
+  }'
+
+# Client call using all three mechanisms
+curl -X POST http://localhost:4000/a2a/my-agent \
+  -H "Authorization: Bearer sk-client-key" \
+  -H "x-user-id: user-42" \
+  -H "x-a2a-my-agent-x-request-id: req-abc" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+后端智能体会收到：
+
+```
+X-Internal-Token: secret123          ← static header (always)
+x-user-id: user-42                   ← forwarded (in extra_headers)
+x-request-id: req-abc                ← convention-based (x-a2a-my-agent-*)
+X-OpenMCP-Trace-Id: <uuid>           ← OpenMCP internal
+X-OpenMCP-Agent-Id: <agent-id>       ← OpenMCP internal
+```
+
+---
+
+## 头隔离
+
+每次智能体调用都使用独立的 HTTP 连接。为智能体 A 配置的头**绝不会**发送给智能体 B，即使两个智能体同时运行并接收请求。
+
+---
+
+## API 参考
+
+### `POST /v1/agents` / `PATCH /v1/agents/{agent_id}`
+
+| 字段 | 类型 | 描述 |
+|---|---|---|
+| `static_headers` | `object` | `{"Header-Name": "value"}` — 始终转发 |
+| `extra_headers` | `string[]` | 要从客户端请求中提取并转发的头名称 |
+
+### 智能体响应
+
+这两个字段都会在 `GET /v1/agents` 和 `GET /v1/agents/{agent_id}` 中返回：
+
+```json
+{
+  "agent_id": "...",
+  "agent_name": "my-agent",
+  "static_headers": { "X-Internal-Token": "secret123" },
+  "extra_headers": ["x-user-id"],
+  ...
+}
+```
+
+<Callout type="warn">
+
+`static_headers` 的值存储在数据库并由 API 返回。请像对待任何凭据一样对待它们：如果你的 API 是公开可访问的，不要在此时存储敏感的长期令牌。建议使用短期令牌或通过环境注入的密钥。
+
+</Callout>

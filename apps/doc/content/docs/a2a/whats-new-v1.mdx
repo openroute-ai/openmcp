@@ -1,0 +1,840 @@
+---
+title: 'v1.0 新特性'
+---
+
+本文档全面概述了从 A2A Protocol v0.3.0 到 v1.0 的变更。v1.0 版本代表了协议的一次重要成熟：清晰度更高、规范更强，并包含重要的结构性改进。
+
+## 主要主题概述
+
+v1.0 版本聚焦于四个主要主题：
+
+### 1. **协议成熟度与标准化**
+
+- 将 a2a.proto 从 gRPC 专用实现文件提升为通用的、规范性的权威来源
+- 尽可能利用正式的规范标准（RFC 8785、RFC 7515）和 google.rpc.Status
+- 更严格地遵循 REST、gRPC 和 JSON-RPC 绑定的行业标准模式
+- 增强的版本化策略，并带有明确的向后兼容性规则
+- 全面的错误分类体系，自有协议特定的映射
+
+### 2. **增强的类型安全性与清晰度**
+
+- 移除判别器 `kind` 字段，转而采用基于 JSON 成员的多态
+- **破坏性变更：** 枚举值从 `kebab-case` 改为 `SCREAMING_SNAKE_CASE`，以符合 ProtoJSON 规范
+- 更严格的字段命名约定（JSON 使用 `camelCase`）
+- 更精确的时间戳规范（毫秒精度的 ISO 8601）
+- 更清晰的数据类型定义，Optional/Required 语义更明确
+
+### 3. **改进的开发者体验**
+
+- 为一致性和清晰性重命名操作
+- 重组 Agent Card 结构，实现更好的逻辑分组
+- 增强的扩展机制，支持版本化和必需声明
+- 更显式的服务参数处理（A2A-Version、A2A-Extensions 头部）
+- **简化的 ID 格式** - 移除复杂的复合 ID（例如 `tasks/{id}`），改用简单 UUID
+- **按接口的协议版本化** - 每个 AgentInterface 都指定自己的协议版本，以实现更好的向后兼容性
+- **多租户支持** - gRPC 请求中的原生租户作用域
+
+### 4. **企业就绪特性**
+
+- 使用 JWS 和 JSON Canonicalization 进行 Agent Card 签名验证
+- 三种协议绑定的正式规范，并保证等价性
+- 增强的安全性方案声明，支持双向 TLS
+- **现代的 OAuth 2.0 流程** - 新增 Device Code 流程（RFC 8628），移除已弃用的 implicit/password 流程
+- **PKCE 支持** - 为 Authorization Code 流程添加 `pkce_required` 字段以增强安全性
+- 基于游标的分页，用于可扩展的任务列表
+
+---
+
+## 核心操作的行为变更
+
+### 发送消息（`message/send` → **`SendMessage`**）
+
+**v0.3.0 行为：**
+
+- 操作名为 `message/send`
+- 关于何时返回 `Task` 与 `Message` 的规范不够正式
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **`SendMessage`**
+- **✅ 已澄清：** Task 与 Message 返回语义的规范更精确
+
+### 发送流式消息（`message/stream` → **SendStreamingMessage**）
+
+**v0.3.0 行为：**
+
+- 操作名为 `message/stream`
+- 流事件带有 `kind` 判别器字段
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **`SendStreamingMessage`**
+- **✅ 破坏性变更：** 流事件不再有 `kind` 字段
+    - 使用 JSON 成员名来区分 `TaskStatusUpdateEvent` 和 `TaskArtifactUpdateEvent`
+- **✅ 已移除：** 从 TaskStatusUpdateEvent 中移除 `final` 布尔字段。请利用协议绑定特有的流关闭机制。
+- **✅ 已澄清：** 允许多个并发流；所有流接收相同的有序事件
+
+### 获取任务（`tasks/get` → **GetTask**）
+
+**v0.3.0 行为：**
+
+- 操作名为 `tasks/get`
+- 返回带有状态、产物，以及可选历史记录的任务
+- 对"包含历史记录"的含义规范不够正式
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **GetTask**
+- **✅ 已澄清：** 历史记录包含行为的规范更精确
+- **✅ 新增：** Task 对象现在在消息和产物中包含 `extensions[]` 数组
+- **✅ 已澄清：** 认证/授权作用域 - 服务器**必须**只返回调用方可见的任务
+
+### 列出任务（`tasks/list` → **ListTasks**）
+
+**v0.3.0 行为：**
+
+- 操作不可用。
+
+**v1.0 变更：**
+
+- **✅ 新增：** 新操作 **ListTasks**，带过滤能力
+- **✅ 已澄清：** 任务可见性限定于已认证的调用方
+
+### 取消任务（`tasks/cancel` → **CancelTask**）
+
+**v0.3.0 行为：**
+
+- 操作名为 `tasks/cancel`
+- 请求带 taskId，返回 Task
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **CancelTask**
+- **✅ 已澄清：** 允许取消的时机规范更精确
+- **✅ 已澄清：** 取消场景下的任务状态转换
+
+### 获取 Agent Card（Well-known URI 和 **GetExtendedAgentCard**）
+
+**v0.3.0 行为：**
+
+- 通过 `/.well-known/agent-card.json` 发现
+- 通过 `agent/getAuthenticatedExtendedCard` 获取扩展卡片
+- 顶层有 `supportsAuthenticatedExtendedCard` 布尔值
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** `agent/getAuthenticatedExtendedCard` → **GetExtendedAgentCard**
+- **✅ 破坏性变更：** `supportsAuthenticatedExtendedCard` 移到 `capabilities.extendedAgentCard`
+- **✅ 新增：** 澄清了 Agent Card 签名的规范化（RFC 8785）
+- **✅ 破坏性变更：** `protocolVersion` 从 AgentCard 移到各个 AgentInterface 对象
+- **✅ 破坏性变更：** `preferredTransport` 和 `additionalInterfaces` 合并为 `supportedInterfaces[]`
+    - 每个接口都有 `url`、`protocolBinding` 和 `protocolVersion`
+
+### 订阅任务（`tasks/resubscribe` → **SubscribeToTask**）
+
+**v0.3.0 行为：**
+
+- 使用 `tasks/resubscribe` 重新连接中断的 SSE 流
+- 回填行为取决于实现
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **SubscribeToTask**
+- **✅ 已澄清：** 流式订阅生命周期的正式规范
+- **✅ 已澄清：** 任务达到终态时的流关闭行为
+- **✅ 已澄清：** 每个任务支持多个并发订阅
+
+### 推送通知操作
+
+**v0.3.0 操作：**
+
+- `tasks/pushNotificationConfig/set`
+- `tasks/pushNotificationConfig/get`
+- `tasks/pushNotificationConfig/list`
+- `tasks/pushNotificationConfig/delete`
+
+**v1.0 变更：**
+
+- **✅ 已重命名：** 操作现在为 **CreateTaskPushNotificationConfig**、**GetTaskPushNotificationConfig**、**ListTaskPushNotificationConfigs**、**DeleteTaskPushNotificationConfig**
+- **✅ 已澄清：** 推送通知载荷现在使用 StreamResponse 格式
+- **✅ 破坏性变更：** 所有方法的 model 均已变更，TaskPushNotificationConfig 被展平
+
+### 新增：多租户支持
+
+**v0.3.0：**
+
+- 协议中没有原生多租户支持
+- 租户通过认证或 URL 路径隐式处理
+
+**v1.0 变更：**
+
+- **✅ 新增：** 向所有请求消息添加 `tenant` 字段
+- **✅ 新增：** 向 `AgentInterface` 添加 `tenant` 字段以指定默认租户
+- **✅ 已澄清：** 租户按请求提供，并从 AgentInterface 继承
+- **✅ 用例：** 支持从单个端点服务多个智能体
+
+### 协议简化
+
+#### ID 格式简化（#1389）
+
+**v0.3.0：**
+
+- 某些操作使用 `tasks/{taskId}` 等复杂的复合 ID
+- 要求客户端/服务器构造/解构资源名称
+
+**v1.0 变更：**
+
+- **✅ 破坏性变更：** 所有 ID 现在都是简单的字面量
+- **✅ 破坏性变更：** 之前使用复合 ID 的操作，现在将父资源和资源 ID 分开
+    - 示例：`tasks/{taskId}/pushNotificationConfigs/{configId}` → 分开的 `task_id` 和 `id` 字段
+- **✅ 好处：** 实现更简单 - ID 直接映射到数据库键
+
+#### HTTP URL 路径简化（#1269）
+
+**v0.3.0：**
+
+- HTTP+JSON 绑定在 URL 中使用 `/v1/` 前缀
+- 示例：`POST /v1/message:send`
+
+**v1.0 变更：**
+
+- **✅ 破坏性变更：** 从 HTTP+JSON URL 路径中移除 `/v1` 前缀
+- **✅ 新增：** 示例：`POST /message:send`、`GET /tasks/{id}`
+- **✅ 理由：** 如果智能体所有者需要，版本可以成为基础 URL 的一部分
+- **✅ 好处：** URL 更简洁，版本管理在接口层面进行
+
+---
+
+## 核心模型对象的结构性变更
+
+### TaskStatus 对象
+
+**已修改字段：**
+
+- ✅ `state`：**破坏性变更** - 枚举值从小写改为带 `TASK_STATE_` 前缀的 `SCREAMING_SNAKE_CASE`
+    - v0.3.0：`"submitted"`、`"working"`、`"completed"`、`"failed"`、`"canceled"`、`"rejected"`、`"input-required"`、`"auth-required"`
+    - v1.0：`"TASK_STATE_SUBMITTED"`、`"TASK_STATE_WORKING"`、`"TASK_STATE_COMPLETED"`、`"TASK_STATE_FAILED"`、`"TASK_STATE_CANCELED"`、`"TASK_STATE_REJECTED"`、`"TASK_STATE_INPUT_REQUIRED"`、`"TASK_STATE_AUTH_REQUIRED"`
+- ✅ `timestamp`：现在明确为 UTC 下毫秒精度的 ISO 8601（`YYYY-MM-DDTHH:mm:ss.sssZ`）
+
+**已移除字段：**
+
+- 无
+
+**迁移示例：**
+
+```json
+// v0.3.0
+}
+
+// v1.0
+}
+```
+
+### Message 对象
+
+**新增字段：**
+
+- ✅ `extensions[]`：适用于此消息的扩展 URI 数组
+
+**已修改字段：**
+
+- ✅ `role`：**破坏性变更** - 枚举值从小写改为带 `ROLE_` 前缀的 `SCREAMING_SNAKE_CASE`
+    - v0.3.0：`"user"`、`"agent"`
+    - v1.0：`"ROLE_USER"`、`"ROLE_AGENT"`
+
+**迁移示例：**
+
+```json
+// v0.3.0
+{
+  "role": "user",
+  "parts": [{"kind": "text", "text": "Hello"}]
+}
+
+// v1.0
+{
+  "role": "ROLE_USER",
+  "parts": [{"text": "Hello"}],
+}
+```
+
+**行为变更：**
+
+- Parts 数组现在使用基于成员的判别方式，而不是 `kind` 字段
+
+### Part 对象
+
+**破坏性变更 - 完全重新设计：**
+
+Part 结构在 v1.0 中被完全重新设计。不再使用单独的 TextPart、FilePart 和 DataPart 消息类型，而是采用统一的单个 `Part` 消息。
+
+**v0.3.0 结构（单独类型）：**
+
+```json
+// Text example
+// File example
+}
+
+// Data example
+}
+```
+
+**v1.0 结构（统一 Part）：**
+
+```json
+// Text example
+// File with URL example
+// File with raw bytes example
+// Data example
+{
+  "data": {"key": "value"},
+  "mediaType": "application/json"
+}
+```
+
+**变更：**
+
+- ⛔ **已移除：** 单独的 `TextPart`、`FilePart` 和 `DataPart` 类型
+- ⛔ **已移除：** `kind` 判别器字段
+- ⛔ **已移除：** 嵌套的 `file` 对象结构
+- ✅ **新增：** 带有 `oneof content` 字段的单个统一 `Part` 消息
+- ✅ **新增：** 内容类型由存在哪个字段决定：`text`、`raw`、`url` 或 `data`
+- ✅ **新增：** `mediaType` 字段（取代 `mimeType`）- 适用于所有部件类型
+- ✅ **新增：** `filename` 字段 - 适用于所有部件类型（不仅仅限于文件）
+- ✅ **新增：** `raw` 字段用于内联二进制内容（JSON 中为 base64）
+- ✅ **新增：** `url` 字段用于文件引用（取代 `file.fileWithUri`）
+
+**迁移示例：**
+
+```typescript
+// v0.3.0
+const textPart = { kind: "text", text: "Hello" };
+const filePart = { kind: "file", file: { fileWithUri: "https://...", mimeType: "image/png" } };
+const dataPart = { kind: "data", data: { key: "value" } };
+
+// v1.0
+const textPart = { text: "Hello", mediaType: "text/plain" };
+const filePart = { url: "https://...", mediaType: "image/png", filename: "image.png" };
+const dataPart = { data: { key: "value" }, mediaType: "application/json" };
+
+// Discrimination changed from kind field to member presence
+if (part.kind === "text") { ... }  // v0.3.0
+if ("text" in part) { ... }        // v1.0
+```
+
+### Artifact 对象
+
+**新增字段：**
+
+- ✅ `extensions[]`：扩展 URI 数组
+
+**已修改字段：**
+
+- ✅ `parts[]`：现在使用基于成员的 Part 判别（见上面的 Part 变更）
+
+### AgentCard 对象
+
+**新增字段：**
+
+- ✅ `supportedInterfaces[]`：`AgentInterface` 对象数组
+
+**已移除字段：**
+
+- ⛔ `protocolVersion`：从 AgentCard 中移除（现在位于每个 AgentInterface 中）
+- ⛔ `preferredTransport`：合并到 `supportedInterfaces`
+- ⛔ `additionalInterfaces`：合并到 `supportedInterfaces`
+- ⛔ `supportsAuthenticatedExtendedCard`：移到 `capabilities.extendedAgentCard`
+- ⛔ `url`：主端点现在位于 `supportedInterfaces[0].url`
+
+**结构示例：**
+
+**v0.3.0：**
+
+```json
+```
+
+**v1.0：**
+
+```json
+  ],
+  "capabilities": {
+    "extendedAgentCard": true
+  },
+  "signatures": [...]
+}
+```
+
+### AgentCapabilities 对象
+
+**已修改字段：**
+
+- ✅ `extendedAgentCard`：从顶层 `supportsAuthenticatedExtendedCard` 字段移入
+
+### PushNotificationConfig 对象
+
+**已修改字段：**
+
+- ✅ `authentication`：增强的 PushNotificationAuthenticationInfo 结构
+
+### 流事件对象
+
+**TaskStatusUpdateEvent：**
+
+**v0.3.0：**
+
+```json
+{
+  "kind": "status-update",
+  "taskId": "...",
+  "contextId": "...",
+  "status": {...},
+  "final": true
+}
+```
+
+**v1.0：**
+
+```json
+  }
+}
+```
+
+**变更：**
+
+- ⛔ **已移除：** `kind` 判别器
+- ⛔ **已移除：** `final` 布尔字段（流关闭表示完成）
+- ✅ **新模式：** 事件类型由 JSON 成员名决定（`statusUpdate` 或 `artifactUpdate`）
+- ✅ **已澄清：** 终态由协议特有的流关闭机制指示
+
+**TaskArtifactUpdateEvent：**
+
+**v0.3.0：**
+
+```json
+}
+```
+
+**v1.0：**
+
+```json
+{
+  "artifactUpdate": {
+    "taskId": "...",
+    "contextId": "...",
+    "artifact": {...},
+    "index": 0
+  }
+}
+```
+
+**变更：**
+
+- ⛔ **已移除：** `kind` 判别器
+- ✅ **新模式：** 包装在 `artifactUpdate` 对象中
+- ✅ **新增：** `index` 字段指示产物在任务 artifacts 数组中的位置
+
+### OAuth 2.0 安全更新（#1303）
+
+v1.0 使 OAuth 2.0 支持现代化，与 OAuth 2.0 Security Best Current Practice（BCP）保持一致。
+
+**已移除的流程（被 OAuth BCP 弃用）：**
+
+- ⛔ `ImplicitOAuthFlow` - 由于浏览器历史记录/日志中的令牌泄露风险而被弃用
+- ⛔ `PasswordOAuthFlow` - 由于凭据暴露风险而被弃用
+
+**新增流程：**
+
+- ✅ `DeviceCodeOAuthFlow`（RFC 8628）- 用于 CLI 工具、IoT 设备和输入受限的场景
+    - 提供 `device_authorization_url` 端点
+    - 支持 `verification_uri`、`user_code` 模式
+    - 非常适合无头环境
+
+**增强的安全性：**
+
+- ✅ 在 `AuthorizationCodeOAuthFlow`（RFC 7636）中添加 `pkce_required` 字段
+    - 指示 PKCE（Proof Key for Code Exchange）是否为强制要求
+    - 防止授权码拦截攻击
+    - 建议所有 OAuth 客户端使用，公有客户端必须要求
+
+**迁移指南：**
+
+```typescript
+// v0.3.0 - Implicit Flow (now removed)
+  }
+}
+
+// v1.0 - Use Authorization Code + PKCE instead
+  }
+}
+```
+
+---
+
+## 对其他规范的新依赖
+
+v1.0 引入了几个对行业标准规范的新正式依赖：
+
+### 新增规范
+
+#### ✅ google.rpc.Status / google.rpc.ErrorInfo
+
+- **用途：** 带 ProtoJSON 表示的标准化错误响应模型
+- **使用场景：** HTTP+JSON 和 JSON-RPC 绑定的错误响应
+- **影响：** 取代 HTTP 错误的 RFC 9457。对 A2A 专项错误，强制使用带 `reason` 和 `domain` 的结构化 `ErrorInfo`。
+
+#### ✅ RFC 8785 - JSON Canonicalization Scheme（JCS）
+
+- **用途：** 用于签名的确定性 JSON 序列化
+- **使用场景：** Agent Card 签名验证
+- **影响：** 实现 Agent Card 完整性的密码学验证
+- **详情：** 在 JWS 签名前使用规范化形式（排除 `signatures` 字段）
+
+#### ✅ RFC 7515 - JSON Web Signature（JWS）
+
+- **用途：** 密码学签名标准
+- **使用场景：** Agent Card 的 signatures 字段
+- **影响：** 用于信任验证的行业标准签名格式
+- **详情：** 支持通过 `jku` 或受信任密钥库进行公钥检索的分离式签名
+
+#### ✅ Google API Design Guidelines
+
+- **用途：** gRPC 最佳实践和约定
+- **使用场景：** gRPC 绑定设计模式
+- **影响：** 更好地符合 gRPC 生态系统的预期
+
+#### ✅ ISO 8601
+
+- **用途：** 时间戳格式标准
+- **使用场景：** 时间戳字段，例如 `TaskStatus.timestamp`
+- **影响：** 明确的格式要求：UTC 下毫秒精度（`YYYY-MM-DDTHH:mm:ss.sssZ`）
+
+### 现有依赖（自 v0.3.0 保留）
+
+- JSON-RPC 2.0
+- gRPC / Protocol Buffers 3
+- HTTP/HTTPS（各类 RFC）
+- Server-Sent Events（SSE） - W3C 规范
+- RFC 8615 - Well-known URIs
+- OAuth 2.0、OpenID Connect（用于认证）
+- TLS（建议 RFC 8446）
+
+### 互补协议
+
+**Model Context Protocol（MCP）：**
+
+- 关系已澄清：MCP 处理工具/资源集成，A2A 处理智能体到智能体的协调
+- 协议是互补的，而非竞争关系
+- 智能体可以针对不同用例同时支持两种协议
+
+---
+
+## 对开发者的影响
+
+### 需要代码更新的破坏性变更
+
+#### 1. Part 类型统一（影响严重）
+
+最重大的破坏性变更：TextPart、FilePart 和 DataPart 类型已被移除，被统一的单个 Part 结构取代。
+
+**变更前（v0.3.0）：**
+
+```typescript
+// Separate types with kind discriminator
+if (part.kind === "text") {
+  return part.text;
+} else if (part.kind === "file") {
+  if (part.file.fileWithUri) {
+    return fetchFile(part.file.fileWithUri);
+  } else
+} else if (part.kind === "data")
+```
+
+**变更后（v1.0）：**
+
+```typescript
+// Unified Part with oneof content
+if ("text" in part) {
+  return part.text;
+} else if ("url" in part) {
+  return fetchFile(part.url);
+} else if ("raw" in part) {
+  return decodeBase64(part.raw);
+} else if ("data" in part)
+```
+
+#### 2. 流事件判别模式（影响高）
+
+流事件从基于 kind 的判别改为基于包装的判别：
+
+**变更前（v0.3.0）：**
+
+```typescript
+if (event.kind === "status-update") {
+  handleStatusUpdate(event);
+} else if (event.kind === "artifact-update")
+```
+
+**变更后（v1.0）：**
+
+```typescript
+if ("statusUpdate" in event) {
+  handleStatusUpdate(event.statusUpdate);
+} else if ("artifactUpdate" in event)
+```
+
+#### 3. Agent Card 结构（影响高）
+
+智能体发现和能力检查需要更新：
+
+**变更前（v0.3.0）：**
+
+```typescript
+const endpoint = agentCard.url;
+const transport = agentCard.preferredTransport;
+const supportsExtended = agentCard.supportsAuthenticatedExtendedCard;
+```
+
+**变更后（v1.0）：**
+
+```typescript
+const primaryInterface = agentCard.supportedInterfaces[0];
+const endpoint = primaryInterface.url;
+const transport = primaryInterface.protocolBinding;
+const supportsExtended = agentCard.capabilities.extendedAgentCard;
+```
+
+#### 4. 分页（影响中）
+
+List Tasks 实现必须从基于页码切换到基于游标：
+
+**变更前（v0.3.0）：**
+
+```typescript
+const response = await listTasks({ page: 1, perPage: 50 });
+```
+
+**变更后（v1.0）：**
+
+```typescript
+let pageToken = undefined;
+do {
+  const response = await listTasks({ pageToken, pageSize: 50 });
+  // process response.tasks
+  pageToken = response.nextPageToken;
+} while (pageToken);
+```
+
+#### 5. 枚举值变更（影响高）
+
+所有枚举值现在使用带类型前缀的 SCREAMING_SNAKE_CASE：
+
+**TaskState：**
+
+```typescript
+// v0.3.0
+if (task.status.state === "completed")
+if (task.status.state === "input-required")
+// v1.0
+if (task.status.state === "TASK_STATE_COMPLETED")
+if (task.status.state === "TASK_STATE_INPUT_REQUIRED")
+```
+
+**MessageRole：**
+
+```typescript
+// v0.3.0
+const message = { role: "user", parts: [...] };
+
+// v1.0
+const message = { role: "ROLE_USER", parts: [...] };
+```
+
+**完整映射：**
+
+- `"submitted"` → `"TASK_STATE_SUBMITTED"`
+- `"working"` → `"TASK_STATE_WORKING"`
+- `"completed"` → `"TASK_STATE_COMPLETED"`
+- `"failed"` → `"TASK_STATE_FAILED"`
+- `"canceled"` → `"TASK_STATE_CANCELED"`
+- `"rejected"` → `"TASK_STATE_REJECTED"`
+- `"input-required"` → `"TASK_STATE_INPUT_REQUIRED"`
+- `"auth-required"` → `"TASK_STATE_AUTH_REQUIRED"`
+- `"user"` → `"ROLE_USER"`
+- `"agent"` → `"ROLE_AGENT"`
+
+#### 6. 字段名变更（影响低）
+
+- `file.mimeType` → `mediaType`
+- 操作名称（过渡期间提供别名）
+
+#### 7. 通过 google.rpc.Status 实现标准化错误处理（影响高）
+
+HTTP+JSON 错误响应已更新为使用 `google.rpc.Status` 的 ProtoJSON 表示，取代 RFC 9457（Problem Details）。JSON-RPC 和 HTTP+JSON 绑定现在在 `data` / `details` 数组中使用 `google.rpc.ErrorInfo`，以提供 A2A 特有的错误上下文。
+
+**变更：**
+
+- **HTTP+JSON Content-Type：** 从 `application/problem+json` 改为 `application/json`。
+- **错误模型：** 使用 `google.rpc.Status` 字段（`code`、`message`、`details`）。
+- **A2A 错误信息：** **必须**在 `details` 中包含一个 `google.rpc.ErrorInfo` 对象，其 `reason`（来自 A2A 错误类型的 UPPER_SNAKE_CASE）和 `domain: "a2a-protocol.org"`。
+
+**JSON-RPC 迁移示例：**
+
+```json
+// v0.3.0
+"error":
+}
+
+// v1.0
+"error":
+    }
+  ]
+}
+```
+
+**HTTP+JSON 迁移示例：**
+
+```http
+// v0.3.0 (Draft using RFC 9457)
+HTTP/1.1 404 Not Found
+Content-Type: application/problem+json
+// v1.0
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+    ]
+  }
+}
+```
+
+### 可利用的新能力
+
+#### 1. 执行模式控制
+
+```typescript
+// Wait for task completion (Default)
+const result = await sendMessage(message, { returnImmediately: false });
+
+// Return immediately, poll later
+const task = await sendMessage(message, { returnImmediately: true });
+```
+
+#### 2. Agent Card 签名验证
+
+```typescript
+if (agentCard.signatures && agentCard.signatures.length > 0)
+}
+```
+
+#### 3. 扩展要求
+
+```typescript
+const requiredExtensions = agentCard.extensions
+  .filter(ext => ext.required)
+  .map(ext => ext.uri);
+
+// Check if client supports required extensions
+if (!clientSupportsAll(requiredExtensions))
+```
+
+#### 4. 版本协商
+
+```typescript
+// Client sends A2A-Version header
+headers["A2A-Version"] = "1.0";
+
+// Server validates and rejects if unsupported
+if (!supportedVersions.includes(requestedVersion))
+```
+
+### 迁移策略建议
+
+#### 阶段 1：兼容层
+
+1. 添加对解析新旧两种判别模式的支持
+2. 基于协议版本实现版本检测
+3. 过渡期间同时支持两种 Agent Card 结构
+
+#### 阶段 2：双重支持
+
+1. 更新所有 API 以输出 v1.0 格式
+2. 保留 v0.3.0 的向后兼容读取器
+3. 添加 A2A-Version 头部处理
+4. 在旧式基于页码的分页之外，实现基于游标的分页
+
+#### 阶段 3：仅支持 v1.0
+
+1. 弃用 v0.3.0 兼容代码
+2. 移除旧式判别器解析
+3. 移除基于页码的分页
+4. 清理双格式支持代码
+
+#### 向后兼容策略（#1401）
+
+v1.0 引入了一种正式的协议版本化方法，可使 SDK 实现向后兼容。
+
+**按接口的协议版本：**
+
+- 每个 `AgentInterface` 现在都指定自己的 `protocolVersion` 字段
+- 智能体可以通过暴露多个接口同时支持多个协议版本
+- 客户端通过从 Agent Card 中选择合适的接口来协商版本
+
+**SDK 实现模式：**
+
+```typescript
+// SDK can support multiple protocol versions
+class A2AClient
+    // Use version-specific adapter
+    return this.createAdapter(interface.protocolVersion, interface);
+  }
+}
+```
+
+**好处：**
+
+- SDK 可以保持对多个协议版本的支持
+- 智能体可以通过同时支持新旧版本逐步迁移
+- 客户端自动选择最兼容的版本
+- 支持旧协议版本的优雅弃用
+
+### 测试注意事项
+
+- 同时使用 v0.3.0 和 v1.0 格式的数据进行测试
+- 验证 Agent Card 签名验证
+- 测试基于游标的分页边界情况（空结果、单页等）
+- 验证新错误类型的正确处理
+- 测试扩展要求的验证
+
+### 建议的优先级
+
+#### 严重（立即处理）
+
+- 更新 Part 和流事件解析（判别模式）
+- 更新 Agent Card 解析（结构变更）
+- 向所有请求添加 A2A-Version 头部
+
+#### 高（1 个月内）
+
+- 实现基于游标的分页
+- 更新枚举值处理（state 字段）
+- 添加 return_immediately 参数支持
+
+#### 中（3 个月内）
+
+- 实现 Agent Card 签名验证
+- 添加扩展要求检查
+- 将时间戳处理更新为 ISO 8601 格式
+- 实现新的错误类型
+
+#### 低（加分项）
+
+- 利用增强的元数据能力
+- 实现双向 TLS 认证支持
+
+---
+
+## 结论
+
+A2A Protocol v1.0 在保持 v0.3.0 核心架构原则的同时，在协议成熟度上迈出了重要一步。这些变更聚焦于标准化、类型安全和企业就绪性，要求开发者更新其实现，但作为回报提供了更清晰的规范和更好的开发者体验。
+
+破坏性变更虽然需要代码更新，但实现起来简单直接，并能提升代码清晰度。围绕版本化、签名和增强扩展的新能力，为 v1.x 系列中协议的未来演进奠定了坚实的基础。
+
+开发者应规划分阶段的迁移路径，优先处理关键的破坏性变更，同时逐步随时间采用新能力。

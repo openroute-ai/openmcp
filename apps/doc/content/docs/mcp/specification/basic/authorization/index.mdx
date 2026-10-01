@@ -1,0 +1,324 @@
+---
+title: 授权
+---
+
+
+<div id="enable-section-numbers" />
+
+## 简介
+
+### 目的与范围
+
+Model Context Protocol 在传输层提供授权能力，使 MCP 客户端能够代表资源所有者向受限制的 MCP 服务端发起请求。本规范定义了面向基于 HTTP 传输层的授权流程。
+
+### 协议要求
+
+授权对 MCP 实现而言是**可选**的。当受支持时：
+
+- 使用基于 HTTP 传输层的实现**应当**遵循本规范。
+- 使用 STDIO 传输层的实现**不应当**遵循本规范，而应从环境中获取凭据。
+- 使用其他传输层的实现**必须**遵循其协议既定的安全最佳实践。
+
+### 标准符合性
+
+本授权机制基于下列既定规范，但仅实现其特性的一个选定子集，以在保持简洁的同时确保安全性与互操作性：
+
+- OAuth 2.1 IETF DRAFT（[draft-ietf-oauth-v2-1-13](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13)）
+- OAuth 2.0 Bearer Token Usage（[RFC6750](https://datatracker.ietf.org/doc/html/rfc6750)）
+- OAuth 2.0 Authorization Server Metadata（[RFC8414](https://datatracker.ietf.org/doc/html/rfc8414)）
+- OAuth 2.0 Dynamic Client Registration Protocol（[RFC7591](https://datatracker.ietf.org/doc/html/rfc7591)）
+- Resource Indicators for OAuth 2.0（[RFC8707](https://www.rfc-editor.org/rfc/rfc8707.html)）
+- OAuth 2.0 Protected Resource Metadata（[RFC9728](https://datatracker.ietf.org/doc/html/rfc9728)）
+- OAuth 2.0 Authorization Server Issuer Identification（[RFC9207](https://datatracker.ietf.org/doc/html/rfc9207)）
+- OAuth Client ID Metadata Documents（[draft-ietf-oauth-client-id-metadata-document-00](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-00)）
+- [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html)
+- OpenID Connect Dynamic Client Registration 1.0（[OpenID Connect Registration](https://openid.net/specs/openid-connect-registration-1_0.html)）
+
+## 角色
+
+受保护的 _MCP 服务端_充当 [OAuth 2.1 资源服务器](https://www.ietf.org/archive/id/draft-ietf-oauth-v2-1-13.html#name-roles)，能够使用访问令牌接受并响应受保护资源请求。
+
+_MCP 客户端_充当 [OAuth 2.1 客户端](https://www.ietf.org/archive/id/draft-ietf-oauth-v2-1-13.html#name-roles)，代表资源所有者发起受保护资源请求。
+
+_授权服务器_负责与用户交互（如有必要）并签发供 MCP 服务端使用的访问令牌。授权服务器的实现细节不在本规范范围内。它可以与资源服务器托管在一起，也可以是独立实体。[授权服务器发现](/docs/mcp/specification/2026-07-28/basic/authorization/authorization-server-discovery)规定了 MCP 服务端如何向客户端指示其对应授权服务器的位置。
+
+## 概述
+
+1. 授权服务器**必须**实现 OAuth 2.1，并为机密客户端和公共客户端采取适当的安全措施。
+
+2. 授权服务器和 MCP 客户端**应当**支持 [OAuth Client ID Metadata Documents](/docs/mcp/specification/2026-07-28/basic/authorization/client-registration#client-id-metadata-documents)（[draft-ietf-oauth-client-id-metadata-document-00](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-00)）。
+
+3. 授权服务器和 MCP 客户端**可以**支持 OAuth 2.0 Dynamic Client Registration Protocol（[RFC7591](https://datatracker.ietf.org/doc/html/rfc7591)）。注意，[Dynamic Client Registration](/docs/mcp/specification/2026-07-28/basic/authorization/client-registration#dynamic-client-registration) 已弃用，仅为与不支持 Client ID Metadata Documents 的授权服务器保持向后兼容而保留。
+
+4. MCP 服务端**必须**实现 OAuth 2.0 Protected Resource Metadata（[RFC9728](https://datatracker.ietf.org/doc/html/rfc9728)）。MCP 客户端**必须**使用 OAuth 2.0 Protected Resource Metadata 进行[授权服务器发现](/docs/mcp/specification/2026-07-28/basic/authorization/authorization-server-discovery)。
+
+5. MCP 授权服务器**必须**提供以下发现机制中的至少一种：
+   - OAuth 2.0 Authorization Server Metadata（[RFC8414](https://datatracker.ietf.org/doc/html/rfc8414)）
+   - [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html)
+
+   MCP 客户端**必须**同时支持这两种[发现机制](/docs/mcp/specification/2026-07-28/basic/authorization/authorization-server-discovery#authorization-server-metadata-discovery)，以获取与授权服务器交互所需的信息。
+
+## 授权服务器发现
+
+MCP 服务端通过 OAuth 2.0 Protected Resource Metadata 公布其关联的授权服务器，MCP 客户端则通过授权服务器元数据发现来确定授权服务器端点及受支持的能力。实现**必须**遵循[授权服务器发现](/docs/mcp/specification/2026-07-28/basic/authorization/authorization-server-discovery)中定义的规范性发现要求。
+
+## 客户端注册
+
+在发起授权流程之前，MCP 客户端**必须**通过三种注册机制之一获取客户端 ID：Client ID Metadata Documents、预注册或 Dynamic Client Registration，并遵循[客户端注册](/docs/mcp/specification/2026-07-28/basic/authorization/client-registration)中定义的要求和选择优先级。
+
+## 范围选择策略
+
+MCP 服务端**应当**在 `WWW-Authenticate` 头中包含 `scope` 参数（定义见 [RFC 6750 第 3 节](https://datatracker.ietf.org/doc/html/rfc6750#section-3)），以指示访问该资源所需的范围。这为客户端在授权期间请求适当范围提供了即时指引，遵循最小权限原则，并防止客户端请求过多的权限。
+
+`WWW-Authenticate` 质询中包含的范围**可以**与 `scopes_supported` 相匹配，可以是其子集或超集，也可以是既非严格子集也非超集的另一集合。客户端**不得**假定质询范围集与 `scopes_supported` 之间存在任何特定的集合关系。客户端**必须**将质询中提供的范围视为当前操作的权威范围。这些范围是满足当前请求所必需的。在重新授权时，客户端**应当**将这些范围与任何先前已授予的范围一并包含，以避免丢失其他操作所需的权限（见[阶梯式授权流程](#step-up-authorization-flow)）。服务端**应当**力求在构建范围集时保持一致，但并非要求通过 `scopes_supported` 暴露每一个动态签发的范围。
+
+带范围指引的 401 响应示例：
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource",
+                         scope="files:read"
+```
+
+在实现授权流程时，MCP 客户端**应当**遵循最小权限原则，仅请求其预期操作所必需的范围。在初始授权握手期间，MCP 客户端**应当**按以下优先级顺序进行范围选择：
+
+1. **使用 `scope` 参数**：来自 401 响应中初始 `WWW-Authenticate` 头的 `scope` 参数（若提供）
+2. **如果 `scope` 不可用**，则使用 Protected Resource Metadata 文档中 `scopes_supported` 定义的所有范围；若 `scopes_supported` 未定义，则省略 `scope` 参数。
+
+`scopes_supported` 字段旨在表示基本功能所需的最小范围集（见[范围最小化](/docs/mcp/tutorials/security/security_best_practices#scope-minimization)），额外的范围则通过[范围质询处理](#scope-challenge-handling)一节所述的阶梯式授权流程逐步请求。
+
+## 授权流程步骤
+
+流程中所示的注册步骤使用[客户端注册](/docs/mcp/specification/2026-07-28/basic/authorization/client-registration)中定义的机制之一。
+
+完整的授权流程如下：
+
+```mermaid
+sequenceDiagram
+    participant B as User-Agent (Browser)
+    participant C as Client
+    participant M as MCP Server (Resource Server)
+    participant A as Authorization Server
+
+    C->>M: MCP request without token
+    M->>C: HTTP 401 Unauthorized with WWW-Authenticate header
+    Note over C: Extract resource_metadata URL from WWW-Authenticate
+
+    C->>M: Request Protected Resource Metadata
+    M->>C: Return metadata
+
+    Note over C: Parse metadata and extract authorization server(s)<br/>Client determines AS to use
+
+    C->>A: GET Authorization server metadata endpoint
+    Note over C,A: Try OAuth 2.0 and OpenID Connect<br/>discovery endpoints in priority order
+    A-->>C: Authorization server metadata
+
+    alt Client ID Metadata Documents
+        Note over C: Client uses HTTPS URL as client_id
+        Note over A: Server detects URL-formatted client_id
+        A->>C: Fetch metadata from client_id URL
+        C-->>A: JSON metadata document
+        Note over A: Validate metadata and redirect_uris
+    else Dynamic client registration
+        C->>A: POST /register
+        A->>C: Client Credentials
+    else Pre-registered client
+        Note over C: Use existing client_id
+    end
+
+    Note over C: Generate PKCE parameters<br/>Include resource parameter<br/>Apply scope selection strategy<br/>Record expected issuer
+    C->>B: Open browser with authorization URL + code_challenge + resource
+    B->>A: Authorization request with resource parameter
+    Note over A: User authorizes
+    A->>B: Redirect to callback with authorization code + iss
+    B->>C: Authorization code callback
+    Note over C: Validate iss against recorded issuer (RFC 9207)
+    C->>A: Token request + code_verifier + resource
+    A->>C: Access token (+ refresh token)
+    C->>M: MCP request with access token
+    M-->>C: MCP response
+    Note over C,M: MCP communication continues with valid token
+```
+
+### 授权响应校验
+
+在重定向用户代理之前，客户端**必须**记录所选授权服务器的已校验元数据文档中的 `issuer` 值（见[授权服务器元数据发现](/docs/mcp/specification/2026-07-28/basic/authorization/authorization-server-discovery#authorization-server-metadata-discovery)），并将其与用于存储 PKCE code verifier（以及 `state` 值，若使用）的同一每请求记录相关联。本节中的校验依赖于该记录值真实可信；如果预期 issuer 来自未经校验的来源，则该校验不提供任何保护。
+
+MCP 授权服务器**应当**在授权响应（包括错误响应）中包含 `iss` 参数，定义见 [RFC9207 第 2 节](https://datatracker.ietf.org/doc/html/rfc9207#section-2)。包含 `iss` 参数的授权服务器**必须**通过在其元数据中将 `authorization_response_iss_parameter_supported` 设置为 `true` 来声明这一点（[RFC9207 第 2.3 节](https://datatracker.ietf.org/doc/html/rfc9207#section-2.3)）。
+
+在收到授权响应时，MCP 客户端**必须**在将授权码发送到任何令牌端点之前应用 [RFC9207 第 2.4 节](https://datatracker.ietf.org/doc/html/rfc9207#section-2.4)中的校验：
+
+| `authorization_response_iss_parameter_supported` | 响应中的 `iss` | 客户端操作                                                                              |
+| ------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------- |
+| `true`                                           | 存在           | 使用简单字符串比较与记录的 issuer 进行比较（[RFC3986 第 6.2.1 节][1]）                   |
+| `true`                                           | 缺失           | 拒绝该响应                                                                              |
+| `false` 或缺失                                   | 存在           | 使用简单字符串比较与记录的 issuer 进行比较（[RFC3986 第 6.2.1 节][1]）                   |
+| `false` 或缺失                                   | 缺失           | 继续                                                                                    |
+
+[1]: https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.1
+
+第三行应用了 [RFC9207 第 2.4 节](https://datatracker.ietf.org/doc/html/rfc9207#section-2.4)中的本地策略条款：本规范无论元数据是否声明，都会将存在的 `iss` 与记录的 issuer 进行比较，以兼容那些在更新元数据之前就发出 `iss` 的授权服务器。
+
+本规范的未来修订版预计会将授权服务器包含 `iss` 的要求从**应当**升级为**必须**。建议实现者现在就发出并校验 `iss`，以便于该过渡；在修订版定义升级路径之前，客户端对 `iss` 缺失的拒绝行为仍将取决于 `authorization_response_iss_parameter_supported`。
+
+在依据 [RFC 9207 第 2.4 节](https://datatracker.ietf.org/doc/html/rfc9207#section-2.4)从 `application/x-www-form-urlencoded` 响应解码出 `iss` 值之后，客户端在比较之前**不得**应用方案或主机大小写折叠、默认端口省略、结尾斜杠或百分号编码规范化（[RFC 3986 第 6.2.2-6.2.3 节](https://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2)）。
+
+该校验同样适用于错误响应——在不匹配时，客户端**不得**对 `error`、`error_description` 或 `error_uri` 采取行动或进行展示。
+
+## 资源参数实现
+
+MCP 客户端**必须**实现 [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html) 中定义的 Resource Indicators for OAuth 2.0，以明确指定请求令牌所针对的目标资源。`resource` 参数：
+
+1. **必须**同时包含在授权请求和令牌请求中。
+2. **必须**标识客户端打算将令牌用于的 MCP 服务端。
+3. **必须**使用 [RFC 8707 第 2 节](https://www.rfc-editor.org/rfc/rfc8707.html#name-access-token-request)中定义的 MCP 服务端规范 URI。
+
+### 规范服务端 URI
+
+就本规范而言，MCP 服务端的规范 URI 定义为 [RFC 8707 第 2 节](https://www.rfc-editor.org/rfc/rfc8707.html#section-2)中规定的资源标识符，并与 [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728) 中的 `resource` 参数保持一致。
+
+MCP 客户端**应当**为其打算访问的 MCP 服务端提供尽可能具体的 URI，遵循 [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707) 中的指引。虽然规范形式使用小写的方案和主机部分，但为增强健壮性和互操作性，实现**应当**接受大写的方案和主机部分。
+
+有效规范 URI 的示例：
+
+- `https://mcp.example.com/mcp`
+- `https://mcp.example.com`
+- `https://mcp.example.com:8443`
+- `https://mcp.example.com/server/mcp`（当需要路径部分来标识单个 MCP 服务端时）
+
+无效规范 URI 的示例：
+
+- `mcp.example.com`（缺少方案）
+- `https://mcp.example.com#fragment`（包含片段）
+
+> **注意：** 根据 [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986)，`https://mcp.example.com/`（带结尾斜杠）和 `https://mcp.example.com`（不带结尾斜杠）在技术上都是有效的绝对 URI，但除非结尾斜杠对特定资源具有语义意义，实现**应当**一致地使用不带结尾斜杠的形式，以获得更好的互操作性。
+
+例如，如果访问位于 `https://mcp.example.com` 的 MCP 服务端，授权请求将包含：
+
+```
+&resource=https%3A%2F%2Fmcp.example.com
+```
+
+无论授权服务器是否支持该参数，MCP 客户端**必须**发送它。
+
+## 访问令牌用法
+
+### 令牌要求
+
+向 MCP 服务端发起请求时的访问令牌处理**必须**符合 [OAuth 2.1 第 5 节 "Resource Requests"](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13#section-5)中定义的要求。具体而言：
+
+1. MCP 客户端**必须**使用 [OAuth 2.1 第 5.1.1 节](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13#section-5.1.1)中定义的 Authorization 请求头字段：
+
+```
+Authorization: Bearer <access-token>
+```
+
+注意，从客户端到服务端的每个 HTTP 请求中**必须**包含授权信息。
+
+2. 访问令牌**不得**包含在 URI 查询字符串中
+
+请求示例：
+
+```http
+GET /mcp HTTP/1.1
+Host: mcp.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+### 令牌处理
+
+MCP 服务端以其 OAuth 2.1 资源服务器的角色，**必须**按 [OAuth 2.1 第 5.2 节](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13#section-5.2)所述校验访问令牌。MCP 服务端**必须**依据 [RFC 8707 第 2 节](https://www.rfc-editor.org/rfc/rfc8707.html#section-2)校验访问令牌是专门为其（作为预期受众）签发的。如果校验失败，服务端**必须**按 [OAuth 2.1 第 5.3 节](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13#section-5.3)的错误处理要求作出响应。无效或过期的令牌**必须**收到 HTTP 401 响应。
+
+MCP 客户端**不得**向 MCP 服务端发送除该 MCP 服务端授权服务器签发之外的任何令牌。
+
+MCP 服务端**必须**仅接受对其自身资源有效的令牌。
+
+MCP 服务端**不得**接受或中转任何其他令牌。
+
+## 刷新令牌
+
+本节为 MCP 客户端和 MCP 服务端处理或签发 OAuth 与 OpenID Connect 刷新令牌提供指引。
+
+希望获取刷新令牌的 **MCP 客户端**：
+
+- **必须**按 [OAuth 2.1 第 4.3 节](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-14#section-4.3)所述，在传输和存储中保持刷新令牌的机密性
+- **应当**在其 `grant_types` 客户端元数据中包含 `refresh_token`
+- 当授权服务器元数据在 `scopes_supported` 中包含 `offline_access` 时，**可以**将 `offline_access` 添加到授权请求和令牌请求的 `scope` 参数中
+- **不得**假定一定会签发刷新令牌；授权服务器保留自行决定权
+
+**MCP 服务端**（受保护资源）**不应当**在 `WWW-Authenticate` 范围或 Protected Resource Metadata 的 `scopes_supported` 中包含 `offline_access`，因为刷新令牌并非资源需求。
+
+## 错误处理
+
+服务端**必须**为授权错误返回适当的 HTTP 状态码：
+
+| 状态码 | 描述         | 用途                                |
+| ------ | ------------ | ----------------------------------- |
+| 401    | Unauthorized | 需要授权或令牌无效                  |
+| 403    | Forbidden    | 范围无效或权限不足                  |
+| 400    | Bad Request  | 授权请求格式错误                    |
+
+### 范围质询处理
+
+本节涵盖在运行时操作中，当客户端已持有令牌但需要额外权限时如何处理范围不足错误。这遵循 [OAuth 2.1 第 5 节](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13#section-5)中定义的错误处理模式，并利用 [RFC 9728（OAuth 2.0 Protected Resource Metadata）](https://datatracker.ietf.org/doc/html/rfc9728)中的元数据字段。
+
+#### 运行时范围不足错误
+
+当客户端在运行时操作中携带范围不足的访问令牌发起请求时，服务端**应当**以如下内容响应：
+
+- `HTTP 403 Forbidden` 状态码（依据 [RFC 6750 第 3.1 节](https://datatracker.ietf.org/doc/html/rfc6750#section-3.1)）
+- 带有 `Bearer` 方案及附加参数的 `WWW-Authenticate` 头：
+  - `error="insufficient_scope"` - 指示授权失败的具体类型
+  - `scope="required_scope1 required_scope2"` - 指定该操作所需的最小范围
+  - `resource_metadata` - Protected Resource Metadata 文档的 URI（与 401 响应保持一致）
+  - `error_description`（可选）- 人类可读的错误描述
+
+**服务端范围管理**：在以范围不足错误作出响应时，服务端**应当**在 `scope` 参数中包含满足当前操作所需的范围，与 [RFC 6750 第 3.1 节](https://datatracker.ietf.org/doc/html/rfc6750#section-3.1)保持一致。`scope` 属性描述访问所请求资源所需的范围——服务端无须包含客户端先前已授予的范围。
+
+无论服务端采用何种范围包含策略，服务端**应当**在单次质询中包含当前操作所需的所有范围。增量式质询（先返回一个缺失范围，再在后续重试时返回另一个）会为单个操作强制多次授权往返，降低用户体验。所需范围可以根据具体请求参数和上下文动态确定，但一旦确定，就应当一并发出。
+
+服务端**应当**在范围包含策略上保持一致，以便为客户端提供可预测的行为。
+
+服务端**应当**在确定响应中包含哪些范围时考虑用户体验的影响，因为范围配置错误可能导致频繁的用户交互。
+
+跨操作的范围累积是客户端的职责。关于范围并集要求，请参阅[阶梯式授权流程](#step-up-authorization-flow)。
+
+范围不足响应示例：
+
+```http
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope",
+                         scope="files:write",
+                         resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource",
+                         error_description="File write permission required for this operation"
+```
+
+#### 阶梯式授权流程
+
+客户端会在初始授权或运行时收到与范围相关的错误（`insufficient_scope`）。客户端**应当**通过阶梯式授权流程请求具有更大范围集的新访问令牌来响应这些错误，或以其他适当方式处理这些错误。代表用户行事的客户端**应当**尝试阶梯式授权流程。以自身名义行事的客户端（`client_credentials` 客户端）**可以**尝试阶梯式授权流程，或立即中止请求。
+
+流程如下：
+
+1. **解析错误信息**：从授权服务器响应或 `WWW-Authenticate` 头中解析
+2. **确定所需范围**：计算客户端先前请求的范围集与当前质询中的范围的并集。这确保在服务端依据 [RFC 6750 第 3.1 节](https://datatracker.ietf.org/doc/html/rfc6750#section-3.1)发出按操作划分的范围质询时，先前已授予的权限得以保留。客户端**可以**同时参考[范围选择策略](#scope-selection-strategy)以获取初始范围选择指引。
+3. **启动（重新）授权**：使用所确定的范围集
+4. **重试原始请求**：使用新的授权，重试次数不超过少数几次，并将此视为永久性授权失败
+
+客户端**应当**实施重试限制，并**应当**跟踪范围升级尝试，以避免对同一资源和操作组合反复失败。
+
+服务端在判断令牌对某项操作是否足够时，**必须**考虑范围层级关系，即较宽的范围蕴含较窄的范围。
+
+## 安全注意事项
+
+本规范的实现**必须**遵循[安全注意事项](/docs/mcp/specification/2026-07-28/basic/authorization/security-considerations)中的规范性安全要求，涵盖令牌受众绑定与校验、令牌窃取、通信安全、授权码保护、混淆与受骗代理攻击、开放重定向，以及 Client ID Metadata Document 安全。
+
+## MCP 授权扩展
+
+核心协议有若干授权扩展，定义了额外的授权机制。这些扩展具有以下特点：
+
+- **可选** - 实现可以选择采用这些扩展
+- **增量式** - 扩展不会修改或破坏核心协议功能；它们在保留核心协议行为的同时添加新能力
+- **可组合** - 扩展是模块化的，设计上可无冲突地协同工作，允许实现同时采用多个扩展
+- **独立版本化** - 扩展遵循核心 MCP 版本周期，但可根据需要采用独立版本化
+
+受支持扩展的列表可在 [MCP Authorization Extensions](https://github.com/modelcontextprotocol/ext-auth) 仓库中找到。

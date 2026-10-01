@@ -1,0 +1,176 @@
+---
+title: MCP Inspector
+description: 用于在浏览器、命令行和终端中测试与调试 MCP 服务端的交互式开发者工具
+---
+
+
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) 是测试与调试 [MCP 服务端](/docs/mcp/learn/server-concepts)的参考开发者工具。它以单个包 `@modelcontextprotocol/inspector` 发布，在**一个二进制后面提供三个客户端**：
+
+| 客户端  | 调用方式                                  | 用途                                                                     |
+| ------- | ------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Web** | `npx @modelcontextprotocol/inspector`       | 浏览器中的完整图形化检查器。默认，也是最丰富的界面。  |
+| **CLI** | `npx @modelcontextprotocol/inspector --cli` | 可脚本化、可机器读取的客户端，用于 CI、shell 管道和编码智能体。 |
+| **TUI** | `npx @modelcontextprotocol/inspector --tui` | 交互式终端 UI，适用于浏览器不可用或不想用浏览器的时候。         |
+
+三者都基于同一套共享核心构建，因此连接行为在它们之间完全一致：相同的传输、相同的配置文件、在磁盘上相同的 OAuth 状态，以及相同的[协议时代](/docs/mcp/tools/inspector/protocol-eras)协商（legacy 与现代 2026-07-28）。
+
+<img src="/images/docs/mcp/inspector/web-monitor-sidebar.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">MCP Inspector web 客户端已连接到一个服务端，监控侧边栏固定显示，便于你在工作时持续看到协议流量。</p>
+
+## 快速上手
+
+Inspector 需要 **Node 22.19.0 或更高版本**，并直接通过 `npx` 运行。无需安装：
+
+<Tabs items={['Web', 'CLI', 'TUI']}>
+
+<Tab>
+
+```bash
+# Launch the web UI and connect to a local stdio server
+npx @modelcontextprotocol/inspector node path/to/server/index.js
+
+# Or launch with no target and add servers from the UI
+npx @modelcontextprotocol/inspector
+```
+
+命令会打印一个包含一次性会话令牌的 URL；在浏览器中打开它。参见 [Web 客户端](/docs/mcp/tools/inspector/web)。
+
+  </Tab>
+  <Tab>
+
+```bash
+# List a server's tools and exit
+npx @modelcontextprotocol/inspector --cli node path/to/server/index.js --method tools/list
+
+# Call a tool and pipe the result into jq
+npx @modelcontextprotocol/inspector --cli https://api.example.com/mcp --transport http \
+  --method tools/call --tool-name get_weather --tool-arg city=Boston --format json | jq .result
+```
+
+参见 [CLI 客户端](/docs/mcp/tools/inspector/cli)。
+
+  </Tab>
+  <Tab>
+
+```bash
+npx @modelcontextprotocol/inspector --tui node path/to/server/index.js
+```
+
+参见 [TUI 客户端](/docs/mcp/tools/inspector/tui)。
+
+  </Tab>
+
+</Tabs>
+
+### 检查已发布的服务端
+
+把启动服务端的命令作为 Inspector 的参数传入，或用 `--server-url` 指向远程服务端：
+
+<Tabs items={['npm package', 'PyPI package', '远程 HTTP 服务端']}>
+
+<Tab>
+
+```bash
+npx -y @modelcontextprotocol/inspector npx @modelcontextprotocol/server-filesystem ~/Desktop
+```
+
+  </Tab>
+  <Tab>
+
+```bash
+npx @modelcontextprotocol/inspector uvx mcp-server-git --repository ~/code/mcp/servers.git
+```
+
+  </Tab>
+  <Tab>
+
+```bash
+npx @modelcontextprotocol/inspector --server-url https://api.example.com/mcp --transport http
+```
+
+  </Tab>
+
+</Tabs>
+
+始终先阅读服务端自己的 README，因为每个服务端都要求不同的命令和参数。
+
+## 启动器 flags 与客户端 flags
+
+`npx @modelcontextprotocol/inspector` 运行的 `mcp-inspector` 二进制是一个轻量启动器。它只拥有两样东西：
+
+1. **模式 flag：** `--web`（默认）、`--cli` 或 `--tui`。最多一个；传入两个会以 `Specify at most one of --web, --cli, or --tui.` 报错。
+2. **`-h` / `--help`。**
+
+其他所有东西（`--catalog`、`--config`、`--server-url`、`--transport`、`--method`、OAuth flags）都由_客户端_定义，而不是启动器，且各客户端并不都定义同一套。[配置与 flags](/docs/mcp/tools/inspector/configuration) 页面正是按所有者来组织的。
+
+<Callout>
+模式 flags 只在命令行开头被识别：第一个不是 `--web` / `--cli` / `--tui` 的 token 会结束启动器解析，之后的每个参数都会原样转发给客户端。正是这一点允许一个字面的 `--cli` 稍后作为你服务端自己的参数出现：
+
+```bash
+mcp-inspector --cli node server.js --cli   # mode is CLI; the trailing --cli goes to server.js
+```
+
+</Callout>
+
+<Callout>
+  `--help` 在有和没有模式 flag 时行为不同。裸 `mcp-inspector
+  --help` 打印启动器的帮助并退出。带模式 flag 时它会被
+  转发，因此 `mcp-inspector --cli --help` 打印的是 CLI 的完整
+  flag 参考。
+</Callout>
+
+## 接下来去哪
+
+<Cards>
+  <Card
+    title="Web 客户端"
+    href="/docs/mcp/tools/inspector/web"
+  >
+    图形化检查器逐选项卡的讲解。
+  </Card>
+  <Card
+    title="CLI 客户端"
+    href="/docs/mcp/tools/inspector/cli"
+  >
+    方法参考、输出格式、退出码和 CI 配方。
+  </Card>
+  <Card
+    title="TUI 客户端"
+    href="/docs/mcp/tools/inspector/tui"
+  >
+    终端导航和键盘参考。
+  </Card>
+  <Card
+    title="配置与 flags"
+    href="/docs/mcp/tools/inspector/configuration"
+  >
+    Catalog 与 config 文件、按客户端划分的完整 flag 参考以及
+    环境变量。
+  </Card>
+  <Card
+    title="授权"
+    href="/docs/mcp/tools/inspector/authorization"
+  >
+    端到端 OAuth 流程、会话中途重新授权以及 loopback
+    回调。
+  </Card>
+  <Card
+    title="协议时代"
+    href="/docs/mcp/tools/inspector/protocol-eras"
+  >
+    Legacy 与现代（2026-07-28）运行方式，以及每个选项卡在协议时代之间如何变化。
+  </Card>
+  <Card
+    title="实用指南"
+    href="/docs/mcp/tools/inspector/recipes"
+  >
+    导入客户端配置、审核 MCP Apps、Docker 和网络托管。
+  </Card>
+  <Card
+    title="调试指南"
+    href="/docs/mcp/tools/debugging"
+  >
+    Inspector 之外更广泛的调试策略。
+  </Card>
+</Cards>

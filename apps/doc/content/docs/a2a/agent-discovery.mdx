@@ -1,0 +1,114 @@
+---
+title: '智能体发现'
+---
+
+要使用 Agent2Agent（A2A）协议进行协作，AI 智能体需要首先找到彼此并了解各自的能力。A2A 通过 **[Agent Card](/docs/a2a/specification/agent-card)** 实现智能体自我描述的标准化。然而，Agent Card 的发现方式因环境和需求而异。Agent Card 定义了智能体能提供什么。客户端智能体存在多种策略来发现这些卡片。策略的选择取决于部署环境和安全要求。
+
+## Agent Card 的作用
+
+Agent Card 是一个 JSON 文档，充当 A2A Server（远程智能体）的数字版"商务名片"。它对智能体的发现和交互至关重要。Agent Card 中包含的关键信息如下：
+
+- **身份：** 包含 `name`、`description` 和 `provider` 信息。
+- **服务端点：** 指定 A2A 服务的 `url`。
+- **A2A 能力：** 列出受支持的功能，例如 `streaming` 或 `pushNotifications`。
+- **认证：** 说明所需的 `schemes`（例如，"Bearer"、"OAuth2"）。
+- **技能：** 使用 `AgentSkill` 对象描述智能体的任务，包括 `id`、`name`、`description`、`inputModes`、`outputModes` 和 `examples`。
+
+客户端智能体使用 Agent Card 来判断智能体是否合适、如何构造请求，以及如何确保通信安全。
+
+## 发现策略
+
+以下小节详细介绍了客户端智能体发现远程 Agent Card 的常见策略：
+
+### 1. Well-Known URI
+
+此方法推荐用于公共智能体，或用于在特定领域内预期被广泛发现的智能体。
+
+- **机制：** A2A Server 通过在自身域名上托管在标准化的 `well-known` URI 处来使其 Agent Card 可被发现。标准路径是 `https://{agent-server-domain}/.well-known/agent-card.json`，遵循 [RFC 8615](https://datatracker.ietf.org/doc/html/rfc8615) 的原则。
+
+- **流程：**
+    1. 客户端智能体知道或以编程方式发现潜在 A2A Server 的域名（例如 `smart-thermostat.example.com`）。
+    2. 客户端向 `https://smart-thermostat.example.com/.well-known/agent-card.json` 发起 HTTP GET 请求。
+    3. 如果 Agent Card 存在且可访问，服务器会以 JSON 响应返回它。
+
+- **优点：**
+    - 易于实现
+    - 符合标准
+    - 便于自动化发现
+
+- **注意事项：**
+    - 最适合开放或领域控制的发现场景。
+    - 如果提供 Agent Card 的端点包含敏感信息，则需要在端点上进行认证。
+
+### 2. 精选注册表（基于目录的发现）
+
+此方法用于企业环境或公共市场，其中 Agent Card 通常由中央注册表管理。精选注册表充当中央存储库，允许客户端根据"技能"或"标签"等标准查询和发现智能体。
+
+- **机制：** 一个中间服务（注册表）维护一组 Agent Card。客户端查询该注册表，根据各种标准（例如提供的技能、标签、提供商名称、能力）查找智能体。
+
+- **流程：**
+    1. A2A Server 将其 Agent Card 发布到注册表。
+    2. 客户端智能体查询注册表的 API，并按"特定技能"等标准进行搜索。
+    3. 注册表返回匹配的 Agent Card 或引用。
+
+- **优点：**
+    - 集中化的管理和治理。
+    - 基于能力的发现（例如按技能）。
+    - 支持访问控制和信任框架。
+    - 适用于私有市场和公共市场。
+- **注意事项：**
+    - 需要部署和维护注册表服务。
+    - 当前的 A2A 规范并未为精选注册表规定标准 API。
+
+### 3. 直接配置/私有发现
+
+此方法用于紧耦合系统、私有智能体或开发目的，此时客户端被直接配置 Agent Card 信息或 URL。
+
+- **机制：** 客户端应用使用硬编码信息、配置文件、环境变量或专有 API 进行发现。
+- **流程：** 流程取决于应用的部署和配置策略。
+- **优点：** 此方法在已知的、静态的关系中建立连接时简单直接。
+- **注意事项：**
+    - 对于动态发现场景不够灵活。
+    - Agent Card 信息的变更需要重新配置客户端。
+    - 基于专有 API 的发现也缺乏标准化。
+
+## 保护 Agent Card
+
+Agent Card 包含敏感信息，例如：
+
+- 内部或受限智能体的 URL。
+- 敏感技能的描述。
+
+### 保护机制
+
+为降低风险，应考虑以下保护机制：
+
+- **经过认证的 Agent Card：** 我们建议对敏感信息使用 [经过认证的扩展 Agent Card](/docs/a2a/specification/index)，或用于提供更详细版本的卡片。
+- **安全端点：** 对提供 Agent Card 的 HTTP 端点（例如 `/.well-known/agent-card.json` 或注册表 API）实施访问控制。方法包括：
+    - 双向 TLS（mTLS）
+    - 网络限制（例如 IP 范围）
+    - HTTP 认证（例如 OAuth 2.0）
+
+- **注册表选择性披露：** 注册表根据客户端的身份和权限返回不同的 Agent Card。
+
+任何包含敏感数据的 Agent Card 都必须通过认证和授权机制加以保护。A2A 规范强烈建议使用带外动态凭据（out-of-band dynamic credentials），而不是将静态密钥嵌入 Agent Card 中。
+
+## 缓存注意事项
+
+Agent Card 描述的是智能体的能力，通常变动频率较低——例如在添加技能或更新认证要求时。对 Agent Card 端点应用标准 HTTP 缓存实践，可以减少不必要的网络请求，同时确保客户端最终能够获得更新后的信息。
+
+### 服务端指南
+
+托管 Agent Card 端点的服务器应在响应中包含 HTTP 缓存头。带有合适的 `max-age` 指令的 `Cache-Control` 头允许客户端和中间层在指定时间内缓存卡片。包含 `ETag` 头——由卡片的 `version` 字段或内容哈希派生——使客户端能够发起条件请求，避免重新下载未变化的卡片。
+
+### 客户端指南
+
+获取 Agent Card 的客户端应遵循标准 HTTP 缓存语义。当缓存的卡片过期时，客户端应使用条件请求（例如，将存储的 `ETag` 用于 `If-None-Match`，或使用 `If-Modified-Since`），而不是无条件地重新获取完整卡片。当服务器未提供缓存头时，客户端可以应用合理的默认缓存时长。
+
+对于扩展 Agent Card，客户端还应遵循[规范](/docs/a2a/specification/index)中描述的会话级缓存（session-scoped caching）指南。
+
+规范性要求请参阅规范的[第 8.6 节](/docs/a2a/specification/index)。
+
+## 未来展望
+
+A2A 社区正在探索标准化注册表交互或高级发现协议。

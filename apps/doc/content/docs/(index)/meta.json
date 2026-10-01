@@ -1,0 +1,12 @@
+{
+  "title": "文档",
+  "description": "文档",
+  "icon": "Book",
+  "root": true,
+  "pages": [
+    "index",
+    "mcp-gateway",
+    "a2a-gateway",
+    "guardrails"
+  ]
+}

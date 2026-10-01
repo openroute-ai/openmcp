@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "index",
+    "authentication",
+    "faq",
+    "github-actions",
+    "moderation-policy",
+    "package-types",
+    "quickstart",
+    "registry-aggregators",
+    "remote-servers",
+    "terms-of-service",
+    "versioning"
+  ]
+}

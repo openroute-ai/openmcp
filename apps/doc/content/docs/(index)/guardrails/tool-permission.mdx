@@ -1,0 +1,249 @@
+---
+title: "OpenMCP 工具权限护栏"
+description: "OpenMCP 提供 OpenMCP 工具权限护栏，让你可以使用可配置的允许/拒绝规则控制模型可以调用哪些工具调用..."
+---
+
+OpenMCP 提供 OpenMCP 工具权限护栏，让你可以使用可配置的允许/拒绝规则控制模型可以调用哪些**工具调用**。这提供了对工具执行的细粒度、与提供方无关的控制（例如 OpenAI Chat Completions 的 `tool_calls`、Anthropic Messages 的 `tool_use`、MCP 工具）。
+
+## 快速入门
+
+### OpenMCP UI
+
+#### 第 1 步：选择工具权限护栏
+
+打开 OpenMCP 仪表盘，点击 **Add New Guardrail**，然后选择 **OpenMCP Tool Permission Guardrail**。这会加载规则构建器 UI。
+
+#### 第 2 步：定义正则规则
+
+1. 点击 **Add Rule**。
+2. 输入唯一的规则 ID。
+3. 为工具名称提供正则（例如 `^mcp__github_.*$`）。
+4. 可选地为工具类型添加正则（例如 `^function$`）。
+5. 选择 **Allow** 或 **Deny**。
+
+#### 第 3 步：限制工具参数（可选）
+
+选择 **+ Restrict tool arguments**，将正则校验附加到嵌套路径（点 + `[]` 表示法）。这会强制敏感参数（例如 `arguments.to[]`）符合预先批准的格式。
+
+#### 第 4 步：选择默认值并设置动作
+
+- 为未命中任何规则的工具设置回退决策（`default_action`）。
+- 决定不允许的工具的行为：**Block** 中止请求，**Rewrite** 移除被禁止的工具并在响应中返回错误消息。
+- 如果你想要品牌化的错误文案，请自定义 `violation_message_template`。
+- 保存护栏。
+
+### OpenMCP Config.yaml 设置
+
+```yaml
+guardrails:
+  - guardrail_name: "tool-permission-guardrail"
+    openmcp_params:
+      guardrail: tool_permission
+      mode: "post_call"
+      rules:
+        - id: "allow_bash"
+          tool_name: "Bash"
+          decision: "allow"
+        - id: "allow_github_mcp"
+          tool_name: "^mcp__github_.*$"
+          decision: "allow"
+        - id: "allow_aws_documentation"
+          tool_name: "^mcp__aws-documentation_.*_documentation$"
+          decision: "allow"
+        - id: "deny_read_commands"
+          tool_name: "Read"
+          decision: "deny"
+        - id: "mail-domain"
+          tool_name: "^send_email$"
+          tool_type: "^function$"
+          decision: "allow"
+          allowed_param_patterns:
+            "to[]": "^.+@berri\\.ai$"
+            "cc[]": "^.+@berri\\.ai$"
+            "subject": "^.{1,120}$"
+      default_action: "deny"  # Fallback when no rule matches: "allow" or "deny"
+      on_disallowed_action: "block"  # How to handle disallowed tools: "block" or "rewrite"
+```
+
+#### 规则结构
+
+```yaml
+- id: "unique_rule_id"           # Unique identifier for the rule
+  tool_name: "^regex$"           # Regex for tool name (optional, at least one of name/type required)
+  tool_type: "^function$"        # Regex for tool type (optional)
+  decision: "allow"              # "allow" or "deny"
+  allowed_param_patterns:         # Optional - regex map for argument paths (dot + [] notation)
+    "path.to[].field": "^regex$"
+```
+
+#### `mode` 支持的值
+
+- `pre_call` 在 LLM 调用**之前**运行，作用于**输入**
+- `post_call` 在 LLM 调用**之后**运行，作用于**输入和输出**
+
+### `on_disallowed_action` 行为
+
+| 值 | 会发生什么 |
+| --- | --- |
+| `block` | 请求被立即拒绝。调用前检查会引发 `400` HTTP 错误。调用后检查会引发 `GuardrailRaisedException`，因此代理会返回错误而不是模型输出。当调用被禁止的工具必须中止工作流时使用。 |
+| `rewrite` | OpenMCP 会在负载到达模型之前静默地从中移除不允许的工具（调用前），或事后重写模型响应/工具调用。护栏会将错误文本插入 `message.content`/`tool_result` 条目中，让客户端知道工具被阻止了，同时其余补全继续执行。当你希望优雅降级而不是硬失败时使用。 |
+
+### 自定义拒绝消息
+
+当你希望护栏返回品牌化错误时（例如 "this violates our org policy..."），设置 `violation_message_template`。OpenMCP 会替换来自被拒绝工具的这些占位符：
+
+- `{tool_name}` – 工具/函数名称（例如 `Read`）
+- `{rule_id}` – 匹配的规则 ID（当默认动作生效时为 `None`）
+- `{default_message}` – 如果你需要追加的原始 OpenMCP 消息
+
+示例：
+
+```yaml
+guardrails:
+  - guardrail_name: "tool-permission-guardrail"
+    openmcp_params:
+      guardrail: tool_permission
+      mode: "post_call"
+      violation_message_template: "this violates our org policy, we don't support executing {tool_name} commands"
+      rules:
+        - id: "allow_bash"
+          tool_name: "Bash"
+          decision: "allow"
+        - id: "deny_read"
+          tool_name: "Read"
+          decision: "deny"
+      default_action: "deny"
+      on_disallowed_action: "block"
+```
+
+如果请求试图调用 `Read`，代理现在会返回 "this violates our org policy, we don't support executing Read commands" 而不是标准的错误文本。省略该字段可保持默认消息。
+
+### 2. 启动代理
+
+```shell
+openmcp --config config.yaml --port 4000
+```
+
+## 示例
+
+<Tabs items={["阻止请求","重写请求"]}>
+<Tab>
+
+**阻止请求（`on_disallowed_action: block`）**
+
+```bash
+# Test
+curl -X POST "http://localhost:4000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-master-key-here" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [{"role": "user","content": "What is the weather like in Tokyo today?"}],
+    "tools": [
+      {
+        "type":"function",
+        "function": {
+          "name":"get_current_weather",
+          "description": "Get the current weather in a given location"
+        }
+      }
+    ]
+  }'
+```
+
+**预期响应（已拒绝）：**
+
+```json
+{
+  "error":
+    {
+      "message": "Guardrail raised an exception, Guardrail: tool-permission-guardrail, Message: Tool 'get_current_weather' denied by default action",
+      "type": "None",
+      "param": "None",
+      "code": "500"
+    }
+}
+```
+
+</Tab>
+<Tab>
+
+**重写请求（`on_disallowed_action: rewrite`）**
+
+```bash
+# Test
+curl -X POST "http://localhost:4000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-master-key-here" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [{"role": "user","content": "What is the weather like in Tokyo today?"}],
+    "tools": [
+      {
+        "type":"function",
+        "function": {
+          "name":"get_current_weather",
+          "description": "Get the current weather in a given location"
+        }
+      }
+    ]
+  }'
+```
+
+**预期响应（工具已移除，补全继续）：**
+
+```json
+{
+	"id": "chatcmpl-xxxxxxxxxxxxxxx",
+	"created": 1757716050,
+	"model": "{{openai_small}}",
+	"object": "chat.completion",
+	"choices": [
+		{
+			"finish_reason": "stop",
+			"index": 0,
+			"message": {
+				"content": "I can’t fetch live weather — I don’t have real‑time internet access.",
+				"role": "assistant",
+				"annotations": []
+			},
+			"provider_specific_fields": {}
+		}
+	],
+	"usage": {
+		"prompt_tokens": 112,
+		"total_tokens": 735,
+		"completion_tokens_details": {
+			"reasoning_tokens": 384
+		}
+	},
+	"service_tier": "default"
+}
+```
+
+</Tab>
+</Tabs>
+
+### 约束工具参数
+
+有时你想允许一个工具，但仍然限制**如何使用**它。向规则添加 `allowed_param_patterns`，以在特定的参数路径上强制执行正则模式（对数组使用带 `[]` 的点表示法）。
+
+```yaml title="Only allow mail_mcp to mail @berri.ai addresses"
+guardrails:
+  - guardrail_name: "tool-permission-mail"
+    openmcp_params:
+      guardrail: tool_permission
+      mode: "post_call"
+      rules:
+        - id: "mail-domain"
+          tool_name: "send_email"
+          decision: "allow"
+          allowed_param_patterns:
+            "to[]": "^.+@berri\\.ai$"
+            "cc[]": "^.+@berri\\.ai$"
+            "subject": "^.{1,120}$"
+      default_action: "deny"
+      on_disallowed_action: "block"
+```
+
+在该示例中，LLM 仍然可以调用 `send_email`，但如果它试图给 `@berri.ai` 之外的任何人发邮件，或生成的正则失败的主题，护栏会阻止该调用（或根据 `on_disallowed_action` 重写它）。对于任何参数值很重要的工具都可以使用这种模式：邮件发送者、升级工作流、创建工单等。

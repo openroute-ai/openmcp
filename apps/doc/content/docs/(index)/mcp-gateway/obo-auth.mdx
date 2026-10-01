@@ -1,0 +1,265 @@
+---
+title: "MCP OBO 认证"
+description: "OAuth 2.0 On-Behalf-Of (OBO) 认证让 OpenMCP 把用户的入站 bearer 令牌交换为对特定 MCP 服务端有效的限定范围令牌。"
+---
+
+OAuth 2.0 On-Behalf-Of (OBO) 认证让 OpenMCP 把用户的入站 bearer 令牌交换为对特定 MCP 服务端有效的限定范围令牌。
+
+在以下情况应使用 OBO：
+
+- 你的 MCP 服务端应收到一枚专门为该 MCP 服务端铸造的令牌。
+- 你的身份提供商支持 [RFC 8693 OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)，或是 Microsoft Entra ID——OpenMCP 原生支持 Entra（参见下面的 [Microsoft Entra ID](#microsoft-entra-id-azure-ad)）。
+- 你希望 OpenMCP 不让用户的原始令牌被直接转发到 MCP 服务端。
+
+## 工作原理
+
+```mermaid
+flowchart TD
+    A[User or agent calls OpenMCP with a bearer token] --> B[OpenMCP identifies the target MCP server]
+    B --> C{MCP server auth_type is oauth2_token_exchange?}
+    C -- No --> D[Use the server's configured auth flow]
+    C -- Yes --> E[OpenMCP extracts the caller bearer token as the subject token]
+    E --> F[OpenMCP POSTs an RFC 8693 token exchange request to the IdP]
+    F --> G[IdP validates the subject token, audience, client, and scopes]
+    G --> H[IdP returns a scoped access token for the MCP server]
+    H --> I[OpenMCP caches the scoped token per subject token and MCP server]
+    I --> J[OpenMCP calls the MCP server with the scoped bearer token]
+    J --> K[MCP server executes the tool and returns the result]
+```
+
+简而言之：
+
+1. 客户端携带 bearer 令牌向 OpenMCP 发送请求。
+2. OpenMCP 将该 bearer 令牌用作 RFC 8693 的 `subject_token`。
+3. OpenMCP 在身份提供商的令牌交换端点处交换它。
+4. OpenMCP 只把交换后的限定范围令牌转发给 MCP 服务端。
+5. OpenMCP 缓存交换后的令牌直到其过期，因此重复调用可避免又一次身份提供商往返。
+
+## 为 OBO 配置 MCP 服务端
+
+在 MCP 服务端上设置 `auth_type: oauth2_token_exchange`。
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  internal_tools:
+    url: "https://mcp.example.com/mcp"
+    transport: "http"
+    auth_type: oauth2_token_exchange
+
+    # OAuth 2.0 Token Exchange endpoint on your identity provider
+    token_exchange_endpoint: "https://idp.example.com/oauth2/token"
+
+    # Token exchange client registered with your identity provider
+    client_id: "<idp-client-id>"
+    client_secret: "<idp-client-secret>"
+
+    # Optional but recommended: restrict the exchanged token to this MCP server
+    audience: "api://internal-tools-mcp"
+    scopes:
+      - "mcp.tools.read"
+      - "mcp.tools.execute"
+
+    # Optional. Defaults to access_token.
+    subject_token_type: "urn:ietf:params:oauth:token-type:access_token"
+```
+
+### 配置字段
+
+| 字段 | 是否必填 | 说明 |
+|-------|----------|-------------|
+| `auth_type` | 是 | 必须为 `oauth2_token_exchange`。 |
+| `token_exchange_endpoint` | 是 | 接受 RFC 8693 令牌交换请求的身份提供商端点。 |
+| `client_id` | 是 | OpenMCP 调用令牌交换端点时使用的 OAuth 客户端标识符。 |
+| `client_secret` | 是 | OpenMCP 调用令牌交换端点时使用的 OAuth 客户端密钥。 |
+| `audience` | 推荐 | MCP 服务端的资源标识符。OpenMCP 将它作为令牌交换的 `audience` 发送。 |
+| `scopes` | 可选 | OpenMCP 为交换令牌申请的 scope。OpenMCP 将列表拼合进 OAuth `scope` 参数。 |
+| `subject_token_type` | 可选 | RFC 8693 subject 令牌类型。默认为 `urn:ietf:params:oauth:token-type:access_token`。 |
+| `upstream_token_header` | 可选 | 承载交换后令牌的上游请求头。默认为 `Authorization`。参见[在另一个请求头上发送交换后的令牌](#sending-the-exchanged-token-on-a-different-header)。 |
+| `token_exchange_profile` | 可选 | 交换的线上协议变体。`rfc8693`（默认）使用标准的令牌交换授权；`entra_obo` 使用 Microsoft Entra ID 的 On-Behalf-Of 流程。参见 [Microsoft Entra ID](#microsoft-entra-id-azure-ad)。 |
+
+### 在另一个请求头上发送交换后的令牌
+
+默认情况下，交换后的令牌以 `Authorization: Bearer <token>` 的形式出站。当 MCP 服务端位于 API 网关之后，网关从某个私有请求头读取自己的凭证，而网关后面的服务端仍期望在 `Authorization` 上收到自己的 bearer 时，两个凭证都必须搭载在同一个请求上。
+
+将 `upstream_token_header` 设置为交换后令牌应使用的请求头名称。此后 `static_headers` 下配置的任何内容都会被保留原样，因此共享凭证仍然能到达网关后面的服务端。
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  my_mcp_server:
+    url: "https://gateway.example.com/mcp"
+    auth_type: oauth2_token_exchange
+    token_exchange_endpoint: "https://idp.example.com/token"
+    client_id: os.environ/MCP_CLIENT_ID
+    client_secret: os.environ/MCP_CLIENT_SECRET
+    audience: "api://esb"
+    upstream_token_header: "esb-oauth"
+    static_headers:
+      Authorization: "Bearer os.environ/UPSTREAM_MCP_TOKEN"
+```
+
+随后每个上游请求都会同时携带两者，交换后的令牌按调用用户限定范围：
+
+```
+esb-oauth: Bearer <token exchanged for this user>
+Authorization: Bearer <the shared token you configured>
+```
+
+交换后的令牌仍然按用户缓存，因此短寿命令牌并不意味着每个请求都要做一次交换。不设置 `upstream_token_header` 就保持默认行为。
+
+如果来自上游的重定向跨了 origin，自定义请求头会被丢弃而不是转发，就像 HTTP 客户端丢弃 `Authorization` 那样。一个在跨 origin 情况下合法重定向的上游，在第二跳将看不到该凭证。
+
+## 令牌交换请求
+
+对于每个未缓存的 subject 令牌与 MCP 服务端组合，OpenMCP 会向 `token_exchange_endpoint` 发送一个如下表单编码的请求：
+
+```http
+POST /oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange
+&subject_token=<caller-bearer-token>
+&subject_token_type=urn:ietf:params:oauth:token-type:access_token
+&client_id=<idp-client-id>
+&client_secret=<idp-client-secret>
+&audience=api://internal-tools-mcp
+&scope=mcp.tools.read mcp.tools.execute
+```
+
+你的身份提供商应返回一个访问令牌：
+
+```json
+{
+  "access_token": "scoped-token-for-mcp-server",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+随后 OpenMCP 用以下方式调用 MCP 服务端：
+
+```http
+Authorization: Bearer scoped-token-for-mcp-server
+```
+
+## Microsoft Entra ID (Azure AD)
+
+Microsoft Entra ID 不实现上面的 RFC 8693 令牌交换授权。它的 On-Behalf-Of 流程改用 RFC 7523 的 `jwt-bearer` 授权：调用方的令牌以 `assertion` 而非 `subject_token` 的身份搭载，没有 `audience` 参数，而把该授权变成委托而不是普通 jwt-bearer 交换的，是微软专有的 `requested_token_use=on_behalf_of` 扩展。OpenMCP 把 Entra 当作一等支持的 profile，因此指向 Entra 只需改配置，而不是换一种集成方式：设置 `token_exchange_profile: entra_obo`，OpenMCP 就会构建 jwt-bearer 表单而不是 RFC 8693 表单。
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  internal_tools:
+    url: "https://mcp.example.com/mcp"
+    transport: "http"
+    auth_type: oauth2_token_exchange
+    token_exchange_profile: entra_obo
+
+    # Your Entra tenant's v2.0 token endpoint
+    token_exchange_endpoint: "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token"
+
+    # App registration OpenMCP uses to call the token endpoint. The caller's
+    # token must have been issued with this client_id as its `aud`.
+    client_id: "<entra-app-client-id>"
+    client_secret: "<entra-app-client-secret>"
+
+    # Entra has no audience parameter, so the target resource goes in scope
+    # as <app-id-uri>/.default
+    scopes:
+      - "api://internal-tools-mcp/.default"
+```
+
+`audience` 和 `subject_token_type` 在 `entra_obo` 下用不到：Entra 没有 audience 参数（目标资源改为放进 `scope`），而且 jwt-bearer 授权不检查 subject 令牌类型。
+
+对于每个未缓存的调用方令牌与 MCP 服务端组合，OpenMCP 会发送：
+
+```http
+POST /<tenant-id>/oauth2/v2.0/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+&assertion=<caller-bearer-token>
+&scope=api://internal-tools-mcp/.default
+&requested_token_use=on_behalf_of
+&client_id=<entra-app-client-id>
+&client_secret=<entra-app-client-secret>
+```
+
+Entra 返回与上面展示的相同形态的访问令牌响应，而无论 profile 如何，OpenMCP 都以相同方式缓存并转发交换后的令牌。
+
+<Callout type="info">
+
+调用方的令牌必须是为 OpenMCP 的应用注册签发的，而不是其他某个 Entra 应用。如果你的 harness 是针对不同的应用注册进行认证，请先让它为这个应用的 scope 请求一个令牌，再把该令牌发送给 OpenMCP。
+
+</Callout>
+
+## 调用 OBO MCP 服务端
+
+入站请求必须包含用户的 bearer 令牌，这样 OpenMCP 才有可交换的 `subject_token`。
+
+对于直接的 MCP 调用，请把 OpenMCP 密钥放在 `x-openmcp-api-key`，把 `Authorization` 留给用户令牌：
+
+```bash title="Direct MCP call" showLineNumbers
+curl -X POST "https://openmcp.example.com/internal_tools/mcp" \
+  -H "Content-Type: application/json" \
+  -H "x-openmcp-api-key: Bearer <openmcp-api-key>" \
+  -H "Authorization: Bearer <user-token>" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+对于 Responses API，请以 OpenMCP 密钥与用户令牌分离的方式传入 MCP 工具请求头：
+
+```bash title="Responses API with MCP OBO" showLineNumbers
+curl -X POST "https://openmcp.example.com/v1/responses" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <openmcp-api-key>" \
+  -d '{
+    "model": "{{openai_large}}",
+    "input": "List the available internal tools",
+    "tools": [
+      {
+        "type": "mcp",
+        "server_label": "internal_tools",
+        "server_url": "https://openmcp.example.com/internal_tools/mcp",
+        "require_approval": "never",
+        "headers": {
+          "x-openmcp-api-key": "Bearer <openmcp-api-key>",
+          "Authorization": "Bearer <user-token>"
+        }
+      }
+    ]
+  }'
+```
+
+<Callout type="info">
+
+如果 MCP 客户端只能发送一个 `Authorization` 请求头，请把 `x-openmcp-api-key` 用于 OpenMCP 密钥，把 `Authorization` 留给用户的令牌。OpenMCP 需要用户令牌作为 OBO 的 `subject_token`。
+
+</Callout>
+
+## 缓存行为
+
+OpenMCP 按以下键缓存交换后的令牌：
+
+- subject 令牌
+- MCP 服务端 ID
+
+这意味着两个不同的用户会获得两个独立的交换后令牌，而同一用户对同一 MCP 服务端的重复调用会在令牌过期前复用缓存。
+
+缓存 TTL 基于 `expires_in` 减去 OpenMCP 的 OAuth 过期缓冲。如果 `expires_in` 缺失或无效，OpenMCP 使用默认的 OAuth 令牌缓存 TTL。
+
+## 回退行为
+
+如果 OBO 服务端没有入站 subject 令牌：
+
+- 如果配置了 `client_id`、`client_secret` 和 `token_url`，OpenMCP 可以回退到 OAuth `client_credentials`。
+- 否则，OpenMCP 记录一条警告并跳过令牌交换继续。
+
+对于严格的 OBO 部署，请配置客户端，让每个请求都包含用户的 bearer 令牌。
+
+## 故障排查
+
+| 症状 | 检查项 |
+|---------|-------|
+| MCP 服务端收到了 OpenMCP 密钥 | 将 OpenMCP 密钥移到 `x-openmcp-api-key`，并为用户令牌使用 `Authorization`。 |
+| 令牌交换端点返回 400 | 确认 `audience`、`scopes`、`client_id` 和 `subject_token_type` 与你的身份提供商配置匹配。 |
+| MCP 服务端没有收到 `Authorization` 请求头 | 确认 MCP 服务端是 `auth_type: oauth2_token_exchange`，且入站请求包含用户 bearer 令牌。 |
+| 每个请求都调用身份提供商 | 确认身份提供商返回 `expires_in`，并确认复用了相同的用户令牌和 MCP 服务端。 |

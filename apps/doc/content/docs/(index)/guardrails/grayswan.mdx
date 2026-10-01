@@ -1,0 +1,210 @@
+---
+title: "Gray Swan Cygnal Guardrail"
+description: "使用 Gray Swan Cygnal 持续监控对话中的策略违规、间接提示词注入（IPI）、越狱尝试和其他安全风险。"
+---
+
+使用 [Gray Swan Cygnal](https://docs.grayswan.ai/cygnal/monitor-requests) 持续监控对话中的策略违规、间接提示词注入（IPI）、越狱尝试和其他安全风险。
+
+Cygnal 会返回一个介于 `0` 和 `1` 之间的 `violation` 分数（数值越高表示越有可能违反策略），以及诸如违规规则索引、突变检测和 IPI 标志等元数据。OpenMCP 可以根据这一信号自动拦截或监控请求。
+
+---
+
+## 快速开始
+
+### 1. 获取凭据
+
+1. 登录我们的 Gray Swan 平台并生成一个 Cygnal API 密钥。
+
+    对于现有客户，你们应该已经可以访问我们的[平台](https://platform.grayswan.ai)。
+
+    对于新用户，请在此[页面](https://hubs.ly/Q03-sX1J0)注册，我们非常乐意为您提供上手引导！
+
+2. 为 OpenMCP 代理主机配置环境变量：
+
+    ```bash
+    export GRAYSWAN_API_KEY="your-grayswan-key"
+    export GRAYSWAN_API_BASE="https://api.grayswan.ai"
+    ```
+
+### 2. 配置 `config.yaml`
+
+添加一个引用 Gray Swan 集成的护栏条目。下面是我们推荐的设置。
+
+```yaml
+model_list:                                 # this part is a standard openmcp configuration for reference
+  - model_name: openai/{{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "cygnal-monitor"
+    openmcp_params:
+      guardrail: grayswan
+      mode: [pre_call, post_call]            # monitor both input and output
+      api_key: os.environ/GRAYSWAN_API_KEY
+      api_base: os.environ/GRAYSWAN_API_BASE  # optional
+      optional_params:
+        on_flagged_action: passthrough         # or "block" or "monitor"
+        violation_threshold: 0.5               # score >= threshold is flagged
+        reasoning_mode: hybrid                 # off | hybrid | thinking
+        policy_id: "your-cygnal-policy-id"     # Optional: Your Cygnal policy ID. Defaults to a content safety policy if empty.
+      streaming_end_of_stream_only: true       # For streaming API, only send the assembled message to Cygnal (post_call only). Defaults to false.
+      default_on: true
+      guardrail_timeout: 30                   # Defaults to 30 seconds. Change accordingly.
+      fail_open: true                         # Defaults to true; set to false to propagate guardrail errors.
+
+general_settings:
+  master_key: "your-openmcp-master-key"
+
+openmcp_settings:
+  set_verbose: true
+```
+
+### 3. 启动代理
+
+```bash
+openmcp --config config.yaml --port 4000
+```
+
+---
+
+## 选择护栏模式
+
+Gray Swan 可以在 `pre_call`、`during_call` 和 `post_call` 阶段运行。请根据你的延迟和覆盖要求组合使用这些模式。
+
+| 模式         | 运行时机      | 保护内容              | 典型用例 |
+|--------------|-------------------|-----------------------|------------------|
+| `pre_call`   | 调用 LLM 之前   | 仅用户输入       | 在提示词注入到达模型之前进行拦截 |
+| `during_call`| 与调用并行 | 仅用户输入       | 不拦截的低延迟监控 |
+| `post_call`  | 响应之后    | 模型输出         | 扫描输出中的策略违规、泄露的机密或 IPI |
+
+当将 `during_call` 与 `on_flagged_action: block` 或 `on_flagged_action: passthrough` 一起使用时：
+
+- **LLM 调用**通过 `asyncio.gather` **与护栏检查并行运行**
+- 即使护栏检测到违规，**LLM 令牌仍会被消耗**
+- 护栏异常会阻止响应到达用户，但**不会取消正在运行的 LLM 任务**
+- 这意味着你需要支付完整的 LLM 成本，同时向用户返回错误/透传消息
+
+**建议：** 对于 `passthrough`（或 `block`）的 `on_flagged_action`，请使用 `pre_call` 和 `post_call`，而不是 `during_call`（参见上面的推荐配置）。只有在希望在不影响用户体验的情况下进行低延迟日志记录时，才将 `during_call` 保留给 `monitor` 模式。
+
+---
+
+## 与 Claude Code 配合使用
+
+按照官方 openmcp 的[指南](https://www.openmcp.cn/docs/docs/tutorials/claude_responses_api)用 openmcp 设置 Claude Code，并将上面提到的护栏部分添加到你的 openmcp 配置中。Cygnal 原生支持编码智能体的策略防御。你可以定义自己的策略，或使用该平台上提供的编码策略。我们上面展示的示例配置也是 Claude Code 的推荐设置（将 `policy_id` 替换为合适的值即可）。
+
+---
+
+## 通过 `extra_body` 进行按请求覆盖
+
+你可以通过传入 `openmcp_metadata.guardrails[*].grayswan.extra_body`，在单个请求的基础上覆盖 Gray Swan 护栏配置的某些部分。
+
+`extra_body` 会合并到 Cygnal 请求体中，并优先于 `config.yaml` 中的特定字段，这些字段是 `policy_id`、`violation_threshold` 和 `reasoning_mode`。
+
+如果你在 `extra_body` 中包含 `metadata` 字段，它会按原样放在请求体的 `metadata` 字段下转发给 Cygnal API。
+
+示例：
+
+```bash
+curl -X POST "http://0.0.0.0:4000/v1/messages?beta=true" \
+  -H "Authorization: Bearer token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openrouter/anthropic/{{anthropic}}",
+    "messages": [{"role": "user", "content": "hello"}],
+    "openmcp_metadata": {
+      "guardrails": [
+        {
+          "cygnal-monitor": {
+            "extra_body": {
+              "policy_id": "specific policy id you want to use",
+              "metadata": {
+                "user": "health-check"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }'
+```
+
+OpenAI 客户端：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="anything", base_url="http://0.0.0.0:4000")
+
+resp = client.responses.create(
+    model="openrouter/anthropic/{{anthropic}}",
+    input="hello",
+    extra_body={
+        "openmcp_metadata": {
+            "guardrails": [
+                {
+                    "cygnal-monitor": {
+                        "extra_body": {
+                            "policy_id": "69038214e5cdb6befc5e991e",
+                            "metadata": {"trace_id": "trace-123"},
+                        }
+                    }
+                }
+            ]
+        }
+    },
+)
+```
+
+Anthropic 客户端：
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(api_key="anything", base_url="http://0.0.0.0:4000")
+
+resp = client.messages.create(
+    model="openrouter/anthropic/{{anthropic}}",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "hello"}],
+    extra_body={
+        "openmcp_metadata": {
+            "guardrails": [
+                {
+                    "cygnal-monitor": {
+                        "extra_body": {
+                            "policy_id": "69038214e5cdb6befc5e991e",
+                            "metadata": {"trace_id": "trace-123"},
+                        }
+                    }
+                }
+            ]
+        }
+    },
+)
+```
+
+备注：
+
+- 护栏名称（例如 `cygnal-monitor`）必须与 `config.yaml` 中的 `guardrail_name` 一致。
+- 按请求的护栏覆盖可能需要高级许可证，具体取决于你的代理设置。
+
+---
+
+## 配置参考
+
+| 参数                             | 类型            | 描述 |
+|---------------------------------------|-----------------|-------------|
+| `api_key`                             | string          | Gray Swan Cygnal API 密钥。省略时从 `GRAYSWAN_API_KEY` 读取。 |
+| `api_base`                            | string          | Gray Swan API 基础 URL 的覆盖值。默认为 `https://api.grayswan.ai` 或 `GRAYSWAN_API_BASE`。 |
+| `mode`                                | string or list  | 护栏运行阶段（`pre_call`、`during_call`、`post_call`）。 |
+| `optional_params.on_flagged_action`   | string          | `monitor`（仅记录日志）、`block`（抛出 `HTTPException`）或 `passthrough`（将响应内容替换为违规消息，不返回 400 错误）。 |
+| `optional_params.violation_threshold` | number (0-1)    | 达到或超过此值的分数被视为违规。 |
+| `optional_params.reasoning_mode`      | string          | `off`、`hybrid` 或 `thinking`。启用 Cygnal 的推理能力。 |
+| `optional_params.categories`          | object          | 自定义类别名称到描述信息的映射。 |
+| `optional_params.policy_id`           | string          | Gray Swan 策略标识符。 |
+| `guardrail_timeout`                   | number          | Cygnal 请求的超时时间（秒）。默认为 30。 |
+| `fail_open`                           | boolean         | 如果为 true，联系 Cygnal 出错时记录日志并继续请求；如果为 false，错误会向上传播。默认为 treu。 |
+| `streaming_end_of_stream_only`        | boolean         | 对于流式 `post_call`，只将最终组装完成的响应发送给 Cygnal。默认为 false。 |
+| `default_on`                          | boolean         | 默认在每次请求上运行该护栏。 |

@@ -1,0 +1,126 @@
+---
+title: "敏感数据路由（内置护栏）"
+description: "该护栏在模型选择之前运行。对每个请求，它使用你配置的模式和关键字扫描消息中的敏感数据。当匹配..."
+---
+
+**内置护栏**，用于检测请求中的敏感数据并将其重新路由到本地部署（on-premise）模型，而不是阻止或脱敏它。无需外部依赖。
+
+**何时使用？**当敏感提示词必须由本地部署模型而非云提供方提供服务，并且用户工作流必须保持不被中断时。
+
+## 概览
+
+| 属性 | 详情 |
+|----------|---------|
+| 描述 | 使用正则 / 关键字匹配检测敏感数据，并将请求重新路由到本地部署模型。一旦会话中出现敏感数据，该会话中的每一次后续轮次也会被路由到本地部署。 |
+| 护栏名称 | `sensitive_data_routing` |
+| 检测方法 | 预构建的正则模式、自定义正则、关键字匹配 |
+| 动作 | 重新路由到本地部署模型（从不阻止或脱敏） |
+| 支持的模式 | `pre_call` |
+| 性能 | 快速；本地运行，无外部 API 调用 |
+
+## 工作原理
+
+该护栏在模型选择之前运行。对每个请求，它使用你配置的模式和关键字扫描消息中的敏感数据。找到匹配时，它将目标模型重写为你的 `on_premise_model`，以便该请求由本地部署提供服务。提示词原样发送，因此不会阻止或脱敏任何内容，对话正常继续。
+
+启用 `sticky_session`（默认值）后，会话中首次出现敏感数据时，该会话会被固定到本地部署模型。之后该会话中的每一轮也会被路由到本地部署，即使是那些不包含敏感数据的轮次，所以曾经接触过敏感数据的对话绝不会离开本地部署模型。固定依赖客户端发送的稳定会话 id（参见[会话粘性](#session-stickiness)）。
+
+`on_premise_model` 只是你 `model_list` 中的一个模型组。将其指向你运行的任何本地部署（vLLM、Ollama、自托管的兼容 OpenAI 端点等）。
+
+## 快速入门
+
+### 第 1 步：在 config.yaml 中定义护栏和本地部署模型
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: cloud-model
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: on-prem-model
+    openmcp_params:
+      model: hosted_vllm/meta-llama/Llama-3.1-8B-Instruct
+      api_base: http://your-on-prem-host:8000/v1
+
+guardrails:
+  - guardrail_name: "sensitive-data-routing"
+    openmcp_params:
+      guardrail: sensitive_data_routing
+      mode: "pre_call"
+      default_on: true
+
+      # The model group (from model_list above) to route sensitive requests to
+      on_premise_model: "on-prem-model"
+
+      # Built-in detectors
+      prebuilt_patterns:
+        - us_ssn
+        - credit_card
+        - email
+      regex_patterns:
+        - "project\\s+titan"
+      keywords:
+        - confidential
+        - internal only
+
+      # Keep the whole session on-premise once sensitive data is seen
+      sticky_session: true
+      session_ttl_seconds: 14400
+```
+
+### 第 2 步：启动代理
+
+```bash
+openmcp --config config.yaml --detailed_debug
+```
+
+### 第 3 步：发送干净请求（由云模型提供服务）
+
+```bash showLineNumbers
+curl http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "cloud-model",
+    "messages": [{"role": "user", "content": "What is the capital of France?"}],
+    "metadata": {"session_id": "abc-123"}
+  }'
+```
+
+响应的 `model` 字段反映的是云模型。
+
+### 第 4 步：发送包含敏感数据的请求（重新路由到本地部署）
+
+```bash showLineNumbers
+curl http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "cloud-model",
+    "messages": [{"role": "user", "content": "My SSN is 123-45-6789, summarize my record"}],
+    "metadata": {"session_id": "abc-123"}
+  }'
+```
+
+该请求由 `on-prem-model` 提供服务。因为 `sticky_session` 已开启并且使用了相同的 `session_id`，`abc-123` 上的每一个后续请求也由本地部署提供服务，即使它不包含敏感数据。
+
+## 配置
+
+| 参数 | 类型 | 默认值 | 描述 |
+|-------|------|---------|-------------|
+| `on_premise_model` | string | 必填 | 用于路由敏感请求的模型组（来自 `model_list`） |
+| `prebuilt_patterns` | list[string] | 无 | 要匹配的内置模式名称（例如 `us_ssn`、`credit_card`、`email`）。与 [OpenMCP 内容过滤器](./openmcp_content_filter)使用相同的库 |
+| `regex_patterns` | list[string] | 无 | 自定义正则表达式；任何消息中的匹配都会重新路由请求 |
+| `keywords` | list[string] | 无 | 不区分大小写的关键字；任何消息中的匹配都会重新路由请求 |
+| `sticky_session` | bool | `true` | 首次检测到敏感数据后，将整个会话保持在本地部署 |
+| `session_ttl_seconds` | int | `14400` | 检测后会话保持固定到本地部署的时间 |
+
+`prebuilt_patterns`、`regex_patterns` 或 `keywords` 中至少需要一项。
+
+## 会话粘性
+
+粘性会在首次检测后将会话固定到本地部署模型。会话由请求上的 `openmcp_session_id`、`metadata.session_id` 或 `openmcp_metadata.session_id` 标识，因此客户端必须在各轮之间发送稳定 id，粘性才能生效。
+
+当代理配置了 Redis 缓存时，固定状态会在所有代理 worker 和实例之间共享，因此粘性对整个部署生效，而不仅仅是单个 worker。
+
+如果未发送会话 id，每一轮仍被独立评估，因此任何自身包含敏感数据的轮次都会被路由到本地部署；没有会话 id 的轮次不会跨对话被固定。

@@ -1,0 +1,254 @@
+---
+title: "透传端点上的护栏"
+description: "你可以通过 UI（推荐）或配置文件在透传端点上配置护栏。"
+---
+
+## 概览
+
+| 属性 | 详情 |
+|----------|---------|
+| 描述 | 在 OpenMCP 透传端点上启用护栏执行，支持选入激活以及从组织/团队/密钥级别的自动继承 |
+| 支持的护栏 | 所有 OpenMCP 护栏（Bedrock、Aporia、Lakera 等） |
+| 默认行为 | 除非显式启用，否则透传端点上的护栏处于**禁用**状态 |
+
+## 快速入门
+
+你可以通过 **UI**（推荐）或**配置文件**在透传端点上配置护栏。
+
+### 使用 UI
+
+#### 1. 导航到透传端点
+
+转到 **Models + Endpoints** → 点击 **+ Add Pass-Through Endpoint**
+
+<img src="/images/docs/guardrails/pt_guard1.png" alt="Add guardrails to pass-through endpoint" />
+
+滚动到 **Guardrails** 部分并选择要执行的护栏。
+
+<Callout type="info" title="默认行为">
+
+默认情况下，你无需指定字段 - OpenMCP 会对整个请求/响应负载进行 JSON dump 并将其发送给护栏。
+
+</Callout>
+
+#### 2. 指定目标字段（可选）
+
+<img src="/images/docs/guardrails/pt_guard2.png" alt="Configure field-level targeting" />
+
+要只检查特定字段而不是整个负载：
+
+1. 选择你的护栏
+2. 在 **Field Targeting (Optional)** 中，为每个护栏指定字段
+3. 使用快速添加按钮（`+ query`、`+ documents[*]`）或输入自定义 JSONPath 表达式
+4. **请求字段（pre_call）**：在发送到目标 API 之前要检查的字段
+5. **响应字段（post_call）**：目标 API 响应中要检查的字段
+
+**示例**：在上面的截图中，我们设置了 `query` 作为请求字段，因此只有 `query` 字段被发送给护栏，而不是整个请求。
+
+---
+
+### 使用配置文件
+
+#### 1. 定义护栏和透传端点
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "pii-guard"
+    openmcp_params:
+      guardrail: bedrock
+      mode: pre_call
+      guardrailIdentifier: "your-guardrail-id"
+      guardrailVersion: "1"
+
+general_settings:
+  pass_through_endpoints:
+    - path: "/v1/rerank"
+      target: "https://api.cohere.com/v1/rerank"
+      headers:
+        Authorization: "bearer os.environ/COHERE_API_KEY"
+      guardrails:
+        pii-guard:
+```
+
+#### 2. 启动代理
+
+```bash
+openmcp --config config.yaml
+```
+
+#### 3. 测试请求
+
+```bash
+curl -X POST "http://localhost:4000/v1/rerank" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "rerank-english-v3.0",
+    "query": "What is the capital of France?",
+    "documents": ["Paris is the capital of France."]
+  }'
+```
+
+---
+
+## 选入行为
+
+| 配置 | 行为 |
+|--------------|----------|
+| 未设置 `guardrails` | 不执行任何护栏（默认） |
+| 已设置 `guardrails` | 所有组织/团队/密钥 + 透传护栏都执行 |
+
+启用护栏后，系统会收集并执行：
+- 组织级护栏
+- 团队级护栏
+- 密钥级护栏
+- 透传专用护栏
+
+---
+
+## 工作原理
+
+下面的示意图展示了当客户端向 `/special/rerank` - 一个在 `config.yaml` 中配置了护栏的透传端点 - 发起请求时会发生什么。
+
+当透传端点上配置了护栏时：
+1. **调用前护栏**在转发到目标 API 之前对请求运行
+2. 如果指定了 `request_fields`（例如 `["query"]`），只有这些字段会被发送给护栏。否则，整个请求负载都会被评估。
+3. 只有在护栏通过后，请求才会被转发到目标 API
+4. **调用后护栏**对来自目标 API 的响应运行
+5. 如果指定了 `response_fields`（例如 `["results[*].text"]`），只有这些字段会被评估。否则，整个响应都会被检查。
+
+<Callout type="info">
+
+如果在你的透传端点配置中省略了 `guardrails` 块或其为空，请求将完全跳过护栏流程并直接发送到目标 API。
+
+</Callout>
+
+```mermaid
+sequenceDiagram
+    participant Client
+    box rgb(200, 220, 255) OpenMCP Proxy
+        participant PassThrough as Pass-through Endpoint
+        participant Guardrails
+    end
+    participant Target as Target API (Cohere, etc.)
+
+    Client->>PassThrough: POST /special/rerank
+    Note over PassThrough,Guardrails: Collect passthrough + org/team/key guardrails
+    PassThrough->>Guardrails: Run pre_call (request_fields or full payload)
+    Guardrails-->>PassThrough: ✓ Pass / ✗ Block
+    PassThrough->>Target: Forward request
+    Target-->>PassThrough: Response
+    PassThrough->>Guardrails: Run post_call (response_fields or full payload)
+    Guardrails-->>PassThrough: ✓ Pass / ✗ Block
+    PassThrough-->>Client: Return response (or error)
+```
+
+---
+
+## 字段级定位
+
+指定特定的 JSON 字段，而不是整个请求/响应负载。
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "pii-detection"
+    openmcp_params:
+      guardrail: bedrock
+      mode: pre_call
+      guardrailIdentifier: "pii-guard-id"
+      guardrailVersion: "1"
+
+  - guardrail_name: "content-moderation"
+    openmcp_params:
+      guardrail: bedrock
+      mode: post_call
+      guardrailIdentifier: "content-guard-id"
+      guardrailVersion: "1"
+
+general_settings:
+  pass_through_endpoints:
+    - path: "/v1/rerank"
+      target: "https://api.cohere.com/v1/rerank"
+      headers:
+        Authorization: "bearer os.environ/COHERE_API_KEY"
+      guardrails:
+        pii-detection:
+          request_fields: ["query", "documents[*].text"]
+        content-moderation:
+          response_fields: ["results[*].text"]
+```
+
+### 字段选项
+
+| 字段 | 描述 |
+|-------|-------------|
+| `request_fields` | 输入的 JSONPath 表达式（pre_call） |
+| `response_fields` | 输出的 JSONPath 表达式（post_call） |
+| 两者均未指定 | 护栏对整个负载运行 |
+
+### JSONPath 示例
+
+| 表达式 | 匹配项 |
+|------------|---------|
+| `query` | 名为 `query` 的单个字段 |
+| `documents[*].text` | `documents` 数组中的所有 `text` 字段 |
+| `messages[*].content` | `messages` 数组中的所有 `content` 字段 |
+
+---
+
+## 配置示例
+
+### 对整个负载使用单个护栏
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "pii-detection"
+    openmcp_params:
+      guardrail: bedrock
+      mode: pre_call
+      guardrailIdentifier: "your-id"
+      guardrailVersion: "1"
+
+general_settings:
+  pass_through_endpoints:
+    - path: "/v1/rerank"
+      target: "https://api.cohere.com/v1/rerank"
+      guardrails:
+        pii-detection:
+```
+
+### 多个护栏及混合设置
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "pii-detection"
+    openmcp_params:
+      guardrail: bedrock
+      mode: pre_call
+      guardrailIdentifier: "pii-id"
+      guardrailVersion: "1"
+
+  - guardrail_name: "content-moderation"
+    openmcp_params:
+      guardrail: bedrock
+      mode: post_call
+      guardrailIdentifier: "content-id"
+      guardrailVersion: "1"
+
+  - guardrail_name: "prompt-injection"
+    openmcp_params:
+      guardrail: lakera
+      mode: pre_call
+      api_key: os.environ/LAKERA_API_KEY
+
+general_settings:
+  pass_through_endpoints:
+    - path: "/v1/rerank"
+      target: "https://api.cohere.com/v1/rerank"
+      guardrails:
+        pii-detection:
+          request_fields: ["input", "query"]
+        content-moderation:
+        prompt-injection:
+          request_fields: ["messages[*].content"]
+```

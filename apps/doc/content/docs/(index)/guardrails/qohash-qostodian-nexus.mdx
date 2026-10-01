@@ -1,0 +1,244 @@
+---
+title: "Qostodian Nexus by Qohash"
+description: "Qohash 是零拷贝数据安全的先驱，是唯一为保护大型企业中数 PB 非结构化数据而设计的模式。企业运行着数十个……"
+---
+
+[Qohash](https://qohash.com/) 是零拷贝数据安全的先驱，是唯一为保护大型企业中数 PB 非结构化数据而设计的模式。企业运行着数十个 AI 模型、copilot 和自主智能体，它们都渴求数据。Qostodian Nexus 是治理每一次交互的单一控制层。它了解你的数据。它执行你的策略。它从提示词检查扩展到 LLM 输出数据治理，使用一个控制平面和一组一致的策略来审查所有 agentic、人类、SaaS 和 API 交互。Nexus 使用确定性分类策略和 LLM-as-a-judge 检查来扫描提示词和响应，返回明确的执行决策（ALLOW、LOG、REDACT 或 BLOCK）。
+
+<Callout type="info">
+
+Qostodian Nexus 并非公开发售产品。如需咨询访问权限，请访问 [qohash.com](https://qohash.com)。
+
+</Callout>
+
+## 快速开始
+
+### 1. 部署 Qostodian Nexus
+
+将 Qostodian Nexus 作为容器运行，并挂载你的策略配置：
+
+```bash
+docker run --rm \
+  -p 8800:8800 \
+  -v $(pwd)/nexus.yaml:/etc/nexus/config.yaml \
+  qohash/nexus:latest
+```
+
+验证其已就绪：
+
+```bash
+curl -i http://localhost:8800/health
+# Expected: HTTP/1.1 200 OK
+```
+
+<Callout type="info">
+
+还提供其他部署选项。详情请[联系 Qohash](https://qohash.com)。
+
+</Callout>
+
+### 2. 配置 OpenMCP Proxy（config.yaml）
+
+**调用前。** 在敏感数据到达模型之前拦截它：
+
+```yaml title="config.yaml (pre-call)"
+guardrails:
+  - guardrail_name: "qostodian-nexus-pre-call"
+    openmcp_params:
+      guardrail: qostodian_nexus
+      api_base: http://nexus:8800
+      mode: "pre_call"
+      default_on: true
+```
+
+**调用后。** 在模型输出到达调用方之前对其中的敏感数据进行脱敏或拦截：
+
+```yaml title="config.yaml (post-call)"
+guardrails:
+  - guardrail_name: "qostodian-nexus-post-call"
+    openmcp_params:
+      guardrail: qostodian_nexus
+      api_base: http://nexus:8800
+      mode: "post_call"
+      default_on: true
+```
+
+### 3. 启动 OpenMCP 网关
+
+```bash
+openmcp --config config.yaml
+```
+
+### 4. 测试请求
+
+<Tabs items={["BLOCK","REDACT","LOG","ALLOW"]}>
+<Tab>
+
+发送包含信用卡号的提示词（被 `BLOCK` 策略拦截）：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "MASTERCARD 5555555555554444 03/2027 123"}
+    ],
+    "guardrails": ["qostodian-nexus-pre-call"]
+  }'
+```
+
+预期：Qostodian Nexus 返回 `BLOCK` → OpenMCP 返回错误，不会向提供商发起请求。
+
+</Tab>
+<Tab>
+
+**调用前。** 敏感子串在提示词到达模型之前被掩码：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "My credit card is 5555555555554444, please summarize this."}
+    ],
+    "guardrails": ["qostodian-nexus-pre-call"]
+  }'
+```
+
+预期：Qostodian Nexus 返回 `REDACT` → OpenMCP 将掩码后的提示词转发给提供商。响应头包含 `x-qostodian-nexus-outcome-decision: REDACT`。
+
+**调用后。** 模型响应中的敏感内容在到达调用方之前被掩码：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Return my credit card number: 5555555555554444."}
+    ],
+    "guardrails": ["qostodian-nexus-post-call"]
+  }'
+```
+
+预期：Qostodian Nexus 返回 `REDACT` → OpenMCP 返回带有掩码输出的响应。
+
+</Tab>
+<Tab>
+
+发送包含低敏感度数据的提示词，触发 `LOG` 策略（请求继续）：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "My employee ID is 123456 (test) and my phone is 555-0100"}
+    ],
+    "guardrails": ["qostodian-nexus-pre-call", "qostodian-nexus-post-call"]
+  }'
+```
+
+预期：Qostodian Nexus 返回 `LOG` → OpenMCP 转发给提供商，响应正常返回并带有决策头。
+
+</Tab>
+<Tab>
+
+发送无害提示词（未检测到敏感数据）：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Summarize the main differences between TCP and UDP."}
+    ],
+    "guardrails": ["qostodian-nexus-pre-call", "qostodian-nexus-post-call"]
+  }'
+```
+
+预期：Qostodian Nexus 返回 `ALLOW` → OpenMCP 正常转发给提供商。
+
+</Tab>
+</Tabs>
+
+## 决策
+
+Qostodian Nexus 对每个请求返回一个决策：
+
+| 决策 | 请求是否继续？ | 描述 |
+|---|---|---|
+| `ALLOW` | 是 | 未检测到策略违规 |
+| `LOG` | 是 | 记录违规；请求继续并带有结果元数据 |
+| `REDACT` | 是（掩码） | 转发前在负载中替换敏感子串 |
+| `BLOCK` | 否 | 请求失败；不会调用提供商（对于调用前） |
+
+## 支持的参数
+
+| 参数 | 类型 | 描述 |
+|---|---|---|
+| `guardrail` | string | 必须为 `qostodian_nexus` |
+| `api_base` | string | 你的 Qostodian Nexus 实例的基础 URL（例如 `http://nexus:8800`） |
+| `mode` | string | `pre_call`（扫描提示词）或 `post_call`（扫描模型输出） |
+| `default_on` | boolean | 默认将此护栏应用于所有请求 |
+
+OpenMCP 调用 Qostodian Nexus 不需要 API 密钥。由于 Qostodian Nexus 设计为部署在你的基础设施内，你必须使用网络控制来保护它。
+
+## 请求标识符
+
+Qostodian Nexus 要求每个请求都带有关联标识符。这些标识符从不用于访问内容，它们只携带将检测归因到正确用户、会话和上下文的元数据。
+
+通过请求头传递它们：
+
+```bash
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_openmcp_key>" \
+  -H "x-qostodian-nexus-identifiers-trace: trace-id" \
+  -H "x-qostodian-nexus-identifiers-source: source-id" \
+  -H "x-qostodian-nexus-identifiers-container: container-id" \
+  -H "x-qostodian-nexus-identifiers-identity: identity@example.com" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "..."}
+    ],
+    "guardrails": ["qostodian-nexus-pre-call", "qostodian-nexus-post-call"]
+  }'
+```
+
+| 标识符 | 描述 |
+|---|---|
+| `trace` | 请求或会话的唯一 ID，用于跨事件关联 |
+| `source` | 发送请求的应用或集成（例如应用 ID、服务名称） |
+| `container` | 对话或线程上下文（例如对话 ID） |
+| `identity` | 最终用户身份（例如电子邮件或 UPN），用于用户级归因 |
+
+这些字段在所有部署模式中都是必需的。它们的效果取决于运行模式：
+
+### Qostodian 平台
+
+[Qostodian](https://qohash.com/qostodian/) 是 Qohash 数据安全态势管理（DSPM）平台。它监控你组织内的高风险非结构化数据，提供对敏感数据暴露、行为分析和治理工作流的可见性。当 Qostodian Nexus 以连接或高级模式运行时，标识符会转发给 Qostodian，以将 AI 检测与跨用户、会话和应用的更广泛数据安全活动关联起来。
+
+| 模式 | 效果 |
+|---|---|
+| Basic standalone | 标识符出现在结构化日志输出中以便追溯 |
+| Basic connected | 连接到 Qostodian 平台 — 标识符用于显示和归因 |
+| Advanced (platform) | 连接到 Qostodian 平台 — 标识符解锁完整的 DSPM 能力：活动关联、行为画像和治理工作流 |
+
+## 安全指南
+
+Qostodian Nexus 在所有部署模式下都采用**零拷贝、数据主权处理模型**：内容在内存中分析，从不持久化或传输给 Qohash。只报告元数据（检测结果、策略决策、标识符），提示词和响应内容始终留在你的基础设施内。
+
+- 在生产环境中，在 OpenMCP 和 Qostodian Nexus 之间**使用 TLS**
+- 使用 mTLS（首选）或持有者令牌**对调用进行认证**
+- **将 Qostodian Nexus 部署在客户控制的基础设施中**（本地或云租户），以确保数据留在你的安全边界内

@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "index",
+    "agent-card",
+    "bindings",
+    "data-model",
+    "json-rpc",
+    "operations",
+    "security",
+    "workflows"
+  ]
+}

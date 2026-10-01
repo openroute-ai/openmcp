@@ -1,0 +1,145 @@
+---
+title: 规范
+---
+
+
+<div id="enable-section-numbers" />
+
+[Model Context Protocol](https://modelcontextprotocol.io)（MCP）是一个开放协议，
+支持在 LLM 应用与外部数据源和工具之间实现无缝集成。无论你是在构建 AI 驱动的 IDE、增强聊天界面，还是
+创建自定义的 AI 工作流，MCP 都提供了一种标准化方式，将 LLM 与它们所需的
+上下文连接起来。
+
+本规范基于 [schema.ts](https://github.com/modelcontextprotocol/specification/blob/main/schema/2026-07-28/schema.ts)
+中的 TypeScript 模式（schema），定义了权威性的协议要求。
+
+有关实现指南和示例，请访问 [modelcontextprotocol.io](https://modelcontextprotocol.io)。
+
+本文件中的关键词 "MUST"、"MUST NOT"、"REQUIRED"、"SHALL"、"SHALL NOT"、"SHOULD"、"SHOULD
+NOT"、"RECOMMENDED"、"NOT RECOMMENDED"、"MAY" 和 "OPTIONAL" 应按照
+[BCP 14](https://datatracker.ietf.org/doc/html/bcp14)
+[[RFC2119](https://datatracker.ietf.org/doc/html/rfc2119)]
+[[RFC8174](https://datatracker.ietf.org/doc/html/rfc8174)] 中所述进行解释，当且仅当
+它们以全大写形式出现（如下所示）时。
+
+## 概述
+
+MCP 为应用提供了一种标准化方式，以：
+
+- 与语言模型共享上下文信息
+- 向 AI 系统暴露工具和能力
+- 构建可组合的集成和工作流
+
+协议使用 [JSON-RPC](https://www.jsonrpc.org/) 2.0 消息在以下各方之间建立
+通信：
+
+- **宿主（Hosts）**：发起连接的 LLM 应用
+- **客户端（Clients）**：宿主应用内的连接器
+- **服务端（Servers）**：提供上下文和能力的服务
+
+MCP 借鉴了一些
+[Language Server Protocol](https://microsoft.github.io/language-server-protocol/) 的思路，后者
+标准化了如何在一个庞大的开发工具生态中为编程语言添加支持。与之类似，MCP 标准化了如何将额外的上下文
+和工具集成到 AI 应用生态中。
+
+## 关键细节
+
+### 基础协议
+
+- [JSON-RPC](https://www.jsonrpc.org/) 消息格式
+- 无状态、自包含的请求
+- 按请求进行能力协商
+
+### 特性
+
+服务端可以向客户端提供以下任意特性：
+
+- **资源（Resources）**：供用户或 AI 模型使用的上下文和数据
+- **提示词（Prompts）**：面向用户的模板化消息和工作流
+- **工具（Tools）**：供 AI 模型执行的函数
+
+客户端可以向服务端提供以下特性：
+
+- **征询（Elicitation）**：由服务端发起的、向用户追加索取信息的请求
+
+### 附加实用工具
+
+- 配置
+- 进度跟踪
+- 取消
+- 错误报告
+
+### 扩展
+
+除了核心协议之外，MCP 还定义了可选的[扩展](/docs/mcp/extensions/overview)，
+用于增加模块化、专业化或实验性的功能。扩展
+始终是可选的，且需要客户端与服务端双方显式支持，并在
+初始化期间协商。值得注意的扩展包括：
+
+- **[任务（Tasks）](/docs/mcp/extensions/tasks/overview)**：长时运行操作的异步执行，
+  支持轮询、运行中途输入和持久化的句柄
+- **[MCP Skills（技能）](#)**：面向智能体工作流的丰富、结构化
+  指令，通过 MCP 发现和消费
+- **[MCP Apps（应用）](/docs/mcp/extensions/apps/overview)**：在对话内联渲染的交互式
+  UI 元素（图表、表单、视频播放器）
+
+## 安全与信任及安全
+
+Model Context Protocol 通过任意的数据访问
+和代码执行路径开启强大的能力。与此能力相伴的是重要的安全与信任
+考量，所有实现者都必须认真对待。
+
+### 关键原则
+
+1. **用户同意与控制**
+   - 用户必须明确同意并理解所有的数据访问和操作
+   - 用户必须对共享哪些数据以及采取哪些操作保留控制权
+   - 实现者应提供清晰的 UI，用于审查和授权各项活动
+
+2. **数据隐私**
+   - 宿主（Hosts）在将用户数据暴露给服务端前，必须获得用户的明确同意
+   - 宿主不得在未经用户同意的情况下将资源数据传输到其他地方
+   - 用户数据应通过适当的访问控制加以保护
+
+3. **工具安全**
+   - 工具代表任意的代码执行，必须予以适当
+     的谨慎对待。
+     - 特别是，诸如注解这类对工具行为的描述应
+       被视为不可信，除非它们来自受信任的服务端。
+   - 宿主在调用任何工具前，必须获得用户的明确同意
+   - 用户应在授权使用某个工具之前，理解该工具的用途
+
+### 实施指南
+
+虽然 MCP 本身无法在协议层面强制执行这些安全原则，
+但实现者**应当**：
+
+1. 在其应用中构建稳健的同意与授权流程
+2. 提供关于安全影响的清晰文档
+3. 实施适当的访问控制和数据保护
+4. 在其集成中遵循安全最佳实践
+5. 在特性设计时考虑隐私影响
+
+## 了解更多
+
+探索每个协议组件的详细规范：
+
+<Cards>
+  <Card
+    title="架构（Architecture）"
+    href="/docs/mcp/specification/2026-07-28/architecture"
+  />
+  <Card
+    title="基础协议"
+    href="/docs/mcp/specification/2026-07-28/basic"
+  />
+  <Card
+    title="服务端特性"
+    href="/docs/mcp/specification/2026-07-28/server"
+  />
+  <Card
+    title="客户端特性"
+    href="/docs/mcp/specification/2026-07-28/client"
+  />
+  <Card title="参与贡献（Contributing）" href="#" />
+</Cards>

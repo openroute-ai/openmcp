@@ -1,0 +1,187 @@
+---
+title: '6. 与服务端交互'
+---
+
+Helloworld A2A 服务端已启动，让我们向它发送一些请求。
+
+## Helloworld 测试客户端
+
+`test_client.py` 脚本演示了如何：
+
+1. 从服务端获取智能体名片。
+2. 使用 `create_client` 创建客户端。
+3. 发送 `Send Message` 和 `Send Streaming Message` 请求。
+
+打开一个**新的终端窗口**，激活你的虚拟环境，并导航到 `a2a-samples` 目录。
+
+激活虚拟环境（请确保在你创建虚拟环境的同一目录下执行）：
+
+<Tabs items={['macOS/Linux', 'Windows']}>
+  <Tab>
+
+```sh
+source .venv/bin/activate
+```
+
+  </Tab>
+  <Tab>
+
+```powershell
+.venv\Scripts\activate
+```
+
+  </Tab>
+</Tabs>
+
+运行测试客户端：
+
+```bash
+# from the a2a-samples directory
+python samples/python/agents/helloworld/test_client.py
+```
+
+## 理解客户端代码
+
+让我们看看 `test_client.py` 的关键部分：
+
+1. **获取智能体名片**：
+
+    ```python
+    参考：`test_client.py:A2ACardResolver` — 完整源码见 [test_client.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/test_client.py)
+    ```
+
+    `A2ACardResolver` 类是一个便捷工具。当调用 `get_agent_card()` 时，它会从服务端的 `/.well-known/agent-card.json` 端点（基于提供的 base URL）获取 `AgentCard`，然后用于初始化客户端。
+
+2. **初始化客户端并发送非流式消息**：
+
+    ```python
+    参考：`test_client.py:message_send` — 完整源码见 [test_client.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/test_client.py)
+    ```
+
+    - `create_client` 函数根据 `AgentCard` 提供的信息和 `ClientConfig` 创建一个 `Client`。
+    - 我们使用 `new_text_message` 辅助函数构造一个 `Message`（传入 `role=Role.ROLE_USER`），然后将其包装在 `SendMessageRequest` 中。
+    - 客户端的 `send_message` 方法返回一个异步迭代器，逐个产出来自智能体的最终 `Task` 或 `Message` 响应。在本示例中，返回的是一个 `Task`。
+
+3. **初始化客户端并发送流式消息**：
+
+    ```python
+    参考：`test_client.py:message_stream` — 完整源码见 [test_client.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/test_client.py)
+    ```
+
+    - 通过 `create_client` 创建一个单独的流式客户端，在其 `ClientConfig` 中设置 `streaming=True`。
+    - 我们再次调用 `send_message`，此时它会流式传输事件：循环的每次迭代都会打印出通过网络到达的一个数据块。
+    - 循环结束后调用 `await streaming_client.close()` 以释放底层的 HTTP 连接。
+
+## 预期输出
+
+运行 `test_client.py` 时，你将看到以下内容的输出：
+
+- 公开的智能体名片，以格式化摘要显示。
+- 非流式响应：一个以 protobuf 文本格式显示的 `task`，包含已完成状态、包含 "Hello, World!" 的生成工件，以及历史记录中智能体的中间状态消息。
+- 流式响应：四个数据块——初始 `task`、WORKING 状态的 `status_update`、包含结果的 `artifact_update`，以及 COMPLETED 状态的最终 `status_update`。
+- 扩展版智能体名片，以格式化摘要显示（附带额外的 `super_hello_world` 技能）。
+
+输出中的 `id` 字段每次运行都会不同。
+
+```console
+                     AgentCard
+--- General ---
+Name        : Hello World Agent
+Description : Just a hello world agent
+Version     : 0.0.1
+
+--- Interfaces ---
+  [0] http://127.0.0.1:9999  (JSONRPC)
+
+--- Capabilities ---
+Streaming           : True
+Push notifications  : False
+Extended agent card : True
+
+--- I/O Modes ---
+Input  : text/plain
+Output : text/plain
+
+--- Skills ---
+----------------------------------------------------
+  ID          : hello_world
+  Name        : Returns hello world
+  Description : just returns hello world
+  Tags        : hello world
+  Example     : hi
+  Example     : hello world
+
+--- Non-Streaming Call ---
+
+Non-streaming Client initialized.
+Response:
+// Non-streaming response
+task
+  artifacts
+  }
+  history
+  }
+  history
+  }
+}
+
+// Streaming response
+task
+  history
+  }
+}
+
+Response chunk:
+status_update
+    }
+  }
+}
+
+Response chunk:
+artifact_update
+  }
+}
+
+Response chunk:
+status_update
+}
+                     AgentCard
+--- General ---
+Name        : Hello World Agent - Extended Edition
+Description : The full-featured hello world agent for authenticated users.
+Version     : 0.0.2
+
+--- Interfaces ---
+  [0] http://127.0.0.1:9999  (JSONRPC)
+
+--- Capabilities ---
+Streaming           : True
+Push notifications  : False
+Extended agent card : True
+
+--- I/O Modes ---
+Input  : text/plain
+Output : text/plain
+
+--- Skills ---
+----------------------------------------------------
+  ID          : hello_world
+  Name        : Returns hello world
+  Description : just returns hello world
+  Tags        : hello world
+  Example     : hi
+  Example     : hello world
+----------------------------------------------------
+  ID          : super_hello_world
+  Name        : Returns a SUPER Hello World
+  Description : A more enthusiastic greeting, only for authenticated users.
+  Tags        : hello world, super, extended
+  Example     : super hi
+  Example     : give me a super hello
+```
+
+_（实际的 ID 如 `xxxxxxxx`、`yyyyyyyy`、`zzzzzzzz`、`wwwwwwww` 和 `vvvvvvvv` 在每次运行时都会是不同的 UUID。）_
+
+这确认了你的服务端正在使用更新后的 SDK 结构正确处理基本的 A2A 交互。
+
+现在你可以通过在运行 `__main__.py` 的终端窗口中按 Ctrl+C 来关闭服务端。

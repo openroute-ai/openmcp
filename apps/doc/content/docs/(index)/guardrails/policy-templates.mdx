@@ -1,0 +1,299 @@
+---
+title: "策略模板"
+description: "策略模板提供了预配置的护栏策略，你可以将其用作组织的起点。无需手动创建策略..."
+---
+
+策略模板提供了预配置的护栏策略，你可以将其用作组织的起点。无需手动创建策略和护栏，你可以选择一个与你的用例匹配的模板并一键部署。
+
+## 使用策略模板
+
+### 在 UI 中
+
+1. 在 OpenMCP Admin UI 中导航到 **Policies → Templates** 标签页
+2. 浏览可用的模板（例如 "PII Protection"、"Cost Control"、"HR Compliance"）
+3. 在任何模板上点击 **"Use Template"**
+4. 查看将要创建的护栏：
+   - 已存在的护栏会用绿色对勾标记
+   - 新的护栏可以选择/取消选择
+5. 点击 **"Create X Guardrails & Use Template"**
+6. 查看并自定义预填好的策略表单
+7. 点击 **"Create Policy"** 保存
+
+### 工作流
+
+```
+Select Template → Review Guardrails → Create Selected → Edit Policy → Save
+```
+
+系统会自动：
+- ✅ 检测哪些护栏已存在
+- ✅ 只创建你选择的缺失护栏
+- ✅ 用模板数据预填策略表单
+- ✅ 让你在保存前自定义
+
+## 可用模板
+
+模板从 [GitHub](https://raw.githubusercontent.com/BerriAI/openmcp/main/policy_templates.json) 获取，失败时自动回退到本地备份。
+
+### 当前模板
+
+#### 1. 高级 PII 保护（澳大利亚）
+- **复杂度：**高
+- **使用场景：**面向澳大利亚组织的完整 PII 检测
+- **护栏：**
+  - 澳大利亚税务标识（TFN、ABN、Medicare）
+  - 澳大利亚护照
+  - 国际 PII（SSN、护照、国民身份证）
+  - 联系信息（邮箱、电话、地址）
+  - 财务数据（信用卡、IBAN）
+  - API 凭证（AWS、GitHub、Slack） - **阻止**请求
+  - 网络基础设施（IP 地址）
+  - 受保护类别信息（性别、种族、宗教、残障等）
+
+#### 2. 基线 PII 保护
+- **复杂度：**低
+- **使用场景：**面向内部工具和测试的基本保护
+- **护栏：**
+  - 澳大利亚税务标识
+  - API 凭证
+  - 财务数据
+
+## 创建你自己的策略模板
+
+你可以为整个 OpenMCP 社区贡献可供使用的策略模板。
+
+### 模板结构
+
+模板以 JSON 格式定义，结构如下：
+
+```json
+{
+  "id": "unique-template-id",
+  "title": "Display Title",
+  "description": "Detailed description of what this template protects",
+  "icon": "ShieldCheckIcon",
+  "iconColor": "text-purple-500",
+  "iconBg": "bg-purple-50",
+  "guardrails": [
+    "guardrail-name-1",
+    "guardrail-name-2"
+  ],
+  "complexity": "Low|Medium|High",
+  "guardrailDefinitions": [
+    {
+      "guardrail_name": "example-guardrail",
+      "openmcp_params": {
+        "guardrail": "openmcp_content_filter",
+        "mode": "pre_call",
+        "patterns": [
+          {
+            "pattern_type": "prebuilt",
+            "pattern_name": "email",
+            "action": "MASK"
+          }
+        ],
+        "pattern_redaction_format": "[{pattern_name}_REDACTED]"
+      },
+      "guardrail_info": {
+        "description": "What this guardrail does"
+      }
+    }
+  ],
+  "templateData": {
+    "policy_name": "policy-name",
+    "description": "Policy description",
+    "guardrails_add": ["guardrail-name-1", "guardrail-name-2"],
+    "guardrails_remove": []
+  }
+}
+```
+
+### 字段说明
+
+#### 显示字段
+- **id**：唯一标识符（小写并使用连字符）
+- **title**：在 UI 中显示的用户可见名称
+- **description**：对模板保护内容的详细说明
+- **icon**：图标名称（必须在 UI 图标映射中可用）
+- **iconColor**：Tailwind CSS 文本颜色类
+- **iconBg**：Tailwind CSS 背景颜色类
+- **guardrails**：护栏名称数组（仅用于显示）
+- **complexity**：显示难度的徽章（"Low"、"Medium" 或 "High"）
+
+#### 护栏定义
+- **guardrailDefinitions**：完整护栏配置数组
+  - 每个必须是可发送到 `/guardrails` POST 端点的有效护栏对象
+  - 如果护栏已存在，将跳过它
+  - 如果模板只使用现有的护栏，可以为空 `[]`
+
+#### 策略配置
+- **templateData**：预填策略表单的对象
+  - **policy_name**：建议的名称（用户可编辑）
+  - **description**：策略描述
+  - **guardrails_add**：要包含的护栏名称数组
+  - **guardrails_remove**：要移除的数组（模板通常为 `[]`）
+  - **inherit**：（可选）用于继承的父策略名称
+
+### 示例模板
+
+以下是 HIPAA 合规模板的完整示例：
+
+```json
+{
+  "id": "hipaa-compliance",
+  "title": "HIPAA Compliance Policy",
+  "description": "Healthcare compliance policy that masks PHI and enforces HIPAA regulations for healthcare applications.",
+  "icon": "ShieldCheckIcon",
+  "iconColor": "text-red-500",
+  "iconBg": "bg-red-50",
+  "guardrails": [
+    "phi-detector",
+    "medical-record-blocker",
+    "patient-id-masker"
+  ],
+  "complexity": "High",
+  "guardrailDefinitions": [
+    {
+      "guardrail_name": "phi-detector",
+      "openmcp_params": {
+        "guardrail": "openmcp_content_filter",
+        "mode": "pre_call",
+        "patterns": [
+          {
+            "pattern_type": "prebuilt",
+            "pattern_name": "us_ssn",
+            "action": "MASK"
+          },
+          {
+            "pattern_type": "prebuilt",
+            "pattern_name": "email",
+            "action": "MASK"
+          },
+          {
+            "pattern_type": "prebuilt",
+            "pattern_name": "us_phone",
+            "action": "MASK"
+          }
+        ],
+        "pattern_redaction_format": "[PHI_REDACTED]"
+      },
+      "guardrail_info": {
+        "description": "Detects and masks Protected Health Information (PHI)"
+      }
+    }
+  ],
+  "templateData": {
+    "policy_name": "hipaa-compliance-policy",
+    "description": "HIPAA compliance policy for healthcare applications",
+    "guardrails_add": [
+      "phi-detector",
+      "medical-record-blocker",
+      "patient-id-masker"
+    ],
+    "guardrails_remove": []
+  }
+}
+```
+
+## 贡献模板
+
+要贡献一个供所有人使用的策略模板：
+
+### 第 1 步：创建你的模板 JSON
+
+1. 按照上面的结构创建一个 JSON 文件
+2. 通过将模板添加到本地的 `policy_templates.json` 来本地测试它
+3. 验证所有护栏都能正常工作
+4. 确保描述清晰且有用
+
+### 第 2 步：提交 Pull Request
+
+1. Fork [OpenMCP 仓库](https://github.com/BerriAI/openmcp)
+2. 将你的模板添加到根目录的 `policy_templates.json`
+3. 将你的模板添加到 `openmcp/policy_templates_backup.json`（保持两者同步）
+4. 创建 pull request 并包含：
+   - 对模板保护内容的清晰描述
+   - 用例示例
+   - 任何相关的合规框架（HIPAA、GDPR、SOC 2 等）
+
+### 准则
+
+**要这样做：**
+- ✅ 使用清晰、描述性的名称
+- ✅ 包含详细的描述
+- ✅ 彻底测试所有护栏
+- ✅ 记录模式来源（例如 "Based on NIST guidelines"）
+- ✅ 将相关的护栏按逻辑分组
+- ✅ 考虑不同的复杂度级别
+
+**不要这样做：**
+- ❌ 包含凭证或密钥
+- ❌ 使用可能产生误报的过于宽泛的模式
+- ❌ 复制现有模板
+- ❌ 未经彻底测试使用自定义代码
+
+## 离线使用模板
+
+对于气隙或离线部署，设置环境变量：
+
+```bash
+export OPENMCP_LOCAL_POLICY_TEMPLATES=true
+```
+
+这会强制系统使用本地备份（`openmcp/policy_templates_backup.json`），而不是从 GitHub 获取。
+
+## 模板来源
+
+- **GitHub（默认）：** https://raw.githubusercontent.com/BerriAI/openmcp/main/policy_templates.json
+- **本地备份：** `openmcp/policy_templates_backup.json`
+
+模板会在每次请求时自动从 GitHub 获取，任何失败时回退到本地备份。
+
+## 可用的模式类型
+
+在为模板创建护栏时，你可以使用这些预构建的模式：
+
+### 身份证明文件
+- `passport_australia`、`passport_us`、`passport_uk`、`passport_germany` 等
+- `us_ssn`、`us_ssn_no_dash`
+- `au_tfn`、`au_abn`、`au_medicare`
+- `nl_bsn_contextual`
+- `br_cpf`、`br_rg`、`br_cnpj`
+
+### 财务
+- `visa`、`mastercard`、`amex`、`discover`、`credit_card`
+- `iban`
+
+### 联系信息
+- `email`
+- `us_phone`、`br_phone_landline`、`br_phone_mobile`
+- `street_address`
+- `br_cep`（巴西邮政编码）
+
+### 凭证
+- `aws_access_key`、`aws_secret_key`
+- `github_token`
+- `slack_token`
+- `generic_api_key`
+
+### 网络
+- `ipv4`、`ipv6`
+
+### 受保护类别
+- `gender_sexual_orientation`
+- `race_ethnicity_national_origin`
+- `religion`
+- `age_discrimination`
+- `disability`
+- `marital_family_status`
+- `military_status`
+- `public_assistance`
+
+查看[完整模式列表](https://github.com/BerriAI/openmcp/blob/main/openmcp/proxy/guardrails/guardrail_hooks/openmcp_content_filter/patterns.json)了解所有可用模式。
+
+## 相关文档
+
+- [护栏策略](./guardrail_policies)
+- [策略标签](./policy_tags)
+- [内容过滤器模式](/docs/proxy/guardrails/openmcp_content_filter)
+- [自定义代码护栏](/docs/proxy/guardrails/custom_code_guardrail)

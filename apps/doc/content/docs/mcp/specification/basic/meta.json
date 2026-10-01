@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "index",
+    "versioning",
+    "authorization",
+    "patterns",
+    "transports"
+  ]
+}

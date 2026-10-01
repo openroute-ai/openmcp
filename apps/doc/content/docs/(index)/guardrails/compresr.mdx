@@ -1,0 +1,315 @@
+---
+title: "上下文压缩（Compresr）"
+description: "Compresr 会根据所提出的问题压缩 LLM 上下文。它保留对回答有用的令牌并丢弃其余部分。作为 OpenMCP 护栏，它..."
+---
+
+[Compresr](https://compresr.ai) 会根据所提出的问题压缩 LLM 上下文。它保留对回答至关重要的令牌并丢弃其余部分。作为 OpenMCP 护栏，它会在工具输出、检索到的文档、数据库结果和 RAG 负载到达模型之前对其进行压缩，因此你可以用更少的输入令牌获得相同的答案。
+
+这可用于 `/v1/chat/completions`、`/v1/messages`（Anthropic 格式）和 `/v1/responses`。
+
+## 演示
+
+<iframe width="840" height="500" src="https://www.youtube.com/embed/4Ktiwv3ka40" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+## 工作原理
+
+该护栏在 `pre_call` 阶段于进程内运行，并调用 Compresr 的托管 API（`https://api.compresr.ai`），因此无需额外部署服务。只有代理与 Compresr 通信，而且只发送被选中用于压缩的消息文本；客户端和上游 LLM 提供商都不会连接到它。只有请求输入会被重写；响应则原样通过。
+
+压缩按消息进行，并且是感知查询（query-aware）的：
+
+1. **选择目标。** 默认情况下，只压缩至少 500 个字符的 `tool`/`function` 输出。系统消息、之前的历史记录和最后一条用户消息会原样通过，除非显式开启（`compress_system`、`compress_history`、`compress_last_user`）。
+2. **为每个目标推导查询。** 工具输出会针对产生它的工具调用的意图进行压缩：OpenMCP 通过 `tool_call_id` 找到 assistant 调用，并将其渲染为例如 `web_search: {"query": "2026 EV range"}`。其他所有目标都会针对最后一条用户消息进行压缩。没有查询的目标会保持未压缩。
+3. **压缩。** 目标会发送到 `{api_base}/api/compress/question-specific/`（有多个目标时为 `.../batch`），通过 `X-API-Key` 进行认证。
+4. **重写。** 返回的 `compressed_context` 会就地替换每个目标的文本。未被选中的消息保持逐字节不变，图像等多模态部分会被保留，如果结果与原文相同或为空，则请求原样转发。
+
+压缩默认在 `latte_v2` 上运行，这是 Compresr 最快的查询特定模型。它是抽取式的：删除与查询无关的片段，并逐字保留其余所有内容。
+
+### 动态压缩
+
+`dynamic: true` 是默认值：服务会衡量每个负载的可压缩程度，并在 `dynamic_min_ratio`（服务端默认 1.5x）和 `dynamic_max_ratio`（服务端默认 10.0x）之间为它选择一个压缩比例，同时忽略 `target_compression_ratio`。密集内容会被轻度压缩，稀疏内容会被加强压缩。
+
+如果想固定一个比例，可以设置 `dynamic: false` 和一个 `target_compression_ratio`：0 到 1 之间的值会移除相应比例的令牌（0.5 大约移除一半），大于 1 的值相当于 N 倍压缩因子（4 大约保留四分之一）。可以使用 spend 日志中的 `tokens_saved` 统计来判断你的工作负载可接受的压缩程度。
+
+## 前提条件
+
+你只需要一个包含 `compresr` 护栏的 OpenMCP 构建，以及来自 [compresr.ai](https://compresr.ai) 的 API 密钥。对于本地（on-premises）部署，请联系 [founders@compresr.ai](mailto:founders@compresr.ai)。
+
+## 快速开始
+
+### 1. 在你的 config 中定义护栏
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{anthropic}}
+    openmcp_params:
+      model: anthropic/{{anthropic}}
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+guardrails:
+  - guardrail_name: compresr-compression
+    openmcp_params:
+      guardrail: compresr
+      mode: pre_call
+      api_key: os.environ/COMPRESR_API_KEY
+#     api_base: https://api.compresr.ai  [OPTIONAL, change only for on-prem]
+#     model: latte_v2                    [OPTIONAL, this is the default]
+#     unreachable_fallback: fail_open    [OPTIONAL, defaults to fail_closed]
+#     default_on: true                   [OPTIONAL]
+```
+
+使用 `mode: pre_call`，因为该护栏只转换请求输入。`api_key` 是必填项，可以来自 config 或 `COMPRESR_API_KEY` 环境变量。设置 `default_on: true` 可压缩每个请求，或者保持关闭（推荐），让压缩按密钥或按请求选择性启用。
+
+其余所有内容都通过 `optional_params` 配置。完整列表见[配置参考](#configuration-reference)：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: compresr-compression
+    openmcp_params:
+      guardrail: compresr
+      mode: pre_call
+      api_key: os.environ/COMPRESR_API_KEY
+      optional_params:
+        compress_tool_outputs: true   # default; tool/function results
+        compress_system: false        # default; opt in to compress system prompts
+        min_chars_to_compress: 500    # default; shorter messages skipped
+        dynamic: true                 # default; service picks ratio per payload
+```
+
+也可以从 Admin UI 的 Guardrails 下创建该护栏，字段相同；上面的[演示视频](#demo)介绍了这一流程。
+
+### 2. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml
+```
+
+### 3. 发送请求
+
+<Tabs items={["OpenAI format","Anthropic format"]}>
+<Tab>
+
+```shell
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{anthropic}}",
+    "messages": [
+      {"role": "user", "content": "Which filing discusses Q3 revenue?"},
+      {"role": "assistant", "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "search_filings", "arguments": "{\"query\": \"Q3 revenue\"}"}}]},
+      {"role": "tool", "tool_call_id": "call_1", "content": "<...tens of thousands of tokens of filing text...>"}
+    ],
+    "guardrails": ["compresr-compression"]
+  }'
+```
+
+</Tab>
+<Tab>
+
+```shell
+curl -i http://0.0.0.0:4000/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "{{anthropic}}",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Which filing discusses Q3 revenue?"}
+    ],
+    "openmcp_metadata": {"guardrails": ["compresr-compression"]}
+  }'
+```
+
+</Tab>
+</Tabs>
+
+工具输出会在负载转发到上游之前，根据 `search_filings: {"query": "Q3 revenue"}` 进行压缩；其他所有内容保持不变。
+
+## 按密钥启用压缩
+
+当未设置 `default_on` 时，只在选择加入的请求上运行压缩。典型做法是将护栏挂到虚拟密钥上，这样任何使用该密钥的人都能获得压缩功能，而无需修改任何客户端。
+
+```shell
+curl -X POST 'http://0.0.0.0:4000/key/generate' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "guardrails": ["compresr-compression"]
+      }'
+```
+
+使用返回的密钥发出的每个请求都会经过 `compresr-compression`；对于已有密钥，请使用带相同 `guardrails` 字段的 `/key/update`。使用虚拟密钥进行认证还会启用[检索](#retrieving-compressed-content-compresr_retrieve)，因为原始内容会按密钥存储。没有虚拟密钥发出的请求仍会被压缩，但无法检索。
+
+## 按请求启用压缩
+
+客户端可以在不涉及管理员的情况下，在单个调用中选择加入。
+
+<Tabs items={["OpenAI format","Anthropic format"]}>
+<Tab>
+
+在请求体中传入 `guardrails` 数组：
+
+```shell
+curl -i http://0.0.0.0:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-..." \
+  -d '{
+    "model": "{{anthropic}}",
+    "messages": [...],
+    "guardrails": ["compresr-compression"]
+  }'
+```
+
+</Tab>
+<Tab>
+
+`/v1/messages` 没有顶层的 `guardrails` 字段，因此请通过 `openmcp_metadata` 选择加入：
+
+```shell
+curl -i http://0.0.0.0:4000/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-..." \
+  -d '{
+    "model": "{{anthropic}}",
+    "max_tokens": 1024,
+    "messages": [...],
+    "openmcp_metadata": {"guardrails": ["compresr-compression"]}
+  }'
+```
+
+</Tab>
+</Tabs>
+
+响应中会包含 `x-openmcp-applied-guardrails: compresr-compression` 请求头，以便调用方确认压缩确实已运行。
+
+## 自动路由之后的压缩
+
+自动路由器处理的请求会发起两次调用，一次用于对请求进行分类，一次用于调用路由器路由到的模型。默认情况下，两者看到的都是相同的压缩文本。从 v1.101.0 开始，路由器可以通过 `auto_router_routing_compression` 和 `auto_router_model_compression` 为每一跳指定一个压缩护栏，也可以为任一跳指定 `none`。设置其中任一字段后，路由器将负责其自身请求的压缩，并抑制本页面在密钥、团队或请求级别为其挂载的护栏。请参阅 Compression。
+
+## 向团队推广
+
+平台管理员可以在无需任何客户端改动的情况下，为整个团队开启压缩。最适合的是以非代码工具输出为主的智能体和 RAG 工作负载，例如搜索结果、检索到的文档、工单线程、CRM 记录和转录文本。
+
+**管理员：在 `config.yaml` 中注册 Compresr。** 按照快速开始中的方式定义 `compresr-compression`。保持 `default_on` 关闭，这样只有选择加入的密钥才能获得压缩。
+
+**管理员：签发带 Compresr 的开发者密钥。**
+
+```shell
+curl -X POST 'http://0.0.0.0:4000/key/generate' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "key_alias": "support-agent-alice",
+        "guardrails": ["compresr-compression"],
+        "models": ["{{anthropic}}"],
+        "metadata": {"team": "compression-rollout"}
+      }'
+```
+
+**开发者：让客户端指向代理。** 任何兼容 OpenAI 或 Anthropic 的客户端都可以使用，因为只需要更改 base URL 和密钥。
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-openmcp-proxy.example.com/v1",
+    api_key="sk-the-key-the-admin-issued",
+)
+```
+
+从这里开始，使用该密钥发出的每个请求都会在分发前对其工具结果进行压缩。要在单个请求上跳过压缩（例如为了对比未压缩的基线），可以在 `optional_params` 中设置 `allow_bypass_header: true`，并在该调用上发送 `x-compresr-bypass: true`；除非管理员启用了它，否则该请求头会被忽略，因为任何调用方都可以设置请求头。
+
+## 检索压缩后的内容（`compresr_retrieve`）
+
+每条被压缩消息的原始文本在请求期间仍然可用。启用 `enable_retrieval`（默认开启）后，每次压缩都会：
+
+1. 将原始文本存储在内存中，以 SHA-256 的前 24 个十六进制字符作为键。
+2. 在压缩文本末尾追加一个标记：`[compresr hash=<hash>: parts of this content were compressed away. If you need the full original, call the compresr_retrieve tool with this hash.]`
+3. 在请求现有工具旁边注入一个带有一个必填 `hash` 参数的 `compresr_retrieve` 函数工具。
+
+当模型调用 `compresr_retrieve` 时，OpenMCP 会拦截该调用、恢复原始内容、追加一次配对正确的工具往返，然后重新发出请求，因此客户端只会看到一次正常的补全。这在所有三种接口上都保持格式正确：Anthropic 的 `tool_use`/`tool_result` 块、Responses API 的 `function_call`/`function_call_output` 条目，以及 chat completions 的 `role: tool` 消息。如果模型在同一轮中混用了 `compresr_retrieve` 和真实的工具调用，只有检索调用会在服务端解析；模型会在后续请求中重新规划其真实调用，因此工具调用和结果始终保持配对。
+
+检索循环是受限的：
+
+- **租户隔离。** 原始上下文存储在使用该虚拟密钥发出的请求之下，因此一个哈希只能为其签发的密钥解析；其他密钥什么都得不到。没有虚拟密钥的请求没有用于界定存储范围的标识，因此它们的检索会被禁用，并会在每个进程中记录一次警告。
+- **放大限制。** 单轮最多解析 8 个哈希，且每个哈希只解析一次。伪造的哈希解析不到任何内容，也不会触发后续请求。
+- **内存。** 原始上下文会在内存中保留 15 分钟。单次调用最多可存储 10 MiB（`max_bytes_per_call`），整个进程最多保存 256 次调用和 256 MiB，并优先淘汰最早的内容。过大而无法存储的上下文永远不会得到标记。已过期或被淘汰的上下文解析时会直接失败。
+
+存储位于 worker 进程中，因此在多 worker 部署中，后续请求可能落在与执行压缩不同的 worker 上。请使用 `--workers 1` 运行，或设置 `enable_retrieval: false`。
+
+## 为什么 tokens_saved 可能为 0
+
+- 默认情况下只压缩 `tool`/`function` 消息。如果一个请求没有至少 `min_chars_to_compress` 个字符的工具输出，则原样通过，且不会记录护栏统计信息。
+- 无法推导出查询的目标会保持未压缩。
+- 压缩后的文本与输入相同则为空操作（no-op）。
+- 在 Responses API 上，只有当映射无歧义时才会回显压缩后的内容；存在歧义的情况会被原样保留，而不是冒着损坏负载的风险。
+- 当启用 `allow_bypass_header` 时，绕过请求头会跳过压缩。
+
+## 失败语义
+
+默认行为是 `fail_closed`：如果 Compresr 服务不可达、超时（60 秒预算）或返回错误的状态或响应体，请求会以 `502` 和一个通用错误消息失败；上游响应体会进入服务器日志，绝不会发给客户端。
+
+设置 `unreachable_fallback: fail_open` 则改为原样转发未压缩的请求，并在代理日志中记录一条警告。任何不是精确字符串 `fail_open` 的值都会被当作 `fail_closed`。
+
+## 安全说明
+
+该集成经过多轮审计。以下每一项都在代码中强制执行，并由回归测试覆盖：
+
+- **经 SSRF 校验的 `api_base`。** 只接受 `http`/`https` 协议，并且在初始化时会拒绝云元数据端点（例如 `169.254.169.254`），包括其十进制、十六进制和 IPv4 映射编码。
+- 检索存储的**跨租户隔离**，明确不信任伪造的 `user_api_key` 字符串。
+- **注入安全的透传。** `compression_params` 会逐字转发，但保留键 `context`、`query` 和 `inputs` 会在发出警告后被剥离，发生冲突时以显式命名的配置字段为准。
+- **日志注入防御。** 模型提供的哈希在写入日志前会去除不可打印字符并截断。
+- **错误脱敏。** 上游错误主体保留在服务器日志中，而客户端只会得到一个通用的 502。
+
+## 验证 Compresr 已运行
+
+1. `x-openmcp-applied-guardrails: compresr-compression` 响应请求头。
+2. spend 日志行上的 `guardrail_information`：`messages_compressed`、`tokens_before`、`tokens_after`、`tokens_saved`、`compression_model`。只有至少一条消息确实被压缩时才会记录这些信息。
+3. Admin UI：在 **Logs** 中打开任意请求，滚动到 **Guardrails & Policy Compliance**，`compresr-compression` 会以 `pre-call` 步骤及其延迟出现在 **Request Lifecycle** 下，并且在 **Evaluation Details** 下也会有一条对应条目。
+
+## 预期效果
+
+典型的工作负载可以在不损失质量的情况下实现 2x 到 10x 的压缩。稀疏内容压缩效果最好，往往远超这个范围：转录文本、报告、申报文件、工单线程、日志和搜索结果中的大部分令牌与任何特定问题都不相关。结构化数据（JSON、XML、HTML）也有良好的压缩效果。目前代码不会被压缩。
+
+## 配置参考
+
+顶层 `openmcp_params`：
+
+| 参数                  | 类型 | 描述                                                                                                                    |
+| ---------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `guardrail`            | str  | 必须为 `compresr`。                                                                                                            |
+| `mode`                 | str  | 使用 `pre_call`。该护栏只转换请求输入；响应原样通过。                                 |
+| `api_key`              | str  | Compresr API 密钥，作为 `X-API-Key` 发送。回退到 `COMPRESR_API_KEY`。必填；缺失时初始化失败。                      |
+| `api_base`             | str  | Compresr API 基础 URL。依次回退到 `COMPRESR_API_BASE`、`https://api.compresr.ai`。仅本地部署时修改。 |
+| `model`                | str  | 压缩模型（不是 LLM）。默认为 `latte_v2`。                                                                       |
+| `unreachable_fallback` | str  | `fail_closed`（默认）在服务失败时返回 502；`fail_open` 原样转发未压缩的请求。                         |
+| `default_on`           | bool | 无需按调用选择加入即可在每次请求上运行。默认为 `false`。                                                             |
+
+嵌套的 `optional_params`（每个参数也可以直接放在 `openmcp_params` 下；嵌套的值优先）：
+
+| 参数                      | 类型  | 默认值 | 描述                                                                                                    |
+| -------------------------- | ----- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `target_compression_ratio` | float | `0.5`   | 0 到 1 之间：移除令牌的比例。大于 1：N 倍压缩因子。当 `dynamic` 开启时被忽略。     |
+| `coarse`                   | bool  | `true`  | 段落级评分（更快）。设置为 `false` 则为令牌级。                                                  |
+| `min_chars_to_compress`    | int   | `500`   | 短于此长度的消息会被跳过。                                                                         |
+| `compress_tool_outputs`    | bool  | `true`  | 压缩 `tool`/`function` 结果。                                                                             |
+| `compress_system`          | bool  | `false` | 压缩系统消息。                                                                                       |
+| `compress_history`         | bool  | `false` | 压缩最后一条之前的用户消息。                                                                     |
+| `compress_last_user`       | bool  | `false` | 压缩最后一条用户消息，以其自身的文本作为查询。                                                |
+| `enable_retrieval`         | bool  | `true`  | 存储原始内容、追加标记、注入 `compresr_retrieve` 工具。                                           |
+| `max_bytes_per_call`       | int   | `10485760` | 每次调用存储原始内容的上限（10 MiB）。`0` 禁用上限；负数会被拒绝。               |
+| `allow_bypass_header`      | bool  | `false` | 遵循 `x-compresr-bypass: true`。默认关闭，因为请求头由调用方控制。                                |
+| `dynamic`                  | bool  | `true`  | 让服务为每个负载选择压缩比例（`latte_v2`）。                                                        |
+| `dynamic_min_ratio`        | float | unset   | 动态模式的下限；服务端默认 1.5。                                                               |
+| `dynamic_max_ratio`        | float | unset   | 动态模式的上限；服务端默认 10.0。                                                              |
+| `compression_params`       | dict  | unset   | 原样转发给压缩 API 的额外字段。`context`、`query`、`inputs` 为保留键，会被剥离。  |
+
+## 环境变量
+
+| 变量            | 描述                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `COMPRESR_API_KEY`  | 当护栏配置中未设置 `api_key` 时的回退值。  |
+| `COMPRESR_API_BASE` | 当护栏配置中未设置 `api_base` 时的回退值。 |
+
+## 关于 Compresr
+
+Compresr 是一家 YC 支持的公司（W26），由四位具有 Microsoft、Bell Labs 和 UBS 背景的 EPFL 研究人员创立。你可以在 [compresr.ai](https://compresr.ai)、[YC 页面](https://www.ycombinator.com/companies/compresr)或 [LinkedIn](https://www.linkedin.com/company/compresr) 找到我们。

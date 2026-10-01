@@ -1,0 +1,169 @@
+---
+title: "MCP 部署指南"
+description: "如何将 OpenMCP 部署为 LLM、MCP 服务端和智能体的中央网关。"
+---
+
+如何将 OpenMCP 部署为 LLM、MCP 服务端和智能体的中央网关。
+
+---
+
+## 核心思路
+
+OpenMCP 是三种资源类型的统一控制平面：
+
+| 资源 | 注册方式 |
+|----------|--------------|
+| **LLM** | `model_list` in config or via API |
+| **MCP 服务端** | `mcp_servers` in config or via UI |
+| **智能体** | A2A 路由 |
+
+这三者共享相同的认证（OpenMCP API key）、速率限制和使用量仪表盘，为您提供一个无需额外注册中心的集中式目录。
+
+---
+
+## 部署拓扑
+
+### 方案 A：单网关（推荐）
+
+单个 OpenMCP 实例即可处理 LLM 路由、MCP 工具调用和 A2A 智能体调用。
+
+```
+Agents / AI clients
+        │
+        ▼
+┌───────────────────────────────────┐
+│         OpenMCP Gateway           │
+│  /v1/chat/completions  (LLMs)     │
+│  /mcp                  (tools)    │
+│  /a2a                  (agents)   │
+└───────┬───────┬──────────┬────────┘
+        │       │          │
+   OpenAI   MCP servers  Downstream
+   Bedrock  (internal)    agents
+   Azure    (public)
+```
+
+一个服务、一份配置、一套 API keys。使用[公网过滤器](/docs/mcp-gateway/public-internet)来控制哪些 MCP 服务端对外部调用方（Claude Desktop、ChatGPT）可见，哪些仅内部调用方可见。
+
+```yaml title="config.yaml" showLineNumbers
+general_settings:
+  master_key: os.environ/OPENMCP_MASTER_KEY
+  store_model_in_db: true
+  mcp_internal_ip_ranges:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+    - "100.64.0.0/10"   # VPN/Tailscale range
+
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+mcp_servers:
+  - server_name: internal-db
+    url: http://db-mcp.internal:8000/mcp
+    transport: http
+    available_on_public_internet: false  # internal callers only
+
+  - server_name: web-search
+    url: https://mcp.exa.ai/mcp
+    transport: http
+    available_on_public_internet: true   # visible to ChatGPT / Claude Desktop
+```
+
+---
+
+### 方案 B：分离 LLM 网关与 MCP 网关
+
+拆分为两个 OpenMCP 部署：一个用于 LLM 路由（不暴露到互联网），一个用于 MCP 服务（可选对外提供）。
+
+```
+Internal AI clients             External AI clients
+        │                       (ChatGPT, Claude Desktop)
+        │                               │
+        ▼                               ▼
+┌────────────────────┐     ┌────────────────────────┐
+│  LLM Gateway       │     │  MCP Gateway           │
+│  (no public port)  │     │  (port 443 / public)   │
+│  /v1/chat/...      │     │  /mcp                  │
+└────────┬───────────┘     └──────────┬─────────────┘
+         │                            │
+    LLM providers              MCP servers
+    (OpenAI, Bedrock, …)       (internal + public)
+```
+
+LLM API keys 保持在防火墙之后。即使 MCP 网关被攻破，也不会暴露它们。当需要外部 MCP 访问、但 LLM 凭据必须完全私有时，请使用此方案。
+
+---
+
+## 集中式目录
+
+OpenMCP 通过标准端点暴露所有资源类型：
+
+| 端点 | 返回结果 |
+|----------|---------|
+| `GET /v1/models` | 所有已注册的 LLM |
+| `GET /v1/mcp/server` | 所有 MCP 服务端 |
+| `GET /mcp` | 所有 MCP 工具（跨所有服务端） |
+| `GET /.well-known/agent.json` | A2A 智能体卡片 |
+
+**MCP 注册中心**（可选启用）：为 Claude Desktop / Cursor 暴露一个发现端点：
+
+```yaml title="config.yaml"
+general_settings:
+  enable_mcp_registry: true
+```
+
+```json title="Claude Desktop config"
+{
+  "mcpServers": {
+    "openmcp": {
+      "url": "https://your-openmcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer sk-..." }
+    }
+  }
+}
+```
+
+---
+
+## 安全注意事项
+
+### 开放端口问题
+
+如果您将 OpenMCP 的端口暴露到互联网（用于 Claude Desktop / ChatGPT），`/v1/chat/completions` 也会被外部访问。LLM 凭据仍受 key 认证保护，但请对此慎重考虑。
+
+**缓解措施：**
+1. **分离部署**（方案 B）：LLM 网关永远不会获得公网端口
+2. **防火墙** —— 在网络层阻止来自公网 IP 的 `/v1/chat/completions` 请求
+3. **短期作用域 keys** —— 在 key 泄露时限制影响范围
+
+### MCP 服务端可访问公网
+
+当您注册一个外部 MCP URL（例如 `https://mcp.exa.ai/mcp`）时，OpenMCP 会在每次工具调用时向其发送出站请求。请确保您的网络策略允许这样做，并且安全团队接受数据离开内网边界。
+
+对于物理隔离网络：只注册内网边界内的 MCP 服务端，并保持 `available_on_public_internet: false`（默认值）。
+
+### 访问控制
+
+默认情况下，所有已认证的调用方都可以调用所有 MCP 工具。请使用以下方式加以限制：
+
+| 控制项 | 位置 |
+|---------|-------|
+| 按 key 进行工具访问控制 | [Key 级 MCP 权限](/docs/mcp-gateway/control) |
+| 按团队进行工具访问控制 | [团队级 MCP 权限](/docs/mcp-gateway/control) |
+| 对外部调用方隐藏内部服务端 | [available_on_public_internet](/docs/mcp-gateway/public-internet) |
+| 验证请求确实经过 OpenMCP | [MCP Zero Trust（JWT）](/docs/mcp-gateway/zero-trust) |
+| 阻止响应中的敏感数据 | [MCP 护栏](/docs/mcp-gateway/guardrail) |
+
+---
+
+## 相关文档
+
+- [MCP 概览](/docs/mcp-gateway)
+- [公网过滤器](/docs/mcp-gateway/public-internet)
+- [MCP 访问控制](/docs/mcp-gateway/control)
+- [MCP Zero Trust](/docs/mcp-gateway/zero-trust)
+- [MCP 护栏](/docs/mcp-gateway/guardrail)

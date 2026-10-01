@@ -1,0 +1,167 @@
+---
+title: "Aim Security"
+description: "前往 Aim Application 并创建一个新的 Guard。"
+---
+
+## 快速开始
+### 1. 创建一个新的 Aim Guard
+
+前往 [Aim Application](https://app.aim.security/inventory/custom-ai-apps) 并创建一个新的 guard。
+
+在提示时，选择 API 选项，并为你的 guard 命名。
+
+<Callout type="info">
+
+如果你希望将 guard 部署在本地（私有化）环境，可以在创建 guard 之前通过[安装 Aim Outpost](https://app.aim.security/settings/on-prem-deployment)启用此选项。
+
+</Callout>
+
+### 2. 配置你的 Aim Guard 策略
+
+在新创建的 guard 页面中，你可以找到该 guard 的提示词策略中心的引用。
+
+你可以决定启用哪些检测项，并为每个检测项设置阈值。
+
+<Callout type="info">
+
+在使用带虚拟密钥的 OpenMCP 时，可以通过在创建 guard 时指定虚拟密钥别名，直接在 Aim 的 guards 页面中设置针对特定密钥的策略。
+
+只会将你的虚拟密钥别名（而非实际的密钥机密）发送给 Aim。
+
+</Callout>
+
+### 3. 在 OpenMCP config.yaml 中添加 Aim Guardrail
+
+在 `guardrails` 部分定义你的护栏
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: aim-protected-app
+    openmcp_params:
+      guardrail: aim
+      mode: [pre_call, post_call] # "During_call" is also available
+      api_key: os.environ/AIM_API_KEY
+      api_base: os.environ/AIM_API_BASE # Optional, use only when using a self-hosted Aim Outpost
+      ssl_verify: False # Optional, set to False to disable SSL verification or a string path to a custom CA bundle
+      inspect_embeddings: false # Optional, set to true to inspect /embeddings input
+```
+
+在 `api_key` 中填入颁发给你的 API 密钥。该密钥可以在 guard 的页面中找到。
+你也可以将 `AIM_API_KEY` 设置为环境变量。
+
+默认情况下，`api_base` 设置为 `https://api.aim.security`。如果你使用的是自托管的 Aim Outpost，可以将 `api_base` 设置为你的 Outpost URL。
+
+### 4. 启动 OpenMCP 网关
+```shell
+openmcp --config config.yaml
+```
+
+### 5. 发出你的第一个请求
+
+<Callout type="info">
+
+以下示例依赖于在你的 guard 中启用 *PII* 检测。
+你可以调整请求内容以匹配不同的 guard 策略。
+
+</Callout>
+
+<Tabs items={["Successfully blocked request","Successfully permitted request"]}>
+<Tab>
+
+<Callout type="info">
+
+使用带虚拟密钥的 OpenMCP 时，需要携带虚拟密钥的 `Authorization` 请求头。
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi my email is ishaan@berri.ai"}
+    ],
+    "guardrails": ["aim-protected-app"]
+  }'
+```
+
+如果配置正确，由于 `ishaan@berri.ai` 会被 Aim Guard 检测为 PII，你将收到类似以下带有 `400 Bad Request` 状态码的响应：
+
+```json
+{
+  "error": {
+    "message": "\"ishaan@berri.ai\" detected as email",
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+<Callout type="info">
+
+使用带虚拟密钥的 OpenMCP 时，需要携带虚拟密钥的 `Authorization` 请求头。
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["aim-protected-app"]
+  }'
+```
+
+上述请求不应被拦截，你应该会收到一个正常的 LLM 响应（为简洁起见做了简化）：
+
+```json
+{
+  "model": "{{openai_small}}",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "I can’t provide live weather updates without the internet. Let me know if you’d like general weather trends for a location and season instead!",
+        "role": "assistant"
+      }
+    }
+  ]
+}
+```
+
+</Tab>
+
+</Tabs>
+
+## 高级
+
+Aim Guard 提供面向特定用户的 Guardrail 策略，使你能够对单个用户应用定制化的策略。
+要使用此功能，请在请求负载中通过设置 `x-aim-user-email` 请求头包含最终用户的邮箱。
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "x-aim-user-email: ishaan@berri.ai" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["aim-protected-app"]
+  }'
+```

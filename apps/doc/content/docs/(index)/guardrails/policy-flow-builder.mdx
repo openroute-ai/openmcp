@@ -1,0 +1,361 @@
+---
+title: "策略流程构建器"
+description: "策略流程构建器让你可以利用条件执行设计护栏流水线。护栏不再独立运行，而是被串联成有序的步骤..."
+---
+
+策略流程构建器让你可以利用**条件执行**设计护栏流水线。护栏不再独立运行，而是被串联成有序的步骤，并控制当每个护栏**通过**、**未通过策略检查**（内容干预）或遇到**技术错误**（例如超时、提供方不可达、护栏缺失）时会发生什么。
+
+它支持的两种模式是：**护栏回退**（当一个护栏失败时尝试另一个护栏）和**重试同一护栏**（如果护栏失败则再次运行同一个护栏，例如用于处理瞬时错误）。借助 **`on_error`**，你可以将**技术**失败与**策略**失败区分对待，例如当主 API 出错时回退到另一个提供方，同时仍阻止被标记的内容。
+
+## 何时使用流程构建器
+
+| 方式 | 适用场景 |
+|----------|----------|
+| **简单策略**（`guardrails.add`） | 所有护栏并行运行；任何失败都会阻止请求。 |
+| **流程构建器**（pipeline） | 护栏按顺序运行；你为每个步骤选择动作（next、block、allow、自定义响应）。 |
+
+当你需要以下能力时，使用流程构建器：
+
+- **护栏回退** — 使用 `on_fail: next` 在某个护栏失败时尝试另一个护栏（例如快速过滤器 → 更严格的过滤器）
+- **重试同一护栏** — 将同一护栏添加为多个步骤；如果失败，`on_fail: next` 会移动到下一个步骤，它可以是同一个护栏（对于瞬时 API 错误或速率限制很有用）
+- **条件路由** — 例如，如果快速护栏失败，运行更高级的护栏而不是立即阻止
+- **自定义响应** — 当护栏失败时返回特定消息，而不是通用的阻止
+- **数据链式传递** — 将修改后的数据（例如 PII 掩码内容）从一个步骤传递到下一步
+- **精细控制** — 每个步骤在通过与失败时有不同的动作
+- **技术错误路由** — 独立于 `on_fail` 设置 `on_error`，以便中断或超时可以**放行**、**阻止**、**进入下一步**或返回**自定义响应**，而不会与内容违规混淆
+
+## 概念
+
+### 流水线
+
+一个流水线包含：
+
+- **模式**：`pre_call`（LLM 之前）或 `post_call`（LLM 之后）
+- **步骤**：有序的护栏步骤列表
+
+### 结果：pass、fail 和 error
+
+每次步骤运行都会产生三种结果之一：
+
+| 结果 | 含义 | 典型原因 |
+|--------|---------|----------------|
+| **pass** | 护栏完成且未阻止 | 内容被允许，或数据被修改并返回 |
+| **fail** | 策略干预 | 护栏提出了干预（例如标记的内容、被阻止的请求） |
+| **error** | 技术失败 | 超时、网络错误、护栏未注册或其他非干预类异常 |
+
+`on_pass` 和 `on_fail` 分别适用于 **pass** 和 **fail**。**`on_error`** 仅适用于 **error**。如果省略 `on_error`，流水线会对 error 结果使用 **`on_fail`**（向后兼容）。
+
+### 步骤动作
+
+对于每个步骤，你为 **pass**、**fail** 以及可选的 **error** 选择一个动作。允许的值有：`next`、`allow`、`block`、`modify_response`。
+
+| 动作 | 描述 |
+|--------|-------------|
+| **下一步**（`next`） | 继续到流水线中的下一个护栏 |
+| **放行**（`allow`） | 停止流水线并允许请求继续 |
+| **阻止**（`block`） | 停止流水线并阻止请求 |
+| **自定义响应**（`modify_response`） | 返回自定义消息而不是默认的阻止 |
+
+### 步骤选项
+
+| 字段 | 类型 | 描述 |
+|-------|------|--------------|
+| `guardrail` | `string` | 要运行的护栏名称 |
+| `on_pass` | `string` | 结果为 **pass** 时的动作：`next`、`allow`、`block`、`modify_response` |
+| `on_fail` | `string` | 结果为 **fail**（策略干预）时的动作：`next`、`allow`、`block`、`modify_response` |
+| `on_error` | `string`（可选） | 结果为 **error**（技术性）时的动作。如果省略，**error** 使用 `on_fail`。 |
+| `pass_data` | `boolean` | 将修改后的请求数据（例如 PII 掩码）转发到下一步 |
+| `modify_response_message` | `string` | 使用 `modify_response` 动作时的自定义消息 |
+
+## 使用流程构建器（UI）
+
+1. 进入 OpenMCP Admin UI 中的 **Policies**
+2. 点击 **+ Create New Policy** 或在现有策略上点击 **Edit**
+3. 选择 **Flow Builder**（替代简单表单）
+4. 设计你的流程：
+   - **Trigger** — 传入的 LLM 请求（当策略匹配时运行）
+   - **Steps** — 添加护栏；为每个步骤设置 **ON PASS**、**ON FAIL** 和 **ON API FAILURE** / **ON ERROR**（当 **ON API FAILURE** 未设置时，技术错误遵循 **ON FAIL**）
+   - **End** — 当流水线放行请求时，请求继续到 LLM
+5. 使用步骤之间的 **+** 插入另一个护栏步骤（用于回退、重试或更严格的二次检查）
+6. 在保存之前使用 **Test Pipeline** 运行示例消息
+7. 点击 **Save Policy**（或 **Save**）创建或更新策略
+
+### 在 UI 中配置护栏回退（逐步操作）
+
+1. 点击 **Policies**
+
+![Policies tab in the Admin UI](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/1333f4ae-d7df-4645-bd33-fee11c80cb96/ascreenshot_ce21e8bd79324c4685ad6c191e39d89e_text_export.jpeg)
+
+2. 点击 **+ Add New Policy**
+
+![Add new policy](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/353c08ab-cdb5-490f-b54f-734f77c87c45/ascreenshot_223033a61071485187e87cbb8c41081e_text_export.jpeg)
+
+3. 点击 **Flow Builder**
+
+![Choose Flow Builder](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/70e99d1b-fd76-4143-93f4-296b8b4c3904/ascreenshot_ef49b2e2c5dc40e39cf8da7a37f346ac_text_export.jpeg)
+
+4. 点击 **Continue to Builder**
+
+![Continue to Builder](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/3de1beaf-9c52-4f03-9100-ce4d47e41967/ascreenshot_a1d64e7e58c54b6cb8a311173ffe435a_text_export.jpeg)
+
+5. 点击第一步上的 **guardrail search** 字段
+
+![Select first guardrail, search field](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/640f699b-bdde-4e6d-a226-1fede9477b22/ascreenshot_27f14445b78b4e61872f3f95c1c9bacd_text_export.jpeg)
+
+6. 选择 **Test Moderation**（或你的主要护栏）
+
+![Pick Test Moderation](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/d46f7ab6-4231-44fb-b377-59f817cdfbe5/ascreenshot_e3a9f8e25ffe46ad82a73641b81d157c_text_export.jpeg)
+
+7. 对于其中一个分支（例如 **ON API FAILURE**），将动作设置为 **Next Step**，以便在 API 出错时流水线可以落到下一个护栏
+
+![Set action to Next Step](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/3a7ddc2a-4317-417b-9341-ff6b0913e64b/ascreenshot_8878486dc12b4dddafe0c8ba4382a0fb_text_export.jpeg)
+
+8. 对于 **ON PASS**，设置为 **Allow**（如果你在放行之前还需要更多步骤，则设置为 **Next Step**）
+
+![Set ON PASS to Allow](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/0e31cde8-3075-4e17-b771-b2b1696db98f/ascreenshot_b4b1d232459e4941904c9fbcf90c70ca_text_export.jpeg)
+
+9. 打开下一个结果的下拉菜单（例如 **ON FAIL**）
+
+![Configure another branch, search field](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/715fc3ad-f245-4ee8-bb36-cc13400d635d/ascreenshot_395fece82c124d4d826fb5d84c9c0529_text_export.jpeg)
+
+10. 如果失败的检查应该继续到你的备用护栏，将该分支设置为 **Next Step**
+
+![ON FAIL or branch, Next Step](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/83156e9b-fc3f-4cc2-a6cb-2a13a5e77b06/ascreenshot_c61429bf7b354063afc57c40a6b45c7a_text_export.jpeg)
+
+11. 点击步骤之间的 **+** 添加第二个护栏
+
+![Add step, plus control](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/e76cff13-af73-4775-90f6-4d29cb97d401/ascreenshot_52c478e7afd5410f9f63b616c753c851_text_export.jpeg)
+
+12. 打开新步骤上的护栏搜索字段
+
+![Second step, guardrail search](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/5c1c4eea-d7da-41e5-bebd-945e97562aa5/ascreenshot_cef70e9146b148b1936e721638de0783_text_export.jpeg)
+
+13. 选择 **Insults & Personal Attacks**（或你的回退 / 更严格的护栏）
+
+![Pick Insults and Personal Attacks](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/e796c733-351f-494f-9261-795c27f2b519/ascreenshot_f0f778d50c2146e48829ffb203c7de92_text_export.jpeg)
+
+14. 根据需要为此步骤的分支设置 **Next Step** 或 **Block**
+
+![Second step branch, Next Step](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/c5fad953-4f4b-47ec-ab6d-81d21b2fb7b8/ascreenshot_b515fadec0534c6a9b9d66091398d82d_text_export.jpeg)
+
+15. 当该护栏应成功完成流水线时，将 **ON PASS** 设置为 **Allow**
+
+![Second step, Allow on pass](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/8210f32a-8704-41b1-97cc-7d183682a2a4/ascreenshot_23361af2b7da482a8d89025ab285a72e_text_export.jpeg)
+
+16. 打开你想要 **Custom Response** 的分支（例如最后一步的 **ON FAIL**）
+
+![Custom response, open branch selector](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/98ab3a2c-f22f-4478-a146-d5d26cae9b10/ascreenshot_6a3b673654e64ce29c8c93fbf30c52ed_text_export.jpeg)
+
+17. 选择 **Custom Response**
+
+![Select Custom Response](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/a9e69e82-d517-4426-95da-034643a2388b/ascreenshot_f8ef581fbfb440cdbf145a2e9368c8e8_text_export.jpeg)
+
+18. 点击 **Enter custom response...** 并输入你的消息
+
+![Custom response text field](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/ef0f90ba-d0bc-4220-874f-4998b2dcc5f6/ascreenshot_f3e825b57fa0478a92f56840af266e03_text_export.jpeg)
+
+19. 根据需要确认或编辑 **Enter custom response...** 中的消息
+
+![Custom response, confirm message](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/f9a4711d-655c-4f15-b0ea-6b7d33fe6e60/ascreenshot_5df4b465bc484d8f86a4af5a45e9ab42_text_export.jpeg)
+
+20. 打开 **Test Pipeline**
+
+![Test Pipeline panel](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/3f9ac555-66fe-43e0-a8d8-2288a5966c73/ascreenshot_b2319dae363346ebb4da5d09180b56e8_text_export.jpeg)
+
+21. 点击 **Run Test**
+
+![Run Test](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/8e21e973-8193-404b-9d97-fd85be5f90b6/ascreenshot_619ca71e3be244449ca2ab01dde3cc45_text_export.jpeg)
+
+22. 在结果中展开 **Step 1**（或第一个护栏行）以查看 **ERROR** / **Next Step** 与 **PASS** / **Allow**
+
+![Expand first step in test results](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/b8010e20-dd9a-4e59-b0ca-1f2ba4c7b6ac/ascreenshot_da99f5761bbf44a08af4f1e1175a95fc_text_export.jpeg)
+
+23. 展开 **Step 2**（例如 **Insults & Personal Attacks**）以在回退后确认 **PASS** 和 **Allow**
+
+![Expand Step 2, second guardrail outcome](https://colony-recorder.s3.amazonaws.com/files/2026-04-15/cac5273c-dd4f-48a0-af58-12c428d0f0d0/ascreenshot_f74da58e280a47319a7d2fa41519f4fb_text_export.jpeg)
+
+## 配置（YAML）
+
+在你的策略配置中定义流水线：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: pii_masking
+    openmcp_params:
+      guardrail: presidio
+      mode: pre_call
+
+  - guardrail_name: prompt_injection
+    openmcp_params:
+      guardrail: lakera
+      mode: pre_call
+
+policies:
+  my-pipeline-policy:
+    description: "PII mask first, then check for prompt injection"
+    guardrails:
+      add:
+        - pii_masking
+        - prompt_injection
+    pipeline:
+      mode: pre_call
+      steps:
+        - guardrail: pii_masking
+          on_pass: next
+          on_fail: block
+          pass_data: true
+        - guardrail: prompt_injection
+          on_pass: allow
+          on_fail: block
+
+policy_attachments:
+  - policy: my-pipeline-policy
+    scope: "*"
+```
+
+## 回退与重试
+
+### 护栏回退
+
+使用 `on_fail: next` 在某个护栏失败时回退到另一个护栏。先运行轻量级护栏；如果它失败，则升级到更严格或不同的提供方：
+
+```yaml
+policies:
+  fallback-policy:
+    guardrails:
+      add:
+        - fast_content_filter
+        - strict_content_filter
+    pipeline:
+      mode: pre_call
+      steps:
+        - guardrail: fast_content_filter
+          on_pass: allow
+          on_fail: next
+        - guardrail: strict_content_filter
+          on_pass: allow
+          on_fail: block
+```
+
+如果 `fast_content_filter` 通过 → 放行。如果失败 → 运行 `strict_content_filter`；通过 → 放行，失败 → 阻止。
+
+### 重试同一护栏
+
+将同一护栏添加为多个步骤以在失败时重试。对于瞬时错误（API 超时、速率限制）很有用：
+
+```yaml
+policies:
+  retry-policy:
+    guardrails:
+      add:
+        - lakera_prompt_injection
+    pipeline:
+      mode: pre_call
+      steps:
+        - guardrail: lakera_prompt_injection
+          on_pass: allow
+          on_fail: next
+        - guardrail: lakera_prompt_injection
+          on_pass: allow
+          on_fail: block
+```
+
+第一次尝试通过 → 放行。第一次尝试失败 → 重试同一护栏；第二次通过 → 放行，第二次失败 → 阻止。
+
+## 技术错误与策略失败（`on_error`）
+
+当你希望对**API/基础架构问题**的处置不同于**内容策略**违规时，使用 **`on_error`**。
+
+- **`on_fail`** — 当护栏**干预**时运行（例如有毒内容、检测到 PII）。
+- **`on_error`** — 当步骤以 **error** 结束时运行（超时、连接失败、护栏未加载等）。如果省略 `on_error`，**error** 结果使用 **`on_fail`**。
+
+示例：对不良内容进行阻止，但如果主扫描器宕机，则回退到第二个护栏，而不是阻止每个请求：
+
+```yaml
+policies:
+  error-fallback-policy:
+    guardrails:
+      add:
+        - primary_scanner
+        - backup_scanner
+    pipeline:
+      mode: pre_call
+      steps:
+        - guardrail: primary_scanner
+          on_pass: allow
+          on_fail: block
+          on_error: next
+        - guardrail: backup_scanner
+          on_pass: allow
+          on_fail: block
+          on_error: allow
+```
+
+如果 `primary_scanner` 出错 → 运行 `backup_scanner`。如果 `backup_scanner` 出错 → 放行请求（如果你更倾向于故障关闭，请将 `on_error` 设置为 `block`）。
+
+## 示例：失败时的自定义响应
+
+返回品牌化消息而不是通用的阻止：
+
+```yaml
+policies:
+  branded-block-policy:
+    guardrails:
+      add:
+        - pii_detector
+    pipeline:
+      mode: pre_call
+      steps:
+        - guardrail: pii_detector
+          on_pass: allow
+          on_fail: modify_response
+          modify_response_message: "Your message contains sensitive information. Please remove PII and try again."
+```
+
+## 测试流水线（API）
+
+在附加流水线之前，用示例消息测试它：
+
+```bash
+curl -X POST "http://localhost:4000/policies/test-pipeline" \
+  -H "Authorization: Bearer <your_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pipeline": {
+      "mode": "pre_call",
+      "steps": [
+        {
+          "guardrail": "pii_masking",
+          "on_pass": "next",
+          "on_fail": "block",
+          "pass_data": true
+        },
+        {
+          "guardrail": "prompt_injection",
+          "on_pass": "allow",
+          "on_fail": "block"
+        }
+      ]
+    },
+    "test_messages": [
+      {"role": "user", "content": "What is 2+2?"},
+      {"role": "user", "content": "My SSN is 123-45-6789"}
+    ]
+  }'
+```
+
+响应包含每个步骤的结果（pass/fail/error）、采取的动作和时间。
+
+## 流水线与简单策略
+
+当策略具有 `pipeline` 时，流水线定义了执行顺序和动作。`guardrails.add` 列表必须包含流水线步骤中使用的所有护栏。
+
+| 策略类型 | 执行 |
+|-------------|-----------|
+| 简单策略（仅 `guardrails.add`） | 所有护栏运行；任何失败都会阻止 |
+| 流水线（存在 `pipeline`） | 步骤按顺序运行；动作控制流程 |
+
+## 相关文档
+
+- [护栏策略](./guardrail_policies) — 策略基础、附件、继承
+- [策略模板](./policy_templates) — 预构建的策略模板

@@ -1,0 +1,75 @@
+---
+title: "使用 Agent 技能进行构建"
+description: "使用 Agent 技能引导 AI 编码助手完成 MCP 服务器的设计与实现"
+---
+
+
+[Agent 技能](https://agentskills.io/home)是可移植的指令集，为 AI 编码助手提供某项任务的领域知识。对于 MCP 开发，它们封装了设计决策（部署模型、工具模式、认证方式），使您的智能体能够深入了解您的使用场景，并据此搭建一个合适的服务器。
+
+## 可用的技能
+
+一组参考性的 MCP 开发技能以 [`mcp-server-dev` 插件](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/mcp-server-dev)的形式提供。它包含三个可组合的技能：
+
+| 技能                | 用途                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `build-mcp-server` | 入口点。深入了解使用场景，选择部署模型和工具设计模式，并路由到专门的技能。 |
+| `build-mcp-app`    | 添加在聊天中内联渲染的交互式 UI 组件（表单、选择器、仪表盘）。                                       |
+| `build-mcpb`       | 将本地 stdio 服务器与其运行时打包在一起，使用户无需安装 Node 或 Python 即可安装。                          |
+
+每个技能都附带一个 `SKILL.md` 文件以及一个 `references/` 文件夹，内含辅助资料（认证流程、工具设计模式、组件模板、清单 schema），供智能体按需读取。这些文件遵循开放格式，适用于任何实现该标准的智能体。例如，要在 Claude Code 中安装它们：
+
+```bash
+/plugin marketplace add anthropics/claude-plugins-official
+/plugin install mcp-server-dev
+```
+
+对于其他智能体，请查看您的技能或扩展目录，或者将[技能目录](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/mcp-server-dev/skills)（`SKILL.md` 加上 `references/`）克隆到智能体的技能位置。
+
+## 开始构建
+
+安装技能后，请让您的智能体帮助您构建 MCP 服务器。入口技能会在收到自然语言请求时触发，或者您也可以使用智能体的技能调用语法直接调用它。
+
+该技能在编写任何代码之前会先运行一个简短的探索阶段。您可能会收到如下方面的问题：
+
+- **它连接什么** —— 云 API、本地进程、文件系统、硬件
+- **谁会使用它** —— 只有您、您的团队，还是任何安装它的人
+- **操作面的规模** —— 少量操作，还是封装一个大型 API
+- **用户交互需求** —— 纯文本结果、通过[引导式输入](/docs/mcp/specification/2026-07-28/client/elicitation)实现的结构化输入，还是丰富的 UI 组件
+- **上游认证** —— API 密钥、OAuth 2.0，或无需认证
+
+如果您的开场消息已经涵盖了这些内容，智能体会直接跳到建议环节。
+
+## 部署路径
+
+根据探索结果，该技能会推荐四条路径之一，并据此搭建代码：
+
+**远程 [Streamable HTTP](/docs/mcp/specification/2026-07-28/basic/transports/streamable-http)**
+是封装云 API 场景的默认选择。零安装门槛，一次部署即可服务所有用户，并且由于服务器能够处理重定向和令牌存储，OAuth 流程也能正常工作。参考技能包含 Cloudflare Workers 以及可移植的 Express/FastMCP 配置的搭建模板。
+
+**[MCP 应用](/docs/mcp/extensions/apps/overview)** 通过在聊天中渲染交互式组件（例如可搜索的选择器、图表和实时仪表盘）来扩展服务器。当[引导式输入](/docs/mcp/specification/2026-07-28/client/elicitation)的扁平表单约束不适用时，该技能会交接给 `build-mcp-app`。
+
+**[MCP Bundles（MCPB）](https://github.com/modelcontextprotocol/mcpb)** 将本地服务器与其运行时打包为单个 `.mcpb` 归档文件，使用户无需搭建 Node 或 Python 环境即可安装。当服务器必须接触用户的机器时——读取本地文件、驱动桌面应用，或与 localhost 服务通信——请使用此路径。该技能会交接给 `build-mcpb`。
+
+**本地 [stdio](/docs/mcp/specification/2026-07-28/basic/transports/stdio)** 仍可用于原型开发，并在您准备分发时提供了明确的 MCPB 升级路径。
+
+## 后续步骤
+
+一旦您的智能体搭建好服务器，请迭代优化工具描述和错误处理，然后进行测试和发布：
+
+<Cards>
+  <Card
+    title="MCP Inspector"
+    href="/docs/mcp/tools/inspector"
+  >
+    以交互方式测试服务器的工具、资源和提示词
+  </Card>
+  <Card
+    title="连接到客户端"
+    href="/docs/mcp/develop/connect-local-servers"
+  >
+    通过本地或远程配置将您的服务器接入 MCP 客户端
+  </Card>
+  <Card title="发布到 Registry" href="/docs/mcp/registry/quickstart">
+    让您的服务器在 MCP Registry 中可被发现
+  </Card>
+</Cards>

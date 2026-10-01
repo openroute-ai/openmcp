@@ -1,0 +1,24 @@
+{
+  "title": "A2A 协议",
+  "description": "Agent2Agent 协议文档",
+  "icon": "Network",
+  "root": true,
+  "pages": [
+    "index",
+    "a2a-and-mcp",
+    "agent-discovery",
+    "custom-protocol-bindings",
+    "definitions",
+    "enterprise-ready",
+    "extension-and-binding-governance",
+    "extensions",
+    "key-concepts",
+    "life-of-a-task",
+    "multi-tenancy",
+    "streaming-and-async",
+    "what-is-a2a",
+    "whats-new-v1",
+    "sdk",
+    "specification"
+  ]
+}

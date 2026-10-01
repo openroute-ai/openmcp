@@ -1,0 +1,235 @@
+---
+title: "A2A 智能体卡片"
+description: "OpenMCP 可以代理 A2A 兼容智能体，通过虚拟密钥、团队范围、可观测性和统一的智能体卡片将它们暴露给你的客户端。"
+---
+
+OpenMCP 可以代理 [A2A 兼容智能体](https://a2a-protocol.org/latest/specification/)，通过虚拟密钥、团队范围、可观测性和统一的智能体卡片将它们暴露给你的客户端。
+
+本页记录了 OpenMCP 当前支持的 A2A 智能体卡片字段、调用方式，以及从 `/a2a/{agent_id}/.well-known/agent.json` 获取的代理智能体卡片的大致内容。
+
+有关特定供应商的配置，请参阅：
+
+- [注册 LangGraph Platform 智能体](/docs/providers/langgraph)
+
+## 智能体卡片支持
+
+以下字段镜像 A2A v1.0 规范（[§4.4 智能体发现对象](https://a2a-protocol.org/latest/specification/)）。✅ 表示该字段存在于 OpenMCP 提供给客户端的智能体卡片中；❌ 表示不存在。
+
+### AgentCard（§4.4.1）
+
+| 字段 | 支持情况 |
+|---|---|
+| `protocolVersion` | ✅ |
+| `name` | ✅ |
+| `description` | ✅ |
+| `supportedInterfaces` | ✅ |
+| `provider` | ✅ |
+| `version` | ✅ |
+| `documentationUrl` | ✅ |
+| `capabilities` | ✅ |
+| `securitySchemes` | ✅ |
+| `securityRequirements` | ✅ |
+| `defaultInputModes` | ✅ |
+| `defaultOutputModes` | ✅ |
+| `skills` | ✅ |
+| `signatures` | ❌ |
+| `iconUrl` | ✅ |
+
+### AgentProvider（§4.4.2）
+
+| 字段 | 支持情况 |
+|---|---|
+| `url` | ✅ |
+| `organization` | ✅ |
+
+### AgentCapabilities（§4.4.3）
+
+| 字段 | 支持情况 |
+|---|---|
+| `streaming` | ✅ |
+| `pushNotifications` | ❌ |
+| `extensions` | ❌ |
+| `extendedAgentCard` | ❌ |
+
+### AgentExtension（§4.4.4）
+
+| 字段 | 支持情况 |
+|---|---|
+| `uri` | ❌ |
+| `description` | ❌ |
+| `required` | ❌ |
+| `params` | ❌ |
+
+### AgentSkill（§4.4.5）
+
+| 字段 | 支持情况 |
+|---|---|
+| `id` | ✅ |
+| `name` | ✅ |
+| `description` | ✅ |
+| `tags` | ✅ |
+| `examples` | ✅ |
+| `inputModes` | ✅ |
+| `outputModes` | ✅ |
+| `securityRequirements` | ❌ |
+
+### AgentInterface（§4.4.6）
+
+| 字段 | 支持情况 |
+|---|---|
+| `url` | ✅ |
+| `protocolBinding` | ✅ |
+| `tenant` | ❌ |
+| `protocolVersion` | ✅ |
+
+### AgentCardSignature（§4.4.7）
+
+| 字段 | 支持情况 |
+|---|---|
+| `protected` | ❌ |
+| `signature` | ❌ |
+| `header` | ❌ |
+
+## OpenMCP 中的 A2A 工作原理
+
+当你在 OpenMCP 中注册一个 A2A 智能体时：
+
+1. 你提供基础 URL（对于某些供应商，还需要提供助手标识符）。
+2. OpenMCP 从智能体的 `/.well-known/agent-card.json`（或供应商特定的等价路径）获取上游智能体卡片。
+3. 你在 OpenMCP UI 中查看解析后的卡片，选择要暴露的技能和字段，并为客户端选择 **Protocol Version**（`1.0` 或 `0.3`）。
+4. OpenMCP 保存整理后的卡片并在以下地址提供服务：
+
+    ```
+    GET /a2a/{agent_id}/.well-known/agent.json
+    ```
+
+5. 客户端在以下地址调用智能体：
+
+    ```
+    POST /a2a/{agent_id}
+    ```
+
+    使用 A2A JSON-RPC 2.0（见下文 [支持的 A2A 方法](#supported-a2a-methods)）。
+
+## 协议版本控制
+
+OpenMCP 将上游智能体的响应转换为每个智能体上固定的 `protocolVersion`。无论上游智能体原生使用哪种版本，客户端始终看到你选择的版本。
+
+| `protocolVersion` | 提供给客户端的内容 |
+|-------------------|-------------------|
+| `"1.0"`（新卡片的默认值） | Protobuf JSON 信封 — `result.message`，流式 `statusUpdate` / `artifactUpdate` |
+| `"0.3"` | 旧版 `kind` 判别 JSON — `result.kind == "message"` |
+
+在智能体卡片 UI 中或注册时通过 `agent_card_params` 设置该值。不支持的值将以 HTTP 400 拒绝。
+
+完成桥接智能体（LangGraph、Bedrock AgentCore 等）不需要额外的供应商配置。仅当你的客户端期望特定的线上格式时才固定 `protocolVersion`。
+
+当 `protocolVersion` 未固定时，请参阅 [协议版本控制](./a2a#protocol-versioning) 了解客户端协商。
+
+## 支持的 A2A 方法
+
+以下所有方法都可在 `POST /a2a/{agent_id}` 上接受（其中 `message/send` 也可在 `POST /a2a/{agent_id}/message/send` 上使用）。OpenMCP 还接受 A2A SDK 中的 PascalCase 别名（例如 `GetTask` → `tasks/get`）。
+
+| 方法 | 支持情况 | OpenMCP 的处理方式 |
+|---|---|---|
+| `message/send` | ✅ | 通过 OpenMCP A2A SDK（`asend_message`）路由 — 日志、guardrails、成本追踪 |
+| `message/stream` | ✅ | 通过 OpenMCP 流式处理器路由 — NDJSON/SSE 响应 |
+| `tasks/get` | ✅ | JSON-RPC 转发到智能体的 `agent_card_params.url` |
+| `tasks/list` | ✅ | JSON-RPC 转发到上游 |
+| `tasks/cancel` | ✅ | JSON-RPC 转发到上游 |
+| `tasks/resubscribe` | ✅ | JSON-RPC 转发到上游（流式/SSE） |
+| `tasks/pushNotificationConfig/set` | ✅ | JSON-RPC 转发到上游 |
+| `tasks/pushNotificationConfig/get` | ✅ | JSON-RPC 转发到上游 |
+| `tasks/pushNotificationConfig/list` | ✅ | JSON-RPC 转发到上游 |
+| `tasks/pushNotificationConfig/delete` | ✅ | JSON-RPC 转发到上游 |
+| `agent/getAuthenticatedExtendedCard` | ✅ | JSON-RPC 转发到上游；`result.url` 重写为代理地址 |
+
+### PascalCase 别名（SDK）
+
+| SDK / 别名名称 | 线上方法 |
+|---|---|
+| `SendMessage` | `message/send` |
+| `SendStreamingMessage` | `message/stream` |
+| `GetTask` | `tasks/get` |
+| `ListTasks` | `tasks/list` |
+| `CancelTask` | `tasks/cancel` |
+| `SubscribeToTask` | `tasks/resubscribe` |
+| `CreateTaskPushNotificationConfig` | `tasks/pushNotificationConfig/set` |
+| `GetTaskPushNotificationConfig` | `tasks/pushNotificationConfig/get` |
+| `ListTaskPushNotificationConfigs` | `tasks/pushNotificationConfig/list` |
+| `DeleteTaskPushNotificationConfig` | `tasks/pushNotificationConfig/delete` |
+| `GetExtendedAgentCard` | `agent/getAuthenticatedExtendedCard` |
+
+### 要求
+
+- **任务和推送通知方法**需要 `agent_card_params.url` 指向真实的 A2A JSON-RPC 服务器。OpenMCP 原样转发请求体（除了认证头）。
+- **仅完成桥接的智能体**（例如带 `custom_llm_provider` 且没有 `url` 的 LangGraph/Bedrock AgentCore）仅支持 `message/send` 和 `message/stream`。如果未配置上游 URL，任务 API 将返回错误。
+- **仅适用于 `message/send` / `message/stream`：** OpenMCP 可能会从 `params` 中剥离 OpenMCP 特定的键（例如 `guardrails`）。任务方法的 `params` 原样转发，因此 `id` 等 A2A 字段得以保留。
+
+### 示例：两步任务流程
+
+```bash title="1. Send a message (0.3 wire format — pin protocolVersion: 0.3)"
+curl -X POST "http://localhost:4000/a2a/my-agent" \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "r1",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "role": "user",
+        "messageId": "m1",
+        "parts": [{"kind": "text", "text": "Hello"}]
+      }
+    }
+  }'
+```
+
+使用响应中的 `result.id` 作为任务 id：
+
+```bash title="2. Poll task status"
+curl -X POST "http://localhost:4000/a2a/my-agent" \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "r2",
+    "method": "tasks/get",
+    "params": {"id": "<task-id-from-step-1>"}
+  }'
+```
+
+---
+
+## 技能路由
+
+客户端通过在消息元数据中包含 `skillId` 来调用特定技能：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "req-1",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "messageId": "msg-001",
+      "role": "user",
+      "parts": [{"kind": "text", "text": "..."}],
+      "metadata": {"skillId": "triage_ticket"}
+    }
+  }
+}
+```
+
+OpenMCP 将整个消息信封（包括元数据）原样转发给上游智能体。上游智能体负责读取 `skillId` 并在内部进行路由。
+
+## 编辑智能体卡片
+
+你可以在 OpenMCP UI 的智能体详情页编辑支持的字段。使用 **Re-sync from upstream** 按钮来获取上游智能体在注册后新增的技能或能力；它会显示差异并让你有选择地接受更改。
+
+## 相关文档
+
+- [注册 LangGraph Platform 智能体](/docs/providers/langgraph)
+- [A2A 协议规范（v1.0）](https://a2a-protocol.org/latest/specification/)

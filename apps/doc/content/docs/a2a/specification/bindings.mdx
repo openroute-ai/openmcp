@@ -1,0 +1,152 @@
+---
+title: '5. 协议绑定要求与互操作性'
+---
+
+## 5. 协议绑定要求与互操作性
+
+### 5.1. 功能等价要求
+
+当智能体支持多种协议时，所有受支持的协议**必须**：
+
+- **功能完全一致**：提供相同的操作和能力集合
+- **行为一致**：对于相同的请求返回语义等价的结果
+- **错误处理一致**：使用适当的协议特定错误码来一致地映射错误
+- **认证等价**：支持 AgentCard 中声明的相同认证方案
+
+### 5.2. 协议选择与协商
+
+- **智能体声明**：智能体**必须**在其 AgentCard 中声明所有受支持的协议
+- **客户端选择**：客户端**可以**选择智能体声明的任意协议
+- **回退行为**：客户端**应当**为备用协议实现回退逻辑
+
+### 5.3. 方法映射参考
+
+| 功能                   | JSON-RPC 方法                  | gRPC 方法                      | REST 端点                                                 |
+| :------------------------------ | :--------------------------------- | :--------------------------------- | :------------------------------------------------------ |
+| 发送消息                       | `SendMessage`                      | `SendMessage`                      | `POST /message:send`                                    |
+| 发送流式消息                   | `SendStreamingMessage`             | `SendStreamingMessage`             | `POST /message:stream`                                  |
+| 获取任务                       | `GetTask`                          | `GetTask`                          | `GET /tasks/{id}`                                       |
+| 列出任务                       | `ListTasks`                        | `ListTasks`                        | `GET /tasks`                                            |
+| 取消任务                       | `CancelTask`                       | `CancelTask`                       | `POST /tasks/{id}:cancel`                               |
+| 订阅任务                       | `SubscribeToTask`                  | `SubscribeToTask`                  | `POST /tasks/{id}:subscribe`                            |
+| 创建推送通知配置               | `CreateTaskPushNotificationConfig` | `CreateTaskPushNotificationConfig` | `POST /tasks/{id}/pushNotificationConfigs`              |
+| 获取推送通知配置               | `GetTaskPushNotificationConfig`    | `GetTaskPushNotificationConfig`    | `GET /tasks/{id}/pushNotificationConfigs/{configId}`    |
+| 列出推送通知配置               | `ListTaskPushNotificationConfigs`  | `ListTaskPushNotificationConfigs`  | `GET /tasks/{id}/pushNotificationConfigs`               |
+| 删除推送通知配置               | `DeleteTaskPushNotificationConfig` | `DeleteTaskPushNotificationConfig` | `DELETE /tasks/{id}/pushNotificationConfigs/{configId}` |
+| 获取扩展 Agent Card             | `GetExtendedAgentCard`             | `GetExtendedAgentCard`             | `GET /extendedAgentCard`                                |
+
+### 5.4. 错误码映射
+
+在[第 3.3.2 节](#332-error-handling)中定义的所有 A2A 特定错误**必须**映射为绑定特定的错误表示形式。下表提供了各标准协议绑定的规范映射：
+
+| A2A 错误类型                        | JSON-RPC 错误码 | gRPC 状态             | HTTP 状态                   |
+| :------------------------------------ | :------------ | :-------------------- | :-------------------------- |
+| `TaskNotFoundError`                   | `-32001`      | `NOT_FOUND`           | `404 Not Found`             |
+| `TaskNotCancelableError`              | `-32002`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+| `PushNotificationNotSupportedError`   | `-32003`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+| `UnsupportedOperationError`           | `-32004`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+| `ContentTypeNotSupportedError`        | `-32005`      | `INVALID_ARGUMENT`    | `400 Bad Request`           |
+| `InvalidAgentResponseError`           | `-32006`      | `INTERNAL`            | `500 Internal Server Error` |
+| `ExtendedAgentCardNotConfiguredError` | `-32007`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+| `ExtensionSupportRequiredError`       | `-32008`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+| `VersionNotSupportedError`            | `-32009`      | `FAILED_PRECONDITION` | `400 Bad Request`           |
+
+**自定义绑定要求：**
+
+自定义协议绑定**必须**定义等价的错误码映射，以保留每个 A2A 错误类型的语义含义。绑定规范**应当**提供类似的映射表，说明每个 A2A 错误类型在自定义绑定的原生错误格式中如何表示。
+
+有关绑定特定的错误结构和示例，请参阅：
+
+- [JSON-RPC 错误处理](#95-error-handling)
+- [gRPC 错误处理](#106-error-handling)
+- [HTTP/REST 错误处理](#116-error-handling)
+
+### 5.5. JSON 字段命名约定
+
+A2A 协议数据模型的所有 JSON 序列化**必须**对字段名使用 **camelCase** 命名，而不是 Protocol Buffer 定义中使用的 snake_case 约定。
+
+**命名约定：**
+
+- Protocol Buffer 字段：`protocol_version` → JSON 字段：`protocolVersion`
+- Protocol Buffer 字段：`context_id` → JSON 字段：`contextId`
+- Protocol Buffer 字段：`default_input_modes` → JSON 字段：`defaultInputModes`
+- Protocol Buffer 字段：`push_notification_config` → JSON 字段：`pushNotificationConfig`
+
+**枚举值：**
+
+- 枚举值**必须**按照 [ProtoJSON 规范](https://protobuf.dev/programming-guides/json/) 表示，该规范将枚举序列化为其**在 Protocol Buffer 定义中定义**的字符串名称（通常是 SCREAMING_SNAKE_CASE）。
+
+**示例：**
+
+- Protocol Buffer 枚举：`TASK_STATE_INPUT_REQUIRED` → JSON 值：`"TASK_STATE_INPUT_REQUIRED"`
+- Protocol Buffer 枚举：`ROLE_USER` → JSON 值：`"ROLE_USER"`
+
+**注意：**这遵循 [ADR-001](./adrs/adr-001-protojson-serialization) 中采用的 ProtoJSON 规范。
+
+### 5.6. 数据类型约定
+
+本节记录了 A2A 协议中使用的常见数据类型的约定，尤其是这些约定在协议绑定中的适用方式。
+
+#### 5.6.1. 时间戳
+
+A2A 协议在 Protocol Buffer 定义中的所有时间戳字段都使用 [`google.protobuf.Timestamp`](https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp)。当序列化为 JSON（在 JSON-RPC、HTTP/REST 或其他基于 JSON 的绑定中）时，这些时间戳**必须**表示为 UTC 时区的 ISO 8601 格式字符串。
+
+**格式要求：**
+
+- **格式：** ISO 8601 组合日期和时间表示法
+- **时区：** UTC（以 'Z' 后缀表示）
+- **精度：**在可用的情况下**应当**使用毫秒精度
+- **模式：** `YYYY-MM-DDTHH:mm:ss.sssZ`
+
+**示例：**
+
+```json
+```
+
+**实现说明：**
+
+- Protocol Buffer 的 `google.protobuf.Timestamp` 将时间表示为自 Unix 纪元（1970 年 1 月 1 日 00:00:00 UTC）以来的秒数加上纳秒数
+- 使用标准 Protocol Buffer JSON 编码时，JSON 序列化会自动将其转换为 ISO 8601 格式
+- 客户端和服务端**必须**正确解析和生成 ISO 8601 时间戳
+- 当毫秒精度不可用时，**可以**省略秒的小数部分或以零填充
+- 时间戳**不得**包含 'Z' 以外的时区偏移（所有时间均为 UTC）
+
+### 5.7. 字段存在性与可选性
+
+`specification/a2a.proto` 中的 Protocol Buffer 定义使用 [`google.api.field_behavior`](https://github.com/googleapis/googleapis/blob/master/google/api/field_behavior.proto) 注解来指示字段是否为 `REQUIRED`。这些注解既可作为实现的文档，也可作为验证提示。
+
+**必填字段：**
+
+标记为 `[(google.api.field_behavior) = REQUIRED]` 的字段表示该字段**必须**在有效消息中存在并被设置。实现**应当**验证这些要求，并拒绝缺少必填字段的消息。标记为必填的数组**必须**至少包含一个元素。
+
+**可选字段的存在性：**
+
+Protocol Buffer 的 `optional` 关键字用于区分字段是被显式设置还是被省略。这种区分在两种场景下至关重要：
+
+1. **显式默认值：**规范中的某些字段定义了与 Protocol Buffer 隐式默认值不同的默认值。当字段未被显式提供时，实现应应用该默认值。
+
+2. **Agent Card 规范化：**当为 Agent Card 创建加密签名时，需要生成规范的 JSON 表示。`optional` 关键字使实现能够区分被显式设置的字段（应包含在规范化形式中）与被省略的字段（应从规范化中排除）。这确保了 Agent Card 可以被重建以准确匹配其签名。
+
+**无法识别的字段：**
+
+实现**应当**忽略消息中无法识别的字段，以随着协议的演进保持向前兼容性。
+
+### 5.8. 自定义绑定的标识
+
+自定义协议绑定**应当**通过 URI 进行标识。使用 URI 作为
+标识符可以在所有实现者之间提供全局唯一的标识。
+
+Agent Card 的 `supportedInterfaces` 条目中的 `protocolBinding` 字段
+**应当**是一个 URI：
+
+```json
+  ]
+}
+```
+
+当绑定引入破坏性变更时，**必须**使用新的 URI，
+以便客户端能够区分不兼容的版本：
+
+```text
+https://example.com/bindings/websocket/v1  →  https://example.com/bindings/websocket/v2
+```

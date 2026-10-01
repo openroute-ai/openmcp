@@ -1,0 +1,58 @@
+---
+title: '4. 智能体执行器'
+---
+
+A2A 智能体处理请求并生成响应/事件的核心逻辑由**智能体执行器 (Agent Executor)** 负责。A2A Python SDK 提供了一个抽象基类 `a2a.server.agent_execution.AgentExecutor`，你需要实现它。
+
+## `AgentExecutor` 接口
+
+`AgentExecutor` 类定义了两个主要方法：
+
+- `async def execute(self, context: RequestContext, event_queue: EventQueue)`：处理期望得到响应或事件流的传入请求。它处理用户的输入（通过 `context` 获取），并使用 `event_queue` 发送回 `Message`、`Task`、`TaskStatusUpdateEvent` 或 `TaskArtifactUpdateEvent` 对象。
+- `async def cancel(self, context: RequestContext, event_queue: EventQueue)`：处理取消正在进行的任务的请求。
+
+`RequestContext` 提供关于传入请求的信息，例如用户的消息和任何现有的任务详情。`EventQueue` 由执行器用于向客户端发送事件。
+
+## Helloworld 智能体执行器
+
+让我们来看 `agent_executor.py`。它定义了 `HelloWorldAgentExecutor`。
+
+1. **智能体 (`HelloWorldAgent`)**：
+    这是一个简单的辅助类，封装了实际的"业务逻辑"。
+
+    ```python
+    参考：`agent_executor.py:HelloWorldAgent` — 完整源码见 [agent_executor.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/agent_executor.py)
+    ```
+
+    它有一个简单的 `invoke` 方法，返回字符串 "Hello, World!"。
+
+2. **执行器 (`HelloWorldAgentExecutor`)**：
+    这个类实现了 `AgentExecutor` 接口。
+
+    - **`__init__`**：
+
+        ```python
+        参考：`agent_executor.py:HelloWorldAgentExecutor_init` — 完整源码见 [agent_executor.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/agent_executor.py)
+        ```
+
+        它实例化了 `HelloWorldAgent`。
+
+    - **`execute`**：
+
+        ```python
+        参考：`agent_executor.py:HelloWorldAgentExecutor_execute` — 完整源码见 [agent_executor.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/agent_executor.py)
+        ```
+
+        当收到 `Send Message` 或 `Send Streaming Message` 请求时（在此简化执行器中都由 `execute` 处理），会发生以下步骤：
+
+        **步骤 1.** `A2A 实例`（服务端）从上下文中检索当前任务。如果上下文中没有任务，则创建一个新任务并添加到 `EventQueue` 中。
+
+        **步骤 2.** 它将一个状态为 `TASK_STATE_WORKING` 的 `TaskStatusUpdateEvent` 入队，表示智能体已开始处理。
+
+        **步骤 3.** 它调用 `self.agent.invoke()` 来执行实际的业务逻辑（简单返回 "Hello, World!"）。
+
+        **步骤 4.** 它将一个包含智能体结果文本的 `TaskArtifactUpdateEvent` 入队。
+
+        **步骤 5.** 最后，它将一个状态为 `TASK_STATE_COMPLETED` 的 `TaskStatusUpdateEvent` 入队，以结束任务。
+
+`AgentExecutor` 充当 A2A 协议（由请求处理器和服务器应用管理）与智能体特定逻辑之间的桥梁。它接收关于请求的上下文，并使用事件队列来传回结果或更新。

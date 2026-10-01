@@ -1,0 +1,199 @@
+---
+title: "Linear MCP 服务端"
+description: "Linear 集中托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。"
+---
+
+> 通过 OpenMCP MCP 网关连接 Linear 托管的远程 MCP 服务端，用于事项、项目、周期和评论。
+
+Linear 集中托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。
+
+## 何时使用此服务端
+
+- 让智能体在讨论工作的地方提交、分类或更新事项
+- 在计划和估算之前，将当前周期和项目状态作为上下文引入
+- 给编码智能体它正在实现的任务单，然后让它用进度进行评论回复
+
+## 主要特性
+
+- 专用的只读端点，因此您可以分发 Linear 上下文，而无需授予提交或编辑任何内容的权限
+- 由 Linear 通过 Streamable HTTP 托管；较旧的 SSE 端点仅作为弃用的后备存在
+- OAuth 支持动态客户端注册，此外还有面向无人在场签入的后端智能体的 API key 路径
+
+## 认证
+
+- **方法：** 使用用户令牌的 OAuth 2.1，尊重每个调用方已有的 Linear 权限。Linear 支持[动态客户端注册](https://datatracker.ietf.org/doc/html/rfc7591)，因此无需管理客户端 ID 或密钥。
+- **替代方案：** 以 bearer 令牌发送的 Linear API key。这是一个单一共享身份，而非按用户，因此请将其仅用于只读上下文来源和无人值守的后端智能体。
+
+## 端点
+
+**远程 MCP 服务端：**
+
+```
+https://mcp.linear.app/mcp
+```
+
+**只读：**
+
+```
+https://mcp.linear.app/mcp/readonly
+```
+
+Linear 还将 `https://mcp.linear.app/sse` 作为不支持 Streamable HTTP 的客户端的弃用后备。新配置请使用 `/mcp` 端点。
+
+***
+
+## 通过 OpenMCP MCP 网关连接
+
+<Callout type="warn" title="Leave the client credentials out">
+
+不要在 OAuth 服务端上设置 `client_id`、`client_secret` 或 `token_url`。这些设置会把它切换为所有调用方共享的机器到机器身份，导致事项由单一服务账户提交，而不是由提出请求的人提交。Linear 的动态注册使它们变得没有必要。如果您确实需要共享身份，请使用下面的 API key 标签页，它在这一点上说得更明确。
+
+</Callout>
+
+### 第 1 步：在 OpenMCP 中注册服务端
+
+<Tabs items={["OpenMCP UI","config.yaml","config.yaml (API key)"]}>
+<Tab>
+
+导航到 **MCP Servers**，点击 **+ Add New MCP Server**，然后设置：
+
+| 字段 | 值 |
+|---|---|
+| **服务端名称** | `linear_mcp` |
+| **传输方式** | HTTP |
+| **服务端 URL** | `https://mcp.linear.app/mcp` |
+| **认证** | OAuth |
+| **OAuth 流程类型** | 交互式（PKCE） |
+| **客户端 ID / 客户端密钥** | 留空 |
+
+点击 **Create MCP Server**，然后打开服务端的 **MCP Tools** 标签页以确认连接。首次列出工具会引导您完成 Linear 登录。
+
+</Tab>
+<Tab>
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  linear_mcp:
+    url: "https://mcp.linear.app/mcp"
+    transport: "http"
+    description: "Linear issues, projects, and cycles"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+```
+
+`oauth2_flow: authorization_code` 选择交互式按用户流程，并且是必需的；代理会拒绝在省略了它的 `auth_type: oauth2` 服务端上启动。存储 MCP 服务端还需要 `store_model_in_db: true`，见[前提条件](/docs/mcp-gateway#prerequisites)。
+
+</Tab>
+<Tab>
+
+对于共享的只读上下文来源，或没有人在场完成浏览器登录的后端智能体，请改用 Linear API key 认证。请在 Linear 的 **Settings > Security & access > Personal API keys** 下创建，仅启用 Read 权限，然后将其与只读端点配对：
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  linear_readonly:
+    url: "https://mcp.linear.app/mcp/readonly"
+    transport: "http"
+    description: "Linear, read-only"
+    auth_type: bearer_token
+    auth_value: os.environ/LINEAR_API_KEY
+```
+
+所有调用方共享此身份，因此工具调用会归因于该 key 的所有者，而不是终端用户。任何面向用户或需要写入的场景请优先使用 OAuth。
+
+</Tab>
+</Tabs>
+
+### 第 2 步：设置代理的公共来源
+
+如果 OpenMCP 位于终止 TLS 的入口后面，请将 `PROXY_BASE_URL` 设置为用户在地址栏中看到的来源，以便 OAuth 回调通过验证：
+
+```bash
+PROXY_BASE_URL=https://llm.example.com
+```
+
+不一致会在您点击 **Connect** 时以 `400 Bad Request` + `{"detail":"invalid_request"}` 的形式显现。完整规则见[反向代理和入口配置](/docs/mcp-gateway/oauth#reverse-proxy-and-ingress-configuration)。
+
+### 第 3 步：从智能体连接
+
+网关在 `http://localhost:4000/{server_name}/mcp` 提供服务，因此 `linear_mcp` 可通过 `http://localhost:4000/linear_mcp/mcp` 访问。
+
+<Tabs items={["Claude Desktop / Cursor","Claude Code"]}>
+<Tab>
+
+```json title="Claude Desktop / Cursor" showLineNumbers
+{
+  "mcpServers": {
+    "linear": {
+      "url": "http://localhost:4000/linear_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```bash showLineNumbers
+claude mcp add --transport http linear http://localhost:4000/linear_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer $OPENMCP_API_KEY"
+```
+
+</Tab>
+</Tabs>
+
+首次调用会打开浏览器进行 Linear 登录。OpenMCP 之后会存储该用户的令牌并刷新它，因此后续会话无需提示即可连接。
+
+***
+
+## 提供的工具
+
+<Callout type="info">
+
+Linear 会在运行时通过 `tools/list` 发布其工具定义，因此名称和字段可能会随时更改而无需通知。OpenMCP UI 中的 **MCP Tools** 标签页是了解您的工作区暴露了哪些工具的权威来源；它列出实时工具，并允许您使用测试参数调用其中一个。上游详情请参阅 Linear 的 [MCP 文档](https://linear.app/docs/mcp)。
+
+</Callout>
+
+| 领域 | 工具 |
+|---|---|
+| 事项 | `get_issue`、`list_issues`、`create_issue`、`update_issue`、`list_my_issues` |
+| 事项元数据 | `list_issue_statuses`、`get_issue_status`、`list_issue_labels` |
+| 项目 | `list_projects`、`get_project`、`create_project`、`update_project` |
+| 评论 | `list_comments`、`create_comment` |
+| 文档 | `get_document`、`list_documents` |
+| 周期 | `list_cycles` |
+| 团队 | `list_teams` |
+
+写入仅限于事项、项目和评论；文档、周期、团队、状态和标签均为只读。OpenMCP 会为工具名称加上服务端名称前缀，因此 `create_issue` 会以 `linear_mcp-create_issue` 的形式暴露给模型；见[工具命名](/docs/mcp-gateway/rest-api#tool-naming)。
+
+### 只读而不写
+
+只读端点是仅授予读取权限的最干净方式，也是默认应该使用的端点。在标准端点上，您可以通过在授权时拒绝写权限范围，或在配置中排除写工具，来获得相同的结果。请先对照您的实时工具列表确认名称，因为不再匹配真实工具的 `disallowed_tools` 条目会静默失败，并让该工具保持可调用：
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  linear_mcp:
+    url: "https://mcp.linear.app/mcp"
+    transport: "http"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+    disallowed_tools: ["create_issue", "update_issue", "create_project", "update_project", "create_comment"]
+```
+
+***
+
+<Callout type="info" title="Restrict who can use it">
+
+使用 `object_permission` 按 key 或按团队授予服务端权限，并用 `mcp_rpm_limit` 限制每个服务端的调用量，两者均见 [MCP 权限管理](/docs/mcp-gateway/control)。
+
+</Callout>
+
+<Callout type="warn" title="Put the OpenMCP key in x-openmcp-api-key">
+
+交互式 OAuth 需要 `Authorization` 头为空闲状态，以供上游令牌使用。如果客户端将 OpenMCP API key 作为 `Authorization: Bearer sk-...` 发送，OAuth 流程永远不会运行，OpenMCP 会把您的 OpenMCP key 转发给 Linear，而后者会拒绝它。要诊断，请添加 `x-openmcp-mcp-debug: true` 并读取响应头：`SAME_AS_OPENMCP_KEY` 可确认本情况，`m2m-client-credentials` 则意味着设置了客户端凭据，所有调用方共享同一身份。见[调试 OAuth](/docs/mcp-gateway/oauth#debugging-oauth) 和 [MCP 故障排查指南](/docs/mcp-gateway/troubleshoot)。
+
+</Callout>
+
+已授权的会话绑定到一个 Linear 工作区，仅重新连接无法切换它，因此需要第二个工作区的用户必须将其注册为单独的 MCP 服务端条目。

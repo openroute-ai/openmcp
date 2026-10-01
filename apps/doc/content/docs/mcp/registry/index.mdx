@@ -1,0 +1,93 @@
+---
+title: MCP Registry
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+MCP Registry 是可公开访问的 MCP 服务器的官方集中式元数据仓库，由 MCP 生态系统中主要的可信贡献者支持，例如 Anthropic、GitHub、PulseMCP 和 Microsoft。
+
+MCP Registry 提供：
+
+- 一个供服务器创建者发布其服务器元数据的统一场所
+- 通过 DNS 验证进行的命名空间管理
+- 供 MCP 客户端和聚合器发现可用服务器的 REST API
+- 标准化的安装和配置信息
+
+服务器元数据以标准化的 [`server.json` 格式](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/draft/server.schema.json) 存储，其中包含：
+
+- 服务器的唯一名称（例如，`io.github.user/server-name`）
+- 服务器所在的位置（例如，npm 软件包名称、远程服务器 URL）
+- 执行说明（例如，命令行参数、环境变量）
+- 其他发现数据（例如，描述、服务器能力）
+
+## MCP Registry 生态系统
+
+MCP Registry 是如下所示生态系统的一部分：
+
+<img src="/images/docs/mcp/ecosystem-diagram.excalidraw.svg" alt="MCP Registry 生态系统" width="2786" height="1810" />
+
+### 与软件包注册中心的关系
+
+软件包注册中心（如 npm、PyPI 和 Docker Hub）托管包含代码和二进制文件的软件包。
+
+MCP Registry 托管指向这些软件包的元数据。
+
+例如，`weather-mcp` 软件包可以托管在 npm 上，而 MCP Registry 中的元数据可以将"weather v1.2.0"服务器映射到 `npm:weather-mcp`。
+
+[软件包类型指南](./package-types) 列出了受支持的软件包类型和注册中心。未来可能会根据社区需求支持更多的软件包注册中心。如果您对实现某个软件包注册中心支持感兴趣，请[提交一个 issue](https://github.com/modelcontextprotocol/registry)。
+
+### 与服务器开发者的关系
+
+MCP Registry 同时支持开源和闭源服务器。只要服务器的安装方法可公开获取（例如，npm 软件包或公共注册中心上的 Docker 镜像），_或者_服务器本身可公开访问（例如，不限于私有网络的远程服务器），服务器开发者就可以将其服务器的元数据发布到注册中心。
+
+MCP Registry **不**支持私有服务器。私有服务器是指仅对一小部分用户可访问的服务器。例如，发布在私有网络上（如 `mcp.acme-corp.internal`）或私有软件包注册中心上（例如 `npx -y @acme/mcp --registry https://artifactory.acme-corp.internal/npm`）的服务器。如果您想发布私有服务器，我们建议您自行托管一个私有的 MCP Registry，并将它们添加到那里。
+
+### 与下游聚合器的关系
+
+MCP Registry 主要供下游聚合器（如 MCP 服务器市场）消费。
+
+MCP Registry 托管的元数据故意不持有倾向性观点。下游聚合器可以提供策展或额外的元数据，例如社区评分。
+
+我们期望下游聚合器定期但不频繁地使用 MCP Registry API 拉取新的元数据（例如，每小时一次）。更多信息请参阅 [MCP Registry 聚合器指南](./registry-aggregators)。
+
+### 与其他 MCP Registry 的关系
+
+除了提供公共 REST API 外，MCP Registry 还定义了一个 [OpenAPI 规范](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/openapi.yaml)，其他 MCP 注册中心可以实现该规范，以便为 MCP 宿主应用程序提供标准化的接口。
+
+我们期望许多下游聚合器会实现这一接口。私有的 MCP 注册中心也可以实现它，以受益于现有的宿主应用程序支持。
+
+请注意，官方 MCP Registry 代码库**并非**为自托管而设计，注册中心维护者无法为该使用场景提供支持。如果您选择 fork 它，您需要独立地维护和运营它。
+
+### 与 MCP 宿主应用程序的关系
+
+MCP Registry 不打算被宿主应用程序直接消费。相反，宿主应用程序应通过符合官方 MCP Registry OpenAPI 规范的 REST API 来消费其他 MCP 注册中心，例如下游市场。
+
+## 信任与安全
+
+### 验证服务器真实性
+
+MCP Registry 使用命名空间认证来确保服务器来自其所声明的来源。服务器名称采用反向 DNS 格式（如 `io.github.username/server` 或 `com.example/server`），将其与经过验证的 GitHub 账户或域名绑定。
+
+这一命名空间系统确保只有 GitHub 账户或域名的合法所有者才能在该命名空间下发布服务器，从而为生态系统提供信任和问责。有关认证方式的详细信息，请参阅[认证指南](./authentication)。
+
+### 安全扫描
+
+MCP Registry 将安全扫描委托给：
+
+- **底层软件包注册中心** — npm、PyPI、Docker Hub 和其他软件包注册中心会执行自己的安全扫描和漏洞检测。
+- **下游聚合器** — MCP Registry 聚合器和市场可以实现额外的安全检查、评分或策展。
+
+MCP Registry 专注于命名空间认证和元数据托管，同时依赖更广泛的生态系统对实际的服务器代码进行安全扫描。
+
+### 垃圾信息防护
+
+MCP Registry 使用多种机制来防止垃圾信息：
+
+- **命名空间认证要求** — 发布者必须通过 GitHub、DNS 或 HTTP 质询验证其命名空间的所有权，以防止任意的垃圾提交。
+- **字符限制和验证** — 自由格式字段有严格的字符限制和正则表达式验证，以防止滥用。
+- **手动下架** — 注册中心维护者可以手动删除垃圾或恶意服务器。有关删除哪些内容的详细信息，请参阅[审核政策](./moderation-policy)。
+
+正在考虑的其他垃圾信息防护措施包括更严格的速率限制、基于 AI 的垃圾信息检测以及社区举报功能。

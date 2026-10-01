@@ -1,0 +1,198 @@
+---
+title: CLI 客户端
+description: "编写 MCP Inspector 脚本：方法、输出格式、退出码和 CI 配方"
+---
+
+
+每次 CLI 运行都会连接一个服务端，用 `--method` 调用你指定的单个请求，打印结果然后退出。这使它非常适合 CI 流水线、shell 单行命令，以及需要立即验证服务端改动的编码智能体。
+
+```bash
+npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/list
+```
+
+下面的示例使用已安装的 `mcp-inspector` 二进制。如果没有全局安装，请像上面那样在每个命令前加上 `npx @modelcontextprotocol/inspector`。
+
+## 选择服务端
+
+CLI 接受一个位置参数命令（stdio）、一个 `--server-url`（HTTP/SSE），或目录文件/配置文件中的某个命名服务端：
+
+```bash
+# stdio: everything positional is the command to spawn
+mcp-inspector --cli node build/index.js --method tools/list
+
+# HTTP
+mcp-inspector --cli https://api.example.com/mcp --transport http --method tools/list
+
+# From a file
+mcp-inspector --cli --config ./mcp.json --server myserver --method tools/list
+```
+
+当服务端来自文件时，它的每个服务端设置（headers、超时、OAuth、[协议时代](/docs/mcp/tools/inspector/protocol-eras)以及 roots）都会应用于该连接，解析方式与 TUI 和 web 客户端完全相同。`--header` flag 仅对本次运行覆盖文件的 headers，而保留其超时和 OAuth 设置。
+
+后续示例会把你在使用的上述形式之一连同其 `--transport` 或 `--config`/`--server` flags 简写为 `<server>`。
+
+<Callout>
+  **配置文件是给一次运行提供
+  [roots](/docs/mcp/specification/draft/client/roots) 的唯一持久方式：**没有 roots flag，
+  而 `--method roots/set` 只适用于那一次短命连接。为服务端配置的
+  Roots 在连接时被通告，因此调用
+  `roots/list` 的服务端（如 `@modelcontextprotocol/server-filesystem`
+  那样，用来了解它被允许的目录）能拿到它们。
+</Callout>
+
+关于 `--catalog` 与 `--config` 的区别、`--` 分隔符以及共享的服务端选择 flags，参见[配置与 flags](/docs/mcp/tools/inspector/configuration)。
+
+## 方法
+
+| `--method`                     | 必需的配套参数                                   | 说明                                                                                    |
+| ------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `initialize`                   | 无                                                 | 仅连接的探针：`{serverInfo, protocolVersion, capabilities, instructions}`。 |
+| `tools/list`                   | 无                                                 |                                                                                   |
+| `tools/call`                   | `--tool-name`，外加 `--tool-arg` / `--tool-args-json` |                                                                                   |
+| `resources/list`               | 无                                                 |                                                                                   |
+| `resources/read`               | `--uri`                                               |                                                                                   |
+| `resources/templates/list`     | 无                                                 |                                                                                   |
+| `prompts/list`                 | 无                                                 |                                                                                   |
+| `prompts/get`                  | `--prompt-name`、`--prompt-args`                      |                                                                                   |
+| `logging/setLevel`             | `--log-level`                                         | 仅限旧时代（legacy）；现代服务端改为在每个请求上按需选择。 |
+| `servers/list`、`servers/show` | 无                                                 | **不连接**任何东西即可读取目录文件。                             |
+
+流式或仅会话类方法（例如 `logging/tail`）会被拒绝，因为退出的进程无法保持流打开。
+
+### 传递参数
+
+`--tool-arg` 接受 `key=value`，并通过 JSON 解析**强制转换**值，因此 `count=1` 变成数字，`"012"` 变成 `12`：
+
+```bash
+mcp-inspector --cli <server> --method tools/call --tool-name mytool \
+  --tool-arg key=value --tool-arg count=1 --tool-arg 'options={"format":"json"}'
+```
+
+`--tool-args-json` 一次性接收整个参数对象并**原样**传递，不做任何强制转换，因此 `"012"` 保持为字符串 `012`。两者互斥：
+
+```bash
+mcp-inspector --cli <server> --method tools/call --tool-name mytool \
+  --tool-args-json '{"zip":"10001"}'
+```
+
+## 输出
+
+`--format text`（默认）为人类友好地美化打印。`--format json` 在 stdout 上输出单个 JSON 对象，不加任何横幅，因此整个输出可以干净地管道化：
+
+```bash
+mcp-inspector --cli <server> --method tools/list --format json | jq '.result.tools[].name'
+```
+
+## 探测 MCP Apps
+
+`--app-info` 报告某个工具是否附带 [MCP App](/docs/mcp/extensions/apps/overview) UI（其 `ui://` 资源、CSP 和权限），**无需调用该工具**，因此流水线可以在调用任何东西之前决定它是否需要浏览器：
+
+```bash
+# One tool -> one JSON line
+mcp-inspector --cli <server> --method tools/call --tool-name my_tool --app-info
+# {"hasApp":true,"toolName":"my_tool","resourceUri":"ui://...","csp":{...},"permissions":{...}}
+
+# Every tool -> NDJSON, one line each, over a single connection
+mcp-inspector --cli <server> --method tools/list --app-info | jq -c 'select(.hasApp)'
+```
+
+退出码区分不同结果：带 app 的工具退出码为 `0`，无 app 的为 `2`，工具缺失为 `5`，因此拼写错误不会被误判为“无 app”。探测失败（UI 资源不可读、`resourceUri` 格式错误）会在 `resourceError` 字段中报告，而不是中止，因此一个坏工具永远不会毁掉整个列表。
+
+<Callout>
+  `tools/list --app-info` 始终输出 NDJSON（每个工具一行），不受
+  `--format` 影响；`--format json` 只会重塑
+  `tools/call --app-info` 的单个工具输出。
+</Callout>
+
+## 退出码与错误封装
+
+每个非零退出都映射到一个稳定的失败类别，因此调用方可以按_原因_分支，而无需解析文字：
+
+| 代码 | 含义                                                                       |
+| ---- | ---------------------------------------------------------------------------- |
+| `0`  | 成功。                                                                     |
+| `1`  | 用法或意外错误（兜底类别）。                                   |
+| `2`  | 该工具上没有 MCP App（`--app-info` 探测）。                           |
+| `3`  | 服务端要求认证（401/403、`WWW-Authenticate`、OAuth）。         |
+| `4`  | 服务端不可达（DNS、连接被拒绝、超时、`fetch failed`）。       |
+| `5`  | 工具错误：`tools/call` 返回 `isError: true`，或未找到该工具。 |
+
+在任何非零退出时，CLI 还会向 **stderr** 写入**一行 JSON**：
+
+```json
+{
+  "error": {
+    "code": "auth_required",
+    "message": "Unauthorized",
+    "status": 401,
+    "url": "https://api.example/mcp"
+  }
+}
+```
+
+因为它只有一行，调用方可以用 `2>&1 | tail -1 | jq .error` 解析。
+
+返回 `isError: true` 的 `tools/call` 仍会打印其 payload，但以 `5` 退出，因此 `&&` 链不会在一次失败的调用后继续下去。
+
+## 脚本中的授权
+
+默认情况下，CLI 运行与 TUI 相同的 loopback OAuth 流程：它会打开浏览器并等待 localhost 回调——而 CI 作业无法完成该回调。两个 flags 让非交互运行变得可预测：
+
+- `--stored-auth-only`：永不启动交互式 OAuth 或 step-up，也永不自动打开浏览器。如共享存储中有令牌就使用，否则立即以 `auth_required` 失败。这正是 CI 想要的 flag。
+- `--use-stored-auth`：复用 web Inspector 已在本机获取的令牌，存有 refresh token 时先刷新它。
+
+如果两者都没有指定，且 stdin 或 stderr 上没有 TTY，CLI 会快速失败并返回 `auth_required`，而不是在永远不会完成的回调上挂起十五分钟。
+
+完整流程、web 到 CLI 的交接以及 `--print-handoff`，参见[授权](/docs/mcp/tools/inspector/authorization)。
+
+## 配方
+
+### 在 CI 中验证服务端
+
+```bash
+set -euo pipefail
+
+# Fail the build if the server can't be reached or doesn't expose the tool
+mcp-inspector --cli --config ./ci-servers.json --server my-server \
+  --stored-auth-only --method tools/list --format json \
+  | jq -e '.result.tools | map(.name) | index("get_weather")' > /dev/null
+```
+
+### 按失败类别分支
+
+```bash
+if out=$(mcp-inspector --cli "$URL" --transport http --method tools/list 2>err.json); then
+  echo "$out"
+else
+  case $? in
+    3) echo "needs auth: run the web inspector once to sign in" ;;
+    4) echo "server unreachable" ;;
+    *) jq .error < err.json ;;
+  esac
+fi
+```
+
+### 冒烟测试每个带 UI 的工具
+
+```bash
+mcp-inspector --cli "$URL" --transport http --method tools/list --app-info \
+  | jq -r 'select(.hasApp) | .toolName'
+```
+
+### 不连接即可检查目录文件
+
+```bash
+mcp-inspector --cli --catalog ~/.mcp-inspector/mcp.json --method servers/list
+mcp-inspector --cli --catalog ~/.mcp-inspector/mcp.json --method servers/show --server my-server
+```
+
+<Callout type="warn">
+  `servers/show` 会脱敏携带秘密的字段（`env` 值、敏感 headers、
+  OAuth client secrets），但它**不会**清除嵌入在
+  服务端 `url`（userinfo 或查询令牌）或 stdio `args` 中的凭据。把原始 URL 和
+  `detail` 字段粘贴到 issue 中之前，请视其为敏感信息。
+</Callout>
+
+## 代理
+
+对远程 HTTP/SSE 服务端的连接会遵循常规的代理变量：`HTTPS_PROXY` / `HTTP_PROXY`（及其小写形式）选择代理，`NO_PROXY` 豁免主机。无需 Inspector 专属的 flag，且代理 agent 是惰性加载的，因此无代理的运行不会付出任何代价。web 客户端的后端也是如此。

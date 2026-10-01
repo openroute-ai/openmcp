@@ -1,0 +1,484 @@
+---
+title: "智能体网关（A2A 协议）- 概述"
+description: "在 OpenMCP AI 网关上添加 A2A 智能体，以 A2A 协议调用智能体，在 OpenMCP 日志中追踪请求/响应日志。管理哪些团队、密钥可以访问哪些已接入的智能体。"
+---
+
+在 OpenMCP AI 网关上添加 A2A 智能体，以 A2A 协议调用智能体，在 OpenMCP 日志中追踪请求/响应日志。管理哪些团队、密钥可以访问哪些已接入的智能体。
+
+<img src="/images/docs/a2a-gateway/a2a_gateway.png" style={{width: '80%', display: 'block', margin: '0', borderRadius: '8px'}} />
+
+<br />
+<br />
+
+| 功能 | 支持情况 | 
+|---------|-----------|
+| 支持的智能体供应商 | A2A、Vertex AI Agent Engine、LangGraph、Azure AI Foundry、Bedrock AgentCore、Pydantic AI |
+| 日志记录 | ✅ |
+| 负载均衡 | ✅ |
+| 流式 | ✅ |
+| [迭代预算](a2a_iteration_budgets) | ✅ |
+
+<Callout type="info">
+
+OpenMCP 遵循 [A2A（智能体到智能体）协议](https://github.com/google/A2A) 来调用智能体。
+
+</Callout>
+
+## 添加你的智能体
+
+### 添加 A2A 智能体
+
+你可以通过 OpenMCP 管理界面添加 A2A 兼容智能体。
+
+1. 导航到 **Agents** 标签页
+2. 点击 **Add Agent**
+3. 输入智能体名称（例如 `ij-local`）和你的 A2A 智能体 URL
+4. 选择一个 **Protocol Version**（`1.0` 或 `0.3`）- 这是 OpenMCP 为此智能体提供给客户端的线上格式
+
+<img src="/images/docs/a2a-gateway/add_agent_1.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+URL 应该是你的 A2A 智能体的调用 URL（例如 `http://localhost:10001`）。
+
+#### 在 config.yaml 中定义智能体
+
+智能体也可以在 `config.yaml` 的顶级 `agents` 键下声明，这在网关从 ConfigMap 或其他只读来源部署时非常有用。`agent_name` 和 `agent_card_params` 都是必需的；缺少其中任何一个的条目会在启动时被跳过。
+
+```yaml title="config.yaml"
+agents:
+  - agent_name: my-agent
+    agent_card_params:
+      name: "My Agent"
+      url: "http://localhost:10001"
+      protocolVersion: "1.0"  # or "0.3"
+```
+
+通过 API 注册时也可以同样方式设置 `protocolVersion`。
+
+通过配置定义的智能体会出现在 Agents 标签页和 `GET /v1/agents` 中，与在 UI 中创建的智能体并列，并且它们在定期从数据库重新加载后仍会保留。通过以下方式验证：
+
+```shell
+curl -s http://localhost:4000/v1/agents \
+  -H "Authorization: Bearer $OPENMCP_MASTER_KEY"
+```
+
+如果在 UI 中创建的智能体已经使用了你在 `config.yaml` 中声明的名称，则数据库记录优先，该名称的配置条目会被跳过，因此该名称始终解析为你可编辑的记录。删除数据库中的智能体后，配置条目会在下次重新加载时收回该名称。
+
+<Callout type="info">
+
+在 `config.yaml` 中声明的智能体不会存储在数据库中，因此无法在管理界面中编辑或删除。请改为修改配置文件并重启网关。
+
+`agents` 键从下一个版本（`v1.95.0` 之后）开始才能被正确读取。在更早的版本上，请使用 `agent_list`，并注意在挂接了数据库的网关上，通过配置定义的智能体会被丢弃。
+
+</Callout>
+
+### 添加 Azure AI Foundry 智能体
+
+按照 [本指南，将你的 Azure AI Foundry 智能体添加到 OpenMCP 智能体网关](./providers/azure_ai_agents#openmcp-a2a-gateway)
+
+### 添加 Vertex AI Agent Engine
+
+按照 [本指南，将你的 Vertex AI Agent Engine 添加到 OpenMCP 智能体网关](./providers/vertex_ai_agent_engine)
+
+### 添加 Bedrock AgentCore 智能体
+
+按照 [本指南，将你的 Bedrock AgentCore 智能体添加到 OpenMCP 智能体网关](./providers/bedrock_agentcore#openmcp-a2a-gateway)
+
+### 添加 LangGraph 智能体
+
+按照 [本指南注册 LangGraph 智能体并配置其智能体卡片](/docs/providers/langgraph)
+
+### 添加 Pydantic AI 智能体
+
+按照 [本指南，将你的 Pydantic AI 智能体添加到 OpenMCP 智能体网关](./providers/pydantic_ai_agent#openmcp-a2a-gateway)
+
+## 协议版本控制
+
+OpenMCP 代理使用 **a2a-sdk 1.x** 路由 A2A 智能体，并且可以为每个智能体向客户端提供 **A2A 0.3** 或 **1.0** 线上格式。上游智能体可以讲任一版本；OpenMCP 会将 `message/send`、`message/stream` 和扩展卡片响应规范化为你固定的版本。
+
+| 版本 | 线上格式 | 发送结果示例 |
+|---------|------------|---------------------|
+| **0.3** | 由 `kind` 判别的对象（`message`、`task`、`status-update` 等） | `{"kind": "message", "role": "user", "parts": [{"kind": "text", "text": "..."}]}` |
+| **1.0** | Protobuf JSON 信封（`message`、`task`、`statusUpdate`、`artifactUpdate`） | `{"message": {"role": "ROLE_USER", "parts": [{"text": "..."}]}}` |
+
+### 固定版本
+
+注册智能体时（UI 下拉框或 API）将 `agent_card_params.protocolVersion` 设置为 `"0.3"` 或 `"1.0"`。OpenMCP 会在代理智能体卡片上提供该版本，并转换上游响应以匹配。
+
+只接受 `"0.3"` 和 `"1.0"`；其他值在注册时会返回 HTTP 400。
+
+### 当 `protocolVersion` 未固定时
+
+如果智能体没有固定版本，OpenMCP 会根据客户端请求推断所提供的版本：
+
+| 客户端信号 | 提供的版本 |
+|---------------|----------------|
+| JSON-RPC 方法 `SendMessage` 或 `SendStreamingMessage` | `1.0` |
+| 请求头 `a2a-version: 1.x` | `1.0` |
+| 其他情况（例如不带请求头的 `message/send`） | `0.3` |
+
+<Callout type="info" title="始终固定 protocolVersion">
+
+代理智能体卡片在未设置时默认使用 `1.0`，但没有 `a2a-version` 请求头的旧版 `message/send` 调用方会收到 **0.3** 格式的响应。请显式固定 `protocolVersion`，以便你的卡片和响应始终匹配。
+
+</Callout>
+
+任务方法（`tasks/get`、`tasks/list` 等）会原样转发给上游智能体。版本转换仅适用于 OpenMCP 集成的消息路径。
+
+### 依赖
+
+OpenMCP 代理的 A2A 路由需要 **a2a-sdk >= 1.1.0**（包含在 `proxy` / `proxy-dev` 依赖组中）。如果你在自己的代码中调用智能体，请安装匹配的 SDK 版本：
+
+```bash
+pip install "a2a-sdk>=1.1.0,<2.0"
+```
+
+## 调用你的智能体
+
+参阅 [调用 A2A 智能体](./a2a_invoking_agents) 指南，了解如何使用以下方式调用你的智能体：
+- **A2A SDK** - 原生 A2A 协议，完整支持任务和产物
+- **OpenAI SDK** - 熟悉的 `/chat/completions` 接口，带 `a2a/` 模型前缀
+
+## 追踪智能体日志
+
+调用智能体后，你可以在 OpenMCP 的 **Logs** 标签页查看请求日志。
+
+日志会显示：
+- 发送给智能体和从智能体接收的**请求/响应内容**
+- 用于追踪谁发起了请求的**用户、密钥、团队**信息
+- **延迟和成本**指标
+
+<img src="/images/docs/a2a-gateway/agent2.png" style={{width: '100%', display: 'block', margin: '2rem auto'}} />
+
+## 转发 OpenMCP 上下文头
+
+当 OpenMCP 调用你的 A2A 智能体时，它会发送特殊头，用于启用：
+- **追踪分组**：同一智能体执行中的所有 LLM 调用都归入一个追踪
+- **智能体支出追踪**：成本被归属到特定智能体
+
+| 头 | 用途 |
+|--------|---------|
+| `X-OpenMCP-Trace-Id` | 将所有 LLM 调用关联到同一执行流程 |
+| `X-OpenMCP-Agent-Id` | 将支出归属到正确的智能体 |
+
+要启用这些功能，你的 A2A 服务器必须**将这些头转发**给它回调到 OpenMCP 的任何 LLM 调用。
+
+### 实现步骤
+
+**第 1 步：从传入的 A2A 请求中提取头**
+```python
+def get_openmcp_headers(request) -> dict:
+    """Extract X-OpenMCP-* headers from incoming A2A request."""
+    all_headers = request.call_context.state.get('headers', {})
+    return {
+        k: v for k, v in all_headers.items() 
+        if k.lower().startswith('x-openmcp-')
+    }
+```
+
+**第 2 步：将头转发到你的 LLM 调用**
+在回调 OpenMCP 时传递提取出的头：
+<Tabs items={["OpenAI SDK","LangChain","OpenMCP SDK","HTTP (requests/httpx)"]}>
+<Tab>
+
+```python
+from openai import OpenAI
+
+headers = get_openmcp_headers(request)
+
+client = OpenAI(
+    api_key="sk-your-openmcp-key",
+    base_url="http://localhost:4000",
+    default_headers=headers,  # Forward headers
+)
+
+response = client.chat.completions.create(
+    model="{{openai_large}}",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+</Tab>
+
+<Tab>
+
+```python
+from langchain_openai import ChatOpenAI
+
+headers = get_openmcp_headers(request)
+
+llm = ChatOpenAI(
+    model="{{openai_large}}",
+    openai_api_key="sk-your-openmcp-key",
+    base_url="http://localhost:4000",
+    default_headers=headers,  # Forward headers
+)
+```
+</Tab>
+<Tab>
+
+```python
+import openmcp
+
+headers = get_openmcp_headers(request)
+
+response = openmcp.completion(
+    model="{{openai_large}}",
+    messages=[{"role": "user", "content": "Hello"}],
+    api_base="http://localhost:4000",
+    extra_headers=headers,  # Forward headers
+)
+```
+</Tab>
+<Tab>
+
+```python
+import httpx
+
+headers = get_openmcp_headers(request)
+headers["Authorization"] = "Bearer sk-your-openmcp-key"
+
+response = httpx.post(
+    "http://localhost:4000/v1/chat/completions",
+    headers=headers,
+    json={"model": "{{openai_large}}", "messages": [{"role": "user", "content": "Hello"}]}
+)
+```
+</Tab>
+</Tabs>
+
+### 结果
+
+启用头转发后，你将看到：
+
+**Langfuse 中的追踪分组：**
+
+<img src="/images/docs/a2a-gateway/a2a_trace_grouping.png" style={{width: '80%', display: 'block', margin: '0', borderRadius: '8px'}} />
+
+**智能体支出归属：**
+
+<img src="/images/docs/a2a-gateway/a2a_agent_spend.png" style={{width: '80%', display: 'block', margin: '0', borderRadius: '8px'}} />
+
+## API 参考
+
+### 端点
+
+| 端点 | 方法 | 用途 |
+|----------|--------|---------|
+| `POST /a2a/{agent_id}` | JSON-RPC 2.0 | **主要** — 所有 A2A 方法（见下表） |
+| `POST /a2a/{agent_id}/message/send` | JSON-RPC | 仅作为 `message/send` 的别名 |
+| `POST /v1/a2a/{agent_id}/message/send` | JSON-RPC | 仅作为 `message/send` 的别名 |
+| `GET /a2a/{agent_id}/.well-known/agent.json` | 智能体卡片 | 发现（`url` 字段中提供代理 URL） |
+| `GET /a2a/{agent_id}/.well-known/agent-card.json` | 智能体卡片 | 发现（标准路径） |
+
+`{agent_id}` 可以是智能体 UUID 或注册的智能体名称。
+
+### 支持的 JSON-RPC 方法
+
+向 `POST /a2a/{agent_id}` 的 `method` 字段发送这些方法中的任意一个：
+
+| 方法 | 描述 |
+|--------|-------------|
+| `message/send` | 发送消息；返回 `task` 或 `message`（OpenMCP 集成路径） |
+| `message/stream` | 流式变体（NDJSON/SSE） |
+| `tasks/get` | 按 `params.id` 获取任务状态 |
+| `tasks/list` | 列出任务（可选 `params.contextId`） |
+| `tasks/cancel` | 按 `params.id` 取消任务 |
+| `tasks/resubscribe` | 订阅任务更新（流式） |
+| `tasks/pushNotificationConfig/set` | 注册推送通知配置 |
+| `tasks/pushNotificationConfig/get` | 获取推送配置 |
+| `tasks/pushNotificationConfig/list` | 列出任务的所有推送配置 |
+| `tasks/pushNotificationConfig/delete` | 删除推送配置 |
+| `agent/getAuthenticatedExtendedCard` | 扩展智能体卡片 |
+
+**路由：** `message/send` 和 `message/stream` 经过 OpenMCP 的 A2A 客户端（日志、guardrails、支出）。所有其他方法被转发到 `agent_card_params.url` 中的上游 URL。任务 API 需要该 URL；仅完成桥接的智能体只支持消息方法。
+
+有关示例、别名和限制，请参阅 [支持的 A2A 方法](./a2a_agent_card#supported-a2a-methods)。
+
+### 认证
+
+在两个头中任选一个来包含你的 OpenMCP 虚拟密钥。当入站的 `Authorization` 头可能携带发往后端智能体的令牌时（例如使用 [基于约定的直通](./a2a_agent_headers#method-3-convention-based-forwarding) 转发调用方身份时），`x-openmcp-api-key` 是首选。
+
+```
+Authorization: Bearer sk-your-openmcp-key
+# or
+x-openmcp-api-key: Bearer sk-your-openmcp-key
+```
+
+#### 每个智能体的权限检查
+
+虚拟密钥通过认证后，OpenMCP 会检查调用密钥（及其团队）是否被允许调用所请求的智能体。如果不允许，响应为 HTTP 403。有关完整的交集模型和访问组，请参阅 [智能体权限管理](./a2a_agent_permissions)。
+
+#### Trace ID 强制（可选，按智能体）
+
+智能体可以要求每个入站请求都携带 trace ID，以便进行跨系统审计追踪。在智能体的 `openmcp_params` 中设置 `require_trace_id_on_calls_to_agent: true`。设置后，缺少 `x-openmcp-trace-id`（或 `x-openmcp-session-id`）的请求将以 HTTP 400 被拒绝。
+
+```bash title="Register an agent that requires inbound trace IDs" showLineNumbers
+curl -X POST http://localhost:4000/v1/agents \
+  -H "Authorization: Bearer sk-master-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_name": "audit-critical-agent",
+    "agent_card_params": { ... },
+    "openmcp_params": {
+      "require_trace_id_on_calls_to_agent": true
+    }
+  }'
+```
+
+对智能体所属密钥发起的**出站**调用强制实施 trace ID，由同一 `openmcp_params` 块上的 `require_trace_id_on_calls_by_agent` 控制。
+
+#### 子智能体身份传播
+
+当后端智能体自己调用 OpenMCP（用于 chat completions 或调用子智能体）时，OpenMCP 会转发两个头以保持追踪的连续性：
+
+- `X-OpenMCP-Trace-Id` — 将链中的所有调用关联到单个追踪
+- `X-OpenMCP-Agent-Id` — 将支出归属到发起调用的智能体
+
+调用方的**虚拟密钥**和**端用户 ID** 不会被自动转发。如果下游智能体需要用户身份，请通过 [`extra_headers` 或 `x-a2a-{agent_name_or_id}-{header}` 约定](./a2a_agent_headers) 显式传播。
+
+### 请求格式
+
+OpenMCP 遵循 [A2A JSON-RPC 2.0 规范](https://github.com/google/A2A)。消息体的结构取决于智能体固定的 `protocolVersion`（如果未固定，则取决于上文提到的客户端信号）。
+
+<Tabs items={["0.3 wire format","1.0 wire format"]}>
+<Tab>
+
+```json title="Request Body (0.3)"
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [{"kind": "text", "text": "Your message here"}],
+      "messageId": "unique-message-id"
+    }
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+当智能体固定为 `1.0` 时，使用 [a2a-sdk 1.x 客户端](./a2a_invoking_agents#a2a-sdk)（推荐）或发送带 PascalCase 方法 / `a2a-version: 1.0` 头的 JSON-RPC。
+
+```json title="Request Body (1.0 SDK — protobuf types)"
+// Build with a2a.types.Message, Part, Role, then wrap in SendMessageRequest
+```
+
+</Tab>
+</Tabs>
+
+### 响应格式
+
+<Tabs items={["0.3 response","1.0 response"]}>
+<Tab>
+
+```json title="Response (0.3 task result)"
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "result": {
+    "kind": "task",
+    "id": "task-id",
+    "contextId": "context-id",
+    "status": {"state": "completed", "timestamp": "2025-01-01T00:00:00Z"},
+    "artifacts": [
+      {
+        "artifactId": "artifact-id",
+        "name": "response",
+        "parts": [{"kind": "text", "text": "Agent response here"}]
+      }
+    ]
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```json title="Response (1.0 message envelope)"
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "result": {
+    "message": {
+      "role": "ROLE_AGENT",
+      "messageId": "msg-abc",
+      "parts": [{"text": "Agent response here"}]
+    }
+  }
+}
+```
+
+流式事件使用 `statusUpdate` / `artifactUpdate` 键，而不是 `kind: "status-update"`。
+
+</Tab>
+</Tabs>
+
+智能体的 JSON-RPC 错误会返回在 `error` 字段中，并尽可能带有与请求相同的 `id`。当 `message/send` 返回 `submitted` 任务后，使用 `tasks/get` 轮询长期运行的工作。
+
+### 示例：`tasks/get`
+
+```bash title="Poll task after message/send"
+curl -X POST "http://localhost:4000/a2a/my-agent" \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "req-2",
+    "method": "tasks/get",
+    "params": {"id": "task-id-from-send-response"}
+  }'
+```
+
+## 智能体注册中心
+
+想创建一个中心注册中心，让你的团队可以发现公司内有哪些可用的智能体？
+
+使用 [AI Hub](./proxy/ai_hub) 让智能体在整个组织内公开且可被发现。这让开发者无需重新构建即可浏览可用的智能体。
+
+### 搜索注册中心
+
+`GET /v1/agents` 列出密钥可以访问的每个智能体。添加 `query=<task>` 可以根据任务与每个智能体的名称、描述和技能之间的语义相似度对这些智能体排序。首先选择嵌入模型：
+
+```yaml title="config.yaml" showLineNumbers
+model_list:
+  - model_name: text-embedding-3-small
+    openmcp_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+openmcp_settings:
+  agent_search_embedding_model: text-embedding-3-small
+```
+
+```console title="Rank agents for a task" showLineNumbers
+$ curl -s "http://localhost:4000/v1/agents?query=translate+a+pdf+document&top_k=3" \
+    -H "Authorization: Bearer $OPENMCP_KEY" | jq -c '.[] | {agent_name, search_score}'
+{"agent_name":"document-translator","search_score":0.6732403392080719}
+{"agent_name":"trip-planner","search_score":0.1121043964671429}
+{"agent_name":"warehouse-sql-analyst","search_score":0.0946962275274791}
+```
+
+`top_k` 默认为 5，上限为 100。每个结果都是普通的智能体对象，外加一个 `search_score`（余弦相似度，越高越好）。排序只会覆盖密钥允许看到的智能体，因此一个被限制为两个智能体的密钥，无论查询是什么，都只会返回这两个。如果没有 `agent_search_embedding_model`，带 `query` 的请求会返回 `400 agent_search_not_configured`；如果嵌入调用失败，请求会返回 `503 agent_search_unavailable`。智能体嵌入每个进程计算一次，并在智能体卡片改变前复用。
+
+MCP 客户端可以将同样的搜索用作虚拟工具。在其 `object_permission` 上启用了 `mcp_tool_search_enabled: true` 的密钥，会在 `/mcp/` 和 `/mcp-rest` 两条路径的 `tools/list` 上看到 `agent_search(query, top_k)` 与 `mcp_tool_search` 和 `mcp_tool_call` 并列：
+
+```console title="agent_search over /mcp-rest" showLineNumbers
+$ curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+    -H "Authorization: Bearer $KEY" \
+    -d '{"name":"agent_search","arguments":{"query":"check how many units are left in stock","top_k":1}}' \
+  | jq -r '.content[0].text | fromjson'
+[
+  {
+    "agent_id": "b21b8787-8b9e-4c5f-a45c-3f5e4061d70e",
+    "agent_name": "warehouse-sql-analyst",
+    "description": "Answers questions about stock by running SQL queries against the inventory database",
+    "skills": [{"name": "Query stock levels", "description": "Run a SQL query against the inventory database and summarize the stock levels it returns", "tags": ["sql", "analytics"]}],
+    "score": 0.37912064119364597
+  }
+]
+```
+
+有关如何在密钥上启用虚拟工具，请参阅 [MCP 工具搜索](/docs/mcp-gateway/tool-search)。

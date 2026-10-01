@@ -1,0 +1,117 @@
+---
+title: "MCP 成本跟踪"
+description: "OpenMCP 提供两种跟踪 MCP 工具调用成本的方式："
+---
+
+OpenMCP 提供两种跟踪 MCP 工具调用成本的方式：
+
+| 方法 | 使用场景 | 作用 |
+|--------|-------------|--------------|
+| **基于配置的成本跟踪** | 按工具/服务端固定成本进行的简单成本跟踪 | 根据配置自动跟踪成本 |
+| **自定义 Post-MCP Hook** | 使用自定义逻辑进行的动态成本跟踪 | 允许自定义成本计算和响应修改 |
+
+### 基于配置的成本跟踪
+
+直接在 config.yaml 中为 MCP 服务端配置固定成本：
+
+```yaml title="config.yaml" showLineNumbers
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: sk-xxxxxxx
+
+mcp_servers:
+  zapier_server:
+    url: "https://actions.zapier.com/mcp/sk-xxxxx/sse"
+    mcp_info:
+      mcp_server_cost_info:
+        # Default cost for all tools in this server
+        default_cost_per_query: 0.01
+        # Custom cost for specific tools
+        tool_name_to_cost_per_query:
+          send_email: 0.05
+          create_document: 0.03
+          
+  expensive_api_server:
+    url: "https://api.expensive-service.com/mcp"
+    mcp_info:
+      mcp_server_cost_info:
+        default_cost_per_query: 1.50
+```
+
+### 自定义 Post-MCP Hook
+
+当您需要动态成本计算，或希望在将 MCP 响应返回给用户之前对其进行修改时，请使用此方式。
+
+#### 1. 创建自定义 MCP hook 文件
+
+```python title="custom_mcp_hook.py" showLineNumbers
+from typing import Optional
+from openmcp.integrations.custom_logger import CustomLogger
+from openmcp.types.mcp import MCPPostCallResponseObject
+
+class CustomMCPCostTracker(CustomLogger):
+    """
+    Custom handler for MCP cost tracking and response modification
+    """
+    
+    async def async_post_mcp_tool_call_hook(
+        self, 
+        kwargs, 
+        response_obj: MCPPostCallResponseObject, 
+        start_time, 
+        end_time
+    ) -> Optional[MCPPostCallResponseObject]:
+        """
+        Called after each MCP tool call. 
+        Modify costs and response before returning to user.
+        """
+        
+        # Extract tool information from kwargs
+        tool_name = kwargs.get("name", "")
+        server_name = kwargs.get("server_name", "")
+        
+        # Calculate custom cost based on your logic
+        custom_cost = 42.00
+        
+        # Set the response cost
+        response_obj.hidden_params.response_cost = custom_cost
+        
+  
+      
+        return response_obj
+    
+
+# Create instance for OpenMCP to use
+custom_mcp_cost_tracker = CustomMCPCostTracker()
+```
+
+#### 2. 在 config.yaml 中配置
+
+```yaml title="config.yaml" showLineNumbers
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: sk-xxxxxxx
+
+# Add your custom MCP hook
+callbacks:
+  - custom_mcp_hook.custom_mcp_cost_tracker
+
+mcp_servers:
+  zapier_server:
+    url: "https://actions.zapier.com/mcp/sk-xxxxx/sse"
+```
+
+#### 3. 启动代理
+
+```shell
+$ openmcp --config /path/to/config.yaml 
+```
+
+当 MCP 工具被调用时，您的自定义 hook 将会：
+1. 根据您的自定义逻辑计算成本
+2. 按需修改响应
+3. 在 OpenMCP 的日志系统中记录成本

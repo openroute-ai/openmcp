@@ -1,0 +1,80 @@
+---
+title: TUI 客户端
+description: "终端版 MCP Inspector：导航、选项卡和键盘参考"
+---
+
+
+TUI 是 Inspector 的终端界面，提供与 web 客户端相同的工具、资源和提示词交互式探索。可在远程主机上通过 SSH 使用，或在受限环境中使用，也适用于你更愿意留在终端里的场景。
+
+```bash
+npx @modelcontextprotocol/inspector --tui node build/index.js   # with an ad-hoc stdio server
+```
+
+<img src="/images/docs/mcp/inspector/tui-tools.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">TUI 已连接到一个服务端，位于 Tools 选项卡，显示一个工具的输入 schema。</p>
+
+## 选择服务端
+
+与 CLI 不同，TUI 没有用于挑选单个条目的 `--server <name>` flag：它从 catalog 或 config 文件读取服务端，加载其中每个服务端，然后让你从屏幕列表中选择：
+
+```bash
+mcp-inspector --tui --catalog mcp.json   # writable catalog, seeded empty if missing (unlike the web client)
+mcp-inspector --tui --config mcp.json    # read-only session, errors if absent
+```
+
+既不指定 `--catalog` 也不指定 `--config`、也没有[临时目标](/docs/mcp/tools/inspector/configuration#ad-hoc-targets)时，它使用默认的可写 catalog `~/.mcp-inspector/mcp.json`。参见[配置与 flags](/docs/mcp/tools/inspector/configuration)。
+
+## 选项卡
+
+| 选项卡           | 按键 | 显示内容                                                                               |
+| ------------- | --- | ------------------------------------------------------------------------------------------- |
+| **Info**      | `i` | 服务端信息、能力和协商出的协议细节。                                 |
+| **Auth**      | `a` | 所选服务端的 OAuth 状态，外加一个 **Clear OAuth state（清除 OAuth 状态）** 动作。                   |
+| **Resources** | `r` | 浏览和读取资源。                                                                  |
+| **Prompts**   | `m` | 列出提示词并用参数渲染它们。                                                |
+| **Tools**     | `t` | 查看工具并用表单式输入执行它们。                                          |
+| **Protocol**  | `p` | JSON-RPC 请求/响应/通知历史。                                             |
+| **Network**   | `n` | SSE 和 [Streamable HTTP](/docs/mcp/specification/latest/basic/transports) 服务端的 HTTP 流量。 |
+| **Console**   | `o` | 已连接 stdio 服务端进程的 `stderr`。                                             |
+
+加速键会避免冲突，而不是总取首字母：**P**rotocol 取 `p`，因此 Pro**m**pts 取 `m`，**C**onsole 取 `o`，因为 `c` 是全局的 Connect 动作。
+
+## 导航
+
+| 按键                              | 动作                                              |
+| -------------------------------- | --------------------------------------------------- |
+| `Left` / `Right` 方向键或 `Tab` | 切换选项卡                                         |
+| `Up` / `Down` 方向键             | 在当前列表中移动                       |
+| `Enter`                          | 选中一个条目、执行一个工具或获取一个资源 |
+| `c`                              | 连接到所选服务端                      |
+| `d`                              | 断开连接                                          |
+| `Esc` 或 `Ctrl+C`                | 退出                                                |
+
+## 给 HTTP 服务端授权
+
+1. 选择一个 HTTP 或 SSE 服务端，按 **`c`** 连接。
+2. 如果服务端要求授权，TUI 会自动启动 OAuth 并在浏览器中打开授权 URL。
+3. 当浏览器重定向落到 TUI 的 loopback 监听器上时，连接自行完成，无需第二次按 **`c`**。
+4. 使用 **Auth** 选项卡检查产生的 OAuth 状态，或清除它。
+
+TUI 的回调监听器默认是 `http://127.0.0.1:6276/oauth/callback`。端口是刻意固定的：预注册（静态）OAuth 客户端、[Client ID Metadata 文档（CIMD）](/docs/mcp/specification/latest/basic/authorization/client-registration#client-id-metadata-documents)或企业托管的 IdP 都需要预先知道重定向 URI。注册该 URI 一次，它就在所有会话中工作。在远程主机上且你的浏览器在另一台机器时，转发回调端口，让重定向到达这个监听器；参见[回调 URL](/docs/mcp/tools/inspector/authorization#callback-urls)。
+
+代价是同一时刻只能有一个 TUI OAuth 流程占用该端口；第二个并发流程会以 `EADDRINUSE` 失败。要覆盖它，请传入 `--callback-url` 或设置 `MCP_OAUTH_CALLBACK_URL`：每个实例使用不同的固定端口，或当你们的授权服务器动态注册重定向 URI 时，使用 `http://127.0.0.1:0/oauth/callback` 让操作系统分配临时端口。
+
+<Callout type="warn">
+  重定向 URI 必须与你注册的**完全**匹配。对授权服务器而言，
+  `localhost` 和 `127.0.0.1` 是不同的 URI。
+</Callout>
+
+catalog 中按服务端的 OAuth 字段（静态 client id/secret、scopes、企业托管标记）会被自动应用。安装级设置（CIMD、企业 IdP）来自 `~/.mcp-inspector/storage/client.json`，也就是 web 客户端的 **Client Settings** 对话框写入的那个文件。用 `--client-config` 或 `MCP_CLIENT_CONFIG_PATH` 指向另一个。
+
+完整情况参见[授权](/docs/mcp/tools/inspector/authorization)。
+
+<img src="/images/docs/mcp/inspector/tui-auth.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Auth 选项卡。它显示与 web 客户端 Connection Info 相同的 OAuth 字段，或报告该服务端不需要授权。</p>
+
+## 要求
+
+TUI 需要一个支持原始模式（raw mode）的真实 TTY。它在无头 CI 作业中无法有效运行；那种场景请使用 [CLI](/docs/mcp/tools/inspector/cli)。

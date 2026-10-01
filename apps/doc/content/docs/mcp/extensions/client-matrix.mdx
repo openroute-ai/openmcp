@@ -1,0 +1,66 @@
+---
+title: 扩展支持矩阵
+description: 哪些 MCP 客户端实现了哪些官方扩展
+---
+
+
+{/* prettier-ignore-start */}
+
+export const CHECK = () => (
+  <span className="flex justify-center">
+    </span>
+);
+
+{/* prettier-ignore-end */}
+
+本矩阵展示哪些 MCP 客户端支持各项 [官方扩展](/docs/mcp/extensions/overview)。扩展始终是选择加入的：只有当客户端和服务端都在其 [能力](/docs/mcp/extensions/overview#negotiation) 的 `extensions` 字段中声明支持时，客户端才会使用某项扩展。
+
+<Callout>
+
+此列表由社区维护。如果你发现任何不准确之处，或希望添加、更新信息，请 [提交 pull request](https://github.com/modelcontextprotocol/modelcontextprotocol/pulls)。
+
+</Callout>
+
+## 扩展概览
+
+| 扩展                                                                             | 标识符                                                 | 描述                                                      |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| [MCP 应用](/docs/mcp/extensions/apps/overview)                                                 | `io.modelcontextprotocol/ui`                               | 在对话中内联渲染的交互式 HTML 界面                 |
+| [OAuth 客户端凭证](/docs/mcp/extensions/auth/oauth-client-credentials)                 | `io.modelcontextprotocol/oauth-client-credentials`         | 无需交互式用户登录的机器到机器认证           |
+| [企业级托管授权](/docs/mcp/extensions/auth/enterprise-managed-authorization) | `io.modelcontextprotocol/enterprise-managed-authorization` | 通过企业 IdP 实现的集中式访问控制                    |
+| [通过 MCP 提供技能](/docs/mcp/extensions/skills/overview)                                        | `io.modelcontextprotocol/skills`                           | 发现技能并读取其指令和支持文件 |
+
+## 支持矩阵
+
+| 客户端                                                                   | [MCP 应用](/docs/mcp/extensions/apps/overview) | [OAuth 客户端凭证](/docs/mcp/extensions/auth/oauth-client-credentials) | [企业级认证](/docs/mcp/extensions/auth/enterprise-managed-authorization) |                                          [技能](/docs/mcp/extensions/skills/overview)                                           |
+| ------------------------------------------------------------------------ | :-----------------------------------: | :-------------------------------------------------------------------: | :------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------: |
+| [Claude（网页版）](https://claude.ai)                                        |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [Claude Desktop](https://claude.ai/download)                             |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [VS Code GitHub Copilot](https://code.visualstudio.com/)                 |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [Microsoft 365 Copilot](https://www.microsoft.com/microsoft-365-copilot) |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [Goose](https://block.github.io/goose/)                                  |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [Postman](https://postman.com)                                           |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [MCPJam](https://www.mcpjam.com/)                                        |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [ChatGPT](https://chatgpt.com/)                                          |               <CHECK />               |                                                                       |                                                                      |           [部分支持](https://developers.openai.com/plugins/build/mcp-server#import-skills-from-the-mcp-server)            |
+| [Cursor](https://cursor.com/)                                            |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [Archestra.AI](https://www.archestra.ai/)                                |               <CHECK />               |                                                                       |                              <CHECK />                               |                                                                                                                          |
+| [PostHog Code](https://posthog.com/code/)                                |               <CHECK />               |                                                                       |                                                                      |                                                                                                                          |
+| [fast-agent](https://github.com/evalstate/fast-agent)                    |                                       |                                                                       |                                                                      |              [部分支持](https://github.com/evalstate/fast-agent/blob/main/docs/docs/mcp/skills-over-mcp.md)               |
+| [MCP Inspector](https://github.com/modelcontextprotocol/inspector)       |                                       |                                                                       |                                                                      | [部分支持](https://github.com/modelcontextprotocol/inspector/blob/main/clients/cli/README.md#skill-verification---verify) |
+
+<Callout>
+
+认证扩展的支持情况（OAuth 客户端凭证和企业级托管授权）与核心 MCP 授权特性（DCR、CIMD）分开跟踪。最新的实现状态请查看各扩展的规范以及 [ext-auth 仓库](https://github.com/modelcontextprotocol/ext-auth)。
+
+</Callout>
+
+## 为你的客户端添加扩展支持
+
+如果你正在构建 MCP 客户端并希望实现扩展支持：
+
+1. 查看扩展规范（例如 [ext-auth](https://github.com/modelcontextprotocol/ext-auth) 或 [ext-apps](https://github.com/modelcontextprotocol/ext-apps) 仓库中的规范）
+2. 在客户端每次请求的 `_meta` 中发送的 `io.modelcontextprotocol/clientCapabilities` 的 `extensions` 字段里声明支持，并从其 [`server/discover`](/docs/mcp/specification/draft/server/discover) 响应中读取服务端的 `extensions`
+3. 实现扩展的协议要求
+4. 提交 pull request 以更新本矩阵
+
+关于能力协商机制的详情，请参阅 [扩展概览](/docs/mcp/extensions/overview#negotiation)。

@@ -1,0 +1,187 @@
+---
+title: "Slack MCP 服务端"
+description: "Slack 托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。"
+---
+
+> 通过 OpenMCP MCP 网关连接 Slack 托管的 MCP 服务端，用于工作区搜索、频道读取和消息。
+
+Slack 托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。
+
+## 何时使用此服务端
+
+- 为智能体提供工作区上下文：频道中决定了什么、谁说的、何时说的
+- 让智能体将更新、摘要或告警发布到 Slack，而不是只在聊天中汇报
+- 作为回答前的检索步骤，跨消息、文件和画板进行搜索
+
+## 主要特性
+
+- 工具面取决于您授予的 OAuth 权限范围，因此只读部署和完整读写部署使用同一个服务端，只需不同的授权同意即可
+- 由 Slack 通过 Streamable HTTP 托管；无本地进程，无需轮换 bot 令牌
+- 按用户认证，因此每个工具调用都以已登录用户身份运行，并且只能看到他们在 Slack 中本就能看到的内容
+
+## 认证
+
+- **方法：** 使用用户令牌的 OAuth 2.1。Slack 不支持动态客户端注册，因此您需要创建一个 Slack 应用并把客户端凭据交给 OpenMCP。
+- **Slack 应用：** 在 [api.slack.com/apps](https://api.slack.com/apps) 创建一个。您需要设置重定向 URL、添加用户令牌权限范围，并启用 Model Context Protocol 开关。Slack 只允许 MCP 用于内部应用和目录发布的应用，因此在您自己的工作区中构建的应用符合条件。
+
+## 端点
+
+**远程 MCP 服务端：**
+
+```
+https://mcp.slack.com/mcp
+```
+
+***
+
+## 通过 OpenMCP MCP 网关连接
+
+<Callout type="info">
+
+Slack 是需要显式客户端凭据的服务端之一。OpenMCP 通常会像在 [Atlassian](/docs/mcp-gateway/servers/atlassian) 和 [Linear](/docs/mcp-gateway/servers/linear) 服务端上那样，通过动态注册为您处理 OAuth 客户端的设置，但 Slack 需要您自己的应用。
+
+</Callout>
+
+### 第 1 步：创建 Slack OAuth 应用
+
+1. 前往 [api.slack.com/apps](https://api.slack.com/apps)，点击 **Create New App**，然后选择 **From scratch**，并选择智能体应访问的工作区。
+2. 打开 **OAuth & Permissions**。
+3. 在 **Redirect URLs** 下，添加 `{PROXY_BASE_URL}/callback` 并点击 **Save URLs**：
+
+   ```
+   https://llm.example.com/callback
+   ```
+
+4. 将 `https://llm.example.com` 替换为用户在地址栏中看到的来源。这是 OpenMCP 作为 `redirect_uri` 发送给上游的值，因此不一致会导致流程在 Slack 的授权同意屏幕处失败。如果 OpenMCP 位于入口后面，请参阅[反向代理和入口配置](/docs/mcp-gateway/oauth#reverse-proxy-and-ingress-configuration)。
+5. 在 **User Token Scopes** 下，为您想要的能力添加权限范围，与[提供的工具](#oauth-scopes-by-capability)中的表格对应。广泛推广时从只读开始，并为您信任的团队添加写权限范围。
+6. 从 **Basic Information** 复制 **Client ID** 和 **Client Secret**。
+
+### 第 2 步：启用 MCP（Agents & AI Apps）
+
+<Callout type="warn">
+
+MCP 端点位于 **Agents & AI Apps** 下的按应用开关后面。如果您将其保持关闭，OAuth 仍然会成功，但工具列表会返回为空或 403，看起来像一个 OpenMCP 权限问题，而实际上不是。
+
+</Callout>
+
+1. 在应用设置中，打开 **Agents & AI Apps**。
+2. 启用 **Model Context Protocol**。
+3. 将应用安装或重新安装到工作区，使新的权限范围生效。
+
+### 第 3 步：在 OpenMCP 中注册服务端
+
+<Tabs items={["OpenMCP UI","config.yaml"]}>
+<Tab>
+
+导航到 **MCP Servers**，点击 **+ Add New MCP Server**，然后设置：
+
+| 字段 | 值 |
+|---|---|
+| **服务端名称** | `slack_mcp` |
+| **传输方式** | HTTP |
+| **服务端 URL** | `https://mcp.slack.com/mcp` |
+| **认证** | OAuth |
+| **OAuth 流程类型** | 交互式（PKCE） |
+| **客户端 ID / 客户端密钥** | 来自第 1 步 |
+
+点击 **Create MCP Server**，然后打开服务端的 **MCP Tools** 标签页以确认 OpenMCP 能列出 Slack 的工具。首次列出工具会触发浏览器登录。
+
+</Tab>
+<Tab>
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  slack_mcp:
+    url: "https://mcp.slack.com/mcp"
+    transport: "http"
+    description: "Slack workspace search, channels, and messaging"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+    client_id: os.environ/SLACK_OAUTH_CLIENT_ID
+    client_secret: os.environ/SLACK_OAUTH_CLIENT_SECRET
+```
+
+`oauth2_flow: authorization_code` 选择交互式按用户流程，并且是必需的；代理会拒绝在省略了它的 `auth_type: oauth2` 服务端上启动。存储 MCP 服务端还需要 `store_model_in_db: true`，见[前提条件](/docs/mcp-gateway#prerequisites)。
+
+</Tab>
+</Tabs>
+
+### 第 4 步：从智能体连接
+
+网关在 `http://localhost:4000/{server_name}/mcp` 提供服务，因此 `slack_mcp` 可通过 `http://localhost:4000/slack_mcp/mcp` 访问。
+
+<Tabs items={["Claude Desktop / Cursor","Claude Code"]}>
+<Tab>
+
+```json title="Claude Desktop / Cursor" showLineNumbers
+{
+  "mcpServers": {
+    "slack": {
+      "url": "http://localhost:4000/slack_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```bash showLineNumbers
+claude mcp add --transport http slack http://localhost:4000/slack_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer $OPENMCP_API_KEY"
+```
+
+</Tab>
+</Tabs>
+
+首次调用会打开浏览器进行 Slack 登录。OpenMCP 之后会存储该用户的令牌并刷新它，因此后续会话无需提示即可连接。
+
+***
+
+## 提供的工具
+
+<Callout type="info">
+
+Slack 会在运行时通过 `tools/list` 发布其工具定义，因此名称和字段可能会随时更改而无需通知。OpenMCP UI 中的 **MCP Tools** 标签页是了解您的工作区暴露了哪些工具的权威来源；它列出实时工具，并允许您使用测试参数调用其中一个。上游详情请参阅 Slack 的 [Slack MCP 服务端概览](https://docs.slack.dev/ai/slack-mcp-server)。
+
+</Callout>
+
+| 领域 | 工具 |
+|---|---|
+| 搜索 | `search_public`、`search_public_and_private`、`search_channels`、`search_users` |
+| 读取 | `read_channel`、`read_thread`、`read_user_profile` |
+| 消息 | `send_message`、`send_message_draft`、`schedule_message` |
+| 画板 | `create_canvas`、`read_canvas`、`update_canvas` |
+
+画板工具需要付费 Slack 套餐。OpenMCP 会为工具名称加上服务端名称前缀，因此 `search_public` 会以 `slack_mcp-search_public` 的形式暴露给模型；见[工具命名](/docs/mcp-gateway/rest-api#tool-naming)。
+
+### 按能力划分的 OAuth 权限范围
+
+| 能力 | 用户令牌权限范围（示例） |
+|---|---|
+| 搜索消息和文件 | `search:read` |
+| 读取公共频道 | `channels:read`、`channels:history` |
+| 读取私有频道 | `groups:read`、`groups:history` |
+| 读取直接消息 | `im:history` |
+| 发布消息 | `chat:write` |
+| 解析用户资料 | `users:read` |
+| 读取文件 | `files:read` |
+
+Slack 在 [OAuth 权限范围](https://api.slack.com/scopes) 中记录了完整列表。速率限制按工具应用，与等效 Web API 方法的层级一致，并叠加在您在 OpenMCP 中配置的任何限制之上。
+
+***
+
+<Callout type="info" title="Restrict who can use it">
+
+使用 `object_permission` 按 key 或按团队授予服务端权限，并用 `mcp_rpm_limit` 限制每个服务端的调用量，两者均见 [MCP 权限管理](/docs/mcp-gateway/control)。授予对目标受众而言最窄的权限范围集；一个只需汇总频道的 key 不需要 `chat:write`。
+
+</Callout>
+
+<Callout type="warn" title="Put the OpenMCP key in x-openmcp-api-key">
+
+交互式 OAuth 需要 `Authorization` 头为空闲状态，以供上游令牌使用。如果客户端将 OpenMCP API key 作为 `Authorization: Bearer sk-...` 发送，OAuth 流程永远不会运行，OpenMCP 会把您的 OpenMCP key 转发给 Slack，而后者会拒绝它。要诊断，请添加 `x-openmcp-mcp-debug: true` 并读取响应头：`SAME_AS_OPENMCP_KEY` 可确认本情况，`m2m-client-credentials` 则意味着设置了 `token_url`，所有调用方共享同一身份。见[调试 OAuth](/docs/mcp-gateway/oauth#debugging-oauth) 和 [MCP 故障排查指南](/docs/mcp-gateway/troubleshoot)。
+
+</Callout>

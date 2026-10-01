@@ -1,0 +1,88 @@
+---
+title: "MCP 护栏"
+description: "OpenMCP 支持对 MCP 工具调用应用护栏，以确保安全性和合规性。您可以配置护栏在 MCP 调用之前或期间运行，以校验输入并阻止或脱敏敏感信息。"
+---
+
+OpenMCP 支持对 MCP 工具调用应用护栏，以确保安全性和合规性。您可以配置护栏在 MCP 调用之前或期间运行，以校验输入并阻止或脱敏敏感信息。
+
+### 支持的 MCP 护栏模式
+
+MCP 护栏支持以下模式：
+
+- `pre_mcp_call`：在 MCP 调用**之前**，针对**输入**运行。当您希望对 MCP 请求应用校验/脱敏/阻止时使用此模式
+- `during_mcp_call`：在 MCP 调用执行**期间**运行。当您需要实时监控和干预时使用此模式
+
+### 配置示例
+
+配置护栏在 MCP 工具调用之前运行，以校验和净化输入：
+
+```yaml title="config.yaml" showLineNumbers
+guardrails:
+  - guardrail_name: "mcp-input-validation"
+    openmcp_params:
+      guardrail: presidio  # or other supported guardrails
+      mode: "pre_mcp_call" # or during_mcp_call
+      pii_entities_config:
+        CREDIT_CARD: "BLOCK"  # Will block requests containing credit card numbers
+        EMAIL_ADDRESS: "MASK"  # Will mask email addresses
+        PHONE_NUMBER: "MASK"   # Will mask phone numbers
+      default_on: true
+```
+
+### 使用示例
+
+#### 测试 MCP 调用前的护栏
+
+使用包含敏感信息的请求来测试您的 MCP 护栏：
+
+```bash title="Test MCP Guardrail" showLineNumbers
+curl http://localhost:4000/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "My credit card is 4111-1111-1111-1111 and my email is john@example.com"}
+    ],
+    "guardrails": ["mcp-input-validation"]
+  }'
+```
+
+该请求将按以下方式处理：
+1. 信用卡号将被阻止（请求被拒绝）
+2. 邮箱地址将被脱敏（例如替换为 `<EMAIL_ADDRESS>`）
+
+#### 与 MCP 工具配合使用
+
+当使用 MCP 工具时，护栏将应用于工具输入：
+
+```python title="Python Example with MCP Guardrails" showLineNumbers
+import openai
+
+client = openai.OpenAI(
+    api_key="your-api-key",
+    base_url="http://localhost:4000"
+)
+
+# This request will trigger MCP guardrails
+response = client.chat.completions.create(
+    model="{{openai_small}}",
+    messages=[
+        {"role": "user", "content": "Send an email to 555-123-4567 with my SSN 123-45-6789"}
+    ],
+    tools=[{"type": "mcp", "server_label": "openmcp", "server_url": "openmcp_proxy"}],
+    extra_body={"guardrails": ["mcp-input-validation"]},
+)
+```
+
+### 支持的护栏提供商
+
+MCP 护栏可与所有 OpenMCP 支持的护栏提供商配合使用：
+
+- **Presidio**：PII 检测与脱敏
+- **Bedrock**：AWS Bedrock 护栏
+- **Lakera**：内容审核
+- **Aporia**：自定义护栏
+- **Noma**：Noma 安全
+- **PANW Prisma AIRS**：Prisma AIRS 护栏
+- **Custom**：您自己的护栏实现

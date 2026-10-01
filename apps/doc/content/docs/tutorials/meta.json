@@ -1,0 +1,11 @@
+{
+  "title": "教程",
+  "description": "A2A 与 MCP 分步教程",
+  "icon": "GraduationCap",
+  "root": true,
+  "pages": [
+    "index",
+    "a2a",
+    "mcp"
+  ]
+}

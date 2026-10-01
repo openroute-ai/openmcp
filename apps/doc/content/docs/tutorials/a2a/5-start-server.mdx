@@ -1,0 +1,60 @@
+---
+title: '5. 启动服务端'
+---
+
+现在我们已经有了智能体名片和智能体执行器，接下来可以设置并启动 A2A 服务端了。
+
+要设置 A2A 服务端，Python SDK 提供了路由工厂和辅助函数（`create_agent_card_routes`、`create_jsonrpc_routes`、`create_rest_routes`）。使用路由工厂为 A2A 服务端的各项服务创建路由。这些路由可以原生附加到流行的框架（如 [Starlette](https://www.starlette.dev/) 和 [FastAPI](https://fastapi.tiangolo.com/)），使你能够更好地控制身份验证、日志记录和其他功能。
+
+在本教程中，我们将使用 Starlette 配合 [Uvicorn](https://www.uvicorn.org/)。
+
+## Helloworld 中的服务端设置
+
+让我们再次查看 `__main__.py`，了解服务端是如何初始化和启动的。
+
+```python
+参考：`__main__.py` — 完整源码见 [__main__.py](https://raw.githubusercontent.com/a2aproject/a2a-samples/refs/heads/main/samples/python/agents/helloworld/__main__.py)
+```
+
+让我们逐条分析：
+
+1. **`DefaultRequestHandler`**：
+
+    - SDK 提供了 `DefaultRequestHandler`。该处理器接受你的 `AgentExecutor` 实现（`HelloWorldAgentExecutor`）、一个 `TaskStore`（`InMemoryTaskStore`）以及公开版和扩展版的 `AgentCard` 对象。
+    - 它将传入的 A2A RPC 调用路由到执行器上相应的方法（如 `execute` 或 `cancel`）。
+    - `TaskStore` 被 `DefaultRequestHandler` 用于管理任务的生命周期，特别是对于有状态交互、流式传输和重新订阅。即使你的智能体执行器很简单，处理器也需要一个任务存储。
+    - `agent_card` 传递给处理器，以便在处理传入请求时验证智能体声明的能力。例如，它会在处理流式或推送通知请求类型之前检查是否支持这些功能。
+    - `extended_agent_card` 的传递使处理器能够通过 `GetExtendedAgentCard` RPC 方法将其提供给已认证的客户端。
+
+2. **`create_agent_card_routes` 和 `create_jsonrpc_routes`**：
+
+    - `create_agent_card_routes(public_agent_card)` 返回 Starlette 路由，在 `/.well-known/agent-card.json` 端点公开智能体名片以供公开发现。
+    - `create_jsonrpc_routes(request_handler, '/')` 返回 Starlette 路由，通过委托给 `request_handler` 来处理所有传入的 A2A JSON-RPC 方法调用。
+    - 这些路由列表被合并并传递给标准的 `Starlette` 应用。
+
+3. **`uvicorn.run(app, ...)`**：
+    - 构建好的 `Starlette` 应用通过 `uvicorn.run()` 运行，使你的智能体可通过 HTTP 访问。
+    - `host='127.0.0.1'` 使服务端只能从本机访问。
+    - `port=9999` 指定监听端口，这与 `AgentCard` 的 `supported_interfaces` 中定义的端点相匹配。
+
+## 运行 Helloworld 服务端
+
+在终端中导航到 `a2a-samples` 目录（如果还没有的话），并确保你的虚拟环境已激活。
+
+运行 Helloworld 服务端：
+
+```bash
+# from the a2a-samples directory
+python samples/python/agents/helloworld/__main__.py
+```
+
+你应该会看到类似以下的输出，表明服务端正在运行：
+
+```console
+INFO:     Started server process [xxxxx]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9999 (Press CTRL+C to quit)
+```
+
+你的 A2A Helloworld 智能体已上线并正在监听请求！下一步，我们将与它进行交互。

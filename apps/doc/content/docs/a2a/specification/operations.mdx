@@ -1,0 +1,622 @@
+---
+title: '3. A2A 协议操作'
+---
+
+## 3. A2A 协议操作
+
+本节以与绑定无关的方式描述 A2A 协议的核心操作。这些操作定义了所有 A2A 实现必须支持的基本能力，无论底层绑定机制如何。
+
+### 3.1. 核心操作
+
+以下操作定义了所有 A2A 实现必须支持的基本能力，与所使用的具体协议绑定无关。有关这些操作到协议特定方法名和端点的快速参考映射，请参阅[第 5.3 节（方法映射参考）](#53-method-mapping-reference)。有关详细的协议特定实现细节，请参阅：
+
+- [第 9 节：JSON-RPC 协议绑定](#9-json-rpc-protocol-binding)
+- [第 10 节：gRPC 协议绑定](#10-grpc-protocol-binding)
+- [第 11 节：HTTP+JSON/REST 协议绑定](#11-httpjsonrest-protocol-binding)
+
+#### 3.1.1. 发送消息
+
+启动智能体交互的主要操作。客户端向智能体发送消息，并收到跟踪处理过程的任务或直接的响应消息。
+
+**输入：**
+
+- [`SendMessageRequest`](#321-sendmessagerequest)：包含消息、配置和元数据的请求对象
+
+**输出：**
+
+- [`Task`](#411-task)：表示消息处理过程的任务对象，或
+- [`Message`](#414-message)：直接的响应消息（适用于不需要任务跟踪的简单交互）
+
+**错误：**
+
+- [`ContentTypeNotSupportedError`](#332-error-handling)：请求消息 parts 中提供的媒体类型不受智能体支持。
+- [`UnsupportedOperationError`](#332-error-handling)：发送给处于终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）任务的消息无法再接收更多消息。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+**行为：**
+
+智能体可以创建新的 `Task` 来异步处理所提供的消息，也可以为简单的交互返回直接的 `Message` 响应。该操作必须立即返回任务信息或响应消息。当返回 [`Task`](#411-task) 时，任务处理可以在响应后继续异步进行。
+
+#### 3.1.2. 发送流式消息
+
+与发送消息类似，但在处理过程中提供实时流式更新。
+
+**输入：**
+
+- [`SendMessageRequest`](#321-sendmessagerequest)：包含消息、配置和元数据的请求对象
+
+**输出：**
+
+- [`Stream Response`](#323-stream-response) 对象，包含：
+    - 初始响应：[`Task`](#411-task) 对象或 [`Message`](#414-message) 对象
+    - 在 `Task` 之后的事件可能包括 [`TaskStatusUpdateEvent`](#421-taskstatusupdateevent) 和 [`TaskArtifactUpdateEvent`](#422-taskartifactupdateevent) 对象的流
+- 最终完成指示
+
+**错误：**
+
+- [`UnsupportedOperationError`](#332-error-handling)：智能体不支持流式（参见[能力验证](#334-capability-validation)）。
+- [`UnsupportedOperationError`](#332-error-handling)：发送给处于终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）任务的消息无法再接收更多消息。
+- [`ContentTypeNotSupportedError`](#332-error-handling)：请求消息 parts 中提供的媒体类型不受智能体支持。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+**行为：**
+
+该操作必须建立用于实时更新的流式连接。该流必须遵循以下模式之一：
+
+1. **仅消息流：**如果智能体返回 [`Message`](#414-message)，则流必须恰好包含一个 `Message` 对象，然后立即关闭。不提供任务跟踪或更新。
+
+2. **任务生命周期流：**如果智能体返回 [`Task`](#411-task)，则流必须以 Task 对象开始，后跟零个或多个 [`TaskStatusUpdateEvent`](#421-taskstatusupdateevent) 或 [`TaskArtifactUpdateEvent`](#422-taskartifactupdateevent) 对象。当任务到达终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）时，该流必须关闭。
+
+智能体可以为复杂的处理过程返回带状态/产物更新的 `Task`，也可以为无任务开销的直接流式响应返回 `Message`。实现必须及时反馈进度和中间结果。
+
+#### 3.1.3. 获取任务
+
+检索先前启动任务的状态（包括状态、产物，以及可选的历史）。这通常用于轮询通过发送消息启动的任务的状态，或在通过推送通知收到通知后或流结束后获取任务的最终状态。
+
+**输入：**
+
+> 类型表：`GetTaskRequest`（由 Protobuf 定义自动生成）
+
+有关 `historyLength` 的详细信息，请参阅[历史长度语义](#324-history-length-semantics)。
+
+**输出：**
+
+- [`Task`](#411-task)：所请求任务的当前状态和产物
+
+**错误：**
+
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+#### 3.1.4. 列出任务
+
+检索任务列表，支持可选的过滤和分页功能。此方法允许客户端在不同上下文或特定状态条件下发现和管理多个任务。
+
+**输入：**
+
+> 类型表：`ListTasksRequest`（由 Protobuf 定义自动生成）
+
+当 `includeArtifacts` 为 false（默认值）时，响应中每个 Task 对象的 artifacts 字段必须被完全省略。该字段不应以空数组或 null 值的形式出现。当 `includeArtifacts` 为 true 时，artifacts 字段应包含其实际内容（如果任务没有产物，则可以是空数组）。
+
+**输出：**
+
+> 类型表：`ListTasksResponse`（由 Protobuf 定义自动生成）
+
+关于 `nextPageToken` 的说明：`nextPageToken` 字段必须始终存在于响应中。当没有更多结果可检索（即这是最后一页）时，该字段必须设置为空字符串（""）。客户端应检查空字符串以确定是否还有更多页可用。
+
+**错误：**
+
+除标准协议错误外，此操作没有特定错误。
+
+**行为：**
+
+该操作必须仅返回已认证客户端可见的任务，并且必须使用基于游标的分页以获得性能和一致性。任务必须按最后更新时间降序排序。实现必须实施适当的授权范围限制，以确保客户端只能访问经授权的任务。有关详细的安全要求，请参阅[第 13.1 节 数据访问与授权范围限制](#131-data-access-and-authorization-scoping)。
+
+***分页策略：***
+
+此方法使用基于游标的分页（通过 `pageToken`/`nextPageToken`），而不是基于偏移量的分页，以获得更好的性能和一致性，尤其是在大型数据集上。基于游标的分页避免了"深度分页问题"，即跳过大量记录对数据库来说会变得低效。此方法与 gRPC 规范一致，gRPC 也使用基于游标的分页（page_token/next_page_token）。
+
+***排序：***
+
+实现必须按其状态时间戳时间降序返回任务（最近更新的任务排在前面）。这确保了分页的一致性，并允许客户端高效地监控最近的任务活动。
+
+#### 3.1.5. 取消任务
+
+请求取消正在进行中的任务。服务端将尝试取消任务，但不保证成功（例如，任务可能已经完成或失败，或者在其当前阶段可能不支持取消）。
+
+**输入：**
+
+> 类型表：`CancelTaskRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- 具有取消状态的更新的 [`Task`](#411-task)
+
+**错误：**
+
+- [`TaskNotCancelableError`](#332-error-handling)：任务不处于可取消状态（例如，已完成、已失败或已取消）。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+**行为：**
+
+该操作尝试取消指定任务并返回其更新后的状态。
+
+#### 3.1.6. 订阅任务
+
+<span id="79-taskssubscribe"></span>
+
+建立流式连接以接收现有任务的更新。
+
+**输入：**
+
+> 类型表：`SubscribeToTaskRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- [`Stream Response`](#323-stream-response) 对象，包含：
+    - 初始响应：带有当前状态的 [`Task`](#411-task) 对象
+    - [`TaskStatusUpdateEvent`](#421-taskstatusupdateevent) 和 [`TaskArtifactUpdateEvent`](#422-taskartifactupdateevent) 对象的流
+
+**错误：**
+
+- [`UnsupportedOperationError`](#332-error-handling)：智能体不支持流式（参见[能力验证](#334-capability-validation)）。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+- [`UnsupportedOperationError`](#332-error-handling)：尝试对处于终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）的任务执行此操作。
+
+**行为：**
+
+该操作支持对任务进度的实时监控，可用于任何不处于终态的任务。当任务到达终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）时，该流必须终止。
+
+该操作必须以 `Task` 对象作为流中的第一个事件返回，表示订阅时任务的当前状态。这可以避免在 `GetTask` 调用和 `SubscribeToTask` 调用之间潜在的信息丢失。
+
+#### 3.1.7. 创建推送通知配置
+
+<span id="75-taskspushnotificationconfigset"></span>
+<span id="317-create-push-notification-config"></span>
+
+为任务创建推送通知配置，以通过 webhook 接收异步更新。
+
+**输入：**
+
+> 类型表：`TaskPushNotificationConfig`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig)：已创建的配置，带有分配的 ID
+
+**错误：**
+
+- [`PushNotificationNotSupportedError`](#332-error-handling)：智能体不支持推送通知（参见[能力验证](#334-capability-validation)）。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+**行为：**
+
+该操作必须为任务更新通知建立一个 webhook 端点。当任务更新发生时，智能体将使用 [`StreamResponse`](#323-stream-response) 负载向配置的 webhook URL 发送 HTTP POST 请求（详见[推送通知负载](#433-push-notification-payload)）。此操作仅在智能体支持推送通知能力时可用。该配置必须持续存在，直到任务完成或被显式删除。
+
+ <span id="tasks-push-notification-config-operations"></span><span id="grpc-push-notification-operations"></span><span id="push-notification-operations"></span>
+
+#### 3.1.8. 获取推送通知配置
+
+<span id="76-taskspushnotificationconfigget"></span>
+
+检索任务现有的推送通知配置。
+
+**输入：**
+
+> 类型表：`GetTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig)：所请求的配置
+
+**错误：**
+
+- [`PushNotificationNotSupportedError`](#332-error-handling)：智能体不支持推送通知（参见[能力验证](#334-capability-validation)）。
+- [`TaskNotFoundError`](#332-error-handling)：推送通知配置不存在。
+
+**行为：**
+
+该操作必须返回包括 webhook URL 和通知设置在内的配置详情。如果配置不存在或客户端缺少访问权限，该操作必须失败。
+
+#### 3.1.9. 列出推送通知配置
+
+检索任务的所有推送通知配置。
+
+**输入：**
+
+> 类型表：`ListTaskPushNotificationConfigsRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+> 类型表：`ListTaskPushNotificationConfigsResponse`（由 Protobuf 定义自动生成）
+
+**错误：**
+
+- [`PushNotificationNotSupportedError`](#332-error-handling)：智能体不支持推送通知（参见[能力验证](#334-capability-validation)）。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在或不可访问。
+
+**行为：**
+
+该操作必须返回指定任务的所有活动推送通知配置，并可以为具有大量配置的任务支持分页。
+
+#### 3.1.10. 删除推送通知配置
+
+移除任务的推送通知配置。
+
+**输入：**
+
+> 类型表：`DeleteTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- 删除确认（实现特定）
+
+**错误：**
+
+- [`PushNotificationNotSupportedError`](#332-error-handling)：智能体不支持推送通知（参见[能力验证](#334-capability-validation)）。
+- [`TaskNotFoundError`](#332-error-handling)：任务 ID 不存在。
+
+**行为：**
+
+该操作必须永久删除指定的推送通知配置。删除后，将不再向配置的 webhook 发送通知。此操作必须具有幂等性——对同一配置的多次删除效果相同。
+
+#### 3.1.11. 获取扩展 Agent Card
+
+在客户端完成认证后，检索可能包含更多详情的 Agent Card 版本。此端点仅在 `AgentCard.capabilities.extendedAgentCard` 为 `true` 时可用。
+
+**输入：**
+
+> 类型表：`GetExtendedAgentCardRequest`（由 Protobuf 定义自动生成）
+
+**输出：**
+
+- [`AgentCard`](#441-agentcard)：完整的 Agent Card 对象，可能包含公开卡片中不存在的额外详情或技能
+
+**错误：**
+
+- [`UnsupportedOperationError`](#332-error-handling)：智能体不支持经认证的扩展卡片（参见[能力验证](#334-capability-validation)）。
+- [`ExtendedAgentCardNotConfiguredError`](#332-error-handling)：智能体声明了支持，但未配置扩展 Agent Card。
+
+**行为：**
+
+- **认证**：客户端必须使用公开的 `AgentCard.securitySchemes` 和 `AgentCard.security` 字段中声明的方案之一对请求进行认证。
+- **扩展信息**：该操作可以基于客户端认证级别返回不同的详情，包括公开 Agent Card 中不可用的额外技能、能力或配置。
+- **卡片替换**：获取此扩展卡片的客户端应当在其已认证会话期间，或直到卡片版本变化之前，用此端点接收到的内容替换其缓存的公开 Agent Card。
+- **可用性**：此操作仅在公开 Agent Card 声明 `capabilities.extendedAgentCard: true` 时可用。
+
+有关扩展 Agent Card 的详细安全指引，请参阅[第 13.3 节 扩展 Agent Card 访问控制](#133-extended-agent-card-access-control)。
+
+### 3.2. 操作参数对象
+
+本节定义了多个操作中通用的参数对象。
+
+#### 3.2.1. SendMessageRequest
+
+> 类型表：`SendMessageRequest`（由 Protobuf 定义自动生成）
+
+#### 3.2.2. SendMessageConfiguration
+
+> 类型表：`SendMessageConfiguration`（由 Protobuf 定义自动生成）
+
+**执行模式：**
+
+[`SendMessageConfiguration`](#322-sendmessageconfiguration) 中的 `return_immediately` 字段控制操作是立即返回还是等待任务完成。操作默认是阻塞的：
+
+- **阻塞（`return_immediately: false` 或未设置）**：操作必须等待任务到达终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）或中断状态（`TASK_STATE_INPUT_REQUIRED`、`TASK_STATE_AUTH_REQUIRED`）后返回。响应必须包含带有所有产物和状态信息的最新任务状态。这是默认行为。
+
+- **非阻塞（`return_immediately: true`）**：操作必须在创建任务后立即返回，即使处理仍在进行中。返回的任务将处于进行中状态（例如 `TASK_STATE_WORKING`、`TASK_STATE_INPUT_REQUIRED`）。由调用方负责使用[获取任务](#313-get-task)轮询更新、通过[订阅任务](#316-subscribe-to-task)订阅，或通过推送通知接收更新。
+
+`return_immediately` 字段在以下情况下没有影响：
+
+- 当操作返回直接的 [`Message`](#414-message) 响应而不是任务时。
+- 对流式操作，它们总是实时返回更新。
+- 对已配置的推送通知配置，它与执行模式无关地运行。
+
+#### 3.2.3. 流响应
+
+<span id="323-stream-response"></span>
+<span id="72-messagestream"></span>
+
+> 类型表：`StreamResponse`（由 Protobuf 定义自动生成）
+
+此包装器允许流式端点通过单一的响应流返回不同类型的更新，同时保持类型安全。
+
+#### 3.2.4. 历史长度语义
+
+`historyLength` 参数出现在多个操作中，控制响应中返回多少任务历史。此参数在所有操作中遵循一致的语义：
+
+- **未设置/未定义**：不施加限制；服务端返回其默认数量的历史（实现定义，可能是全部历史）
+- **0**：不应返回历史；`history` 字段应当被省略
+- **> 0**：最多返回任务历史中这么多条最近的消息
+
+#### 3.2.5. 元数据
+
+用于随操作传递额外上下文或参数的灵活键值映射。元数据键必须是字符串，值可以是任何有效的 JSON 值。[扩展](#46-extensions)可用于为特定用例强类型化元数据值。
+
+#### 3.2.6 服务参数
+
+用于传递水平适用的上下文或参数的键值映射，键不区分大小写，值为区分大小写的字符串。这些服务参数键值对的传输机制由具体协议绑定定义（例如，基于 HTTP 的绑定使用 HTTP 头，gRPC 绑定使用 gRPC 元数据）。自定义协议绑定**必须**在其绑定规范中指定如何传输服务参数。
+
+**标准 A2A 服务参数：**
+
+| 名称             | 描述                                                                                                                                             | 示例值                                                                                 |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------- |
+| `A2A-Extensions` | 客户端希望用于请求的扩展 URI 的逗号分隔列表                                                                                                     | `https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1` |
+| `A2A-Version`    | 客户端正在使用的 A2A 协议版本。如果不支持该版本，智能体返回 [`VersionNotSupportedError`](#332-error-handling) | `0.3`                                                                                         |
+
+由于服务参数名称可能需要与底层传输协议或基础设施定义的其他参数共存，本规范定义的所有服务参数都将以 `a2a-` 为前缀。
+
+### 3.3. 操作语义
+
+#### 3.3.1. 幂等性
+
+- **获取操作**（获取任务、列出任务、获取扩展 Agent Card）天然具有幂等性
+- **发送消息**操作可能具有幂等性。智能体可以使用 messageId 检测重复消息。
+- **取消任务**操作具有幂等性——多次取消请求效果相同。如果任务已经被取消并清除，重复的取消请求可能返回 `TaskNotFoundError`。
+
+#### 3.3.2. 错误处理
+
+所有操作都可能返回以下类别中的错误。服务端**必须**返回适当的错误，并且**应当**提供可操作的信息以帮助客户端解决问题。
+
+**错误类别与服务端要求：**
+
+- **认证错误**：无效或缺失的凭据
+    - 服务端**必须**拒绝带有无效或缺失认证凭据的请求
+    - 服务端**应当**在错误响应中包含认证质询信息
+    - 服务端**应当**指明需要哪种认证方案
+    - 示例错误码：HTTP `401 Unauthorized`、gRPC `UNAUTHENTICATED`、JSON-RPC 自定义错误
+    - 示例场景：缺失 bearer 令牌、API 密钥过期、OAuth 令牌无效
+
+- **授权错误**：对请求的操作权限不足
+    - 当已认证客户端缺少所需权限时，服务端**必须**返回授权错误
+    - 服务端**应当**指明缺少什么权限或范围（在不泄漏客户端无法访问的资源敏感信息的情况下）
+    - 服务端**不得**揭示客户端未被授权访问的资源的存在
+    - 示例错误码：HTTP `403 Forbidden`、gRPC `PERMISSION_DENIED`、JSON-RPC 自定义错误
+    - 示例场景：尝试访问另一个用户创建的任务、OAuth 范围不足
+
+- **验证错误**：无效的输入参数或消息格式
+    - 服务端**必须**在处理前验证所有输入参数
+    - 服务端**应当**指明哪些参数未通过验证以及原因
+    - 服务端**应当**提供有效参数值或格式的指引
+    - 示例错误码：HTTP `400 Bad Request`、gRPC `INVALID_ARGUMENT`、JSON-RPC `-32602 Invalid params`
+    - 示例场景：任务 ID 格式无效、缺少必需的 message parts、内容类型不受支持
+
+- **资源错误**：请求的任务不存在或不可访问
+    - 当请求的资源不存在或对已认证客户端不可访问时，服务端**必须**返回 not found 错误
+    - 为了防止信息泄漏，服务端**不应**区分"不存在"和"未授权"
+    - 示例错误码：HTTP `404 Not Found`、gRPC `NOT_FOUND`、JSON-RPC 自定义错误（参见 A2A 特定错误）
+    - 示例场景：任务 ID 不存在、任务已被删除、配置未找到
+
+- **系统错误**：智能体内部故障或临时不可用
+    - 服务端**应当**对临时故障与永久错误返回适当的错误码
+    - 服务端**可以**包含重试指引（例如 HTTP 中的 Retry-After 头）
+    - 服务端**应当**为诊断目的记录系统错误
+    - 示例错误码：HTTP `500 Internal Server Error` 或 `503 Service Unavailable`、gRPC `INTERNAL` 或 `UNAVAILABLE`、JSON-RPC `-32603 Internal error`
+    - 示例场景：数据库连接失败、下游服务超时、超过速率限制
+
+**错误负载结构：**
+
+A2A 协议中的所有错误响应，无论绑定如何，**必须**传达以下信息：
+
+1. **错误码**：错误类型的机器可读标识符（例如字符串错误码、数字错误码或协议特定状态）
+2. **错误消息**：错误的人类可读描述
+3. **错误详情**（可选）：提供有关错误的额外结构化信息的对象数组。数组中的每个对象**必须**包含一个标识对象类型的 `@type` 键（使用 [ProtoJSON `Any` 表示](https://protobuf.dev/programming-guides/json)）。在适用的情况下，**应当**使用来自 [`google.rpc` 错误模型](https://cloud.google.com/apis/design/errors#error_model) 的已知类型（例如 `ErrorInfo`、`BadRequest`）。错误详情可用于：
+    - 受影响的字段或参数
+    - 上下文信息（例如任务 ID、时间戳）
+    - 解决建议
+
+协议绑定**必须**在保留语义含义的同时，将这些元素映射到其原生错误表示形式。有关具体的错误格式示例，请参阅绑定特定的章节：[JSON-RPC 错误处理](#95-error-handling)、[gRPC 错误处理](#106-error-handling)和 [HTTP/REST 错误处理](#116-error-handling)。
+
+**A2A 特定错误：**
+
+| 错误名称                            | 描述                                                                                                                                                                                                                      |
+| :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TaskNotFoundError`                   | 指定的任务 ID 不对应于现有或可访问的任务。它可能无效、已过期，或已完成并被清除。                                                                            |
+| `TaskNotCancelableError`              | 尝试取消一个不处于可取消状态的任务（例如，它已经到达了终态，如 `TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED`、`TASK_STATE_REJECTED`）。 |
+| `PushNotificationNotSupportedError`   | 客户端尝试使用推送通知功能，但服务端智能体不支持该功能（即 `AgentCard.capabilities.pushNotifications` 为 `false`）。                                                           |
+| `UnsupportedOperationError`           | 此服务端智能体实现不支持请求的操作或其特定方面。                                                                                                               |
+| `ContentTypeNotSupportedError`        | 请求消息 parts 中提供的、或为产物暗示的媒体类型不受智能体或所调用的特定技能支持。                                                                     |
+| `InvalidAgentResponseError`           | 智能体返回了不符合当前方法规范的响应。                                                                                                                        |
+| `ExtendedAgentCardNotConfiguredError` | 当所请求的操作需要扩展 Agent Card 时，智能体没有配置扩展 Agent Card。                                                                                                            |
+| `ExtensionSupportRequiredError`       | 服务端请求使用在 Agent Card 中标记为 `required: true` 的扩展，但客户端在请求中未声明支持该扩展。                                                                        |
+| `VersionNotSupportedError`            | 智能体不支持请求中（通过 `A2A-Version` 服务参数）指定的 A2A 协议版本。                                                                                                 |
+
+#### 3.3.3. 异步处理
+
+A2A 操作专为异步任务执行而设计。操作立即返回 [`Task`](#411-task) 对象或 [`Message`](#414-message) 对象，当返回 Task 时，处理在后台持续进行。客户端通过轮询、流式或推送通知获取任务更新（参见[第 3.5 节](#35-task-update-delivery-mechanisms)）。智能体可以接受针对处于非终态任务的额外消息，以支持多轮交互（参见[第 3.4 节](#34-multi-turn-interactions)）。
+
+#### 3.3.4. 能力验证
+
+智能体在其 [`AgentCard`](#441-agentcard) 中声明可选能力。当客户端尝试使用需要 Agent Card 中未声明支持的能力的操作或功能时，智能体**必须**返回适当的错误响应：
+
+- **推送通知**：如果 `AgentCard.capabilities.pushNotifications` 为 `false` 或不存在，与推送通知配置相关的操作（创建、获取、列出、删除）**必须**返回 [`PushNotificationNotSupportedError`](#332-error-handling)。
+- **流式**：如果 `AgentCard.capabilities.streaming` 为 `false` 或不存在，尝试使用 `SendStreamingMessage` 或 `SubscribeToTask` 操作**必须**返回 [`UnsupportedOperationError`](#332-error-handling)。
+- **扩展 Agent Card**：如果 `AgentCard.capabilities.extendedAgentCard` 为 `false` 或不存在，尝试调用获取扩展 Agent Card 操作**必须**返回 [`UnsupportedOperationError`](#332-error-handling)。如果智能体声明了支持但未配置扩展卡片，它**必须**返回 [`ExtendedAgentCardNotConfiguredError`](#332-error-handling)。
+- **扩展**：当服务端请求使用在 Agent Card 中标记为 `required: true` 的扩展，但客户端在请求中未声明支持该扩展时，智能体**必须**返回 [`ExtensionSupportRequiredError`](#332-error-handling)。
+
+客户端**应当**在尝试需要可选能力的操作之前，通过检查 Agent Card 来验证能力支持。
+
+### 3.4. 多轮交互
+
+A2A 协议通过上下文标识符和任务引用来支持多轮对话，使智能体能够在多次交互中保持对话连续性。
+
+#### 3.4.1. 上下文标识符语义
+
+`contextId` 是在逻辑上对多个相关的 [`Task`](#411-task) 和 [`Message`](#414-message) 对象进行分组的标识符，为一系列交互提供连续性。
+
+**生成与分配：**
+
+- 当处理不包含 `contextId` 字段的 [`Message`](#414-message) 时，智能体**可以**生成新的 `contextId`
+- 如果智能体生成了新的 `contextId`，则**必须**将其包含在响应中（[`Task`](#411-task) 或 [`Message`](#414-message)）
+- 智能体**可以**接受并保留客户端提供的 `contextId` 值
+- 如果智能体无法接受客户端提供的 `contextId`，它**必须**以错误拒绝该请求，并且**不得**为响应生成新的 `contextId`
+- 除非客户端了解服务端将如何处理该 `contextId`，否则**不应**向服务端提供客户端生成的 `contextId`
+- 客户端**应当**将服务端生成的 `contextId` 值视为不透明标识符
+
+**分组与范围：**
+
+- `contextId` 在逻辑上对属于同一个对话上下文的多个 [`Task`](#411-task) 对象和 [`Message`](#414-message) 对象进行分组
+- 具有相同 `contextId` 的所有任务和消息**应当**被视为同一对话会话的一部分
+- 智能体**可以**使用 `contextId` 在多次交互中维护内部状态、对话历史或 LLM 上下文
+- 智能体**可以**实施上下文过期或清理策略，并且**应当**记录任何此类策略
+
+#### 3.4.2. 任务标识符语义
+
+`taskId` 是 [`Task`](#411-task) 对象的唯一标识符，表示一个有状态的工作单元，具有已定义的生命周期。
+
+**生成与分配：**
+
+- 当响应 [`Message`](#414-message) 创建新任务时，任务 ID 由**服务端生成**
+- 智能体**必须**为其创建的每个新任务生成唯一的 `taskId`
+- 生成的 `taskId`**必须**包含在返回给客户端的 [`Task`](#411-task) 对象中
+- 当客户端在 [`Message`](#414-message) 中包含 `taskId` 时，它**必须**引用现有的任务
+- 如果提供的 `taskId` 不对应于现有任务，智能体**必须**返回 [`TaskNotFoundError`](#332-error-handling)
+- 不支持由客户端提供的用于创建新任务的 `taskId` 值
+
+#### 3.4.3. 多轮对话模式
+
+A2A 协议支持多种多轮交互模式：
+
+**上下文连续性：**
+
+- [`Task`](#411-task) 对象通过 `contextId` 字段维护对话上下文
+- 客户端**可以**在后续消息中包含 `contextId` 以表示先前交互的延续
+- 客户端**可以**使用 `taskId`（带或不带 `contextId`）继续或细化特定任务
+- 客户端**可以**使用不带 `taskId` 的 `contextId`，在现有对话上下文中启动新任务
+- 如果只提供 `taskId`，智能体**必须**从任务中推断 `contextId`
+- 智能体**必须**拒绝包含不匹配的 `contextId` 和 `taskId` 的消息（即提供的 `contextId` 与所引用 [`Task`](#411-task) 的 `contextId` 不同）。
+
+**需要输入状态：**
+
+- 智能体可以通过将任务转换为 `input-required` 状态来在处理过程中请求额外输入
+- 客户端通过发送带有相同 `taskId` 和 `contextId` 的新消息来继续交互
+
+**后续消息：**
+
+- 客户端可以发送带 `taskId` 引用的额外消息，以继续或细化现有任务
+- 客户端**应当**使用 [`Message`](#414-message) 中的 `referenceTaskIds` 字段显式引用相关任务
+- 智能体**应当**使用被引用的任务来理解后续请求的上下文和意图
+
+**上下文继承：**
+
+- 在同一 `contextId` 中创建的新任务可以继承先前交互的上下文
+- 智能体**应当**利用共享的 `contextId` 提供与上下文相关的响应
+
+### 3.5. 任务更新投递机制
+
+A2A 协议提供了三种互补的机制，让客户端接收任务进度和完成情况的更新。
+
+#### 3.5.1. 更新机制概述
+
+**轮询（获取任务）：**
+
+- 客户端定期调用获取任务（[第 3.1.3 节](#313-get-task)）来检查任务状态
+- 实现简单，适用于所有协议绑定
+- 延迟较高，可能会产生不必要的请求
+- 最适合：简单集成、不频繁的更新、处于严格防火墙后面的客户端
+
+**流式：**
+
+- 事件发生时实时投递
+- 操作：发送流式消息（[第 3.1.2 节](#312-send-streaming-message)）和订阅任务（[第 3.1.6 节](#316-subscribe-to-task)）
+- 延迟低，适合频繁更新
+- 需要持久连接支持
+- 最适合：交互式应用程序、实时仪表盘、实时进度监控
+- 要求 `AgentCard.capabilities.streaming` 为 `true`
+
+**推送通知（WebHooks）：**
+
+- 当任务状态变化时，智能体向客户端注册的端点发送 HTTP POST 请求
+- 客户端不维护持久连接
+- 异步投递，客户端必须可通过 HTTP 访问
+- 最适合：服务端到服务端的集成、长时间运行的任务、事件驱动架构
+- 操作：创建（[第 3.1.7 节](#317-create-push-notification-config)）、获取（[第 3.1.8 节](#318-get-push-notification-config)）、列出（[第 3.1.9 节](#319-list-push-notification-configs)）、删除（[第 3.1.10 节](#3110-delete-push-notification-config)）
+- 事件类型：TaskStatusUpdateEvent（[第 4.2.1 节](#421-taskstatusupdateevent)）、TaskArtifactUpdateEvent（[第 4.2.2 节](#422-taskartifactupdateevent)）、WebHook 负载（[第 4.3 节](#43-push-notification-objects)）
+- 要求 `AgentCard.capabilities.pushNotifications` 为 `true`
+- 无论智能体使用何种协议绑定，WebHook 调用都使用纯 HTTP 和 HTTP 协议绑定中定义的 JSON 负载
+
+#### 3.5.2. 流式事件投递
+
+**事件排序：**
+
+所有实现必须按其生成顺序投递事件。无论协议绑定如何，事件都不得在传输过程中被重新排序。
+
+**每个任务的多个流：**
+
+智能体可以为同一任务向一个或多个客户端提供多个并发流。这允许多个客户端（或同一个客户端使用多个连接）独立订阅并接收任务进度更新。
+
+当任务有多个活动流时：
+
+- 事件必须广播到该任务的所有活动流
+- 每个流必须以相同的顺序接收相同的事件
+- 关闭一个流不得影响同一任务的其他活动流
+- 任务的生命周期独立于任何单个流的生命周期
+
+此能力支持如下场景：
+
+- 多个团队成员监控同一个长时间运行的任务
+- 客户端在网络中断后通过打开新流重新连接到任务
+- 不同的应用程序或仪表盘显示同一任务的实时更新
+
+#### 3.5.3. 推送通知投递
+
+推送通知通过 HTTP POST 发送到客户端注册的 webhook 端点。投递语义和可靠性保证在[第 4.3 节](#43-push-notification-objects)中定义。
+
+### 3.6 版本控制
+
+正在使用的 A2A 协议的具体版本通过相应 A2A 规范版本的 `Major.Minor` 元素（例如 `1.0`）来标识。规范使用的补丁版本号不影响协议兼容性。补丁版本号不应在请求、响应和 Agent Card 中使用，客户端和服务端协商协议版本时必须不考虑补丁版本号。
+
+#### 3.6.1 客户端职责
+
+客户端必须随每个请求发送 `A2A-Version` 头，以便在智能体升级到新协议版本后保持兼容性（0.3 客户端除外——空头将假定为 0.3）。发送 `A2A-Version` 头还可以让智能体了解生态中的版本使用情况，这有助于评估原地版本升级的风险。
+
+**带版本头的 HTTP GET 请求示例：**
+
+```http
+GET /tasks/task-123 HTTP/1.1
+Host: agent.example.com
+A2A-Version: 1.0
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Accept: application/json
+```
+
+客户端可以改为通过请求参数而不是头提供 `A2A-Version`。
+
+**带版本请求参数的 HTTP GET 请求示例：**
+
+```http
+GET /tasks/task-123?A2A-Version=1.0 HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Accept: application/json
+```
+
+#### 3.6.2 服务端职责
+
+智能体必须使用所请求的 `A2A-Version`（匹配 `Major.Minor`）的语义处理请求。如果该接口不支持该版本，智能体必须返回 [`VersionNotSupportedError`](#332-error-handling)。
+
+智能体必须将空值解释为 0.3 版本。
+
+智能体可以在相同或不同的 URL 上为同一传输方式暴露多个不同版本的接口。
+
+#### 3.6.3 工具支持
+
+实现 A2A 协议的工具库和 SDK 必须提供帮助客户端管理协议版本控制的机制，例如协商所使用的传输和协议版本。需要协议最新特性的客户端智能体应配置为请求特定版本，并避免自动回退到旧版本，以防止功能在无声中丢失。
+
+### 3.7 消息与产物
+
+消息和产物在 A2A 协议中具有不同的用途。A2A 定义的核心交互模型是客户端发送消息以启动产生一个或多个产物的任务。
+
+消息扮演几个关键角色：
+
+- **任务启动**：客户端向智能体发送消息以启动新任务。
+- **澄清消息**：智能体可以在启动任务之前向客户端发送消息以请求澄清。
+- **状态消息**：智能体将消息附加到状态更新事件上，以告知客户端任务进度、请求额外输入或提供信息性更新。
+- **任务交互**：客户端发送消息为进行中的任务提供额外输入或指令。
+
+消息不应被用于投递任务输出。结果应当使用与任务关联的产出来返回。这种分离使通信（消息）和数据输出（产物）之间有明确的区别。
+
+任务历史字段包含任务执行期间交换的消息。然而，并非所有消息都保证被持久化在任务历史中；例如，临时的信息性消息可能不会被存储。在任务创建之前交换的消息可能不会被存储在任务历史中。智能体负责确定哪些消息被持久化在任务历史中。
+
+使用流式检索任务更新的客户端，如果在断开连接后重新连接，可能不会收到所有的状态更新消息。消息不能被视为关键信息的可靠投递机制。
+
+智能体可以选择将所有包含重要信息的消息持久化在任务历史中，以确保客户端以后可以检索到它们。然而，除非带外协商，否则客户端不得依赖此行为。

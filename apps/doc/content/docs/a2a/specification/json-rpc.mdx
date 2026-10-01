@@ -1,0 +1,1212 @@
+---
+title: '9. JSON-RPC 协议绑定'
+---
+
+## 9. JSON-RPC 协议绑定
+
+JSON-RPC 协议绑定提供了一种简单的基于 HTTP 的接口，使用 JSON-RPC 2.0 进行方法调用，并使用 Server-Sent Events 进行流式传输。
+
+### 9.1. 协议要求
+
+- **协议：**基于 HTTP(S) 的 JSON-RPC 2.0
+- **Content-Type：**请求和响应使用 `application/json`
+- **方法命名：**与 gRPC 约定一致的 PascalCase 方法名（例如 `SendMessage`、`GetTask`）
+- **流式：**Server-Sent Events（`text/event-stream`）
+
+### 9.2. 服务参数传输
+
+在[第 3.2.6 节](#326-service-parameters)中定义的 A2A 服务参数**必须**通过标准的 HTTP 请求头传输，因为 JSON-RPC 2.0 基于 HTTP(S) 运行。
+
+**服务参数要求：**
+
+- 服务参数名称**必须**作为 HTTP 头字段传输
+- 根据 HTTP 规范（RFC 7230），服务参数键不区分大小写
+- 同一服务参数的多个值（例如 `A2A-Extensions`）**应当**在单个头字段中用逗号分隔
+
+**包含 A2A 服务参数的示例请求：**
+
+```http
+POST /rpc HTTP/1.1
+Host: agent.example.com
+Content-Type: application/json
+Authorization: Bearer token
+A2A-Version: 0.3
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+}
+```
+
+### 9.3. 基础请求结构
+
+所有 JSON-RPC 请求**必须**遵循标准的 JSON-RPC 2.0 格式：
+
+```json
+}
+```
+
+### 9.4. 核心方法
+
+#### 9.4.1. `SendMessage`
+
+发送消息以启动或继续一个任务。
+
+**请求：**
+
+```json
+}
+```
+
+**引用的对象：**[`SendMessageRequest`](#321-sendmessagerequest)、[`Message`](#414-message)
+
+**响应：**
+
+```json
+     * "message":
+    */
+  }
+```
+
+**引用的对象：**[`Task`](#411-task)、[`Message`](#414-message)
+
+#### 9.4.2. `SendStreamingMessage`
+
+发送消息并通过 Server-Sent Events 订阅实时更新。
+
+**请求：**与 `SendMessage` 相同
+
+**响应：**HTTP 200，`Content-Type: text/event-stream`
+
+```text
+data: {"jsonrpc": "2.0", "id": 1, "result": { /* StreamResponse object */ }}
+
+data: {"jsonrpc": "2.0", "id": 1, "result": { /* StreamResponse object */ }}
+```
+
+**引用的对象：**[`StreamResponse`](#323-stream-response)
+
+#### 9.4.3. `GetTask`
+
+检索任务的当前状态。
+
+**请求：**
+
+```json
+}
+```
+
+#### 9.4.4. `ListTasks`
+
+列出任务，支持可选的过滤和分页。
+
+**请求：**
+
+```json
+}
+```
+
+#### 9.4.5. `CancelTask`
+
+取消正在进行的任务。
+
+**请求：**
+
+```json
+}
+```
+
+#### 9.4.6. `SubscribeToTask`
+
+<span id="936-taskssubscribe"></span>
+
+订阅任务流，以接收处于非终态的任务的更新。
+
+**请求：**
+
+```json
+}
+```
+
+**响应：**SSE 流（格式与 `SendStreamingMessage` 相同）
+
+**错误：**如果任务处于终态（`TASK_STATE_COMPLETED`、`TASK_STATE_FAILED`、`TASK_STATE_CANCELED` 或 `TASK_STATE_REJECTED`），则返回 `UnsupportedOperationError`。
+
+#### 9.4.7. 推送通知配置方法
+
+- `CreateTaskPushNotificationConfig` - 创建推送通知配置
+- `GetTaskPushNotificationConfig` - 获取推送通知配置
+- `ListTaskPushNotificationConfigs` - 列出推送通知配置
+- `DeleteTaskPushNotificationConfig` - 删除推送通知配置
+
+#### 9.4.8. `GetExtendedAgentCard`
+
+检索扩展的 Agent Card。
+
+**请求：**
+
+```json
+```
+
+### 9.5. 错误处理
+
+JSON-RPC 错误响应使用标准的 [JSON-RPC 2.0 错误对象](https://www.jsonrpc.org/specification#error_object) 结构，其按如下方式映射到[第 3.3.2 节](#332-error-handling)中定义的通用 A2A 错误模型：
+
+- **错误码**：映射到 `error.code`（数值型 JSON-RPC 错误码）
+- **错误消息**：映射到 `error.message`（人类可读的字符串）
+- **错误详情**：映射到 `error.data`（对象数组，每个对象包含一个 `@type` 键，使用 ProtoJSON `Any` 表示）
+
+**标准 JSON-RPC 错误码：**
+
+| JSON-RPC 错误码 | 错误名称              | 标准消息                           | 描述                                     |
+| :------------------ | :-------------------- | :--------------------------------- | :------------------------------------------------------ |
+| `-32700`            | `JSONParseError`      | "Invalid JSON payload"             | 服务端收到了无效的 JSON                                |
+| `-32600`            | `InvalidRequestError` | "Request payload validation error" | 发送的 JSON 不是有效的 Request 对象                    |
+| `-32601`            | `MethodNotFoundError` | "Method not found"                 | 请求的方法不存在或不可用                               |
+| `-32602`            | `InvalidParamsError`  | "Invalid parameters"               | 方法参数无效                                           |
+| `-32603`            | `InternalError`       | "Internal error"                   | 服务端发生了内部错误                                    |
+
+**A2A 特定错误码：**
+
+A2A 特定错误使用 `-32001` 到 `-32099` 范围内的错误码。有关 A2A 错误类型到 JSON-RPC 错误码的完整映射，请参阅[第 5.4 节（错误码映射）](#54-error-code-mappings)。
+
+**错误详情对象：**
+
+`data` 数组中的每个对象**必须**包含一个标识对象类型的 `@type` 键。实现**应当**使用诸如 `google.rpc.ErrorInfo` 之类的已知类型来完善错误报告，或使用 `google.rpc.BadRequest` 将结构化数据附加到验证错误上。额外的错误上下文**可以**作为 `data` 数组中的更多对象包含在内。
+
+**错误响应结构：**
+
+```json
+        ]
+      }
+    ]
+  }
+}
+```
+
+**A2A 特定错误响应示例：**
+
+```json
+      }
+    ]
+  }
+}
+```
+
+## 10. gRPC 协议绑定
+
+gRPC 协议绑定通过 HTTP/2 上的 Protocol Buffers 提供高性能、强类型的接口。gRPC 协议绑定利用 [API 指南](https://google.aip.dev/general) 来简化 gRPC 到 HTTP 的映射。
+
+### 10.1. 协议要求
+
+- **协议：**基于 HTTP/2 + TLS 的 gRPC
+- **定义：**使用 `specification/a2a.proto` 中的规范性 Protocol Buffers 定义
+- **序列化：**Protocol Buffers 版本 3
+- **服务：**实现 `A2AService` gRPC 服务
+
+### 10.2. 服务参数传输
+
+在[第 3.2.6 节](#326-service-parameters)中定义的 A2A 服务参数**必须**使用 gRPC 元数据（头）进行传输。
+
+**服务参数要求：**
+
+- 服务参数名称**必须**作为 gRPC 元数据键传输
+- 元数据键不区分大小写，gRPC 会自动将其转换为小写
+- 同一服务参数的多个值（例如 `A2A-Extensions`）**应当**在单个元数据条目中用逗号分隔
+
+**包含 A2A 服务参数的 gRPC 示例请求：**
+
+```go
+// Go example using gRPC metadata
+md := metadata.Pairs(
+    "authorization", "Bearer token",
+    "a2a-version", "0.3",
+    "a2a-extensions", "https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1",
+)
+ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+// Make the RPC call with the context containing metadata
+response, err := client.SendMessage(ctx, request)
+```
+
+**元数据处理：**
+
+- 实现**必须**从 gRPC 元数据中提取 A2A 服务参数以进行处理
+- 服务端**应当**验证元数据中的必需服务参数（例如 `A2A-Version`）
+- 根据 gRPC 约定，元数据中的服务参数键会被规范化为小写
+
+### 10.3. 服务定义
+
+> **Protocol methods table**（由 `A2AService` service 定义生成，此处已由转换器保留引用）
+
+### 10.4. 核心方法
+
+#### 10.4.1. SendMessage
+
+向智能体发送消息。
+
+**请求：**
+
+> 类型表：`SendMessageRequest`（由 Protobuf 定义自动生成）
+
+**响应：**
+
+> 类型表：`SendMessageResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.2. SendStreamingMessage
+
+发送带有流式更新的消息。
+
+**请求：**
+
+> 类型表：`SendMessageRequest`（由 Protobuf 定义自动生成）
+
+**响应：**服务端流式 [`StreamResponse`](#323-stream-response) 对象。
+
+#### 10.4.3. GetTask
+
+检索任务状态。
+
+**请求：**
+
+> 类型表：`GetTaskRequest`（由 Protobuf 定义自动生成）
+
+**响应：**参见 [`Task`](#411-task) 对象定义。
+
+#### 10.4.4. ListTasks
+
+列出任务，支持过滤。
+
+**请求：**
+
+> 类型表：`ListTasksRequest`（由 Protobuf 定义自动生成）
+
+**响应：**
+
+> 类型表：`ListTasksResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.5. CancelTask
+
+取消正在运行的任务。
+
+**请求：**
+
+> 类型表：`CancelTaskRequest`（由 Protobuf 定义自动生成）
+
+**响应：**参见 [`Task`](#411-task) 对象定义。
+
+#### 10.4.6. SubscribeToTask
+
+通过流式订阅任务更新。如果任务处于终态，则返回 `UnsupportedOperationError`。
+
+**请求：**
+
+> 类型表：`SubscribeToTaskRequest`（由 Protobuf 定义自动生成）
+
+**响应：**服务端流式 [`StreamResponse`](#323-stream-response) 对象。
+
+#### 10.4.7. CreateTaskPushNotificationConfig
+
+为任务创建推送通知配置。
+
+**请求：**参见 [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) 对象定义。
+
+**响应：**参见 [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) 对象定义。
+
+#### 10.4.8. GetTaskPushNotificationConfig
+
+检索任务现有的推送通知配置。
+
+**请求：**
+
+> 类型表：`GetTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**响应：**参见 [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) 对象定义。
+
+#### 10.4.9. ListTaskPushNotificationConfigs
+
+列出任务的所有推送通知配置。
+
+**请求：**
+
+> 类型表：`ListTaskPushNotificationConfigsRequest`（由 Protobuf 定义自动生成）
+
+**响应：**
+
+> 类型表：`ListTaskPushNotificationConfigsResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.10. DeleteTaskPushNotificationConfig
+
+移除任务的推送通知配置。
+
+**请求：**
+
+> 类型表：`DeleteTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**响应：**`google.protobuf.Empty`
+
+#### 10.4.11. GetExtendedAgentCard
+
+在认证后检索智能体的扩展能力卡片。
+
+**请求：**
+
+> 类型表：`GetExtendedAgentCardRequest`（由 Protobuf 定义自动生成）
+
+**响应：**参见 [`AgentCard`](#441-agentcard) 对象定义。
+
+### 10.5. gRPC 特定数据类型
+
+#### 10.5.1. TaskPushNotificationConfig
+
+推送通知配置的资源包装器。这是面向资源操作中使用的 gRPC 特定类型，用于提供完整的资源名称及配置数据。
+
+> 类型表：`TaskPushNotificationConfig`（由 Protobuf 定义自动生成）
+
+### 10.6. 错误处理
+
+gRPC 错误响应使用带有 [google.rpc.Status](https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto) 的标准 [gRPC 状态](https://grpc.io/docs/guides/error/) 结构，其按如下方式映射到[第 3.3.2 节](#332-error-handling)中定义的通用 A2A 错误模型：
+
+- **错误码**：映射到 `status.code`（gRPC 状态码枚举）
+- **错误消息**：映射到 `status.message`（人类可读的字符串）
+- **错误详情**：映射到 `status.details`（重复的 google.protobuf.Any 消息）
+
+**A2A 错误表示：**
+
+对于 A2A 特定错误，实现**必须**在 `status.details` 数组中包含一条 `google.rpc.ErrorInfo` 消息，包含：
+
+- `reason`：A2A 错误类型，使用 UPPER_SNAKE_CASE 且不带 "Error" 后缀（例如 `TASK_NOT_FOUND`）
+- `domain`：设置为 `"a2a-protocol.org"`
+- `metadata`：附加错误上下文的可选映射
+
+有关 A2A 错误类型到 gRPC 状态码的完整映射，请参阅[第 5.4 节（错误码映射）](#54-error-code-mappings)。
+
+**错误响应示例：**
+
+```proto
+// Standard gRPC invalid argument error
+status
+      ]
+    }
+  ]
+}
+```
+
+**A2A 特定错误响应示例：**
+
+```proto
+// A2A-specific task not found error
+status
+    }
+  ]
+}
+```
+
+### 10.7. 流式
+
+gRPC 流式使用服务端流式 RPC 进行实时更新。`StreamResponse` 消息提供了可能的流式事件的联合：
+
+> 类型表：`StreamResponse`（由 Protobuf 定义自动生成）
+
+## 11. HTTP+JSON/REST 协议绑定
+
+HTTP+JSON 协议绑定使用标准 HTTP 方法和 JSON 负载提供 RESTful 接口。
+
+### 11.1. 协议要求
+
+- **协议：**使用 JSON 负载的 HTTP(S)
+- **Content-Type：**请求和响应**应当**使用 application/a2a+json
+- **方法：**标准 HTTP 动词（GET、POST、PUT、DELETE）
+- **URL 模式：**基于资源的 RESTful URL
+- **流式：**使用 Server-Sent Events 进行实时更新
+
+### 11.2. 服务参数传输
+
+在[第 3.2.6 节](#326-service-parameters)中定义的 A2A 服务参数**必须**通过标准的 HTTP 请求头传输。
+
+**服务参数要求：**
+
+- 服务参数名称**必须**作为 HTTP 头字段传输
+- 根据 HTTP 规范（RFC 9110），服务参数键不区分大小写
+- 同一服务参数的多个值（例如 `A2A-Extensions`）**应当**在单个头字段中用逗号分隔
+
+**包含 A2A 服务参数的示例请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+A2A-Version: 0.3
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Find restaurants near me"}]
+  }
+}
+```
+
+### 11.3. URL 模式与 HTTP 方法
+
+#### 11.3.1. 消息操作
+
+- `POST /message:send` - 发送消息
+- `POST /message:stream` - 发送流式消息（SSE 响应）
+
+#### 11.3.2. 任务操作
+
+- `GET /tasks/{id}` - 获取任务状态
+- `GET /tasks` - 列出任务（带查询参数）
+- `POST /tasks/{id}:cancel` - 取消任务
+- `POST /tasks/{id}:subscribe` - 订阅任务更新（SSE 响应，对于终态任务返回错误）
+
+#### 11.3.3. 推送通知配置
+
+- `POST /tasks/{id}/pushNotificationConfigs` - 创建配置
+- `GET /tasks/{id}/pushNotificationConfigs/{configId}` - 获取配置
+- `GET /tasks/{id}/pushNotificationConfigs` - 列出配置
+- `DELETE /tasks/{id}/pushNotificationConfigs/{configId}` - 删除配置
+
+#### 11.3.4. Agent Card
+
+- `GET /extendedAgentCard` - 获取经认证的扩展 Agent Card
+
+### 11.4. 请求/响应格式
+
+所有请求和响应都使用与 Protocol Buffer 定义结构等价的 JSON 对象。
+
+**发送消息示例：**
+
+```http
+POST /message:send
+Content-Type: application/a2a+json
+
+{
+  "message": {
+    "messageId": "uuid",
+    "role": "ROLE_USER",
+    "parts": [{"text": "Hello"}]
+  },
+  "configuration":
+}
+```
+
+**引用的对象：**[`SendMessageRequest`](#321-sendmessagerequest)、[`Message`](#414-message)
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+  }
+}
+```
+
+**引用的对象：**[`Task`](#411-task)
+
+### 11.5. 请求参数的查询参数命名
+
+HTTP 方法中不支持请求体的方法（GET、DELETE）**必须**以路径参数或查询参数的形式传输操作请求参数。本节定义了如何将 Protocol Buffer 字段名映射为查询参数名。
+
+**命名约定：**
+
+查询参数名称**必须**使用 `camelCase`，以与 Protocol Buffer 字段名的 JSON 序列化保持一致。这确保了与 POST 操作中使用的请求体的一致性。
+
+**示例映射：**
+
+| Protocol Buffer 字段 | 查询参数名称      | 使用示例              |
+| --------------------- | -------------------- | ------------------- |
+| `context_id`          | `contextId`          | `?contextId=uuid`   |
+| `page_size`           | `pageSize`           | `?pageSize=50`      |
+| `page_token`          | `pageToken`          | `?pageToken=cursor` |
+| `task_id`             | `taskId`             | `?taskId=uuid`      |
+
+**使用示例：**
+
+带过滤地列出任务：
+
+```http
+GET /tasks?contextId=uuid&status=TASK_STATE_WORKING&pageSize=50&pageToken=cursor
+```
+
+获取带历史的任务：
+
+```http
+GET /tasks/{id}?historyLength=10
+```
+
+**字段类型处理：**
+
+- **字符串**：直接作为查询参数值传递
+- **布尔值**：表示为小写字符串（`true`、`false`）
+- **数字**：表示为十进制字符串
+- **枚举**：使用其字符串值表示（例如 `status=TASK_STATE_WORKING`）
+- **重复字段**：**可以**通过重复参数名称（例如 `?tag=value1&tag=value2`）或逗号分隔值（例如 `?tag=value1,value2`）的方式传递多个值
+- **嵌套对象**：查询参数中不支持；需要嵌套对象的操作**必须**使用带请求体的 POST
+- **日期时间/时间戳**：表示为 ISO 8601 字符串（例如 `2025-11-09T10:30:00Z`）
+
+**URL 编码：**
+
+所有查询参数值**必须**按照 [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html) 进行正确的 URL 编码。
+
+### 11.6. 错误处理
+
+HTTP 错误响应使用 [google.rpc.Status](https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto) 的 JSON 表示形式，其按如下方式映射到[第 3.3.2 节](#332-error-handling)中定义的通用 A2A 错误模型：
+
+- **错误码**：映射到 HTTP 状态码和 `error.code` 字段
+- **错误消息**：映射到 `error.message` 字段（人类可读的字符串）
+- **错误详情**：映射到 `error.details` 数组（对象数组，每个对象包含一个 `@type` 键，使用 ProtoJSON `Any` 表示）
+
+**错误详情对象：**
+
+`details` 数组中的每个对象**必须**包含一个标识对象类型的 `@type` 键。实现**应当**使用诸如 `google.rpc.BadRequest` 之类的已知类型，将结构化数据附加到验证错误上。额外的错误上下文**可以**作为 `details` 数组中的更多对象包含在内。
+
+**A2A 错误表示：**
+
+由于多个 A2A 错误类型可能映射到相同的 HTTP 状态码（例如 `TaskNotCancelableError` 和 `PushNotificationNotSupportedError` 都映射到 `400 Bad Request`），对于 A2A 特定错误，实现**必须**在 `details` 数组中包含一个 `google.rpc.ErrorInfo` 对象，包含：
+
+- `@type`：设置为 `"type.googleapis.com/google.rpc.ErrorInfo"`
+- `reason`：A2A 错误类型，使用 UPPER_SNAKE_CASE 且不带 "Error" 后缀（例如 `TASK_NOT_FOUND`、`TASK_NOT_CANCELABLE`）
+- `domain`：设置为 `"a2a-protocol.org"`
+
+有关 A2A 错误类型到 HTTP 状态码的完整映射，请参阅[第 5.4 节（错误码映射）](#54-error-code-mappings)。
+
+**错误响应示例：**
+
+```http
+HTTP/1.1 404 Not Found
+Content-Type: application/a2a+json
+      }
+    ]
+  }
+}
+```
+
+`taskId` 和 `timestamp` 之类的扩展字段提供了额外的上下文，有助于诊断错误。
+
+### 11.7. 流式
+
+<span id="stream-response"></span>
+
+REST 流式使用 Server-Sent Events，其 `data` 字段包含协议数据对象的 JSON 序列化：
+
+```http
+POST /message:stream
+Content-Type: application/a2a+json
+```
+
+**引用的对象：**[`SendMessageRequest`](#321-sendmessagerequest)
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+
+data:
+data:
+```
+
+**引用的对象：**[`StreamResponse`](#323-stream-response)
+流式响应是简单、线性有序的序列：首先是 `Task`（或单个 `Message`），然后是零个或多个状态或产物更新事件，直到任务到达终态或中断状态，此时流关闭。实现应避免对事件重新排序，并且可以可选地在关闭前重新发送最终的 `Task` 快照。
+
+## 12. 自定义绑定指南
+
+虽然 A2A 协议提供了三种标准绑定（JSON-RPC、gRPC 和 HTTP+JSON/REST），但实现者**可以**创建自定义协议绑定，以支持额外的传输机制或通信模式。自定义绑定**必须**遵守[第 5 节（协议绑定要求与互操作性）](#5-protocol-binding-requirements-and-interoperability)中定义的所有要求。本节提供了针对开发自定义绑定的额外指南。
+
+### 12.1. 绑定要求
+
+自定义协议绑定**必须**：
+
+1. **实现所有核心操作**：支持[第 3 节（A2A 协议操作）](#3-a2a-protocol-operations)中定义的所有操作
+2. **保留数据模型**：使用与[第 4 节（协议数据模型）](#4-protocol-data-model)中定义的结构功能等价的数据结构
+3. **保持语义**：确保操作行为与抽象操作定义保持一致
+4. **完整记录**：提供绑定规范的全面文档
+
+### 12.2. 数据类型映射
+
+自定义绑定**必须**为以下类型提供清晰的映射：
+
+- **Protocol Buffer 类型**：定义每个 Protocol Buffer 消息类型如何表示
+- **时间戳**：遵循[第 5.6.1 节（时间戳）](#561-timestamps)中的约定
+- **二进制数据**：指定二进制内容的编码（例如基于文本的协议使用 base64）
+- **枚举**：定义枚举值的表示形式（例如字符串、整数）
+
+### 12.3. 服务参数传输
+
+如[第 3.2.6 节（服务参数）](#326-service-parameters)所规定，自定义协议绑定**必须**记录服务参数是如何传输的。绑定规范**必须**明确说明：
+
+1. **传输机制**：传输服务参数键值对的、特定于协议的方法
+2. **值约束**：对服务参数值的任何限制（例如字符编码、大小限制）
+3. **保留名称**：绑定本身保留的任何服务参数名称
+4. **回退策略**：当协议缺乏原生头支持时如何处理（例如在元数据中传递服务参数）
+
+**示例文档要求：**
+
+- **对于原生头支持**："服务参数通过 HTTP 请求头传输。服务参数键不区分大小写，且必须符合 RFC 7230。服务参数值必须为 UTF-8 字符串。"
+- **对于没有头的协议**："服务参数被序列化为 JSON 对象，并通过请求元数据字段 `a2a-service-parameters` 传输。"
+
+### 12.4. 错误映射
+
+自定义绑定**必须**：
+
+1. **映射标准错误**：为[第 3.2.2 节（错误处理）](#332-error-handling)中定义的所有 A2A 特定错误类型提供映射
+2. **保留错误信息**：确保客户端可以访问错误详情
+3. **使用适当的错误码**：在适用的情况下映射到协议原生的错误码
+4. **记录错误格式**：指定错误响应的结构
+
+### 12.5. 流式支持
+
+如果绑定支持流式操作：
+
+1. **定义流机制**：记录流式是如何实现的（例如 WebSockets、长轮询、分块编码）
+2. **事件排序**：指定流式事件的排序保证
+3. **重连**：定义连接中断和恢复的行为
+4. **流终止**：指定流完成是如何被提示的
+
+如果不支持流式，绑定**必须**在 Agent Card 中明确记录此限制。
+
+### 12.6. 认证与授权
+
+自定义绑定**必须**：
+
+1. **支持标准方案**：实现在 Agent Card 中声明的认证方案
+2. **记录集成方式**：指定凭据在协议中如何传输
+3. **处理质询**：定义认证质询如何传达
+4. **保持安全性**：遵循传输协议的安全最佳实践
+
+### 12.7. Agent Card 声明
+
+自定义绑定**必须**在 Agent Card 中声明：
+
+1. **传输标识符**：使用 URI 标识绑定（参见[第 5.8 节](#58-custom-binding-identification)）
+2. **端点 URL**：提供绑定可用的完整 URL
+
+**示例：**
+
+```json
+  ]
+}
+```
+
+### 12.8. 互操作性测试
+
+自定义绑定实现者**应当**：
+
+1. **对照参考进行测试**：验证行为与标准绑定一致
+2. **记录差异**：清晰标注与标准绑定行为的任何偏差
+3. **提供示例**：包含示例请求和响应
+4. **测试边界情况**：验证错误条件、大型负载和长时间运行任务的处理
+
+## 13. 安全注意事项
+
+本节整合了实现和运营 A2A 智能体的安全指引和最佳实践。有关更多的企业安全注意事项，请参阅[企业级特性](/docs/a2a/enterprise-ready)。
+
+### 13.1. 数据访问与授权范围限制
+
+实现**必须**根据已认证调用方的授权边界确保适当的范围限制。这适用于所有访问或列出任务和其他资源的操作。
+
+**授权原则：**
+
+- 服务端**必须**对每个 [A2A 协议操作](#3-a2a-protocol-operations)请求实施授权检查
+- 实现**必须**根据智能体的授权模型，将结果限制在调用方经授权的访问边界内
+- 即使请求中未指定 `contextId` 或其他过滤参数，实现**必须**将结果限制在调用方经授权的访问边界内
+- 授权模型由智能体定义，**可以**基于：
+    - 用户身份（基于用户的授权）
+    - 组织角色或组（基于角色的授权）
+    - 项目或工作空间成员资格（基于项目的授权）
+    - 组织或租户边界（多租户授权）
+    - 特定于智能体领域的自定义授权逻辑
+
+**需要范围限制的操作：**
+
+- [`List Tasks`](#314-list-tasks)：**必须**仅根据智能体的授权模型返回已认证客户端可见的任务
+- [`Get Task`](#313-get-task)：**必须**根据智能体的授权模型验证已认证客户端有权访问所请求的任务
+- 与任务相关的操作（Cancel、Subscribe、Push Notification Config）：**必须**根据智能体的授权模型验证客户端拥有适当的访问权限
+
+**实现要求：**
+
+- 授权边界由每个智能体的授权模型定义，而非由协议规定
+- 授权检查**必须**在任何可能泄露调用方授权范围之外资源存在信息的数据库查询或操作之前进行
+- 智能体**应当**记录其授权模型和访问控制策略
+
+另请参阅：[第 3.1.4 节 列出任务（安全说明）](#314-list-tasks)了解操作特定的要求。
+
+### 13.2. 推送通知安全
+
+在实现推送通知时，智能体（作为 webhook 调用方）和客户端（作为 webhook 接收方）都负有安全责任。
+
+**智能体（Webhook 调用方）要求：**
+
+- 智能体**必须**按照 [`PushNotificationConfig.authentication`](#432-authenticationinfo) 中的规范在 webhook 请求中包含认证凭据
+- 智能体**应当**为 webhook 请求设置合理的超时时间（建议：10-30 秒）
+- 智能体**应当**为失败的投递实现带指数退避的重试逻辑
+- 智能体**可以**在连续失败达到配置的次数后停止尝试投递
+- 智能体**应当**验证 webhook URL 以防止 SSRF（服务端请求伪造）攻击：
+    - 拒绝私有 IP 段（127.0.0.0/8、10.0.0.0/8、172.16.0.0/12、192.168.0.0/16）
+    - 拒绝 localhost 和链路本地地址
+    - 在适当的情况下实施 URL 白名单
+
+**客户端（Webhook 接收方）要求：**
+
+- 客户端**必须**使用提供的认证凭据验证 webhook 的真实性
+- 客户端**应当**验证负载中的任务 ID 与它们创建的任务匹配
+- 客户端**必须**使用 HTTP 2xx 状态码进行响应，以确认成功接收
+- 客户端**应当**以幂等方式处理通知，因为可能发生重复投递
+- 客户端**应当**实施速率限制以防止 webhook 洪泛
+- 客户端**应当**为 webhook URL 使用 HTTPS 端点以确保机密性
+
+**配置安全：**
+
+- webhook URL **应当**使用 HTTPS 以保护负载传输中的机密性
+- [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) 中的认证令牌**应当**被视为机密并定期轮换
+- 智能体**应当**安全地存储推送通知配置和凭据
+- 客户端**应当**为每个推送通知配置使用唯一的、单一用途的令牌
+
+另请参阅：[第 4.3 节 推送通知对象](#43-push-notification-objects)和[第 4.3.3 节 推送通知负载](#433-push-notification-payload)。
+
+### 13.3. 扩展 Agent Card 访问控制
+
+扩展 Agent Card 特性允许智能体向已认证客户端提供超出公开 Agent Card 中可用内容的额外能力或信息。
+
+**访问控制要求：**
+
+- [`Get Extended Agent Card`](#3111-get-extended-agent-card) 操作**必须**要求认证
+- 智能体**必须**使用公开的 `AgentCard.securitySchemes` 和 `AgentCard.security` 字段中声明的方案之一对请求进行认证
+- 智能体**可以**根据已认证客户端的身份或授权级别返回不同的扩展卡片内容
+- 智能体**应当**实施适当的缓存头，以控制客户端对扩展卡片的缓存
+
+**基于能力的访问：**
+
+- 扩展卡片**可以**包含公开卡片中不存在的额外技能
+- 扩展卡片**可以**公开更详细的能力信息（例如速率限制、配额）
+- 扩展卡片**可以**包含组织特定或用户特定的配置
+- 智能体**应当**记录在不同认证级别下可用哪些能力
+
+**安全注意事项：**
+
+- 扩展卡片**不应**包含泄漏后可能被利用的敏感信息（例如内部服务 URL、未脱敏的凭据）
+- 智能体**必须**在扩展卡片中返回特权信息前，验证客户端拥有适当的权限
+- 获取扩展卡片的客户端**应当**在其已认证会话期间，用扩展版本替换其缓存的公开 Agent Card
+- 智能体**应当**适当地对扩展卡片进行版本控制，并尊重客户端的缓存失效
+
+**可用性声明：**
+
+- 智能体通过 `AgentCard.capabilities.extendedAgentCard` 声明扩展卡片支持
+- 当 `capabilities.extendedAgentCard` 为 `false` 或不存在时，该操作**必须**返回 [`UnsupportedOperationError`](#332-error-handling)
+- 当声明了支持但未配置扩展卡片时，该操作**必须**返回 [`ExtendedAgentCardNotConfiguredError`](#332-error-handling)
+
+另请参阅：[第 3.1.11 节 获取扩展 Agent Card](#3111-get-extended-agent-card)和[第 3.3.4 节 能力验证](#334-capability-validation)。
+
+### 13.4. 通用安全最佳实践
+
+**传输安全：**
+
+- 生产部署**必须**使用加密通信（基于 HTTP 的绑定使用 HTTPS，gRPC 使用 TLS）
+- 实现**应当**使用现代 TLS 配置（建议 TLS 1.3+）并配合强加密套件
+- 智能体在使用基于 HTTP 的绑定**应当**强制使用 HSTS（HTTP 严格传输安全）头
+- 实现**应当**禁用对已弃用的 SSL/TLS 版本（SSLv3、TLS 1.0、TLS 1.1）的支持
+
+**输入验证：**
+
+- 智能体**必须**在处理前验证所有输入参数
+- 智能体**应当**对消息大小、文件大小和请求复杂度实施适当的限制
+- 智能体**应当**清理或验证文件内容类型，并拒绝意外的媒体类型
+
+**凭据管理：**
+
+- API 密钥、令牌和其他凭据**必须**被视为机密
+- 凭据**应当**定期轮换
+- 凭据**应当**仅通过加密连接传输
+- 智能体**应当**实施凭据吊销机制
+- 智能体**应当**记录认证失败并实施速率限制以防止暴力破解攻击
+
+**审计与监控：**
+
+- 智能体**应当**记录与安全相关的事件（认证失败、授权拒绝、可疑请求）
+- 智能体**应当**针对异常模式（任务创建过快、取消过多）实施监控
+- 智能体**应当**为敏感操作提供审计跟踪
+- 日志**不得**包含敏感信息（凭据、个人数据），除非有必要并且受到适当保护
+
+**速率限制与滥用防护：**
+
+- 智能体**应当**对所有操作实施速率限制
+- 智能体在超过速率限制时**应当**返回适当的错误响应
+- 智能体**可以**为不同的操作或用户层级实施不同的速率限制
+
+**数据隐私：**
+
+- 智能体**必须**遵守适用的数据保护法规
+- 智能体**应当**为用户请求删除其数据提供机制
+- 智能体**应当**实施适当的数据保留策略
+- 智能体**应当**尽量减少对敏感或个人信息的日志记录
+
+**自定义绑定安全：**
+
+- 自定义协议绑定**必须**在其规范中说明安全注意事项
+- 自定义绑定**应当**遵循与标准绑定相同的安全原则
+- 自定义绑定**必须**记录认证集成和凭据传输
+
+另请参阅：[第 12.6 节 认证与授权（自定义绑定）](#126-authentication-and-authorization)。
+
+## 14. IANA 注意事项
+
+本节提供 A2A 协议的媒体类型、HTTP 头和 well-known URI 的注册模板，旨在提交给互联网号码分配局（IANA，Internet Assigned Numbers Authority）。
+
+### 14.1. 媒体类型注册
+
+#### 14.1.1. application/a2a+json
+
+**类型名称：**`application`
+
+**子类型名称：**`a2a+json`
+
+**必需参数：**无
+
+**可选参数：**
+
+- 无
+
+**编码注意事项：**二进制（JSON 文本必须使用 UTF-8 编码）
+
+**安全注意事项：**
+此媒体类型与 RFC 8259 第 12 节所述的所有基于 JSON 的格式共有相同的安全注意事项。此外：
+
+- 在处理前，内容必须根据 A2A 协议 schema 进行验证
+- 实现必须清理用户提供的内容以防止注入攻击
+- 必须验证 A2A 消息中的文件引用，以防止服务端请求伪造（SSRF）
+- 必须按照 A2A 规范第 7 节的规定强制执行认证和授权
+- 必须根据适用的数据保护法规保护任务历史和产物中的敏感信息
+
+**互操作性注意事项：**
+A2A 协议支持多种协议绑定。此媒体类型用于 HTTP+JSON/REST 绑定。
+
+**已发布的规范：**
+Agent2Agent (A2A) 协议规范，见：[A2A 协议规范](https://a2a-protocol.org/latest/specification)
+
+**使用此媒体类型的应用程序：**
+实现 A2A 协议以进行智能体间通信的 AI 智能体平台、智能体工作流系统、多智能体协作工具和企业自动化系统。
+
+**片段标识符注意事项：**无
+
+**附加信息：**
+
+- **此类型的已弃用别名：**无
+- **幻数：**无
+- **文件扩展名：**.a2a.json
+- **Macintosh 文件类型代码：**TEXT
+
+**联系人及电子邮件地址（供进一步咨询）：**
+A2A 协议工作组，[a2a-protocol@example.org](mailto:a2a-protocol@example.org)
+
+**预期用途：**COMMON
+
+**使用限制：**无
+
+**作者：**A2A 协议工作组
+
+**变更控制者：**A2A 协议工作组
+
+**临时注册：**否
+
+### 14.2. HTTP 头字段注册
+
+**注意：**以下 HTTP 头表示在[第 3.2.6 节](#326-service-parameters)中定义的抽象 A2A 服务参数的、基于 HTTP 的协议绑定实现。这些注册特定于 HTTP/HTTPS 传输。
+
+#### 14.2.1. A2A-Version 头
+
+**头字段名称：**A2A-Version
+
+**适用的协议：**HTTP
+
+**状态：**标准
+
+**作者/变更控制者：**A2A 协议工作组
+
+**规范文档：**A2A 协议规范第 3.2.5 节
+
+**相关信息：**
+A2A-Version 头字段指示客户端正在使用的 A2A 协议版本。该值必须采用 `Major.Minor` 格式（例如 "0.3"）。如果智能体不支持该版本，智能体将返回 `VersionNotSupportedError`。
+
+**示例：**
+
+```text
+A2A-Version: 0.3
+```
+
+#### 14.2.2. A2A-Extensions 头
+
+**头字段名称：**A2A-Extensions
+
+**适用的协议：**HTTP
+
+**状态：**标准
+
+**作者/变更控制者：**A2A 协议工作组
+
+**规范文档：**A2A 协议规范第 3.2.5 节
+
+**相关信息：**
+A2A-Extensions 头字段包含客户端希望用于请求的、以逗号分隔的扩展 URI 列表。扩展使智能体能够在保持向后兼容的同时，提供超出核心 A2A 规范的额外功能。
+
+**示例：**
+
+```text
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+```
+
+### 14.3. Well-Known URI 注册
+
+**URI 后缀：**agent-card.json
+
+**变更控制者：**A2A 协议工作组
+
+**规范文档：**A2A 协议规范第 8.2 节
+
+**相关信息：**
+`.well-known/agent-card.json` URI 提供了一个标准化的位置，用于发现 A2A 智能体的能力、受支持的协议、认证要求和可用技能。此 URI 上的资源必须返回一个符合 A2A 规范第 4.4.1 节定义的 AgentCard 对象。
+
+**状态：**永久
+
+**安全注意事项：**
+
+- Agent Card 可以包含关于智能体能力的公开信息，且不应包含敏感凭据或内部实现细节
+- 实现应当支持 HTTPS，以确保 Agent Card 的真实性和完整性
+- Agent Card 可以按照 AgentCardSignature 对象（第 4.4.7 节）中的规定使用 JSON Web Signatures (JWS) 进行签名
+- 客户端在存在签名时应当进行验证，以确保 Agent Card 未被篡改
+- 通过已认证端点（第 3.1.11 节）获取的扩展 Agent Card 可能包含额外信息，并且必须强制执行适当的访问控制
+
+**示例：**
+
+```text
+https://agent.example.com/.well-known/agent-card.json
+```
+
+---
+
+## 附录 A. 迁移与旧版兼容性
+
+本附录记录了已重命名的协议消息和对象、它们的旧版标识符，以及计划的弃用/移除时间表。所有旧版名称和锚点必须一直保持可解析，直到声明的最早移除版本。
+
+| 旧版名称                                     | 当前名称                              | 最早移除版本 | 备注                                                  |
+| ----------------------------------------------- | ----------------------------------------- | ------------------------ | ------------------------------------------------------ |
+| `MessageSendParams`                             | `SendMessageRequest`                      | >= 0.5.0                 | 为清晰起见重命名请求负载（request vs params） |
+| `SendMessageSuccessResponse`                    | `SendMessageResponse`                     | >= 0.5.0                 | 统一成功响应的命名                        |
+| `SendStreamingMessageSuccessResponse`           | `StreamResponse`                          | >= 0.5.0                 | 更简短、与绑定无关的流式响应           |
+| `SetTaskPushNotificationConfigRequest`          | `CreateTaskPushNotificationConfigRequest` | >= 0.5.0                 | 明确的创建意图                               |
+| `ListTaskPushNotificationConfigSuccessResponse` | `ListTaskPushNotificationConfigsResponse` | >= 0.5.0                 | 一致的响应后缀移除                     |
+| `GetAuthenticatedExtendedCardRequest`           | `GetExtendedAgentCardRequest`             | >= 0.5.0                 | 从命名中移除了 "Authenticated"                    |
+
+计划的生命周期（示例时间线；请根据发布策略调整）：
+
+1. 0.3.x：引入新名称；记录旧版名称；添加别名。
+2. 0.4.x：在 SDK 和 schema 中将旧版名称标记为 "deprecated"；添加警告说明。
+3. ≥0.5.0：旧版名称经审查后符合移除条件；更新迁移附录。
+
+### A.1 旧版文档锚点
+
+隐藏的锚点 span 保留了旧的入站链接：
+
+{/* Legacy inbound link compatibility anchors (old spec numbering & names) */}
+<span id="32-supported-transport-protocols"></span>
+<span id="324-transport-extensions"></span>
+<span id="35-method-mapping-and-naming-conventions"></span>
+<span id="5-agent-discovery-the-agent-card"></span>
+<span id="53-recommended-location"></span>
+<span id="55-agentcard-object-structure"></span>
+<span id="56-transport-declaration-and-url-relationships"></span>
+<span id="563-client-transport-selection-rules"></span>
+<span id="57-sample-agent-card"></span>
+<span id="6-protocol-data-objects"></span>
+<span id="61-task-object"></span>
+<span id="610-taskpushnotificationconfig-object"></span>
+<span id="611-json-rpc-structures"></span>
+<span id="612-jsonrpcerror-object"></span>
+<span id="63-taskstate-enum"></span>
+<span id="69-pushnotificationauthenticationinfo-object"></span>
+<span id="711-messagesendparams-object"></span>
+<span id="72-messagestream"></span>
+<span id="721-sendstreamingmessageresponse-object"></span>
+<span id="731-taskqueryparams-object"></span>
+<span id="741-listtasksparams-object"></span>
+<span id="742-listtasksresult-object"></span>
+<span id="751-taskidparams-object-for-taskscancel-and-taskspushnotificationconfigget"></span>
+<span id="77-taskspushnotificationconfigget"></span>
+<span id="771-gettaskpushnotificationconfigparams-object-taskspushnotificationconfigget"></span>
+<span id="781-listtaskpushnotificationconfigparams-object-taskspushnotificationconfiglist"></span>
+<span id="791-deletetaskpushnotificationconfigparams-object-taskspushnotificationconfigdelete"></span>
+<span id="8-error-handling"></span>
+<span id="82-a2a-specific-errors"></span>
+{/* Legacy renamed message/object name anchors */}
+<span id="messagesendparams"></span>
+<span id="sendmessagesuccessresponse"></span>
+<span id="sendstreamingmessagesuccessresponse"></span>
+<span id="settaskpushnotificationconfigrequest"></span>
+<span id="listtaskpushnotificationconfigsuccessresponse"></span>
+<span id="getauthenticatedextendedcardrequest"></span>
+<span id="938-agentgetauthenticatedextendedcard"></span>
+
+每个旧版 span 应当放置在当前对象的标题旁边（在详细对象章节编辑时插入）。如果存在确切的数字前缀锚点（例如 `#414-message`），则在已知的情况下添加一个匹配该历史形式的额外 span。
+
+### A.2 迁移指引
+
+客户端实现应当：
+
+- 所有新集成应立即优先使用新名称。
+- 在 schema/类型允许的情况下实现双重处理（例如联合类型或向后兼容的解码器）。
+- 在首次弃用公告发布后接收到旧版命名的对象时，记录一条警告。
+
+服务端实现可以：
+
+- 在重叠期间同时接受旧版和当前形式的请求消息。
+- 在响应中仅输出当前形式（推荐），同时提供明确的升级说明。
+
+#### A.2.1 破坏性变更：移除 Kind 判别符
+
+**版本 1.0 引入了一项破坏性变更**，变更了协议中多态对象的表示方式。这影响 `Part` 类型和流式事件类型。
+
+**旧版模式（v0.3.x）：**
+对象使用内联的 `kind` 字段作为判别符来标识对象类型：
+
+**示例 1 - TextPart：**
+
+```json
+```
+
+**示例 2 - FilePart：**
+
+```json
+}
+```
+
+**当前模式（v1.0）：**
+对象现在使用 **JSON 成员名称**本身来标识类型。成员名称充当判别符，值结构取决于具体类型：
+
+**示例 1 - TextPart：**
+
+```json
+```
+
+**示例 2 - FilePart：**
+
+```json
+```
+
+**受影响的类型：**
+
+1. **Part 联合类型**：
+   - **TextPart**：
+     - **旧版：**`{ "kind": "text", "text": "..." }`
+     - **当前：**`{ "text": "..." }`（成员的存在作为判别符）
+   - **FilePart**：
+     - **旧版：**`{ "kind": "file", "file": { "name": "...", "mimeType": "...", "fileWithBytes": "..." } }`
+     - **当前：**`{ "raw": "...", "filename": "...", "mediaType": "..." }`（或使用 `url` 代替 `raw`）
+   - **DataPart**：
+     - **旧版：**`{ "kind": "data", "data": {...} }`
+     - **当前：**`{ "data": {...}, "mediaType": "application/json" }`
+
+2. **流式事件类型**：
+   - **TaskStatusUpdateEvent**：
+     - **旧版：**`{ "kind": "status-update", "taskId": "...", "status": {...} }`
+     - **当前：**`{ "statusUpdate": { "taskId": "...", "status": {...} } }`
+   - **TaskArtifactUpdateEvent**：
+     - **旧版：**`{ "kind": "artifact-update", "taskId": "...", "artifact": {...} }`
+     - **当前：**`{ "artifactUpdate": { "taskId": "...", "artifact": {...} } }`
+
+**迁移策略：**
+
+对于从 pre-0.3.x 升级的**客户端**：
+
+1. 更新解析器，以期望成员名称作为判别符的包装对象
+2. 在构造请求时，使用新的包装格式
+3. 基于智能体 `supportedInterfaces` 条目中的 `protocolVersion` 实现版本检测
+4. 考虑在过渡期内通过检测并处理两种格式来保持向后兼容
+
+对于从 pre-0.3.x 升级的**服务端**：
+
+1. 更新序列化逻辑以输出包装对象
+2. **破坏性：**`kind` 字段不再是协议的一部分，不应再输出
+3. 更新反序列化，以期望带成员名称的包装对象
+4. 确保 `AgentCard` 中的每个 `AgentInterface` 声明正确的 `protocolVersion`（例如 "1.0" 或更高版本）
+
+**设计依据：**
+
+此变更符合现代 API 设计实践和 Protocol Buffers 的 `oneof` 语义，即字段名称本身充当类型判别符。这种方法：
+
+- 减少冗余（无需同时存在字段名和 `kind` 值）
+- 使 JSON-RPC 和 gRPC 表示形式更加一致
+- 简化从 schema 定义生成代码的过程
+- 无需在 schema 语言中表示继承结构
+- 提高强类型语言中的类型安全性
+
+#### A.2.2 破坏性变更：扩展 Agent Card 字段被移动
+
+**版本 1.0 将扩展智能体卡片能力**从顶层字段移动到 capabilities 对象中，以实现架构一致性。
+
+**旧版结构（pre-1.0）：**
+
+```json
+}
+```
+
+**当前结构（1.0+）：**
+
+```json
+}
+```
+
+**Proto 变更：**
+
+- 移除：`AgentCard.supports_extended_agent_card`（字段 13）
+- 新增：`AgentCapabilities.extended_agent_card`（字段 5）
+
+**迁移步骤：**
+
+对于**智能体实现**：
+
+1. 从顶层 AgentCard 中移除 `supportsExtendedAgentCard`
+2. 将 `extendedAgentCard` 添加到 `capabilities` 对象中
+3. 更新验证：`agentCard.capabilities?.extendedAgentCard`
+
+对于**客户端实现**：
+
+1. 更新能力检查：`agentCard.capabilities?.extendedAgentCard`
+2. 临时回退（过渡期）：
+
+   ```javascript
+   const supported = agentCard.capabilities?.extendedAgentCard ||
+                     agentCard.supportsExtendedAgentCard;
+   ```
+
+3. 在智能体生态完成迁移后移除回退
+
+对于 **SDK 开发者**：
+
+1. 从更新的 proto 重新生成代码
+2. 更新类型定义
+3. 在发行说明中记录破坏性变更
+
+**设计依据：**
+
+所有启用特定操作的可选特性（`streaming`、`pushNotifications`）都位于 `AgentCapabilities` 中。移动 `extendedAgentCard` 可以实现：
+
+- 架构一致性
+- 更好的可发现性
+- 语义正确性（它是一项能力）
+
+### A.3 未来的自动化
+
+一旦 proto→schema 生成管道落地，本附录将部分自动生成（旧版映射表来自维护中的清单）。在此之前，编辑必须是手动的，并在影响 `a2a.proto` 的 PR 中进行审查。
+
+## 附录 B. 与 MCP（Model Context Protocol）的关系
+
+A2A 和 MCP 是互补的协议，分别针对智能体系统的不同方面设计：
+
+- **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)：**专注于标准化 AI 模型和智能体如何连接并交互**工具、API、数据源和其他外部资源**。它定义了描述工具能力（如 LLM 中的函数调用）、传递输入和接收结构化输出的结构化方式。可以把 MCP 看作是智能体*使用*特定能力或访问资源的方法。
+- **Agent2Agent 协议（A2A）：**专注于标准化独立、往往不透明的 **AI 智能体如何作为对等方相互通信和协作**。A2A 提供了一种应用层协议，使智能体能够相互发现、协商交互模式、管理共享任务并交换对话上下文或复杂结果。它关乎智能体如何*合作*或*委派*工作。
+
+**它们如何协同工作：**
+A2A 客户端智能体可能会请求 A2A 服务端智能体执行复杂任务。反过来，服务端智能体可能会使用 MCP 与多个底层工具、API 或数据源交互，以获取必要的信息或执行必要的操作来完成 A2A 任务。
+
+有关更详细的比较，请参阅 [A2A 和 MCP 指南](/docs/a2a/a2a-and-mcp)。
+
+---
