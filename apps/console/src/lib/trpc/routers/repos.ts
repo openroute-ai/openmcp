@@ -14,12 +14,22 @@ import {
   type Db,
 } from "@/lib/github/service/repo"
 import {
-  lastNWeeks,
+  listMonthlyStats,
+  listWeeklyArrivals,
   monthlyBars,
   periodTrends,
-} from "@/lib/github/service/snapshot"
+} from "@/lib/github/service/stats"
+import { lastNWeeks } from "@/lib/github/snapshot-dates"
 import { createConsoleLogger } from "@/lib/tasks/runner"
-import { projects, repoWeeklyStars, repos, snapshots } from "@/db/schema"
+import { projects, repos, USER_REPO_STATUSES } from "@/db/schema"
+import {
+  countRepoSubmitters,
+  getUserRepo,
+  linkUserToRepo,
+  listRepoSubmitters,
+  recomputePlatformStates,
+  updateUserRepo,
+} from "@/lib/github/service/user-repo"
 import { isAdmin } from "@/lib/auth/role"
 import { createTRPCRouter, adminProcedure, protectedProcedure } from "../init"
 
@@ -259,6 +269,12 @@ export const reposRouter = createTRPCRouter({
           homepage: repos.homepage,
           iconUrl: repos.iconUrl,
           openGraphImageUrl: repos.openGraphImageUrl,
+          // The two override flags, because the edit dialog on this page has
+          // to show them. Without them the operator cannot tell whether an edit
+          // will survive tomorrow's sweep, which is the one thing the dialog
+          // exists to warn about.
+          overrideDescription: repos.overrideDescription,
+          overrideHomepage: repos.overrideHomepage,
           topics: repos.topics,
           languages: repos.languages,
           licenseSpdxId: repos.licenseSpdxId,
@@ -299,7 +315,14 @@ export const reposRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" })
       }
 
-      const [linked, snapshotRows, weeklyRows] = await Promise.all([
+      const [
+        linked,
+        monthlyRows,
+        weeklyRows,
+        submitters,
+        submitterCount,
+        ownSubmission,
+      ] = await Promise.all([
         ctx.db
           .select({
             id: projects.id,
@@ -316,45 +339,49 @@ export const reposRouter = createTRPCRouter({
           .from(projects)
           .where(eq(projects.repoId, repo.id))
           .orderBy(asc(projects.name)),
-        ctx.db
-          .select({ year: snapshots.year, months: snapshots.months })
-          .from(snapshots)
-          .where(eq(snapshots.repoId, repo.id))
-          .orderBy(asc(snapshots.year)),
+        listMonthlyStats(ctx.db, repo.id),
         // Only the weeks the chart can show. The table holds a row per week
         // since the first stargazer, which for an old repository is years of
         // rows, and the page needs a year of them at most.
-        ctx.db
-          .select({
-            year: repoWeeklyStars.year,
-            week: repoWeeklyStars.week,
-            stars: repoWeeklyStars.stars,
-          })
-          .from(repoWeeklyStars)
-          .where(eq(repoWeeklyStars.repoId, repo.id))
-          .orderBy(desc(repoWeeklyStars.year), desc(repoWeeklyStars.week))
-          .limit(CHART_WEEKS),
+        listWeeklyArrivals(ctx.db, repo.id, CHART_WEEKS),
+        // Only an admin gets the list of who submitted this. A non-admin is not
+        // shown a redacted version of it — they are shown their own row and a
+        // count, so no query they can reach can return another account's note.
+        // See `user-repo.ts` on why the two audiences need different shapes
+        // rather than a filter.
+        isAdmin(ctx.session.user) ? listRepoSubmitters(ctx.db, repo.id) : [],
+        // The count goes to both audiences: "three people asked for this to be
+        // tracked" is a public fact about the repository, unlike *what* each of
+        // them wrote down about it.
+        countRepoSubmitters(ctx.db, repo.id),
+        // The reader's own row, for both audiences. An admin sees it here and
+        // also in `submitters`, which is deliberate rather than redundant: the
+        // editable controls only ever act on this one, so it is the copy the UI
+        // writes to.
+        getUserRepo(ctx.db, ctx.session.user.id, repo.id),
       ])
-
-      const months = snapshotRows.flatMap((row) => row.months ?? [])
 
       return {
         ...repo,
         fullName: `${repo.owner}/${repo.name}`,
         repoUrl: `https://github.com/${repo.owner}/${repo.name}`,
         projects: linked,
-        snapshots: snapshotRows,
+        submitters,
+        submitterCount: submitterCount.total,
+        ownSubmission: ownSubmission ?? null,
+        monthlyStats: monthlyRows,
         trends: {
-          bars: monthlyBars(months, CHART_MONTHS, new Date()),
+          bars: monthlyBars(monthlyRows, CHART_MONTHS, new Date()),
           weeks: lastNWeeks(CHART_WEEKS, new Date()).map((yearWeek) => ({
             yearWeek,
             stars:
               weeklyRows.find(
                 (row) =>
-                  row.year === yearWeek.year && row.week === yearWeek.week
+                  row.yearWeek.year === yearWeek.year &&
+                  row.yearWeek.week === yearWeek.week
               )?.stars ?? 0,
           })),
-          periods: periodTrends(months, weeklyRows),
+          periods: periodTrends(monthlyRows, weeklyRows),
         },
       }
     }),
@@ -400,6 +427,19 @@ export const reposRouter = createTRPCRouter({
         await setRepoCreatedBy(ctx.db, row.id, ctx.session.user.id)
       }
 
+      // Every submitter gets a row of their own, including the first one and
+      // including someone whose paste landed on a repository another account had
+      // already recorded. `created_by` above answers "who recorded it"; this
+      // answers "who wants it tracked", and the second question has more than
+      // one right answer — a second paste is a statement of interest, not an
+      // attempt to take the row.
+      await linkUserToRepo(ctx.db, {
+        userId: ctx.session.user.id,
+        repoId: row.id,
+        source: "console",
+      })
+      await recomputePlatformStates(ctx.db, [row.id])
+
       return {
         id: row.id,
         fullName: `${row.owner}/${row.name}`,
@@ -407,6 +447,49 @@ export const reposRouter = createTRPCRouter({
         created: !existing,
         projectCount: await countProjectsForRepo(ctx.db, row.id),
       }
+    }),
+
+  /**
+   * 改**自己**对这一个仓库的处置。
+   *
+   * `protectedProcedure`，输入里只有 `repoId` 和四个私有字段，没有 `userId`：
+   * 账号从会话里取，所以这条接口在结构上就不可能改到别人那一行上去。这比
+   * "读一个 userId 再校验它是不是你"更可靠——校验可以被忘记，字段不存在不会。
+   *
+   * 刻意不接受 `platformStatus`：那是关于仓库的事实，不是关于某个人的判断，
+   * 由 `recomputePlatformStates` 从 `repos` 和 `projects` 算出来。同理不接受
+   * `source` 与 `submittedAt`：它们记录"谁在什么时候提交过"，而那是一次提交的
+   * 事实，不会因为有人改了备注而变。
+   */
+  updateOwnSubmission: protectedProcedure
+    .input(
+      z.object({
+        repoId: z.string().min(1),
+        status: z.enum(USER_REPO_STATUSES).optional(),
+        note: z.string().max(2000).nullable().optional(),
+        pinned: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const ok = await updateUserRepo(ctx.db, {
+        userId: ctx.session.user.id,
+        repoId: input.repoId,
+        status: input.status,
+        note: input.note,
+        pinned: input.pinned,
+      })
+
+      if (!ok) {
+        // No row for this pair. Distinct from a bad input: the caller asked to
+        // update something they never created, and saying so is more useful than
+        // reporting success for a write that touched nothing.
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "repos.updateOwnSubmission.notSubmitted",
+        })
+      }
+
+      return { repoId: input.repoId }
     }),
 
   /**
@@ -505,6 +588,12 @@ export const reposRouter = createTRPCRouter({
         ["snapshot", result.snapshot],
       ] as const
       const failed = steps.filter(([, ok]) => !ok).map(([name]) => name)
+
+      // `repos.updated_at` moved, and every submission of this repository
+      // mirrors it as "the platform last refreshed this". Recomputed after the
+      // work rather than before it, so a partial failure is still reflected —
+      // a refresh that read metadata and failed on the README did happen.
+      await recomputePlatformStates(ctx.db, [repo.id])
 
       return {
         refreshed: await getRepoById(ctx.db, input.id),

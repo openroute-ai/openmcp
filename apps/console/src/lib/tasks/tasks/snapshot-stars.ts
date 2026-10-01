@@ -1,74 +1,89 @@
 /**
- * Sweeps stargazer timestamps into monthly star history.
+ * Records star history from GitHub's weekly buckets, and stargazers from the
+ * stargazer list.
  *
- * GitHub's stargazer endpoint returns one star per request page and no
- * aggregate count, so reconstructing history means walking every stargazer a
- * repository has ever had: a 200k-star repository is 2000 pages. The source
- * app did this for every repository on a schedule.
+ * GitHub offers two ways to answer "how did this repository's stars change",
+ * and this task runs both:
  *
- * Two things keep it affordable:
+ * - `GET /stargazers/history` returns a week per request with the cumulative
+ *   count at its end and a seven-day breakdown inside it. One page covers thirty
+ *   weeks, and `page` is capped at a hundred, so one repository's whole history
+ *   costs a handful of requests regardless of how many stars it has. This is the
+ *   primary source, and it is what `recordStarHistory` writes.
+ * - `GET /stargazers` returns one stargazer per row, so the same question costs
+ *   one request per hundred stars — four hundred requests for a 40k-star
+ *   repository. It is kept because it is the only source that says *who* starred.
  *
- * - A repository that already has history for the current year is skipped. Its
- *   months are already recorded, and re-walking it would reproduce the same
- *   totals at the cost of thousands of requests.
- * - Repositories are processed with bounded concurrency, because the request
- *   rate, not the CPU, is the limit here.
+ * The asymmetry drives the schedule. History is cheap enough to run for every
+ * repository every day; the stargazer walk is not, so it runs for repositories
+ * whose token can read them and resumes from the newest timestamp already stored
+ * rather than re-walking from the beginning.
  *
- * And one thing makes it correct rather than merely cheap: only repositories an
- * administrator has curated are swept at all. Star history is drawn on a
- * project page, so a repository nobody has curated has no chart to feed, and
- * this task is the single most expensive call to GitHub in the app. The count of
- * repositories left out is reported, for the same reason the ceiling's is.
+ * Writer ownership is the reason the details below matter. This task owns a
+ * repository's *closed* periods — the levels, net changes and arrivals before
+ * today. The daily sampler owns the periods that are still open, because it
+ * reads the repository's own star count and that is more recent than the last
+ * complete bucket. See `recordStarHistory`.
  */
-
+import {
+  GitHubForbiddenError,
+  GitHubRateLimitError,
+} from "@/lib/github/errors"
 import { createGitHubClient } from "@/lib/github/client"
 import { listAllRepos, listCuratedRepos } from "@/lib/github/service/repo"
 import {
-  accumulateStarsByMonth,
-  listSnapshottedRepoIds,
-  recordMonth,
-  recordDailyStarsFromStargazers,
-  recordWeeklyStarsFromStargazers,
-  type StargazerStamp,
-} from "@/lib/github/service/snapshot"
+  latestStargazerAt,
+  listReposWithDailyStats,
+  recordStargazers,
+  recordStarHistory,
+} from "@/lib/github/service/stats"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task, TaskLogger } from "@/lib/tasks/runner"
 
 /**
- * The stargazer endpoint is the most rate-limit-sensitive call in the app:
- * a full sweep of a large repository is thousands of pages. Serialised, with a
- * gap, so a sweep of 100 repositories cannot spend the hourly budget in
- * minutes and leave the rest of the day unable to do anything.
+ * A gap between history requests.
+ *
+ * The history endpoint is cheap, so the throttle here is small and exists only
+ * to keep a sweep of thousands of repositories from looking like an attack. The
+ * stargazer walk behind the supplement gets a much larger gap below.
+ */
+const HISTORY_THROTTLE_MS = 250
+
+/**
+ * A gap between stargazer requests.
+ *
+ * This is the most rate-limit-sensitive call in the app — a full walk of a large
+ * repository is thousands of pages — so it is serialised with a wide gap, letting
+ * a sweep spend minutes rather than exhausting the hourly budget and leaving the
+ * rest of the day unable to do anything.
  */
 const STARGAZER_THROTTLE_MS = 2_000
 
-/**
- * Repositories at or above this star count are skipped by default.
- *
- * Their history is a real feature of the site, but the sweep cost is linear in
- * stars, so an unbounded sweep over a handful of very large repositories
- * monopolises the rate limit. The count is reported so the omission is
- * visible rather than silent.
- */
-const DEFAULT_STAR_CEILING = 50_000
-
 export interface SnapshotStarsOptions {
-  starCeiling?: number
-  /** Forces a sweep even where history already exists. */
+  /**
+   * Forces the history sweep for repositories that already have daily rows.
+   *
+   * Off by default: the daily sampler keeps today's row current, and re-reading
+   * history for every repository every day would be requests spent re-deriving
+   * what is already stored.
+   */
   rebuild?: boolean
+  /** Skips the stargazer supplement entirely. */
+  skipStargazers?: boolean
+  /** How many history pages to request per repository. */
+  historyPages?: number
   logger?: TaskLogger
 }
 
 export function createSnapshotStarsTask(
   options: SnapshotStarsOptions = {}
 ): Task {
-  const starCeiling = options.starCeiling ?? DEFAULT_STAR_CEILING
-
   return {
     name: "snapshot-stars",
     description:
-      "Sweep stargazer timestamps into monthly star history for curated " +
-      "repositories that do not already have it",
+      "Record star history from GitHub's weekly buckets for repositories that " +
+      "do not yet have daily rows, and store stargazers where the token can " +
+      "read them",
 
     async run({ db, logger }) {
       const client = createGitHubClient()
@@ -85,125 +100,159 @@ export function createSnapshotStarsTask(
         )
       }
 
-      // A repository that already has history has had this sweep done. Running
-      // it again reproduces the same totals at the cost of thousands of
-      // requests, so it is skipped unless a rebuild was asked for.
+      // A repository that already has daily rows has had its history recorded.
+      // Running the sweep again reproduces the same numbers at the cost of a
+      // request per week of its history, so it is skipped unless a rebuild was
+      // asked for.
       const alreadySwept = options.rebuild
         ? new Set<string>()
-        : new Set(await listSnapshottedRepoIds(db))
+        : new Set(await listReposWithDailyStats(db))
 
-      const tooLarge: string[] = []
-      const alreadyDone: string[] = []
-      const candidates = repos.filter((repo) => {
-        if ((repo.stars ?? 0) > starCeiling) {
-          tooLarge.push(`${repo.owner}/${repo.name}`)
-          return false
-        }
-        if (alreadySwept.has(repo.id)) {
-          alreadyDone.push(`${repo.owner}/${repo.name}`)
-          return false
-        }
-        return true
-      })
+      const alreadyDone = repos.filter((repo) => alreadySwept.has(repo.id))
 
-      if (tooLarge.length > 0) {
-        logger.warn(
-          `${tooLarge.length} repo(s) above the ${starCeiling}-star ceiling were not swept`,
-          tooLarge
-        )
-      }
       if (alreadyDone.length > 0) {
         logger.info(
           `${alreadyDone.length} repo(s) already have history and were skipped`
         )
       }
 
-      if (candidates.length === 0) {
-        return {
-          considered: repos.length,
-          uncurated: stored.length - repos.length,
-          swept: 0,
-          skippedLarge: tooLarge.length,
-          skippedExisting: alreadyDone.length,
-        }
-      }
+      const candidates = repos.filter((repo) => !alreadySwept.has(repo.id))
 
-      const result = await processItems(
+      const history = await processItems(
         candidates,
         async (repo) => {
-          const stamps: StargazerStamp[] = []
-
-          await client.fetchStargazersWithTimestamps(
+          const entries = await client.fetchStarHistory(
             `${repo.owner}/${repo.name}`,
-            (page) => {
-              for (const entry of page) {
-                stamps.push({ starredAt: entry.starred_at })
-              }
-            }
+            options.historyPages === undefined
+              ? {}
+              : { pages: options.historyPages }
           )
 
-          if (stamps.length === 0) {
-            // Writing zero months here would show as a cliff in the chart, so
-            // nothing is recorded for a repository that reported no stargazers.
-            logger.warn(`no stargazers returned for ${repo.owner}/${repo.name}`)
+          if (entries.length === 0) {
+            // Writing nothing here would show as a cliff in the chart, so no
+            // rows are recorded for a repository that reported no history.
+            logger.warn(`no star history returned for ${repo.owner}/${repo.name}`)
             return { meta: { empty: 1 }, data: null }
           }
 
-          const byMonth = accumulateStarsByMonth(stamps)
-          for (const { yearMonth, stars } of byMonth) {
-            await recordMonth(db, repo.id, yearMonth, { stars })
-          }
-
-          // The same sweep is the only moment the weekly split is knowable:
-          // the raw timestamps are about to be discarded, and the monthly rows
-          // cannot recover a week that straddles the 1st.
-          const weeks = await recordWeeklyStarsFromStargazers(
-            db,
-            repo.id,
-            stamps
-          )
-
-          // Same argument for the day-level split the public detail chart
-          // reads, narrowed to a rolling window so the table stays sized to
-          // recent activity.
-          const days = await recordDailyStarsFromStargazers(
-            db,
-            repo.id,
-            stamps
-          )
+          const written = await recordStarHistory(db, repo.id, entries)
 
           return {
             meta: {
               swept: 1,
-              months: byMonth.length,
-              weeks,
-              days,
-              stars: stamps.length,
+              days: written,
+              weeks: entries.length,
+              stars: entries[entries.length - 1]?.total ?? 0,
             },
             data: null,
           }
         },
         {
           logger,
-          label: "repo",
-          concurrency: 1,
-          throttleIntervalMs: STARGAZER_THROTTLE_MS,
+          label: "history",
+          concurrency: 4,
+          throttleIntervalMs: HISTORY_THROTTLE_MS,
         }
       )
+
+      const stargazers = options.skipStargazers
+        ? { stored: 0, forbidden: 0, errors: 0, repos: 0 }
+        : await sweepStargazers(db, client, logger)
 
       return {
         considered: repos.length,
         uncurated: stored.length - repos.length,
-        swept: result.meta.swept ?? 0,
-        months: result.meta.months ?? 0,
-        weeks: result.meta.weeks ?? 0,
-      days: result.meta.days ?? 0,
-        stars: result.meta.stars ?? 0,
-        empty: result.meta.empty ?? 0,
-        skippedLarge: tooLarge.length,
+        swept: history.meta.swept ?? 0,
+        days: history.meta.days ?? 0,
+        weeks: history.meta.weeks ?? 0,
+        stars: history.meta.stars ?? 0,
+        empty: history.meta.empty ?? 0,
         skippedExisting: alreadyDone.length,
-        errors: result.meta.error ?? 0,
+        errors: (history.meta.error ?? 0) + stargazers.errors,
+        stargazerRepos: stargazers.repos,
+        stargazers: stargazers.stored,
+        stargazerForbidden: stargazers.forbidden,
       }
     },
+  }
+}
+
+/**
+ * Walks the stargazer list, resuming from what is already stored.
+ *
+ * Two outcomes are distinguished on purpose. A 403 that is not a rate limit
+ * means the token cannot read this repository's stargazers — an expected result
+ * for any repository it is not an administrator of, and skipped without
+ * recording anything. A rate-limited 403 stops the repository, because
+ * continuing would spend a budget that is already gone and would record the
+ * silence as "no stargazers".
+ *
+ * `since` is the newest timestamp stored, so a second pass costs the handful of
+ * stargazers who arrived since rather than the whole history. The stored
+ * timestamp is the one to resume from rather than a date the caller invents,
+ * because a gap in the middle of the walk cannot be repaired by a later pass
+ * that starts after it.
+ */
+async function sweepStargazers(
+  db: Parameters<typeof recordStargazers>[0],
+  client: ReturnType<typeof createGitHubClient>,
+  logger: TaskLogger
+): Promise<{ stored: number; forbidden: number; errors: number; repos: number }> {
+  const repos = await listCuratedRepos(db)
+
+  const result = await processItems(
+    repos,
+    async (repo) => {
+      const since = await latestStargazerAt(db, repo.id)
+
+      const entries: { login: string; starredAt: Date }[] = []
+      try {
+        await client.fetchStargazersWithTimestamps(
+          `${repo.owner}/${repo.name}`,
+          (page) => {
+            for (const entry of page) {
+              entries.push({
+                login: entry.login,
+                starredAt: new Date(entry.starred_at),
+              })
+            }
+          },
+          since ? { since } : {}
+        )
+      } catch (error) {
+        if (
+          error instanceof GitHubForbiddenError &&
+          !(error instanceof GitHubRateLimitError)
+        ) {
+          // Expected for any repository the token cannot administer, so counted
+          // and moved past rather than retried.
+          logger.info(
+            `stargazers not readable for ${repo.owner}/${repo.name}`
+          )
+          return { meta: { forbidden: 1 }, data: null }
+        }
+        // A rate limit is deliberately rethrown: `processItems` records the
+        // error and moves on, but the task result reports it, so a throttled
+        // sweep is visible as throttled rather than as a repository with no
+        // stargazers.
+        throw error
+      }
+
+      const written = await recordStargazers(db, repo.id, entries)
+      return { meta: { stored: written, repos: 1 }, data: null }
+    },
+    {
+      logger,
+      label: "stargazers",
+      concurrency: 1,
+      throttleIntervalMs: STARGAZER_THROTTLE_MS,
+    }
+  )
+
+  return {
+    stored: result.meta.stored ?? 0,
+    forbidden: result.meta.forbidden ?? 0,
+    errors: result.meta.error ?? 0,
+    repos: result.meta.repos ?? 0,
   }
 }

@@ -33,9 +33,8 @@ import {
   type Db,
   type RepoRow,
 } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import { recordCurrentPeriods } from "@/lib/github/service/stats"
 import { syncSkillsForProject } from "@/lib/github/sync-skills"
-import { getYearMonth } from "@/lib/github/snapshot-dates"
 import { createGitHubClient, type GitHubClient } from "@/lib/github/client"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import { createChatModel } from "@/lib/ai/provider"
@@ -164,7 +163,7 @@ export async function refreshRepoFromGitHub(
 
   const icon = await mirrorIcon(db, row, logger)
   const openGraphImage = await mirrorOpenGraphImage(db, row, logger)
-  const snapshot = await recordCurrentMonth(db, row)
+  const snapshot = await recordCurrentPeriod(db, row)
 
   return { readme, contributorCount, icon, openGraphImage, snapshot }
 }
@@ -228,30 +227,29 @@ async function mirrorOpenGraphImage(
 }
 
 /**
- * Records this month's counters against the star history.
+ * Records the counters measured on a repository against the open day, week and
+ * month.
  *
- * The month is keyed rather than appended, so running this twice in a day
- * updates the current month instead of inventing a second one. Reconstructing
- * earlier months needs a stargazer walk, which is the `snapshot-stars` task's
- * job and far too expensive to run per click.
+ * Keyed rather than appended, so running this twice in a day updates the open
+ * periods instead of inventing a second row for each. Every counter the row
+ * carries is recorded, not just the stars: this is the one place the whole set
+ * is read in one go, and the daily sampler is the only writer for them.
+ *
+ * Reconstructing earlier periods needs the star history endpoint, which is the
+ * `snapshot-stars` task's job and far too expensive to run per click.
  */
-async function recordCurrentMonth(
+async function recordCurrentPeriod(
   db: Db,
   repo: RepoRow
 ): Promise<boolean> {
   if (repo.stars == null) return false
 
   try {
-    await recordMonth(db, repo.id, getYearMonth(new Date()), {
-      stars: repo.stars,
-      totalContributors: repo.contributorCount ?? undefined,
-      totalPullRequests: repo.pullRequestsCount ?? undefined,
-      totalReleases: repo.releasesCount ?? undefined,
-    })
+    await recordCurrentPeriods(db, repo)
     return true
   } catch (error) {
     console.warn(
-      `[sync-project] could not record the snapshot for ${repo.id}`,
+      `[sync-project] could not record the current periods for ${repo.id}`,
       error
     )
     return false

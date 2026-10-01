@@ -22,6 +22,7 @@ function info(overrides: Partial<RepoInfo> = {}): RepoInfo {
     watchersCount: 28_000,
     licenseSpdxId: "MIT",
     pullRequestsCount: 4_000,
+    openIssuesCount: 4_000,
     releasesCount: 400,
     languages: ["TypeScript"],
     forks: 27_000,
@@ -44,6 +45,7 @@ function degraded(): RepoInfo {
     watchersCount: 0,
     mentionableUsersCount: 0,
     pullRequestsCount: 0,
+    openIssuesCount: 0,
     releasesCount: 0,
     commitCount: 0,
     languages: [],
@@ -64,6 +66,7 @@ describe("toRepoRow", () => {
     expect(row.topics).toEqual(["react"])
     expect(row.languages).toEqual(["TypeScript"])
     expect(row.pushedAt).toEqual(new Date("2026-01-02T03:04:05Z"))
+    expect(row.openIssuesCount).toBe(1_500)
     expect(row.updatedAt).toBeInstanceOf(Date)
   })
 
@@ -115,6 +118,19 @@ describe("toRepoUpdate", () => {
     expect(update).not.toHaveProperty("pullRequestsCount")
     expect(update).not.toHaveProperty("releasesCount")
     expect(update).not.toHaveProperty("mentionableUsersCount")
+    expect(update).not.toHaveProperty("openIssuesCount")
+  })
+
+  it("keeps the stored open issue count when a repository closes its last issue", () => {
+    // Unlike the counters above, zero here is a real value rather than a signal
+    // that the count was never read, and a tracker does reach zero and stay
+    // there. Either way the row keeps its old count, because the only thing a
+    // zero can justify writing is a measurement — and a degraded tier is not
+    // one — so this asserts the rule rather than blessing the stale value.
+    expect(toRepoUpdate(info({ openIssuesCount: 0 }))).not.toHaveProperty(
+      "openIssuesCount"
+    )
+    expect(toRepoUpdate(info({ openIssuesCount: 12 })).openIssuesCount).toBe(12)
   })
 
   it("still writes a real count", () => {

@@ -154,3 +154,68 @@ export function zonedMonth(
   const parts = zonedParts(now, timeZone)
   return { year: parts.year, month: parts.month }
 }
+
+/** A calendar date with no time and no zone, as a calendar in a zone reads it. */
+export interface CivilDate {
+  year: number
+  month: number
+  day: number
+}
+
+/**
+ * The offset between a timezone and UTC at a given instant, measured rather
+ * than assumed.
+ *
+ * The zone is read from the runtime's own tz database, so the answer stays
+ * right if the timezone is ever changed to one that keeps a different offset on
+ * different dates.
+ */
+export function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = zonedParts(instant, timeZone)
+  const localAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  )
+  return localAsUtc - Math.floor(instant.getTime() / 1000) * 1000
+}
+
+/**
+ * The instant a wall-clock time in a timezone refers to.
+ *
+ * Built from local midnight plus the offset, then corrected once against the
+ * offset measured at the result: the two agree except where a zone changes
+ * offset in between, and a second pass settles that.
+ */
+export function instantOfCivil(
+  civil: CivilDate,
+  minutesOfDay = 0,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  const guess = new Date(
+    Date.UTC(civil.year, civil.month - 1, civil.day, 0, 0, 0) +
+      minutesOfDay * 60_000
+  )
+
+  let instant = guess
+  for (let pass = 0; pass < 2; pass += 1) {
+    const corrected = new Date(
+      guess.getTime() - zoneOffsetMs(instant, timeZone)
+    )
+    if (corrected.getTime() === instant.getTime()) break
+    instant = corrected
+  }
+  return instant
+}
+
+/** The calendar date a moment falls on in a timezone. */
+export function civilOf(
+  instant: Date,
+  timeZone: string = APP_TIMEZONE
+): CivilDate {
+  const parts = zonedParts(instant, timeZone)
+  return { year: parts.year, month: parts.month, day: parts.day }
+}

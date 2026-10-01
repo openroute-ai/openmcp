@@ -71,6 +71,7 @@ function repoInfo(owner: string, name: string): RepoInfo {
     watchersCount: 0,
     licenseSpdxId: "",
     pullRequestsCount: 0,
+    openIssuesCount: 0,
     releasesCount: 0,
     languages: [],
     forks: 0,

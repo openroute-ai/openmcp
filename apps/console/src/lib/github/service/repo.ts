@@ -24,7 +24,7 @@ type RepoInsert = typeof repos.$inferInsert
  * `contributorCount` is deliberately absent: it is not part of `RepoInfo` at
  * all, because it comes from its own REST call. See `setContributorCount`.
  */
-const NON_ZERO_ONLY_COUNTERS = [
+export const NON_ZERO_ONLY_COUNTERS = [
   "stars",
   "forks",
   "watchersCount",
@@ -32,6 +32,14 @@ const NON_ZERO_ONLY_COUNTERS = [
   "pullRequestsCount",
   "releasesCount",
   "commitCount",
+  /**
+   * Open issues. Two independent reasons this one never overwrites a zero: the
+   * reduced fallback tiers never read the connection, and a repository's issue
+   * tracker genuinely does reach zero and stay there, which is the case the
+   * other counters here cannot produce. A stale non-zero therefore survives
+   * until a tier that can actually read the count supplies one.
+   */
+  "openIssuesCount",
 ] as const satisfies readonly (keyof RepoInfo & keyof RepoInsert)[]
 
 /**
@@ -64,6 +72,7 @@ export function toRepoRow(info: RepoInfo): RepoInsert {
     commitCount: info.commitCount,
     mentionableUsersCount: info.mentionableUsersCount,
     pullRequestsCount: info.pullRequestsCount,
+    openIssuesCount: info.openIssuesCount,
     releasesCount: info.releasesCount,
     openGraphImageUrl: info.openGraphImageUrl,
     usesCustomOpenGraphImage: info.usesCustomOpenGraphImage,

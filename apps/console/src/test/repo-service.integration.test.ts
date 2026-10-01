@@ -48,6 +48,7 @@ function info(overrides: Partial<RepoInfo> = {}): RepoInfo {
     watchersCount: 28_000,
     licenseSpdxId: "MIT",
     pullRequestsCount: 4_000,
+    openIssuesCount: 4_000,
     releasesCount: 400,
     languages: ["TypeScript", "JavaScript"],
     forks: 27_000,

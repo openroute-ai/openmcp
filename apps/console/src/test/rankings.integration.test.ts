@@ -10,9 +10,9 @@ import { db, pool } from "@/db/client"
 import {
   projects,
   projectsToTags,
-  repoWeeklyStars,
+  repoMonthlyStats,
+  repoWeeklyStats,
   repos,
-  snapshots,
   tags,
 } from "@/db/schema"
 import {
@@ -21,7 +21,13 @@ import {
 } from "@/lib/github/service/rankings"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import {
+  periodFromMonth,
+  periodFromWeek,
+  previousIsoWeek,
+  type YearMonth,
+} from "@/lib/github/snapshot-dates"
+import { upsertStatsRow } from "@/lib/github/service/stats"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
@@ -52,6 +58,7 @@ function info(overrides: Partial<RepoInfo>): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: ["TypeScript"],
     forks: 1,
@@ -120,28 +127,65 @@ async function attach(projectId: string, tagCode: string, excluded = false) {
     .onConflictDoNothing()
 }
 
-/** Three weekly rows, so the running total has to span more than one delta. */
-async function seedWeeks(
+/** The week every weekly case ranks, and the one before it. */
+const WEEK = { year: 2026, week: 10 }
+
+/**
+ * A repository's week: what it had before, and what it gained during it.
+ *
+ * Two rows, because the ranking needs both halves and refuses to publish
+ * without them: the previous period's existence is what proves the repository
+ * was already being measured, and the current period carries the change and the
+ * closing level side by side rather than leaving the reader to subtract.
+ */
+async function seedWeek(repoId: string, before: number, delta: number) {
+  await weekRow(repoId, previousIsoWeek(WEEK), { totalStars: before })
+  await weekRow(repoId, WEEK, { totalStars: before + delta, deltaStars: delta })
+}
+
+/** A weekly row on the instant Shanghai's ISO week opened. */
+async function weekRow(
   repoId: string,
-  oldest: number,
-  middle: number,
-  latest: number
+  yearWeek: { year: number; week: number },
+  columns: { totalStars: number; deltaStars?: number | null }
 ) {
-  await db
-    .insert(repoWeeklyStars)
-    .values([
-      { repoId, year: 2026, week: 8, stars: oldest },
-      { repoId, year: 2026, week: 9, stars: middle },
-      { repoId, year: 2026, week: 10, stars: latest },
-    ])
-    .onConflictDoNothing()
+  await upsertStatsRow(db, "week", repoId, periodFromWeek(yearWeek), {
+    levels: { stars: columns.totalStars },
+    ...(columns.deltaStars === undefined || columns.deltaStars === null
+      ? {}
+      : { changes: { stars: columns.deltaStars } }),
+  })
+}
+
+/** The same pair of rows for a month. */
+async function seedMonth(repoId: string, yearMonth: YearMonth, before: number, delta: number) {
+  await monthRow(repoId, previousMonthOf(yearMonth), before, null)
+  await monthRow(repoId, yearMonth, before + delta, delta)
+}
+
+/** A monthly row, filed on the instant Shanghai's month opened. */
+async function monthRow(
+  repoId: string,
+  yearMonth: YearMonth,
+  totalStars: number,
+  deltaStars: number | null
+) {
+  await upsertStatsRow(db, "month", repoId, periodFromMonth(yearMonth), {
+    levels: { stars: totalStars },
+    ...(deltaStars === null ? {} : { changes: { stars: deltaStars } }),
+  })
+}
+
+/** The month before a given one, across the year boundary. */
+function previousMonthOf({ year, month }: YearMonth): YearMonth {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
 }
 
 describe.skipIf(!hasDatabase)("rankings (integration)", () => {
   beforeAll(async () => {
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(tags)
     await db.delete(projects)
     await db.delete(repos)
@@ -149,8 +193,8 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
   beforeEach(async () => {
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(projects)
   })
 
@@ -162,15 +206,14 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
     it("ranks by gain and reports the running total", async () => {
       const fast = await seed()
       const slow = await seed()
-      await seedWeeks(fast.repo.id, 100, 0, 50)
-      await seedWeeks(slow.repo.id, 1000, 0, 10)
+      await seedWeek(fast.repo.id, 100, 50)
+      await seedWeek(slow.repo.id, 1000, 10)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
       expect(rankings.trending[0]?.fullName).toBe(fast.fullName)
       expect(rankings.trending[0]?.delta).toBe(50)
-      // Running total over all three weeks, not the previous gain plus this
-      // one: 100 in week 8 plus 50 gained in week 10.
+      // The level the week closed at, not this week's gain on its own.
       expect(rankings.trending[0]?.stars).toBe(150)
       expect(rankings.trending[1]?.delta).toBe(10)
     })
@@ -181,8 +224,8 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       // second list.
       const small = await seed()
       const large = await seed()
-      await seedWeeks(small.repo.id, 10, 0, 10)
-      await seedWeeks(large.repo.id, 1000, 0, 50)
+      await seedWeek(small.repo.id, 10, 10)
+      await seedWeek(large.repo.id, 1000, 50)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
@@ -197,10 +240,8 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       // it against zero would report infinite growth and put it first.
       const tracked = await seed()
       const fresh = await seed()
-      await seedWeeks(tracked.repo.id, 100, 0, 10)
-      await db
-        .insert(repoWeeklyStars)
-        .values({ repoId: fresh.repo.id, year: 2026, week: 10, stars: 999 })
+      await seedWeek(tracked.repo.id, 100, 10)
+      await weekRow(fresh.repo.id, WEEK, { totalStars: 999, deltaStars: 999 })
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
@@ -211,7 +252,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
     it("returns empty lists for a week with no data", async () => {
       const repo = await seed()
-      await seedWeeks(repo.repo.id, 5, 0, 0)
+      await seedWeek(repo.repo.id, 5, 0)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 11 })
 
@@ -223,44 +264,23 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
   })
 
   describe("monthly", () => {
-    it("ranks by the difference between consecutive months", async () => {
+    it("ranks by the change stored beside the level", async () => {
       const repo = await seed()
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2026, month: 1 },
-        { stars: 100 }
-      )
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2026, month: 2 },
-        { stars: 160 }
-      )
+      await seedMonth(repo.repo.id, { year: 2026, month: 2 }, 100, 60)
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
 
       expect(rankings.trending[0]?.delta).toBe(60)
       expect(rankings.trending[0]?.stars).toBe(160)
+      // 60 against the 100 it had before, which the row itself carries.
       expect(rankings.trending[0]?.relativeGrowth).toBe(0.6)
     })
 
     it("compares January against the previous December", async () => {
       // The boundary a naive "same year, month - 1" lookup gets wrong: the
-      // December being compared lives in the previous year's snapshot row.
+      // December being compared lives in the previous year's row.
       const repo = await seed()
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2025, month: 12 },
-        { stars: 200 }
-      )
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2026, month: 1 },
-        { stars: 260 }
-      )
+      await seedMonth(repo.repo.id, { year: 2026, month: 1 }, 200, 60)
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 1 })
 
@@ -271,18 +291,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       // A fall is a correction or a transfer, not a riser. Ranking it as a
       // large negative delta would only add noise.
       const repo = await seed()
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2026, month: 1 },
-        { stars: 300 }
-      )
-      await recordMonth(
-        db,
-        repo.repo.id,
-        { year: 2026, month: 2 },
-        { stars: 250 }
-      )
+      await seedMonth(repo.repo.id, { year: 2026, month: 2 }, 300, -50)
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
 
@@ -291,11 +300,11 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
     it("skips a month with nothing to compare against", async () => {
       const repo = await seed()
-      await recordMonth(
-        db,
+      await monthRow(
         repo.repo.id,
         { year: 2026, month: 2 },
-        { stars: 100 }
+        100,
+        null
       )
 
       const rankings = await buildRankingsForMonth(db, { year: 2026, month: 2 })
@@ -308,8 +317,8 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
     it("omits a project whose tag excludes it from rankings", async () => {
       const visible = await seed()
       const hidden = await seed()
-      await seedWeeks(visible.repo.id, 100, 0, 10)
-      await seedWeeks(hidden.repo.id, 100, 0, 999)
+      await seedWeek(visible.repo.id, 100, 10)
+      await seedWeek(hidden.repo.id, 100, 999)
       await attach(hidden.project.id, "meta", true)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
@@ -323,7 +332,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
 
     it("still lists the tags of a project that is ranked", async () => {
       const repo = await seed()
-      await seedWeeks(repo.repo.id, 100, 0, 10)
+      await seedWeek(repo.repo.id, 100, 10)
       await attach(repo.project.id, "cli")
       await attach(repo.project.id, "typescript")
 
@@ -336,9 +345,9 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
       const active = await seed()
       const hidden = await seed({ status: "hidden" })
       const deprecated = await seed({ status: "deprecated" })
-      await seedWeeks(active.repo.id, 100, 0, 10)
-      await seedWeeks(hidden.repo.id, 100, 0, 500)
-      await seedWeeks(deprecated.repo.id, 100, 0, 500)
+      await seedWeek(active.repo.id, 100, 10)
+      await seedWeek(hidden.repo.id, 100, 500)
+      await seedWeek(deprecated.repo.id, 100, 500)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
@@ -354,7 +363,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
         projectDescription: "The project description",
         repoDescription: "The repository description",
       })
-      await seedWeeks(repo.repo.id, 100, 0, 10)
+      await seedWeek(repo.repo.id, 100, 10)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
@@ -366,7 +375,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
         projectDescription: "",
         repoDescription: "The repository description",
       })
-      await seedWeeks(repo.repo.id, 100, 0, 10)
+      await seedWeek(repo.repo.id, 100, 10)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 
@@ -380,7 +389,7 @@ describe.skipIf(!hasDatabase)("rankings (integration)", () => {
         projectDescription: "word ".repeat(40),
         repoDescription: "unused",
       })
-      await seedWeeks(repo.repo.id, 100, 0, 10)
+      await seedWeek(repo.repo.id, 100, 10)
 
       const rankings = await buildRankingsForWeek(db, { year: 2026, week: 10 })
 

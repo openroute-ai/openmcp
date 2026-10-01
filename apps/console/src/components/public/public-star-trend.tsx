@@ -3,7 +3,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 
 import { StarBarChart, type StarBar } from "@/components/projects/star-bars"
-import type { DailyStar } from "@/lib/github/service/snapshot"
+import type {
+  DailyArrivals,
+  WeeklyArrivals,
+} from "@/lib/github/service/stats"
 
 /**
  * The day / week star chart on the public project page.
@@ -42,8 +45,8 @@ export function PublicStarTrend({
   weeks,
   hasWeeklyHistory,
 }: {
-  days: DailyStar[]
-  weeks: { yearWeek: { year: number; week: number }; stars: number }[]
+  days: DailyArrivals[]
+  weeks: WeeklyArrivals[]
   hasWeeklyHistory: boolean
 }) {
   const dailyBars: StarBar[] = days.map((day) => ({

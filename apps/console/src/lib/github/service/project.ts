@@ -15,6 +15,7 @@ import {
   type ProjectType,
 } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
+import { recomputePlatformStates } from "@/lib/github/service/user-repo"
 
 type ProjectRow = typeof projects.$inferSelect
 
@@ -117,6 +118,13 @@ export async function createProject(
     .returning()
 
   if (!row) throw new Error(`Failed to create project ${input.slug}`)
+
+  // Whether a repository is "curated" is derived from `projects`, so creating
+  // the first project is what moves every submission of this repository from
+  // `tracked` to `curated`. Recomputed here rather than at the call sites
+  // because the call sites are three and the rule is one.
+  await recomputePlatformStates(db, [input.repoId])
+
   return row
 }
 
@@ -285,7 +293,21 @@ export async function syncProjectFromRepo(db: Db, id: string): Promise<void> {
 }
 
 export async function deleteProject(db: Db, id: string): Promise<void> {
+  // Read before deleting: once the project is gone there is nothing left to join
+  // `user_repos` on, and the submissions of this repository have to stop reading
+  // as `curated` — the last project pointing at it is what made them read that
+  // way.
+  const [existing] = await db
+    .select({ repoId: projects.repoId })
+    .from(projects)
+    .where(eq(projects.id, id))
+    .limit(1)
+
   await db.delete(projects).where(eq(projects.id, id))
+
+  if (existing) {
+    await recomputePlatformStates(db, [existing.repoId])
+  }
 }
 
 export async function listProjectIds(db: Db): Promise<string[]> {

@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm"
+import { asc, eq } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
-import { hallOfFame } from "@/db/schema"
+import { hallOfFame, hallOfFameToProjects, projects, repos } from "@/db/schema"
 import {
+  getAuthor,
   listAuthors,
   refreshAuthorProfile,
   upsertAuthor,
@@ -53,6 +54,71 @@ export const authorsRouter = createTRPCRouter({
         npmPackageCount: row.npmPackageCount,
         updatedAt: row.updatedAt,
       }))
+    }),
+
+  /**
+   * 一个作者的完整资料：档案本身，加上引用他的项目。
+   *
+   * 档案字段全部由 GitHub 给出，而引用关系由本站给出，两边从来不会互相更新——这
+   * 就是详情页要摆在一起的原因。目录页只有一行，而一行回答不了"他凭什么在这里"：
+   * 一个只有 3 个粉丝的作者和一个有 3 个粉丝但被三个项目引用的作者是完全不同的
+   * 两件事，前者是别人加错了，后者是我们自己加的。
+   *
+   * 项目按名字排序而不是按 star：这个页面回答的是"我们收录了他哪些作品"，是一份
+   * 目录，不是一张排行榜。
+   */
+  byId: adminProcedure
+    .input(z.object({ username: z.string().min(1).max(100) }))
+    .query(async ({ ctx, input }) => {
+      const author = await getAuthor(ctx.db, input.username)
+      if (!author) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Author not found" })
+      }
+
+      const linked = await ctx.db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          owner: projects.owner,
+          slug: projects.slug,
+          description: projects.description,
+          status: projects.status,
+          type: projects.type,
+          updatedAt: projects.updatedAt,
+          // Stars live on `repos`, and a project is required to point at one, so
+          // the inner join is not optional — it is what makes this column
+          // readable rather than a second source of truth.
+          stars: repos.stars,
+        })
+        .from(hallOfFameToProjects)
+        .innerJoin(
+          projects,
+          eq(projects.id, hallOfFameToProjects.projectId)
+        )
+        .innerJoin(repos, eq(repos.id, projects.repoId))
+        .where(eq(hallOfFameToProjects.username, input.username))
+        .orderBy(asc(projects.name))
+
+      return {
+        username: author.username,
+        name: author.name,
+        bio: author.bio,
+        followers: author.followers,
+        homepage: author.homepage,
+        twitter: author.twitter,
+        linkedin: author.linkedin,
+        github: author.github,
+        avatar: author.avatar,
+        avatarUrl: author.avatarUrl,
+        verified: author.verified,
+        metadata: author.metadata,
+        npmUsername: author.npmUsername,
+        npmPackageCount: author.npmPackageCount,
+        status: author.status,
+        createdAt: author.createdAt,
+        updatedAt: author.updatedAt,
+        projects: linked,
+      }
     }),
 
   /**

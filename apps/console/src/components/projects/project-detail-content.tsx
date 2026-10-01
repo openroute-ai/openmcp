@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { monthOfPeriod } from "@/lib/github/snapshot-dates"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Breadcrumb,
@@ -233,8 +234,17 @@ export function ProjectDetail({ id }: { id: string }) {
   // own instead of through `list`, which would read an absent one as absent.
   const license = data.licenseSpdxId || common("none")
 
-  const months = data.snapshots
-    .flatMap((row) => row.months ?? [])
+  // Newest first. The rows already carry the change alongside the level, so the
+  // table shows both without subtracting anything here.
+  const months = data.monthlyStats
+    .map((row) => ({
+      ...monthOfPeriod(row.period),
+      stars: row.totalStars,
+      newStars: row.deltaNewStars,
+      totalContributors: row.totalContributors,
+      totalPullRequests: row.totalPullRequests,
+      totalReleases: row.totalReleases,
+    }))
     .sort((a, b) => b.year - a.year || b.month - a.month)
     .slice(0, MONTH_LIMIT)
 
@@ -728,6 +738,7 @@ export function ProjectDetail({ id }: { id: string }) {
                 <TableRow>
                   <TableHead>{t("column.month")}</TableHead>
                   <TableHead>{t("column.stars")}</TableHead>
+                  <TableHead>{t("column.newStars")}</TableHead>
                   <TableHead>{t("column.contributors")}</TableHead>
                   <TableHead>{t("column.pullRequests")}</TableHead>
                   <TableHead>{t("column.releases")}</TableHead>
@@ -739,7 +750,8 @@ export function ProjectDetail({ id }: { id: string }) {
                     <TableCell className="text-muted-foreground">
                       {month.year}-{String(month.month).padStart(2, "0")}
                     </TableCell>
-                    <TableCell>{format.number(month.stars)}</TableCell>
+                    <TableCell>{number(month.stars)}</TableCell>
+                    <TableCell>{number(month.newStars)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {number(month.totalContributors)}
                     </TableCell>

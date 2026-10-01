@@ -187,7 +187,7 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     expect(repo.fullName).toBe(`${repo.owner}/${repo.name}`)
     expect(repo.repoUrl).toBe(`https://github.com/${repo.owner}/${repo.name}`)
     expect(Array.isArray(repo.projects)).toBe(true)
-    expect(Array.isArray(repo.snapshots)).toBe(true)
+    expect(Array.isArray(repo.monthlyStats)).toBe(true)
     expect(repo.trends.bars).toHaveLength(12)
     expect(repo.trends.weeks).toHaveLength(12)
   })

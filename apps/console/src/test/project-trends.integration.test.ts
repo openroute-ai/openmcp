@@ -2,17 +2,18 @@
  * Integration tests for the trend figures the project page charts.
  *
  * Skipped unless `CONSOLE_DATABASE_URL` is set, because the part that cannot
- * be checked from a fake is the read: the monthly totals live in a JSON column
- * on one row per year, and the weekly gains in their own table, so the figures
- * are only right if both are actually read back and joined the way the page
- * joins them.
+ * be checked from a fake is the read: the monthly levels and changes live in
+ * rows keyed on a period instant, and the weekly arrivals in their own table, so
+ * the figures are only right if both are read back and matched to the periods
+ * the page asks about.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { db, pool } from "@/db/client"
 import { projectSyncJobs, projects, repos } from "@/db/schema"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { lastNMonths, recordMonth } from "@/lib/github/service/snapshot"
+import { lastNMonths, periodFromMonth } from "@/lib/github/snapshot-dates"
+import { recordCurrentPeriods } from "@/lib/github/service/stats"
 import { createCaller } from "@/lib/trpc/root"
 import { fakeAdminContext } from "./helpers/fakes"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
@@ -39,6 +40,7 @@ function repoInfo(name: string): RepoInfo {
     watchersCount: 100,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: [],
     forks: 1,
@@ -62,11 +64,14 @@ async function seed(name: string) {
     description: "A thing",
     type: "application",
   })
-  // The repo id as well as the project id: the snapshot tables key on the
+  // The repo id as well as the project id: the stats tables key on the
   // repository, so recording history needs it and the test needs to prove the
   // page found the right repository's rows.
   return { project, repoId: repo.id }
 }
+
+/** The zone every period in these tests is keyed by. */
+const ZONE = "Asia/Shanghai"
 
 /** The number of bars a chart draws, read off the response rather than assumed. */
 const CHART_MONTHS = 12
@@ -87,36 +92,38 @@ describe.skipIf(!hasDatabase)("project trends (integration)", () => {
 
   it("reads a full window of bars for a repository with history", async () => {
     const { project, repoId } = await seed("trends-full")
-    // The trailing months, taken from the service that builds the window rather
+    // The trailing months, taken from the helper that builds the window rather
     // than hardcoded: the chart window is relative to the current month, so a
     // fixture pinned to fixed dates would drift out of the window and assert
     // over an empty list as the calendar moved on.
-    const trailing = lastNMonths(CHART_MONTHS, new Date()).slice(-3)
+    const trailing = lastNMonths(CHART_MONTHS, new Date(), ZONE)
 
-    // Written through the service so the JSON column has the shape the app
-    // writes, and so the read-modify-write of a shared year row is exercised.
+    // Written through the sampler, so each month's change is computed against
+    // the month before it rather than asserted here: the page reads the stored
+    // change back, and a fixture that supplied its own would not test that.
+    // `now` sits inside the target month, which is what files the row on the
+    // period the chart will ask for.
     for (const [index, yearMonth] of trailing.entries()) {
-      await recordMonth(db, repoId, yearMonth, { stars: (index + 1) * 10 })
+      const period = periodFromMonth(yearMonth, ZONE)
+      await recordCurrentPeriods(
+        db,
+        { id: repoId, stars: (index + 1) * 10 },
+        new Date(period.getTime() + 12 * 3_600_000)
+      )
     }
 
     const trends = (await caller.projects.byId({ id: project.id })).trends!
 
     expect(trends.bars).toHaveLength(CHART_MONTHS)
     expect(trends.weeks).toHaveLength(CHART_WEEKS)
-    // The months that carry a total, identified by the months that were written
-    // rather than by calendar arithmetic that would not survive a year boundary.
-    const recorded = trends.bars.filter((bar) =>
-      trailing.some(
-        (yearMonth) =>
-          yearMonth.year === bar.yearMonth.year &&
-          yearMonth.month === bar.yearMonth.month
-      )
+    // Every month carries a total, so all twelve bars are the ones written above.
+    expect(trends.bars.map((bar) => bar.total)).toEqual(
+      trailing.map((_, index) => (index + 1) * 10)
     )
-    expect(recorded.map((bar) => bar.total)).toEqual([10, 20, 30])
-    expect(recorded[0]!.delta).toBeUndefined()
-    expect(recorded[1]!.delta).toBe(10)
-    expect(recorded[2]!.delta).toBe(10)
-    expect(trends.periods.total).toBe(30)
+    // The oldest month has no comparable prior; the rest each gained ten.
+    expect(trends.bars[0]!.delta).toBeUndefined()
+    expect(trends.bars.slice(1).every((bar) => bar.delta === 10)).toBe(true)
+    expect(trends.periods.total).toBe(CHART_MONTHS * 10)
     expect(trends.periods.month).toBe(10)
   })
 
@@ -138,13 +145,12 @@ describe.skipIf(!hasDatabase)("project trends (integration)", () => {
 
   it("does not mix one repository's history into another's", async () => {
     const { project, repoId } = await seed("trends-noisy")
-    const [latest] = lastNMonths(CHART_MONTHS, new Date()).slice(-1)
-    await recordMonth(db, repoId, latest!, { stars: 9999 })
+    await recordCurrentPeriods(db, { id: repoId, stars: 9999 }, new Date())
 
     const { project: quiet } = await seed("trends-quiet")
     const result = await caller.projects.byId({ id: quiet.id })
     // The neighbour has a thousand-fold larger total; a query that joined the
-    // weekly or monthly table without a repo predicate would show it here.
+    // monthly table without a repo predicate would show it here.
     expect(result.trends!.periods.total).toBeUndefined()
     expect(project.id).not.toBe(quiet.id)
   })

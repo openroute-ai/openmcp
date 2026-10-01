@@ -24,6 +24,7 @@
  * `sortBySeedOrder`.
  */
 
+import { instantOfCivil } from "@/lib/time"
 import {
   parseCron,
   SCHEDULE_TIMEZONE,
@@ -220,54 +221,13 @@ export function shiftPeriod(
  * right if the schedule timezone is ever changed to one that keeps a different
  * offset on different dates.
  */
-function zoneOffsetMs(instant: Date, timeZone: string): number {
-  const parts = zonedParts(instant, timeZone)
-  const localAsUtc = Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-    parts.second
-  )
-  return localAsUtc - Math.floor(instant.getTime() / 1000) * 1000
-}
-
-/**
- * The instant a wall-clock time in a timezone refers to.
- *
- * Built from local midnight plus the offset, then corrected once against the
- * offset measured at the result: the two agree except where a zone changes
- * offset in between, and a second pass settles that.
- */
-function instantOfLocalTime(
-  date: CalendarDate,
-  minutesOfDay: number,
-  timeZone: string
-): Date {
-  const guess = new Date(
-    Date.UTC(date.year, date.month - 1, date.day, 0, 0, 0) +
-      minutesOfDay * 60_000
-  )
-
-  let instant = guess
-  for (let pass = 0; pass < 2; pass += 1) {
-    const corrected = new Date(
-      guess.getTime() - zoneOffsetMs(instant, timeZone)
-    )
-    if (corrected.getTime() === instant.getTime()) break
-    instant = corrected
-  }
-  return instant
-}
-
 /** The instant a period opened, in UTC. */
 export function periodStart(
   cadence: TaskCadence,
   key: string,
   timeZone = SCHEDULE_TIMEZONE
 ): Date {
-  return instantOfLocalTime(firstDateOfPeriod(cadence, key), 0, timeZone)
+  return instantOfCivil(firstDateOfPeriod(cadence, key), 0, timeZone)
 }
 
 /** Minutes since local midnight. */
@@ -440,7 +400,7 @@ function firstMinutesAhead(
 
   for (const value of minutes) {
     if (value < floor) continue
-    const instant = instantOfLocalTime(date, value, timeZone).getTime()
+    const instant = instantOfCivil(date, value, timeZone).getTime()
     if (
       instant > after.getTime() ||
       (inclusive && instant === after.getTime())
@@ -478,7 +438,7 @@ export function nextDueInstant(
           : earliestMinutesOfDay(cron)
 
       if (minutes !== undefined)
-        return instantOfLocalTime(date, minutes, timeZone)
+        return instantOfCivil(date, minutes, timeZone)
     }
     date = addDays(date, 1)
   }

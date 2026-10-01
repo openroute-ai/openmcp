@@ -9,6 +9,14 @@
  * wrong window. Everything here derives from one definition.
  */
 
+import {
+  APP_TIMEZONE,
+  civilOf,
+  instantOfCivil,
+  zonedMonth,
+  type CivilDate,
+} from "@/lib/time"
+
 const MS_PER_DAY = 86_400_000
 
 export interface YearWeek {
@@ -20,6 +28,9 @@ export interface YearMonth {
   year: number
   month: number
 }
+
+/** The granularity a stats row is bucketed at. */
+export type StatsCadence = "day" | "week" | "month"
 
 /** Normalises a date to UTC midnight, dropping the time component. */
 function utcMidnight(date: Date): Date {
@@ -159,4 +170,241 @@ export function daysInMonth({ year, month }: YearMonth): number {
  */
 export function countDaysBetween(from: Date, to: Date): number {
   return Math.max(0, Math.floor((to.getTime() - from.getTime()) / MS_PER_DAY))
+}
+
+/**
+ * The instant a calendar period opened, as a calendar in a timezone reads it.
+ *
+ * A stats row is keyed by the moment its period began rather than by a year,
+ * week or day number, because that moment is the thing every calendar agrees on
+ * once the timezone is fixed. Storing it moves the eight hours between
+ * Shanghai's midnight and UTC's out of every reader and into this one function.
+ *
+ * The week is the ISO week the civil date falls in, so `periodStart` and
+ * `getIsoWeekNumber` cannot disagree about which week a date is in.
+ */
+export function periodStart(
+  cadence: StatsCadence,
+  civil: CivilDate,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  if (cadence === "week") {
+    // The ISO week is read off the calendar date itself, not off an instant:
+    // `getIsoWeekNumber` works in UTC fields, so handing it the local midnight
+    // converted to UTC would ask about the previous day for anyone east of
+    // Greenwich and shift every week boundary by one.
+    const asUtc = new Date(Date.UTC(civil.year, civil.month - 1, civil.day))
+    const monday = getIsoWeekStart(getIsoWeekNumber(asUtc))
+    return instantOfCivil(
+      {
+        year: monday.getUTCFullYear(),
+        month: monday.getUTCMonth() + 1,
+        day: monday.getUTCDate(),
+      },
+      0,
+      timeZone
+    )
+  }
+  if (cadence === "month") {
+    return instantOfCivil(
+      { year: civil.year, month: civil.month, day: 1 },
+      0,
+      timeZone
+    )
+  }
+  return instantOfCivil(civil, 0, timeZone)
+}
+
+/**
+ * The period containing an instant.
+ *
+ * The inverse of {@link periodStart} and the only function a writer needs: an
+ * incoming measurement is bucketed with this, and the row is keyed by the
+ * result.
+ */
+export function periodOf(
+  instant: Date,
+  cadence: StatsCadence,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  return periodStart(cadence, civilOf(instant, timeZone), timeZone)
+}
+
+/** Every period from the one containing `from` through the one containing `to`. */
+export function periodRange(
+  from: Date,
+  to: Date,
+  cadence: StatsCadence,
+  timeZone: string = APP_TIMEZONE
+): Date[] {
+  const periods: Date[] = []
+  for (
+    let cursor = periodOf(from, cadence, timeZone);
+    cursor.getTime() <= to.getTime();
+    cursor = nextPeriod(cursor, cadence, timeZone)
+  ) {
+    periods.push(cursor)
+  }
+  return periods
+}
+
+/**
+ * The period after the one that opened at `start`.
+ *
+ * Adding milliseconds would be wrong for any zone with a DST transition inside
+ * the period, so the step is taken in calendar fields and converted back — the
+ * same route `periodStart` takes.
+ */
+export function nextPeriod(
+  start: Date,
+  cadence: StatsCadence,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  if (cadence === "month") {
+    const { year, month } = zonedMonth(start, timeZone)
+    return periodStart(
+      "month",
+      month === 12
+        ? { year: year + 1, month: 1, day: 1 }
+        : { year, month: month + 1, day: 1 },
+      timeZone
+    )
+  }
+  return periodStart(
+    cadence,
+    shiftCivil(civilOf(start, timeZone), cadence === "week" ? 7 : 1),
+    timeZone
+  )
+}
+
+/** A calendar date moved by whole days, staying a calendar date. */
+function shiftCivil(civil: CivilDate, days: number): CivilDate {
+  const shifted = new Date(
+    Date.UTC(civil.year, civil.month - 1, civil.day + days)
+  )
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  }
+}
+
+/**
+ * The ISO week a period is named by.
+ *
+ * Read through the calendar rather than through `period.getUTCDay()`: a week that
+ * starts on Shanghai's Monday opens at `Sunday 16:00Z`, so the UTC fields would
+ * call it a Sunday and shift every week label back by one.
+ */
+export function weekOfPeriod(
+  period: Date,
+  timeZone: string = APP_TIMEZONE
+): YearWeek {
+  const civil = civilOf(period, timeZone)
+  return getIsoWeekNumber(
+    new Date(Date.UTC(civil.year, civil.month - 1, civil.day))
+  )
+}
+
+/** The month a period is named by, read through the same calendar. */
+export function monthOfPeriod(
+  period: Date,
+  timeZone: string = APP_TIMEZONE
+): YearMonth {
+  const civil = civilOf(period, timeZone)
+  return { year: civil.year, month: civil.month }
+}
+
+/**
+ * The last `count` months, oldest first, ending with the month before `now`.
+ *
+ * Ends on the previous month because a month is only complete at its end:
+ * charting the current one would draw a bar that is short for a reason having
+ * nothing to do with the project, and would move every time the page reloaded.
+ *
+ * The cursor walks in calendar fields from the first of the current month. That
+ * pinning matters: stepping back from 31 May would otherwise aim at 31 April,
+ * and a date that does not exist overflows forward into May again, charting the
+ * same month twice and dropping one from the end.
+ */
+export function lastNMonths(
+  count: number,
+  now: Date,
+  timeZone: string = APP_TIMEZONE
+): YearMonth[] {
+  const months: YearMonth[] = []
+  const start = civilOf(now, timeZone)
+  let { year, month } = start
+
+  for (let index = 0; index < count; index++) {
+    if (month === 1) {
+      year -= 1
+      month = 12
+    } else {
+      month -= 1
+    }
+    months.push({ year, month })
+  }
+
+  return months.reverse()
+}
+
+/**
+ * The last `count` ISO weeks, oldest first, ending with the one containing `now`.
+ *
+ * Unlike the months, the week containing today *is* charted: a week is not over
+ * until it is, but the chart's job is to show what is happening this week, and
+ * the stored change for an open week is the movement so far.
+ */
+export function lastNWeeks(
+  count: number,
+  now: Date,
+  timeZone: string = APP_TIMEZONE
+): YearWeek[] {
+  const weeks: YearWeek[] = []
+  const civil = civilOf(now, timeZone)
+  let cursor = Date.UTC(civil.year, civil.month - 1, civil.day)
+
+  for (let index = 0; index < count; index++) {
+    weeks.push(getIsoWeekNumber(new Date(cursor)))
+    cursor -= MS_PER_DAY * 7
+  }
+
+  return weeks.reverse()
+}
+
+/** The instant a named period opens. The inverse of the two functions above. */
+export function periodFromMonth(
+  yearMonth: YearMonth,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  return periodStart(
+    "month",
+    { year: yearMonth.year, month: yearMonth.month, day: 1 },
+    timeZone
+  )
+}
+
+/**
+ * The instant a named ISO week opens.
+ *
+ * An ISO year has 53 weeks only when it is short a day for the last week to
+ * close, which the ISO arithmetic already knows; asking `getIsoWeekStart` is
+ * therefore exact where reconstructing a Monday by arithmetic would need both
+ * of those rules remembered.
+ */
+export function periodFromWeek(
+  yearWeek: YearWeek,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  const monday = getIsoWeekStart(yearWeek)
+  return periodStart(
+    "week",
+    {
+      year: monday.getUTCFullYear(),
+      month: monday.getUTCMonth() + 1,
+      day: monday.getUTCDate(),
+    },
+    timeZone
+  )
 }
