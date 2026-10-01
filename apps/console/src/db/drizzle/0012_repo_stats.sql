@@ -222,6 +222,46 @@ FROM (
 ) "v"
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
-DROP TABLE "snapshots";--> statement-breakpoint
-DROP TABLE "repo_weekly_stars";--> statement-breakpoint
-DROP TABLE "repo_daily_stars";
+-- `snapshots` is NOT dropped here, and that is deliberate.
+--
+-- Its history has been copied into `repo_monthly_stats` above, so a normal
+-- migration would end with `DROP TABLE "snapshots"`. It does not, because:
+--
+--   1. This file's INSERTs read FROM "snapshots". Dropping the source in the
+--      same migration makes the copy unreplayable: anyone who has to regenerate
+--      or re-run it (a partially applied deploy, a restored backup, a new
+--      environment seeded from an old dump) needs the source rows still there.
+--   2. `drizzle-kit push` decides what to do from the *schema declarations*,
+--      not from this SQL. So a `DROP` here plus no declaration in
+--      `src/db/schema/github.ts` would make `push` offer to delete the table --
+--      and push holds no permission to drop anything it did not create. The
+--      declaration is in the schema file; this comment is what stops the next
+--      person from reading the missing DROP as an oversight.
+--
+-- Nothing reads or writes the table any more. It is kept until the copy above
+-- is no longer replayable and a backup covers it; then an explicit, separately
+-- reviewed migration drops it.
+-- `repo_daily_stars` is deliberately NOT dropped here, even though
+-- `repo_daily_stats` above supersedes it. This migration is approved to add
+-- tables, columns and indexes only, never to destroy data. Two reasons beyond
+-- that rule:
+--
+--   1. `0009` creates `repo_daily_stars` and this file's INSERTs read FROM it.
+--      Dropping the source in the same migration makes that copy unreplayable:
+--      a partially applied deploy, a restored backup, or a new environment
+--      seeded from an old dump would have to re-create the table before the
+--      INSERTs could run at all.
+--   2. Neither old table is declared in `src/db/schema/github.ts`, so
+--      `drizzle-kit push` would offer to delete them too. Leaving them in
+--      place keeps `push` and `migrate` agreeing about what exists.
+--
+-- `repo_weekly_stars` is empty in the live database (verified read-only before
+-- this migration was written) and `repo_daily_stars` is created empty by
+-- `0009`, so no rows are lost by keeping both. Retiring them is a separate,
+-- explicitly reviewed migration, written once every environment has moved past
+-- this file.
+--
+-- `snapshots` is kept for the same reason. Its history is copied into
+-- `repo_monthly_stats` above, and the declaration in
+-- `src/db/schema/github.ts` keeps it declared so `push` will not propose
+-- deleting it. Nothing reads or writes it.

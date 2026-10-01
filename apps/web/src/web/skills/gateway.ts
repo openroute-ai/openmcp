@@ -2,13 +2,51 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from "@/lib/db"
 import { repos, skills } from "@workspace/db"
 import { parseGithubRepoUrl } from "@/lib/gateway/names"
-import { triggerGithubFetch } from '@/lib/github-nextjs/client'
+import { consoleApiConfigured, ingestRepo } from '@/lib/console/client'
 import { filesFromSkillRow, runSkillSecurityScan } from "@/lib/security-scan"
 import { mapSkillRow } from '@/web/assets/map-asset'
 
 function toSlug(referenceId: string): string {
   return referenceId.replace(/\//g, '-').replace(/#/g, '--')
 }
+
+/**
+ * The `repos` columns console's ingest schema accepts.
+ *
+ * Selected rather than `select()` so the README blobs never cross the process
+ * boundary: they are the bulk of the table, are not part of `RepoInfo`, and
+ * console's schema is `strict()` so an extra column is a 400.
+ */
+const consoleRepoColumns = {
+  id: repos.id,
+  owner: repos.owner,
+  name: repos.name,
+  ownerId: repos.ownerId,
+  description: repos.description,
+  homepage: repos.homepage,
+  createdAt: repos.createdAt,
+  pushedAt: repos.pushedAt,
+  defaultBranch: repos.defaultBranch,
+  stars: repos.stars,
+  topics: repos.topics,
+  archived: repos.archived,
+  commitCount: repos.commitCount,
+  lastCommit: repos.lastCommit,
+  mentionableUsersCount: repos.mentionableUsersCount,
+  watchersCount: repos.watchersCount,
+  licenseSpdxId: repos.licenseSpdxId,
+  pullRequestsCount: repos.pullRequestsCount,
+  releasesCount: repos.releasesCount,
+  languages: repos.languages,
+  forks: repos.forks,
+  openGraphImageUrl: repos.openGraphImageUrl,
+  usesCustomOpenGraphImage: repos.usesCustomOpenGraphImage,
+  latestReleaseName: repos.latestReleaseName,
+  latestReleaseTagName: repos.latestReleaseTagName,
+  latestReleasePublishedAt: repos.latestReleasePublishedAt,
+  latestReleaseUrl: repos.latestReleaseUrl,
+  latestReleaseDescription: repos.latestReleaseDescription,
+} as const
 
 export const skillsGatewayAccess = {
   listMine: async (authorId: string) => {
@@ -91,7 +129,56 @@ export const skillsGatewayAccess = {
     }
   },
 
-  triggerFetch: (repoUrl: string) => triggerGithubFetch(repoUrl, 'skill'),
+  /**
+   * Hand a repository to console so its sync tasks own it.
+   *
+   * This is an ingest, not a fetch. console has the GitHub credentials; this
+   * app only has the repositories its own collector already recorded, and
+   * console's ingest is upsert-only over the columns it accepts, so pushing
+   * what we hold is safe and idempotent. console then picks the repository up
+   * for its own stats sweep, ranking and skill-document sync, and pushes the
+   * skill back through the webhook this app already ingests.
+   *
+   * An unindexed repository cannot be registered this way - there is no data
+   * to send and console has no bare-URL endpoint - so it is reported as
+   * unready rather than left to time out in the caller's polling loop.
+   */
+  registerWithConsole: async (repoUrl: string): Promise<{ ready: boolean; registered: boolean; message: string }> => {
+    const parsed = parseGithubRepoUrl(repoUrl)
+    if (!parsed) return { ready: false, registered: false, message: 'Invalid GitHub URL' }
+
+    const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
+    if (!check.ready) {
+      return {
+        ready: false,
+        registered: false,
+        message: `仓库 ${parsed.fullName} 尚未被索引，请稍后重试或改用 ZIP 上传`,
+      }
+    }
+
+    if (!consoleApiConfigured()) {
+      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪` }
+    }
+
+    const [repo] = await db
+      .select(consoleRepoColumns)
+      .from(repos)
+      .where(and(eq(repos.owner, parsed.owner), eq(repos.name, parsed.name)))
+      .limit(1)
+    if (!repo) {
+      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪` }
+    }
+
+    try {
+      await ingestRepo(repo)
+      return { ready: true, registered: true, message: `${parsed.fullName} 已同步至 console` }
+    } catch (error) {
+      // console being down must not block a creator: the repository is already
+      // indexed locally, so the listing can still be created from it.
+      console.error('[skills] console ingest failed', parsed.fullName, error)
+      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪（console 同步失败，稍后重试）` }
+    }
+  },
 
   pollSync: async (repoUrl: string) => {
     const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
@@ -198,6 +285,17 @@ export const skillsGatewayAccess = {
     }).catch((error) => {
       console.error('[skills] scan failed', error)
     })
+
+    // Register the repository with console once the listing exists, so the
+    // upstream sync domain starts tracking it and pushes updated skill
+    // documents back through the webhook. Best effort by design: the listing
+    // is already written, and a console outage must not roll back a creator's
+    // submission.
+    if (repo && consoleApiConfigured()) {
+      void ingestRepo(repo).catch((error: unknown) => {
+        console.error('[skills] console ingest failed', parsed.fullName, error)
+      })
+    }
 
     return skillsGatewayAccess.getMineById(input.authorId, skillId)
   },

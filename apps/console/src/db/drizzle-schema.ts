@@ -1,5 +1,6 @@
 import {
   account,
+  apiKeys,
   bundles,
   capabilities,
   hallOfFame,
@@ -19,6 +20,12 @@ import {
   risingStarCategories,
   risingStarProjects,
   session,
+  /**
+   * 已停写的年度月度快照。声明它只是为了让 `push` 认得这张表、
+   * 从而不会提出删掉它（生产库仍有 748 行）。没有服务读写它。
+   * 详见 `schema/github.ts` 里 `snapshots` 的注释。
+   */
+  snapshots,
   tags,
   taskDefinitions,
   taskExecutions,
@@ -49,6 +56,9 @@ import {
 /** better-auth core + the `phoneNumber` plugin's identity columns. */
 export { account, session, user, verification }
 
+/** 开放 API 的调用凭据；见 `src/db/schema/api-keys.ts`。 */
+export { apiKeys }
+
 /**
  * 谁提交了哪个仓库。
  *
@@ -78,6 +88,12 @@ export {
   repos,
   risingStarCategories,
   risingStarProjects,
+  /**
+   * 已停写的年度月度快照。声明它只是为了让 `push` 认得这张表、
+   * 从而不会提出删掉它（生产库仍有 748 行）。没有服务读写它。
+   * 详见 `schema/github.ts` 里 `snapshots` 的注释。
+   */
+  snapshots,
   tags,
   taskDefinitions,
   taskExecutions,

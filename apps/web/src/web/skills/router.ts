@@ -158,14 +158,23 @@ export const skillsRouter = createTRPCRouter({
     }
   }),
 
-  triggerFetch: protectedProcedure
+  /**
+   * Hand the repository to `apps/console` and report whether it is usable.
+   *
+   * `ready` is the answer the submit dialog needs before it is worth polling:
+   * an unindexed repository cannot be registered, because there is no GitHub
+   * data to send and console has no bare-URL endpoint, so it is reported as
+   * not ready immediately instead of after a minute of polling that can only
+   * time out.
+   */
+  registerWithConsole: protectedProcedure
     .input(z.object({ repoUrl: z.string().min(8).max(500) }))
     .mutation(async ({ input }) => {
       try {
-        const data = await skillsGatewayAccess.triggerFetch(input.repoUrl)
-        return { success: data.ok, data, error: data.ok ? undefined : data.message }
+        const data = await skillsGatewayAccess.registerWithConsole(input.repoUrl)
+        return { success: true, data }
       } catch (error) {
-        return failResult(error, '触发抓取失败')
+        return failResult(error, '同步仓库失败')
       }
     }),
 

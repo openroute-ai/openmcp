@@ -17,6 +17,7 @@
 | [PROVIDER_GATEWAY_REGISTRATION_UED.md](./PROVIDER_GATEWAY_REGISTRATION_UED.md) | Provider 注册 MCP/A2A/Skills UED |
 | [ADMIN_REVIEW_QUEUE_UED.md](./ADMIN_REVIEW_QUEUE_UED.md) | Admin 人工复核 UED |
 | [design-github-repos-skills-webhook-sync.md](./design-github-repos-skills-webhook-sync.md) | GitHub → openmcp webhook 同步 |
+| [CONSOLE_OPEN_RADAR_API.md](./CONSOLE_OPEN_RADAR_API.md) | **`apps/console` 开放 API：API Key 签发 / 仓库创建 + 回调 / 统计与排行 / 订阅推送** |
 
 ## 商业 / 选型决策
 

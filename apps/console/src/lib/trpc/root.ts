@@ -1,4 +1,5 @@
 import { createCallerFactory, createTRPCRouter } from "./init"
+import { apiKeysRouter } from "./routers/api-keys"
 import { authorsRouter } from "./routers/authors"
 import { overviewRouter } from "./routers/overview"
 import { projectsRouter } from "./routers/projects"
@@ -12,6 +13,9 @@ import { tasksRouter } from "./routers/tasks"
 import { usersRouter } from "./routers/users"
 
 export const appRouter = createTRPCRouter({
+  // 开放 API 的凭据。签发走这里而不是 `/api/v1`，理由见 `routers/api-keys.ts`
+  // 的文件头。
+  apiKeys: apiKeysRouter,
   authors: authorsRouter,
   overview: overviewRouter,
   projects: projectsRouter,

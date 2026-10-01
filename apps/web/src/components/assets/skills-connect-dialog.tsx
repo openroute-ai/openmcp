@@ -96,7 +96,7 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
   const [publish, setPublish] = useState<PublishConfig>(defaultPublish)
   const [createdAsset, setCreatedAsset] = useState<SkillAsset | null>(null)
   const utils = trpc.useUtils()
-  const triggerFetch = trpc.skills.triggerFetch.useMutation()
+  const registerWithConsole = trpc.skills.registerWithConsole.useMutation()
   const connectGithub = trpc.skills.connectFromGithub.useMutation()
   const publishSkill = trpc.skills.publish.useMutation()
 
@@ -148,7 +148,7 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
     }
   }, [])
 
-  // GitHub 路径：调用 internal API 触发抓取 + 轮询
+  // GitHub 路径：向 console 登记仓库 + 轮询技能文档就绪
   const handleGithubFetch = async () => {
     setFetchError('')
     setParsedInfo(null)
@@ -162,10 +162,17 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
 
     setFetching(true)
 
-    const triggerResult = await triggerFetch.mutateAsync({ repoUrl: githubUrl })
-    if (!triggerResult.success) {
+    // console 拥有 GitHub 凭证，登记后由它的同步任务接管，并把技能文档回推。
+    // 仓库尚未被索引时无法登记，这里直接给出结论，不再进入只会超时的轮询。
+    const registerResult = await registerWithConsole.mutateAsync({ repoUrl: githubUrl })
+    if (!registerResult.success) {
       setFetching(false)
-      setFetchError(resultError(triggerResult) || '触发抓取失败')
+      setFetchError(resultError(registerResult) || '仓库同步失败')
+      return
+    }
+    if (!registerResult.data.ready) {
+      setFetching(false)
+      setFetchError(registerResult.data.message)
       return
     }
 
@@ -198,7 +205,7 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
       category: '',
       license: 'MIT',
     })
-    toast.success('GitHub 数据抓取成功')
+    toast.success(registerResult.data.registered ? '仓库已同步，GitHub 数据抓取成功' : 'GitHub 数据抓取成功')
   }
 
   // ZIP 路径：仅预解析 skill.yaml（不落库），创建与安全扫描放在第 3 步
@@ -464,7 +471,7 @@ function Step1Source(props: Step1SourceProps) {
           <div className='rounded-xl border bg-card p-6'>
             <h3 className='mb-4 font-semibold text-base'>GitHub 仓库地址</h3>
             <p className='mb-3 text-muted-foreground text-xs'>
-              平台通过 internal API 调用 github-nextjs 触发按需抓取，全程不跳转。数据就绪后自动进入安全扫描。
+              平台通过 internal API 将仓库登记到 console，由其同步任务补齐 README 与技能文档，全程不跳转。数据就绪后自动进入安全扫描。
             </p>
             <div className='flex gap-3'>
               <Input

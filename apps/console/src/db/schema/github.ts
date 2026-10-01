@@ -400,6 +400,71 @@ export const projectsToCapabilities = pgTable(
 )
 
 /**
+ * 年度月度快照 —— **已停写，保留不删**。
+ *
+ * `0012_repo_stats.sql` 把这张表的历史搬进了 {@link repoMonthlyStats}
+ * （月频快照）和 {@link repoWeeklyStats}，正常情况下应当跟着删掉。但生产库里
+ * 这张表仍有 748 行，而且 Drizzle 的 `push` 是靠 **schema 声明** 决定
+ * 要执行什么 DDL 的：schema 里没有它，`push` 就会把这张表当成"多余的表"，
+ * 连带它的数据一起删掉 —— 而**删掉它需要的权限恰恰是 `push` 没有的那一种**
+ * （`push` 只会 GRANT，不会 REVOKE，见 schema.ts 顶部关于已声明列的注释）。
+ *
+ * 所以这里保留的是一个**声明**，不是一套逻辑：
+ *
+ * - 不恢复任何写入方。`recordCurrentPeriods` 只写三张 stats 表，
+ *   `snapshots` 没有任何服务在读或写。
+ * - 不恢复任何查询方。历史读取一律走 stats 表。
+ * - 唯一的效果是让 `drizzle-kit push` 认得这张表，从而不会提出删除它。
+ *
+ * 保留而非删除，是因为这 748 行是 `0012` 迁移 SQL 的**输入**：
+ * 任何一次重新生成或重放那段 INSERT，都需要这张表还在。
+ * 等到确认再也不会有人重放 `0012`、且备份策略已经覆盖它之后，
+ * 才可以用一条显式的 `DROP TABLE`（带注释说明为什么是显式的）把它清掉。
+ *
+ * 月份数组的结构见 `0012` 的 INSERT：`{ year, month, stars, totalContributors,
+ * totalDownloads, totalPullRequests, totalReleases, previous* }`。
+ * 这里保留 `$type` 注释是为了让读代码的人知道里面装的是什么，
+ * 而不是以为那是一个可以随便塞东西的 jsonb。
+ */
+export const snapshots = pgTable(
+  "snapshots",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+    /** 快照年份，一仓一年一行。 */
+    year: integer("year").notNull(),
+    /** 12 个月的数组，每项一个 `MonthSnapshot`，见上方注释。 */
+    months: jsonb("months").$type<MonthSnapshot[]>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.repoId, table.year] }),
+    index("snapshots_year_idx").on(table.year),
+  ]
+)
+
+/**
+ * 一行 {@link snapshots.months} 里的一个月度快照。
+ *
+ * 只为给上面的 `$type` 一个名字，不作为可写的类型使用。
+ */
+export interface MonthSnapshot {
+  year: number
+  month: number
+  stars: number
+  totalContributors: number
+  totalDownloads: number
+  totalPullRequests: number
+  totalReleases: number
+  previousContributors: number
+  previousDownloads: number
+  previousPullRequests: number
+  previousReleases: number
+}
+
+/**
  * The nine counters every stats table carries, and the two ways each is read.
  *
  * `total_*` is the level at the end of the period; `delta_*` is what changed
@@ -882,6 +947,11 @@ export const reposRelations = relations(repos, ({ many }) => ({
   weeklyStats: many(repoWeeklyStats),
   dailyStats: many(repoDailyStats),
   stargazers: many(repoStargazers),
+  snapshots: many(snapshots),
+}))
+
+export const snapshotsRelations = relations(snapshots, ({ one }) => ({
+  repo: one(repos, { fields: [snapshots.repoId], references: [repos.id] }),
 }))
 
 export const projectsRelations = relations(projects, ({ many, one }) => ({

@@ -39,13 +39,14 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the twenty-seven tables console owns", () => {
-    // Four better-auth + one submission + twenty-two GitHub. If this list
-    // changes, the count changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(27)
+  it("is the twenty-nine tables console owns", () => {
+    // Four better-auth + one submission + one API key + twenty-three GitHub. If
+    // this list changes, the count changes with it, and the diff is the review.
+    expect(managedTables).toHaveLength(29)
     expect(managedTables).toEqual(
       [
         "account",
+        "api_keys",
         "bundles",
         "capabilities",
         "hall_of_fame",
@@ -65,6 +66,12 @@ describe("managed table set", () => {
         "rising_star_categories",
         "rising_star_projects",
         "session",
+        // Declared, never written. `0012` copied its rows into
+        // `repo_monthly_stats` but kept the table so the copy stays
+        // replayable and so `drizzle-kit push` cannot offer to drop 748 rows it
+        // has no permission to drop. Its presence in *this* list is what makes
+        // that true -- an undeclared table is an unmanaged one.
+        "snapshots",
         "tags",
         "task_definitions",
         "task_executions",
@@ -74,6 +81,20 @@ describe("managed table set", () => {
         "verification",
       ].sort()
     )
+  })
+
+  it("keeps `snapshots` declared so push cannot propose dropping its rows", () => {
+    // The failure this guards against is quiet: `push` reads the declarations,
+    // so a table missing from them is a table `push` believes it should delete.
+    // Nothing in the app would notice -- no service reads it -- and the damage
+    // is 748 rows of the input `0012`'s INSERTs read from.
+    expect(managedTables).toContain("snapshots")
+    const { primaryKeys } = getTableConfig(managed.snapshots)
+    expect(
+      Object.values(primaryKeys).flatMap((key) =>
+        key.columns.map((column) => column.name)
+      )
+    ).toEqual(["repo_id", "year"])
   })
 
   it("gives `user_repos` the columns the submission split reads", () => {

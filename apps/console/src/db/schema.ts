@@ -10,8 +10,10 @@ import {
 } from "drizzle-orm/pg-core"
 import * as githubSchema from "./schema/github"
 import { repos } from "./schema/github"
+import { apiKeys } from "./schema/api-keys"
 
 export * from "./schema/github"
+export * from "./schema/api-keys"
 
 /**
  * `repos` and the `*Stats` tables exist in both the shared schema and console's
@@ -332,6 +334,10 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   repos: many(userRepos),
+  // 与 `apiKeyRelations` 的两个 `one` 分别配对；一条用户行既是签发者也可能
+  // 是提交者，所以两边都是 many。
+  issuedApiKeys: many(apiKeys, { relationName: "apiKeysCreatedBy" }),
+  submittedAsApiKeys: many(apiKeys, { relationName: "apiKeysSubmitter" }),
 }))
 
 export const sessionRelations = relations(session, ({ one }) => ({

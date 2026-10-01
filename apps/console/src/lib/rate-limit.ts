@@ -16,6 +16,7 @@
  * against the same stale count.
  */
 import type Redis from "ioredis"
+import { FIXED_WINDOW_RATE_LIMIT } from "@/lib/redis/lua"
 
 export type RateLimitStorage = {
   consume: (
@@ -24,17 +25,8 @@ export type RateLimitStorage = {
   ) => Promise<{ allowed: boolean; retryAfter: number | null }>
 }
 
-const INCR_AND_EXPIRE = `
-local count = redis.call("INCR", KEYS[1])
-if count == 1 then
-  redis.call("EXPIRE", KEYS[1], ARGV[1])
-end
-local pttl = redis.call("PTTL", KEYS[1])
-if count <= tonumber(ARGV[2]) then
-  return { 1, pttl }
-end
-return { 0, pttl }
-`
+/** Shared with `lib/api/rate-limit.ts`, which keys on the API key instead. */
+const INCR_AND_EXPIRE = FIXED_WINDOW_RATE_LIMIT
 
 /**
  * On a Redis outage this fails open — requests are allowed — so a Redis blip
