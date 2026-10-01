@@ -1,4 +1,5 @@
-import { crc32 } from 'node:zlib'
+import { crc32 } from "node:zlib"
+import { sanitizeZipEntryPath } from "./sanitize-entry-path"
 
 /**
  * Minimal ZIP (store / method 0) writer — no extra dependency.
@@ -6,8 +7,18 @@ import { crc32 } from 'node:zlib'
  */
 export type ZipStoreFile = { path: string; content: string | Buffer }
 
-function normalizePath(p: string): string {
-  return p.replace(/^\/+/, '').replace(/\\/g, '/')
+/**
+ * 规整写入端的 entry 名。
+ *
+ * 读取侧已经拦了 `..`，但 `sourceFiles` 是数据库里的历史数据 —— 在写入端
+ * 再拦一次，才能保证"发出去的包"里不会混进一条穿越路径。买家在本地
+ * `unzip` 后就落在解压目录外，这正是 zip slip。
+ *
+ * 返回 `null` 表示这个 entry 不可信，调用方应当跳过而不是写入。
+ */
+function normalizePath(p: string): string | null {
+  const result = sanitizeZipEntryPath(p)
+  return result.ok ? result.path : null
 }
 
 function toDosDateTime(d = new Date()): { time: number; date: number } {
@@ -27,11 +38,20 @@ export function createZipStore(files: ZipStoreFile[]): Buffer {
   const { time, date } = toDosDateTime()
   const localParts: Buffer[] = []
   const centralParts: Buffer[] = []
+  const skipped: string[] = []
   let offset = 0
 
   for (const file of files) {
-    const name = Buffer.from(normalizePath(file.path), 'utf8')
-    const data = typeof file.content === 'string' ? Buffer.from(file.content, 'utf8') : file.content
+    const safePath = normalizePath(file.path)
+    if (!safePath) {
+      skipped.push(file.path)
+      continue
+    }
+    const name = Buffer.from(safePath, "utf8")
+    const data =
+      typeof file.content === "string"
+        ? Buffer.from(file.content, "utf8")
+        : file.content
     const checksum = crc32(data)
 
     const localHeader = Buffer.alloc(30)
@@ -74,15 +94,25 @@ export function createZipStore(files: ZipStoreFile[]): Buffer {
   }
 
   const central = Buffer.concat(centralParts)
+  const written = localParts.length
   const end = Buffer.alloc(22)
   end.writeUInt32LE(0x06054b50, 0)
   end.writeUInt16LE(0, 4)
   end.writeUInt16LE(0, 6)
-  end.writeUInt16LE(files.length, 8)
-  end.writeUInt16LE(files.length, 10)
+  end.writeUInt16LE(written, 8)
+  end.writeUInt16LE(written, 10)
   end.writeUInt32LE(central.length, 12)
   end.writeUInt32LE(offset, 16)
   end.writeUInt16LE(0, 20)
+
+  if (skipped.length > 0) {
+    // 不能静默丢弃：历史 `sourceFiles` 里如果有穿越路径，买家拿到的包会少文件，
+    // 而调用方需要知道少了什么才能报错而不是发一个残缺的包。
+    console.warn("[zip] skipped unsafe entry names while writing archive", {
+      count: skipped.length,
+      samples: skipped.slice(0, 5),
+    })
+  }
 
   return Buffer.concat([...localParts, central, end])
 }

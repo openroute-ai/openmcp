@@ -22,6 +22,7 @@ import {
   workflows,
 } from '@workspace/db'
 import { createTRPCRouter, protectedProcedure } from '@/server/routers/trpc'
+import { marketVisible } from '@/web/assets/visibility'
 
 /**
  * Provider dashboard statistics.
@@ -66,7 +67,7 @@ async function getProviderStats(authorId: string): Promise<ProviderStats> {
       downloads: sql<number>`coalesce(sum(${mcpServers.downloads}), 0)`,
     })
     .from(mcpServers)
-    .where(and(eq(mcpServers.authorId, authorId), eq(mcpServers.status, 'published')))
+    .where(and(eq(mcpServers.authorId, authorId), marketVisible(mcpServers)))
   const [a2aAgg] = await db
     .select({
       total: count(),
@@ -74,7 +75,7 @@ async function getProviderStats(authorId: string): Promise<ProviderStats> {
       downloads: sql<number>`coalesce(sum(${a2aAgents.downloads}), 0)`,
     })
     .from(a2aAgents)
-    .where(and(eq(a2aAgents.authorId, authorId), eq(a2aAgents.status, 'published')))
+    .where(and(eq(a2aAgents.authorId, authorId), marketVisible(a2aAgents)))
   const [personaAgg] = await db
     .select({
       total: count(),
@@ -604,7 +605,7 @@ export const dashboardRouter = createTRPCRouter({
             downloads: sql<number>`coalesce(sum(${mcpServers.downloads}), 0)`,
           })
           .from(mcpServers)
-          .where(and(eq(mcpServers.authorId, profile.authorId), eq(mcpServers.status, 'published')))
+          .where(and(eq(mcpServers.authorId, profile.authorId), marketVisible(mcpServers)))
         const [a2aAgg] = await db
           .select({
             total: count(),
@@ -612,7 +613,7 @@ export const dashboardRouter = createTRPCRouter({
             downloads: sql<number>`coalesce(sum(${a2aAgents.downloads}), 0)`,
           })
           .from(a2aAgents)
-          .where(and(eq(a2aAgents.authorId, profile.authorId), eq(a2aAgents.status, 'published')))
+          .where(and(eq(a2aAgents.authorId, profile.authorId), marketVisible(a2aAgents)))
         const [personaAgg] = await db
           .select({
             total: count(),

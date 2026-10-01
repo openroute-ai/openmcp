@@ -3,6 +3,7 @@ import { failResult, gatewayAuthInput, listingInput } from "@/lib/gateway/input"
 import { isValidAssetName } from "@/lib/gateway/names"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
+import { signOAuthState } from "@/lib/agent-install/oauth-state"
 import { mcpGatewayAccess } from './gateway'
 import { mcpServersDataAccess } from './index'
 
@@ -285,8 +286,14 @@ export const mcpServersRouter = createTRPCRouter({
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:30021'
         const redirectUri = `${baseUrl}/api/oauth/callback/mcp`
         
-        // 构建授权 URL（简化版，实际应该由 LiteLLM 生成）
-        const state = Buffer.from(JSON.stringify({ serverName, authorId })).toString('base64url')
+        // `state` 必须签名：回调端点是公开的 GET 路由，base64 是编码不是
+        // 加密，不签名的话攻击者能自己造一个把任意 code 写到别人资产上。
+        const signed = signOAuthState({ assetName: serverName, authorId })
+        if (!signed.ok) {
+          console.error('[mcp/startOAuth] cannot sign state:', signed.reason)
+          return failResult(new Error(signed.reason), 'startOAuth.state_sign_failed')
+        }
+        const state = signed.state
         const scopeParam = input.scopes?.join(' ') || ''
         const authUrl = new URL(input.authorizationUrl)
         authUrl.searchParams.set('client_id', input.clientId)

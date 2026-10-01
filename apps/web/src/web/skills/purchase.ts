@@ -43,12 +43,15 @@ export async function createSkillPurchase(params: {
   }
   const currency = skill.currency ?? 'CNY'
 
+  // 只有 `active` 的权益算"已拥有"。退款把权益置为 `revoked` 但保留行，
+  // 所以这里必须看 status：否则退款后买家会永久无法再次购买，因为他
+  // 仍被当成"已拥有"而直接返回 `alreadyOwned`。
   const [existing] = await db
     .select()
     .from(skillEntitlements)
     .where(and(eq(skillEntitlements.userId, params.userId), eq(skillEntitlements.skillId, params.skillId)))
     .limit(1)
-  if (existing) {
+  if (existing && existing.status === 'active') {
     return {
       ok: true,
       alreadyOwned: true,
@@ -99,14 +102,35 @@ export async function createSkillPurchase(params: {
       })
       .where(eq(balances.userId, params.userId))
 
-    await tx.insert(skillEntitlements).values({
-      id: entitlementId,
-      userId: params.userId,
-      skillId: params.skillId,
-      orderId,
-      amount: amountStr,
-      currency,
-    })
+    if (existing) {
+      // 重新购买被退款的技能：`skill_entitlement_user_skill_unique` 决定了
+      // 不能插第二行，所以复用原行并把它从 `revoked` 复活。清空退款相关
+      // 字段是为了让这一行只描述"当前这一次购买"，而不是把两次购买混在
+      // 一起——上一笔的退款痕迹已经在 clawback 收入行和账单里了。
+      await tx
+        .update(skillEntitlements)
+        .set({
+          orderId,
+          amount: amountStr,
+          currency,
+          status: 'active',
+          revokedAt: null,
+          revocationReason: null,
+          refundedAmount: null,
+          refundedAt: null,
+          createdAt: new Date(),
+        })
+        .where(eq(skillEntitlements.id, existing.id))
+    } else {
+      await tx.insert(skillEntitlements).values({
+        id: entitlementId,
+        userId: params.userId,
+        skillId: params.skillId,
+        orderId,
+        amount: amountStr,
+        currency,
+      })
+    }
 
     // Provider 分成入账（在事务外也会成功一次；此处先记 entitlement，分成紧随）
     // 注意：credit 使用独立 insert；失败不应回滚买家授权，故放在事务后调用。
@@ -150,7 +174,13 @@ export async function hasSkillEntitlement(userId: string, skillId: string): Prom
   const [row] = await db
     .select({ id: skillEntitlements.id })
     .from(skillEntitlements)
-    .where(and(eq(skillEntitlements.userId, userId), eq(skillEntitlements.skillId, skillId)))
+    .where(
+      and(
+        eq(skillEntitlements.userId, userId),
+        eq(skillEntitlements.skillId, skillId),
+        eq(skillEntitlements.status, 'active')
+      )
+    )
     .limit(1)
   return Boolean(row)
 }

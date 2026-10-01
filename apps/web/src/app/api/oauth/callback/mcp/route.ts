@@ -1,9 +1,11 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { mcpServers } from '@workspace/db'
 import { getMcpGateway, isLiteLLMConfigured } from '@workspace/litellm'
 import { db } from '@/lib/db'
 import { decryptSecret } from '@/lib/gateway/secrets'
+import { verifyOAuthState } from '@/lib/agent-install/oauth-state'
+import { notDeleted } from '@/web/assets/visibility'
 
 /**
  * OAuth callback for MCP servers held on our behalf.
@@ -38,18 +40,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
     }
 
-    // `state` is base64url JSON written by `startOAuth`.
-    let stateData: { serverName: string; authorId: string }
-    try {
-      stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
-    } catch {
+    // `state` 由 `startOAuth` 用 HMAC 签发。签名不过 = 这个 state 不是我们
+    // 签的：要么被改过，要么是攻击者自己构造的。之前这里是裸 base64url JSON，
+    // 任何人都能手搓一个把授权结果写到别人资产上。
+    const verified = verifyOAuthState(state)
+    if (!verified.ok) {
+      console.warn('[oauth-callback-mcp] rejected state:', verified.reason)
       return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     }
+    const stateData = {
+      serverName: verified.payload.assetName,
+      authorId: verified.payload.authorId,
+    }
 
+    // 签名只证明"这个 state 是我们签的"，不证明资产还在。所以仍要查库：
+    // 软删除、归属不符、名字对不上都要在这里挡住，否则一个已删除的资产会被
+    // 旧 state 写回，或把 A 的授权结果落到 B 的资产上。
     const [asset] = await db
       .select()
       .from(mcpServers)
-      .where(eq(mcpServers.serverName, stateData.serverName))
+      .where(
+        and(
+          eq(mcpServers.serverName, stateData.serverName),
+          notDeleted(mcpServers),
+          eq(mcpServers.authorId, stateData.authorId)
+        )
+      )
       .limit(1)
 
     if (!asset) {
@@ -143,7 +159,7 @@ export async function GET(request: NextRequest) {
     await db
       .update(mcpServers)
       .set({ metadata, updatedAt: new Date() })
-      .where(eq(mcpServers.id, asset.id))
+      .where(and(eq(mcpServers.id, asset.id), notDeleted(mcpServers)))
 
     console.log('[oauth-callback-mcp] OAuth flow completed successfully for:', stateData.serverName)
 

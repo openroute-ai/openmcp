@@ -1,4 +1,5 @@
-import { buildStoreMcpUrl, getAppBaseUrl, getGatewayBaseUrl } from './urls'
+import { safeZipEntryPath } from "@/lib/zip/sanitize-entry-path"
+import { buildStoreMcpUrl, getAppBaseUrl, getGatewayBaseUrl } from "./urls"
 
 export type SkillPackageFile = { path: string; content: string }
 
@@ -10,7 +11,7 @@ export type SkillPackageInput = {
   readme?: string | null
   readmeEn?: string | null
   version?: string | null
-  priceType?: 'free' | 'paid'
+  priceType?: "free" | "paid"
   /** P0: Optional author metadata for openmcp block */
   authorName?: string
   authorId?: string
@@ -22,23 +23,16 @@ export type SkillPackageResult = {
   name: string
   files: SkillPackageFile[]
   /** Relative install dirs by runtime */
-  targetDirs: Record<'cursor' | 'claude-code' | 'codex' | 'generic', string>
+  targetDirs: Record<"cursor" | "claude-code" | "codex" | "generic", string>
 }
 
 function skillNameFromSlug(slug: string, title: string): string {
-  const base = (slug || title || 'skill')
+  const base = (slug || title || "skill")
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return base || 'skill'
-}
-
-function hasSkillMd(files: SkillPackageFile[]): boolean {
-  return files.some((f) => {
-    const n = f.path.replace(/^\/+/, '').toLowerCase()
-    return n === 'skill.md' || n.endsWith('/skill.md')
-  })
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return base || "skill"
 }
 
 function buildSkillMdBody(input: SkillPackageInput, name: string): string {
@@ -48,8 +42,10 @@ function buildSkillMdBody(input: SkillPackageInput, name: string): string {
   const installDocUrl = `${origin}/install/openmcp.md`
   const marketplaceUrl = `${origin}/skills`
   const storeMcp = buildStoreMcpUrl()
-  const desc = (input.description || input.title || name).replace(/\n+/g, ' ').trim()
-  const version = input.version?.replace(/^v/i, '') || '0.1.0'
+  const desc = (input.description || input.title || name)
+    .replace(/\n+/g, " ")
+    .trim()
+  const version = input.version?.replace(/^v/i, "") || "0.1.0"
   const downloadedAt = new Date().toISOString()
 
   // P0: Build openmcp metadata block
@@ -77,14 +73,14 @@ version: ${version}${openmcpBlock}
 
 # ${input.title || name}
 
-${input.description?.trim() || 'OpenMCP marketplace skill.'}
+${input.description?.trim() || "OpenMCP marketplace skill."}
 
 ## Source
 
 - Detail: ${detail}
 - Package (zip): ${packageUrl}
 - Install guide: ${installDocUrl}
-- Price: ${input.priceType === 'paid' ? 'paid (requires entitlement)' : 'free'}
+- Price: ${input.priceType === "paid" ? "paid (requires entitlement)" : "free"}
 
 ## Install (Agent)
 
@@ -107,7 +103,7 @@ Gateway base (MCP/A2A only): ${getGatewayBaseUrl()} — never use Provider direc
 export function buildOpenmcpStoreHelperPackage(): SkillPackageResult {
   const origin = getAppBaseUrl()
   const storeMcp = buildStoreMcpUrl()
-  const name = 'openmcp-store'
+  const name = "openmcp-store"
   const skillMd = `---
 name: ${name}
 description: "Search and install Skills / MCP / A2A from the OpenMCP marketplace via Store MCP or zip download."
@@ -133,15 +129,15 @@ Help the user discover and install assets from OpenMCP (${origin}).
   return {
     name,
     files: [
-      { path: 'SKILL.md', content: skillMd },
+      { path: "SKILL.md", content: skillMd },
       {
-        path: 'README.md',
+        path: "README.md",
         content: `# openmcp-store\n\nHelper skill for installing OpenMCP marketplace assets.\nSee SKILL.md and ${origin}/install/openmcp.md.\n`,
       },
     ],
     targetDirs: {
       cursor: `~/.cursor/skills/${name}/`,
-      'claude-code': `~/.claude/skills/${name}/`,
+      "claude-code": `~/.claude/skills/${name}/`,
       codex: `~/.codex/skills/${name}/`,
       generic: `skills/${name}/`,
     },
@@ -152,13 +148,15 @@ Help the user discover and install assets from OpenMCP (${origin}).
  * Build minimal metadata-only SKILL.md for GitHub-sourced skills (P1 Gap A).
  * Contains only metadata + openmcp backlink block, no full content.
  */
-export function buildMinimalSkillPackage(input: SkillPackageInput): SkillPackageResult {
+export function buildMinimalSkillPackage(
+  input: SkillPackageInput
+): SkillPackageResult {
   const name = skillNameFromSlug(input.slug, input.title)
   const origin = getAppBaseUrl()
   const detail = `${origin}/skills/${input.slug}`
   const installDocUrl = `${origin}/install/openmcp.md`
   const marketplaceUrl = `${origin}/skills`
-  const version = input.version?.replace(/^v/i, '') || '0.1.0'
+  const version = input.version?.replace(/^v/i, "") || "0.1.0"
   const downloadedAt = new Date().toISOString()
 
   // Build openmcp metadata block
@@ -199,10 +197,10 @@ For the actual skill content, please visit the GitHub repository URL provided in
 
   return {
     name,
-    files: [{ path: '.openmcp-meta.md', content: minimalContent }],
+    files: [{ path: ".openmcp-meta.md", content: minimalContent }],
     targetDirs: {
       cursor: `~/.cursor/skills/${name}/`,
-      'claude-code': `~/.claude/skills/${name}/`,
+      "claude-code": `~/.claude/skills/${name}/`,
       codex: `~/.codex/skills/${name}/`,
       generic: `skills/${name}/`,
     },
@@ -210,30 +208,52 @@ For the actual skill content, please visit the GitHub repository URL provided in
 }
 
 /** Produce a Skill package files array (always includes SKILL.md). */
-export function buildSkillPackage(input: SkillPackageInput): SkillPackageResult {
+export function buildSkillPackage(
+  input: SkillPackageInput
+): SkillPackageResult {
   const name = skillNameFromSlug(input.slug, input.title)
-  const existing = [...(input.sourceFiles ?? [])]
-  const files: SkillPackageFile[] = []
-
   // Keep non-SKILL.md sources; normalize paths
-  for (const f of existing) {
-    const path = f.path.replace(/^\/+/, '')
-    if (!path || path.toLowerCase() === 'skill.md') continue
-    files.push({ path, content: f.content })
+  //
+  // `sourceFiles` 来自上传 ZIP，也可能是历史脏数据。`safeZipEntryPath` 是唯一
+  // 的路径真源：这里放过去的每个名字最终都会出现在买家下载的 ZIP 里，
+  // 一个 `../` 就够让买家在解压时把文件写到目标目录之外。
+  const existing: SkillPackageFile[] = []
+  for (const f of input.sourceFiles ?? []) {
+    const path = safeZipEntryPath(f.path)
+    if (!path) continue
+    existing.push({ path, content: f.content })
   }
 
-  if (!hasSkillMd(existing)) {
-    files.unshift({ path: 'SKILL.md', content: buildSkillMdBody(input, name) })
+  const files: SkillPackageFile[] = []
+
+  // 认 basename 而不是整条路径：上传的包常把 SKILL.md 放在 `pkg/SKILL.md`。
+  // 原实现这里是 `path === 'skill.md'` 精确匹配，于是嵌套的 SKILL.md 既被当成
+  // 普通文件保留、又触发"已存在 SKILL.md"分支去 `find` 一个不存在的精确匹配，
+  // 买家就拿到两份互相矛盾的说明书。
+  const isSkillMd = (p: string) =>
+    p.split("/").pop()?.toLowerCase() === "skill.md"
+  const existingSkillMd = existing.find((f) => isSkillMd(f.path))
+
+  for (const f of existing) {
+    if (isSkillMd(f.path)) continue
+    files.push({ path: f.path, content: f.content })
+  }
+
+  if (!existingSkillMd) {
+    files.unshift({ path: "SKILL.md", content: buildSkillMdBody(input, name) })
   } else {
-    const skill = existing.find((f) => f.path.replace(/^\/+/, '').toLowerCase() === 'skill.md')!
-    files.unshift({ path: 'SKILL.md', content: skill.content })
+    files.unshift({ path: "SKILL.md", content: existingSkillMd.content })
   }
 
   // Ensure a short README if none
-  if (!files.some((f) => /^readme(\.md|\.en\.md)?$/i.test(f.path.replace(/^.*\//, '')))) {
+  if (
+    !files.some((f) =>
+      /^readme(\.md|\.en\.md)?$/i.test(f.path.replace(/^.*\//, ""))
+    )
+  ) {
     const readme = input.readme?.trim() || input.readmeEn?.trim()
     if (readme) {
-      files.push({ path: 'README.md', content: readme })
+      files.push({ path: "README.md", content: readme })
     }
   }
 
@@ -242,7 +262,7 @@ export function buildSkillPackage(input: SkillPackageInput): SkillPackageResult 
     files,
     targetDirs: {
       cursor: `~/.cursor/skills/${name}/`,
-      'claude-code': `~/.claude/skills/${name}/`,
+      "claude-code": `~/.claude/skills/${name}/`,
       codex: `~/.codex/skills/${name}/`,
       generic: `skills/${name}/`,
     },
@@ -250,20 +270,27 @@ export function buildSkillPackage(input: SkillPackageInput): SkillPackageResult 
 }
 
 /** Short SkillHub-style prompt for copying to an Agent. */
-export function buildSkillInstallCopyPrompt(opts: { slug: string; origin?: string; locale?: 'zh' | 'en' }): string {
-  const origin = (opts.origin || getAppBaseUrl()).replace(/\/$/, '')
+export function buildSkillInstallCopyPrompt(opts: {
+  slug: string
+  origin?: string
+  locale?: "zh" | "en"
+}): string {
+  const origin = (opts.origin || getAppBaseUrl()).replace(/\/$/, "")
   const md = `${origin}/install/openmcp.md`
-  if (opts.locale === 'en') {
+  if (opts.locale === "en") {
     return `Please follow ${md} and install the skill \`${opts.slug}\`.`
   }
   return `请根据 ${md} ，安装 ${opts.slug}。`
 }
 
 /** Bootstrap prompt pointing at install markdown (home /start). */
-export function buildStoreBootstrapCopyPrompt(opts?: { origin?: string; locale?: 'zh' | 'en' }): string {
-  const origin = (opts?.origin || getAppBaseUrl()).replace(/\/$/, '')
+export function buildStoreBootstrapCopyPrompt(opts?: {
+  origin?: string
+  locale?: "zh" | "en"
+}): string {
+  const origin = (opts?.origin || getAppBaseUrl()).replace(/\/$/, "")
   const md = `${origin}/install/openmcp.md`
-  if (opts?.locale === 'en') {
+  if (opts?.locale === "en") {
     return `Install the OpenMCP store for this Agent according to ${md}.`
   }
   return `请根据 ${md} 为当前 Agent 安装 OpenMCP 商店。`

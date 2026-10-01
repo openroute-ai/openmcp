@@ -1,9 +1,10 @@
-import { and, count, desc, eq, like, ne, or, sql } from 'drizzle-orm'
-import type { PgColumn } from 'drizzle-orm/pg-core'
+import { and, count, desc, eq, like, ne, or, sql } from "drizzle-orm"
+import type { PgColumn } from "drizzle-orm/pg-core"
 import { db } from "@/lib/db"
 import { authors, categories, mcpServers } from "@workspace/db"
 import { testMcpConnection } from "@/lib/gateway/mcp-connect"
 import type { AssetAuthType } from "@/lib/registry-labels"
+import { marketVisible, notDeleted } from "@/web/assets/visibility"
 
 export type McpServerListItem = {
   id: string
@@ -13,13 +14,13 @@ export type McpServerListItem = {
   description: string | null
   descriptionEn: string | null
   logoUrl: string | null
-  transport: 'http' | 'sse' | 'stdio'
+  transport: "http" | "sse" | "stdio"
   authType: AssetAuthType | null
-  hosting: 'self_hosted' | 'platform_managed'
-  scope: 'public' | 'private' | 'team'
+  hosting: "self_hosted" | "platform_managed"
+  scope: "public" | "private" | "team"
   categoryId: string | null
-  priceType: 'free' | 'paid'
-  billingModel: 'one_time' | 'subscription' | 'pay_per_call' | null
+  priceType: "free" | "paid"
+  billingModel: "one_time" | "subscription" | "pay_per_call" | null
   unitPrice: string | null
   currency: string
   certified: boolean
@@ -28,7 +29,13 @@ export type McpServerListItem = {
   downloads: number
   publishedAt: Date | null
   createdAt: Date
-  author: { id: string; name: string; username: string; avatar: string | null; verified: boolean }
+  author: {
+    id: string
+    name: string
+    username: string
+    avatar: string | null
+    verified: boolean
+  }
   category: { id: string; name: string; nameEn: string; slug: string } | null
 }
 
@@ -36,15 +43,15 @@ export type RegisterMcpServerInput = {
   name: string
   description?: string | null
   descriptionEn?: string | null
-  transport: 'http' | 'sse' | 'stdio'
+  transport: "http" | "sse" | "stdio"
   endpoint?: string | null
-  hosting: 'self_hosted' | 'platform_managed'
-  scope?: 'public' | 'private' | 'team'
+  hosting: "self_hosted" | "platform_managed"
+  scope?: "public" | "private" | "team"
   tools?: Record<string, unknown>[] | null
   categoryId?: string | null
-  priceType?: 'free' | 'paid'
+  priceType?: "free" | "paid"
   priceAmount?: string | number | null
-  billingModel?: 'one_time' | 'subscription' | 'pay_per_call' | null
+  billingModel?: "one_time" | "subscription" | "pay_per_call" | null
   unitPrice?: string | number | null
   currency?: string
 }
@@ -53,13 +60,13 @@ function slugify(text: string): string {
   return text
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
     .slice(0, 200)
 }
 
 async function uniqueSlug(base: string): Promise<string> {
-  let candidate = base || 'mcp-server'
+  let candidate = base || "mcp-server"
   let suffix = 0
   for (;;) {
     const [existing] = await db
@@ -69,7 +76,7 @@ async function uniqueSlug(base: string): Promise<string> {
       .limit(1)
     if (!existing) return candidate
     suffix += 1
-    candidate = `${base || 'mcp-server'}-${suffix}`
+    candidate = `${base || "mcp-server"}-${suffix}`
   }
 }
 
@@ -78,12 +85,19 @@ export const mcpServersDataAccess = {
     page?: number
     limit?: number
     search?: string
-    transport?: 'http' | 'sse' | 'stdio'
-    scope?: 'public' | 'private' | 'team'
-    sort?: 'date-desc' | 'downloads-desc' | 'views-desc'
+    transport?: "http" | "sse" | "stdio"
+    scope?: "public" | "private" | "team"
+    sort?: "date-desc" | "downloads-desc" | "views-desc"
   }): Promise<McpServerListItem[]> => {
-    const { page = 1, limit = 18, search, transport, scope, sort = 'date-desc' } = params
-    const whereConditions = [eq(mcpServers.status, 'published')]
+    const {
+      page = 1,
+      limit = 18,
+      search,
+      transport,
+      scope,
+      sort = "date-desc",
+    } = params
+    const whereConditions = [marketVisible(mcpServers)]
 
     if (transport) whereConditions.push(eq(mcpServers.transport, transport))
     if (scope) whereConditions.push(eq(mcpServers.scope, scope))
@@ -99,9 +113,9 @@ export const mcpServersDataAccess = {
     }
 
     const orderBy: PgColumn | ReturnType<typeof desc> =
-      sort === 'downloads-desc'
+      sort === "downloads-desc"
         ? desc(mcpServers.downloads)
-        : sort === 'views-desc'
+        : sort === "views-desc"
           ? desc(mcpServers.views)
           : desc(mcpServers.publishedAt)
 
@@ -155,18 +169,18 @@ export const mcpServersDataAccess = {
       ...row,
       name: row.name,
       unitPrice: row.unitPrice?.toString() ?? null,
-      currency: row.currency ?? 'CNY',
+      currency: row.currency ?? "CNY",
       category: row.category?.id != null ? row.category : null,
     }))
   },
 
   getMcpServersCount: async (params: {
     search?: string
-    transport?: 'http' | 'sse' | 'stdio'
-    scope?: 'public' | 'private' | 'team'
+    transport?: "http" | "sse" | "stdio"
+    scope?: "public" | "private" | "team"
   }): Promise<number> => {
     const { search, transport, scope } = params
-    const whereConditions = [eq(mcpServers.status, 'published')]
+    const whereConditions = [marketVisible(mcpServers)]
 
     if (transport) whereConditions.push(eq(mcpServers.transport, transport))
     if (scope) whereConditions.push(eq(mcpServers.scope, scope))
@@ -236,32 +250,35 @@ export const mcpServersDataAccess = {
       .from(mcpServers)
       .innerJoin(authors, eq(mcpServers.authorId, authors.id))
       .leftJoin(categories, eq(mcpServers.categoryId, categories.id))
-      .where(eq(mcpServers.id, id))
+      .where(and(marketVisible(mcpServers), eq(mcpServers.id, id)))
       .limit(1)
 
     return row
   },
 
-  registerMcpServer: async (authorId: string, input: RegisterMcpServerInput) => {
+  registerMcpServer: async (
+    authorId: string,
+    input: RegisterMcpServerInput
+  ) => {
     // 营销提交不得跳过连接测试：HTTP/SSE 必须先测通；stdio 请走控制台 discover→test→connect→publish
-    if (input.transport === 'stdio') {
-      throw new Error('stdio 请前往「我的资产」完成连接测试后再提交上架')
+    if (input.transport === "stdio") {
+      throw new Error("stdio 请前往「我的资产」完成连接测试后再提交上架")
     }
     if (!input.endpoint) {
-      throw new Error('请填写端点地址并完成连接测试')
+      throw new Error("请填写端点地址并完成连接测试")
     }
-    const transportUi = input.transport === 'sse' ? 'sse' : 'streamable'
+    const transportUi = input.transport === "sse" ? "sse" : "streamable"
     const test = await testMcpConnection({
       url: input.endpoint,
       transport: transportUi,
-      auth: { type: 'none' },
+      auth: { type: "none" },
     })
     if (!test.ok) {
-      const failStep = test.steps?.find((s) => s.status === 'fail')
-      throw new Error(failStep?.detail || '连接测试未通过，无法提交')
+      const failStep = test.steps?.find((s) => s.status === "fail")
+      throw new Error(failStep?.detail || "连接测试未通过，无法提交")
     }
 
-    const refBase = slugify(input.name) || 'mcp-server'
+    const refBase = slugify(input.name) || "mcp-server"
     const slug = await uniqueSlug(refBase)
     const [inserted] = await db
       .insert(mcpServers)
@@ -274,24 +291,28 @@ export const mcpServersDataAccess = {
         transport: input.transport,
         endpoint: input.endpoint ?? null,
         hosting: input.hosting,
-        scope: input.scope ?? 'public',
-        tools: input.tools && input.tools.length > 0 ? input.tools : (test.toolNames ?? []).map((name) => ({ name })),
+        scope: input.scope ?? "public",
+        tools:
+          input.tools && input.tools.length > 0
+            ? input.tools
+            : (test.toolNames ?? []).map((name) => ({ name })),
         categoryId: input.categoryId ?? null,
         authorId,
-        priceType: input.priceType ?? 'free',
-        priceAmount: input.priceAmount != null ? String(input.priceAmount) : null,
+        priceType: input.priceType ?? "free",
+        priceAmount:
+          input.priceAmount != null ? String(input.priceAmount) : null,
         billingModel: input.billingModel ?? null,
         unitPrice: input.unitPrice != null ? String(input.unitPrice) : null,
-        currency: input.currency ?? 'CNY',
-        connectionStatus: 'online',
+        currency: input.currency ?? "CNY",
+        connectionStatus: "online",
         lastTestedAt: new Date(),
         lastTestResult: test,
-        status: 'submitted',
+        status: "submitted",
       })
       .returning()
 
     if (!inserted) {
-      throw new Error('MCP Server 注册失败')
+      throw new Error("MCP Server 注册失败")
     }
 
     return mcpServersDataAccess.getMcpServerById(inserted.id)
@@ -312,7 +333,7 @@ export const mcpServersDataAccess = {
         createdAt: mcpServers.createdAt,
       })
       .from(mcpServers)
-      .where(eq(mcpServers.authorId, authorId))
+      .where(and(eq(mcpServers.authorId, authorId), notDeleted(mcpServers)))
       .orderBy(desc(mcpServers.createdAt))
 
     return rows
@@ -350,7 +371,7 @@ export const mcpServersDataAccess = {
       .where(eq(mcpServers.id, id))
       .limit(1)
 
-    const whereConditions = [eq(mcpServers.status, 'published'), ne(mcpServers.id, id)]
+    const whereConditions = [marketVisible(mcpServers), ne(mcpServers.id, id)]
     if (current?.categoryId) {
       whereConditions.push(eq(mcpServers.categoryId, current.categoryId))
     }
@@ -377,6 +398,9 @@ export const mcpServersDataAccess = {
       .orderBy(desc(mcpServers.downloads))
       .limit(limit * 2)
 
-    return rows.map((row) => ({ ...row, category: row.category?.slug != null ? { slug: row.category.slug } : null }))
+    return rows.map((row) => ({
+      ...row,
+      category: row.category?.slug != null ? { slug: row.category.slug } : null,
+    }))
   },
 }

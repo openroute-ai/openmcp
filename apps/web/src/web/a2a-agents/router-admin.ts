@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { a2aAgents, authors, categories } from "@workspace/db"
 import { ASSET_AUTH_VALUES } from "@/lib/registry-labels"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
+import { notDeleted } from "@/web/assets/visibility"
 
 export const adminA2aAgentsRouter = createTRPCRouter({
   /**
@@ -26,7 +27,9 @@ export const adminA2aAgentsRouter = createTRPCRouter({
         const { page, limit, search, status, authType, priceType, certified } = input
         const offset = (page - 1) * limit
 
-        const whereConditions = []
+        // 软删除的行不再进入后台列表：平台上已经没有这个资产，审核员
+        // 也不该对它做审核动作。
+        const whereConditions = [notDeleted(a2aAgents)]
 
         if (search) {
           whereConditions.push(
@@ -152,13 +155,13 @@ export const adminA2aAgentsRouter = createTRPCRouter({
         rejectedResult,
         certifiedResult,
       ] = await Promise.all([
-        db.select({ count: count() }).from(a2aAgents),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.status, 'submitted')),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.status, 'published')),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.status, 'draft')),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.status, 'archived')),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.status, 'rejected')),
-        db.select({ count: count() }).from(a2aAgents).where(eq(a2aAgents.certified, true)),
+        db.select({ count: count() }).from(a2aAgents).where(notDeleted(a2aAgents)),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.status, 'submitted'))),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.status, 'published'))),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.status, 'draft'))),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.status, 'archived'))),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.status, 'rejected'))),
+        db.select({ count: count() }).from(a2aAgents).where(and(notDeleted(a2aAgents), eq(a2aAgents.certified, true))),
       ])
 
       return {
@@ -204,7 +207,7 @@ export const adminA2aAgentsRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const [agent] = await db.select().from(a2aAgents).where(eq(a2aAgents.id, input.id)).limit(1)
+        const [agent] = await db.select().from(a2aAgents).where(and(eq(a2aAgents.id, input.id), notDeleted(a2aAgents))).limit(1)
 
         if (!agent) {
           return {
@@ -257,7 +260,7 @@ export const adminA2aAgentsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const [agent] = await db.select().from(a2aAgents).where(eq(a2aAgents.id, input.id)).limit(1)
+        const [agent] = await db.select().from(a2aAgents).where(and(eq(a2aAgents.id, input.id), notDeleted(a2aAgents))).limit(1)
 
         if (!agent) {
           return {
@@ -303,7 +306,7 @@ export const adminA2aAgentsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const [agent] = await db.select().from(a2aAgents).where(eq(a2aAgents.id, input.id)).limit(1)
+        const [agent] = await db.select().from(a2aAgents).where(and(eq(a2aAgents.id, input.id), notDeleted(a2aAgents))).limit(1)
 
         if (!agent) {
           return {
