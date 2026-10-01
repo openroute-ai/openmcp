@@ -29,6 +29,7 @@ import {
 import { TaskStatusBadge } from "@/components/status-badge"
 import { useEnumLabel } from "@/lib/i18n/labels"
 import { useTRPC } from "@/lib/trpc/client"
+import { LocaleLink } from "@/i18n/navigation"
 import { DataPagination } from "@/components/data-pagination"
 import { useFormats } from "@/lib/i18n/format"
 
@@ -202,7 +203,16 @@ export function TasksContent() {
                   return (
                     <TableRow key={task.id}>
                       <TableCell>
-                        <div className="font-medium">{task.name}</div>
+                        {/* The name opens the task: the list shows whether it is
+                            on and when it next runs, and the detail page is the
+                            only place the schedule and the execution history
+                            are readable together. */}
+                        <LocaleLink
+                          className="font-medium underline-offset-4 hover:underline"
+                          href={`/dashboard/tasks/${task.id}`}
+                        >
+                          {task.name}
+                        </LocaleLink>
                         <div className="max-w-sm truncate text-xs text-muted-foreground">
                           {task.description}
                         </div>
@@ -338,7 +348,14 @@ export function TasksContent() {
               <TableBody>
                 {executions.map((run) => (
                   <TableRow key={run.id}>
-                    <TableCell className="font-medium">{run.task}</TableCell>
+                    <TableCell>
+                      <LocaleLink
+                        className="font-medium underline-offset-4 hover:underline"
+                        href={`/dashboard/tasks/${run.taskDefinitionId}`}
+                      >
+                        {run.task}
+                      </LocaleLink>
+                    </TableCell>
                     <TableCell>
                       <TaskStatusBadge status={run.status} />
                     </TableCell>

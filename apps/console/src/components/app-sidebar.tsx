@@ -4,7 +4,7 @@ import * as React from "react"
 import { useTranslations } from "next-intl"
 import { authClient } from "@/lib/auth-client"
 import { LocaleLink } from "@/i18n/navigation"
-import { NavMain, type NavKey } from "@/components/nav-main"
+import { NavMain, type NavMainItem } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import {
@@ -33,23 +33,79 @@ import {
 
 // The label is a message key rather than text, so the sidebar translates with
 // everything else. The url stays here: it is routing, not presentation.
-const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
-  { key: "overview", url: "/dashboard", icon: <IconDashboard /> },
-  { key: "rankings", url: "/dashboard/rankings", icon: <IconChartBar /> },
-  { key: "tasks", url: "/dashboard/tasks", icon: <IconClock /> },
-  { key: "projects", url: "/dashboard/projects", icon: <IconFolder /> },
+//
+// The order is the one an operator works in, read top to bottom: what this
+// deployment looks like, the catalog it serves, the jobs that fill it, and
+// finally the accounts behind it. The groups are headings over that order, not
+// a reordering of it — moving a link between two of them would move it in the
+// eye's path as well, which is why the lists below are contiguous.
+const navMain: NavMainItem[] = [
+  {
+    key: "overview",
+    url: "/dashboard",
+    icon: <IconDashboard />,
+    group: "groupInsights",
+  },
+  {
+    key: "rankings",
+    url: "/dashboard/rankings",
+    icon: <IconChartBar />,
+    group: "groupInsights",
+  },
+  {
+    key: "projects",
+    url: "/dashboard/projects",
+    icon: <IconFolder />,
+    group: "groupCatalog",
+  },
   // Authors sit next to projects rather than under them: an author outlives the
   // project that introduced them, and this is the only page that lists all of
   // them at once.
-  { key: "authors", url: "/dashboard/authors", icon: <IconUsers /> },
-  { key: "repos", url: "/dashboard/repos", icon: <IconCode /> },
-  { key: "skills", url: "/dashboard/skills", icon: <IconRobot /> },
-  { key: "syncJobs", url: "/dashboard/sync", icon: <IconRepeat /> },
+  {
+    key: "authors",
+    url: "/dashboard/authors",
+    icon: <IconUsers />,
+    group: "groupCatalog",
+  },
+  {
+    key: "repos",
+    url: "/dashboard/repos",
+    icon: <IconCode />,
+    group: "groupCatalog",
+  },
+  {
+    key: "skills",
+    url: "/dashboard/skills",
+    icon: <IconRobot />,
+    group: "groupCatalog",
+  },
+  {
+    key: "tasks",
+    url: "/dashboard/tasks",
+    icon: <IconClock />,
+    group: "groupOperations",
+  },
+  {
+    key: "syncJobs",
+    url: "/dashboard/sync",
+    icon: <IconRepeat />,
+    group: "groupOperations",
+  },
   // Accounts and sessions come last: the entries above are about the catalog
   // this deployment builds, while these two are about the people using it, so
   // they stay out of the way until someone is looking for them.
-  { key: "users", url: "/dashboard/users", icon: <IconUsersGroup /> },
-  { key: "sessions", url: "/dashboard/sessions", icon: <IconDeviceDesktop /> },
+  {
+    key: "users",
+    url: "/dashboard/users",
+    icon: <IconUsersGroup />,
+    group: "groupManagement",
+  },
+  {
+    key: "sessions",
+    url: "/dashboard/sessions",
+    icon: <IconDeviceDesktop />,
+    group: "groupManagement",
+  },
 ]
 
 /**

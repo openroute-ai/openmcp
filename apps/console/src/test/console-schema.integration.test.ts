@@ -24,6 +24,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { getTableColumns, getTableName, is, sql, Table } from "drizzle-orm"
+import { getTableConfig } from "drizzle-orm/pg-core"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { db, pool } from "@/db/client"
@@ -38,10 +39,10 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the twenty-six tables console owns", () => {
-    // Four better-auth + twenty-two GitHub. If this list changes, the count
-    // changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(26)
+  it("is the twenty-seven tables console owns", () => {
+    // Four better-auth + one submission + twenty-two GitHub. If this list
+    // changes, the count changes with it, and the diff is the review.
+    expect(managedTables).toHaveLength(27)
     expect(managedTables).toEqual(
       [
         "account",
@@ -69,9 +70,50 @@ describe("managed table set", () => {
         "task_executions",
         "task_status",
         "user",
+        "user_repos",
         "verification",
       ].sort()
     )
+  })
+
+  it("gives `user_repos` the columns the submission split reads", () => {
+    // The public and private halves of a submission are separated by column name
+    // rather than by privilege on one set of columns, so a column added to the
+    // wrong half is a leak that only surfaces as a TypeScript error far from the
+    // mistake. Naming both groups here means the error lands where it is made.
+    const columns = Object.values(getTableColumns(managed.userRepos)).map(
+      (c) => c.name
+    )
+    expect(columns).toEqual(
+      expect.arrayContaining([
+        // Public: who submitted it, when, and what the platform did about it.
+        "source",
+        "submitted_at",
+        "platform_status",
+        "platform_synced_at",
+        // Private: this account's own disposition of its own submission.
+        "status",
+        "note",
+        "pinned",
+        "last_viewed_at",
+        "updated_at",
+      ])
+    )
+
+    // The pair is the primary key, not a surrogate id: an account submits a given
+    // repository at most once, and submitting it again has to update that row
+    // rather than create a second one.
+    //
+    // Read through `getTableConfig` rather than by filtering `getTableColumns` on
+    // `.primary`: the key spans two columns and is declared as a table-level
+    // `primaryKey({ columns })`, so neither column is marked primary on its own
+    // and that filter finds nothing at all.
+    const { primaryKeys } = getTableConfig(managed.userRepos)
+    expect(
+      Object.values(primaryKeys).flatMap((key) =>
+        key.columns.map((column) => column.name)
+      )
+    ).toEqual(["user_id", "repo_id"])
   })
 
   it("excludes the shared schema's tables", () => {

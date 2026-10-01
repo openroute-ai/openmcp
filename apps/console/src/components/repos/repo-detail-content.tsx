@@ -6,7 +6,6 @@ import { useFormatter, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { monthOfPeriod } from "@/lib/github/snapshot-dates"
 import { Badge } from "@workspace/ui/components/badge"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@workspace/ui/components/breadcrumb"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,

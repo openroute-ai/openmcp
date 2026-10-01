@@ -8,6 +8,7 @@ import {
   taskStatus,
 } from "@/db/schema"
 import { getTaskDefinitionByName } from "@/lib/github/service/task"
+import { nullableTimestamp } from "@/db/values"
 import { createBufferingLogger, runTask } from "@/lib/tasks/runner"
 import { installTaskRegistry } from "@/lib/tasks/registry"
 import { seedDefinitions } from "@/lib/tasks/seed"
@@ -195,6 +196,11 @@ export const tasksRouter = createTRPCRouter({
           .select({
             id: taskExecutions.id,
             task: taskDefinitions.name,
+            // The id as well as the name, so the executions log can link a run
+            // to the task it belongs to. The name alone would make every row
+            // plain text on a page whose whole purpose is navigating between the
+            // two.
+            taskDefinitionId: taskExecutions.taskDefinitionId,
             status: taskExecutions.status,
             startedAt: taskExecutions.startedAt,
             completedAt: taskExecutions.completedAt,
@@ -300,9 +306,19 @@ export const tasksRouter = createTRPCRouter({
         ctx.db
           .select({
             value: count(),
-            first: sql<Date | null>`min(${taskExecutions.createdAt})`,
-            last: sql<Date | null>`max(${taskExecutions.createdAt})`,
-            averageDuration: sql<number | null>`avg(${taskExecutions.duration})::float`,
+            // `min`/`max` are raw SQL, so drizzle has no column to hang its own
+            // timestamp conversion on and the value arrives as Postgres' text
+            // format. The decoder is what makes these Dates; see
+            // `@/db/values` for what happens without it.
+            first: sql<Date | null>`min(${taskExecutions.createdAt})`.mapWith(
+              nullableTimestamp
+            ),
+            last: sql<Date | null>`max(${taskExecutions.createdAt})`.mapWith(
+              nullableTimestamp
+            ),
+            averageDuration: sql<
+              number | null
+            >`avg(${taskExecutions.duration})::float`,
           })
           .from(taskExecutions)
           .where(eq(taskExecutions.taskDefinitionId, definition.id)),
@@ -330,18 +346,17 @@ export const tasksRouter = createTRPCRouter({
         byStatus: Object.fromEntries(
           stats.map((row) => [row.status, Number(row.value)])
         ),
-        nextRunAt:
-          definition.isEnabled
-            ? ((await nextRunAt(
-                {
-                  name: definition.name,
-                  taskType: definition.taskType,
-                  cronExpression: definition.cronExpression,
-                },
-                buildPeriodStates(recent, definition.id),
-                now
-              )) ?? null)
-            : null,
+        nextRunAt: definition.isEnabled
+          ? ((await nextRunAt(
+              {
+                name: definition.name,
+                taskType: definition.taskType,
+                cronExpression: definition.cronExpression,
+              },
+              buildPeriodStates(recent, definition.id),
+              now
+            )) ?? null)
+          : null,
         executions: recent.slice(0, EXECUTION_HISTORY_LIMIT),
       }
     }),

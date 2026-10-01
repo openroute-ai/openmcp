@@ -44,7 +44,11 @@
     "toggleSidebar": "切换侧边栏",
     "signedOut": "未登录",
     "repos": "仓库",
-    "myRepos": "我的仓库"
+    "myRepos": "我的仓库",
+    "groupInsights": "数据洞察",
+    "groupCatalog": "内容管理",
+    "groupOperations": "任务运维",
+    "groupManagement": "账户管理"
   },
   "Status": {
     "pending": "等待中",
@@ -585,6 +589,8 @@
     "cancel": "取消",
     "save": "保存",
     "npmPackages": "{count} 个 npm 包",
+    "verified": "已认证",
+    "followers": "{count} 位关注者",
     "field": {
       "name": "名称",
       "bio": "简介",

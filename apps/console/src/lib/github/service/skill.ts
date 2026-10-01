@@ -9,6 +9,7 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { projectSkills, projects, repos } from "@/db/schema"
+import { nullableTimestamp } from "@/db/values"
 import type { Db } from "@/lib/github/service/repo"
 import { contentHash, type ParsedSkill } from "@/lib/github/skill"
 
@@ -339,7 +340,12 @@ export async function listProjectsNeedingPush(
   const attempts = await db
     .select({
       projectId: projectSkills.projectId,
-      latest: sql<Date>`max(${projectSkills.lastSyncAttemptAt})`,
+      // Decoded rather than annotated: a raw `max()` has no column behind it,
+      // so without the decoder `latest` is Postgres' text, and the comparison
+      // below would only work by re-parsing it.
+      latest: sql<Date | null>`max(${projectSkills.lastSyncAttemptAt})`.mapWith(
+        nullableTimestamp
+      ),
     })
     .from(projectSkills)
     .where(inArray(projectSkills.projectId, projectIds))
@@ -347,7 +353,7 @@ export async function listProjectsNeedingPush(
 
   const stale = new Set(
     attempts
-      .filter((row) => row.latest && new Date(row.latest) < before)
+      .filter((row) => row.latest && row.latest < before)
       .map((row) => row.projectId)
   )
 

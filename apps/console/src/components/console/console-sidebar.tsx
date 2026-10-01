@@ -4,7 +4,7 @@ import * as React from "react"
 import { useTranslations } from "next-intl"
 import { authClient } from "@/lib/auth-client"
 import { LocaleLink } from "@/i18n/navigation"
-import { NavMain, type NavKey } from "@/components/nav-main"
+import { NavMain, type NavMainItem } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -17,7 +17,9 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { IconCode, IconInnerShadowTop } from "@tabler/icons-react"
 
-const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
+// No group: one entry under a heading of its own would be a heading that names
+// the page it sits above, which is noise rather than navigation.
+const navMain: NavMainItem[] = [
   { key: "repos", url: "/console", icon: <IconCode /> },
 ]
 
@@ -30,7 +32,9 @@ const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
  * cannot leak into it: curating a project is an admin's job, and
  * `projects.create` would refuse the call anyway.
  */
-export function ConsoleSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function ConsoleSidebar({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations("Nav")
   const { data: session } = authClient.useSession()
 

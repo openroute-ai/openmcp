@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useTranslations } from "next-intl"
+import { useNow, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { IconChevronLeft } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
@@ -67,6 +67,9 @@ export function SessionDetail({ id }: { id: string }) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const router = useLocaleRouter()
+  // The clock the remaining-time field is measured against. See the field below
+  // for why it is the hook and not `Date.now()`.
+  const now = useNow()
 
   const { data, isPending, error } = useQuery(
     trpc.sessions.byId.queryOptions({ id })
@@ -181,9 +184,17 @@ export function SessionDetail({ id }: { id: string }) {
             </Field>
             {/* How long is left, not when it expires: the expiry timestamp is
                 absolute and a reader has to do the subtraction themselves,
-                while this is the question actually being asked. */}
+                while this is the question actually being asked.
+
+                `useNow()` rather than `Date.now()` because the lint rule against
+                impure calls during render is right about the effect: reading the
+                clock in render makes the value change whenever anything else
+                does, with nothing to explain the change. The hook returns a
+                clock that next-intl updates on its own schedule. */}
             <Field label={t("field.remaining")}>
-              {data.expired ? common("never") : formats.duration(data.expiresAt.getTime() - Date.now())}
+              {data.expired
+                ? common("never")
+                : formats.duration(data.expiresAt.getTime() - now.getTime())}
             </Field>
             <Field label={t("field.userAgent")}>
               {data.userAgent ?? common("none")}

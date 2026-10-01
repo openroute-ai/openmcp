@@ -28,6 +28,7 @@ import { Switch } from "@workspace/ui/components/switch"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { IconPencil, IconRefresh } from "@tabler/icons-react"
 import { useTRPC } from "@/lib/trpc/client"
+import { LocaleLink } from "@/i18n/navigation"
 
 /** The author fields this card and its editor work with. */
 export type AuthorRow = {
@@ -61,7 +62,22 @@ export type AuthorRow = {
  * handle and npm details have no profile field to refresh from, and a curated
  * directory can only show them if a human writes them down.
  */
-export function AuthorActions({ author }: { author: AuthorRow }) {
+export function AuthorActions({
+  author,
+  /**
+   * Called after a refresh or an edit lands.
+   *
+   * The list invalidates the whole cache on its own, because the row it cares
+   * about is one it is holding. A detail page is holding a different query —
+   * `authors.byId` rather than `authors.list` — so it passes a narrower callback
+   * instead. Left optional rather than required so the list does not have to
+   * know about pages that are not on screen.
+   */
+  onChanged,
+}: {
+  author: AuthorRow
+  onChanged?: () => void
+}) {
   const t = useTranslations("Author")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -71,6 +87,7 @@ export function AuthorActions({ author }: { author: AuthorRow }) {
       onSuccess: () => {
         toast.success(t("refreshed", { name: author.name }))
         void queryClient.invalidateQueries()
+        onChanged?.()
       },
       onError: (error) => {
         toast.error(t("refreshFailed"), { description: error.message })
@@ -91,13 +108,19 @@ export function AuthorActions({ author }: { author: AuthorRow }) {
         {refresh.isPending ? <Spinner /> : <IconRefresh />}
         <span className="sr-only">{t("refresh", { name: author.name })}</span>
       </Button>
-      <AuthorEditDialog author={author} />
+      <AuthorEditDialog author={author} onChanged={onChanged} />
     </div>
   )
 }
 
 /** Edits the fields no profile fetch can supply. */
-function AuthorEditDialog({ author }: { author: AuthorRow }) {
+function AuthorEditDialog({
+  author,
+  onChanged,
+}: {
+  author: AuthorRow
+  onChanged?: () => void
+}) {
   const t = useTranslations("Author")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -133,6 +156,7 @@ function AuthorEditDialog({ author }: { author: AuthorRow }) {
         toast.success(t("saved"))
         setOpen(false)
         void queryClient.invalidateQueries()
+        onChanged?.()
       },
       onError: (error) => {
         toast.error(t("saveFailed"), { description: error.message })
@@ -294,7 +318,7 @@ function AuthorEditDialog({ author }: { author: AuthorRow }) {
 
 /** The author card, as the project page shows it. */
 export function AuthorCard({ author }: { author: AuthorRow }) {
-  const t = useTranslations("ProjectDetail")
+  const t = useTranslations("Author")
   const a = useTranslations("Author")
 
   return (
@@ -313,18 +337,16 @@ export function AuthorCard({ author }: { author: AuthorRow }) {
       </Avatar>
       <div className="grid min-w-0 flex-1 gap-0.5 text-sm">
         <div className="flex items-center gap-1">
-          {author.github ? (
-            <a
-              className="underline underline-offset-4"
-              href={author.github}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {author.name}
-            </a>
-          ) : (
-            <span className="font-medium">{author.name}</span>
-          )}
+          {/* The name opens the author's own page: the list is a directory of
+              profiles, and the profile is what an operator came for. GitHub
+              stays reachable from there and from `AuthorLinks`, so nothing is
+              lost by making the internal target the one on the name. */}
+          <LocaleLink
+            className="font-medium underline underline-offset-4"
+            href={`/dashboard/authors/${author.username}`}
+          >
+            {author.name}
+          </LocaleLink>
           {author.verified ? (
             <Badge variant="outline">{t("verified")}</Badge>
           ) : null}

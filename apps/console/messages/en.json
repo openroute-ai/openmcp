@@ -44,7 +44,11 @@
     "toggleSidebar": "Toggle sidebar",
     "signedOut": "Signed out",
     "repos": "Repositories",
-    "myRepos": "My repositories"
+    "myRepos": "My repositories",
+    "groupInsights": "Insights",
+    "groupCatalog": "Catalog",
+    "groupOperations": "Operations",
+    "groupManagement": "Management"
   },
   "Status": {
     "pending": "Pending",
@@ -585,6 +589,8 @@
     "cancel": "Cancel",
     "save": "Save",
     "npmPackages": "{count, plural, one {# npm package} other {# npm packages}}",
+    "verified": "Verified",
+    "followers": "{count, plural, one {# follower} other {# followers}}",
     "field": {
       "name": "Name",
       "bio": "Bio",

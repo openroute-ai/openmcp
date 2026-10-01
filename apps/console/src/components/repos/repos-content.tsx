@@ -26,6 +26,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { useTRPC } from "@/lib/trpc/client"
+import { LocaleLink } from "@/i18n/navigation"
 import { useFormats } from "@/lib/i18n/format"
 import { DataPagination } from "@/components/data-pagination"
 import {
@@ -173,13 +174,24 @@ export function ReposContent() {
                 {items.map((repo) => (
                   <TableRow key={repo.id}>
                     <TableCell>
-                      <a
+                      {/* Internal first, then GitHub: the row's job on the
+                          operator console is to reach the curation record, and
+                          the GitHub link sits beside it for the repository
+                          itself. An external link as the primary target made
+                          the detail page unreachable from the list. */}
+                      <LocaleLink
                         className="font-medium underline-offset-4 hover:underline"
+                        href={`/dashboard/repos/${repo.id}`}
+                      >
+                        {repo.fullName}
+                      </LocaleLink>
+                      <a
+                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                         href={repo.repoUrl}
                         target="_blank"
                         rel="noreferrer"
                       >
-                        {repo.fullName}
+                        GitHub
                       </a>
                       {repo.description ? (
                         <span className="block max-w-80 truncate text-xs text-muted-foreground">
