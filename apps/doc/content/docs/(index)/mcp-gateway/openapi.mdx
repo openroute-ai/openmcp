@@ -1,0 +1,238 @@
+---
+title: "通过 OpenAPI 规范使用 MCP"
+description: "OpenMCP 可以将任何 OpenAPI/Swagger 规范转换为 MCP 服务端，无需编写自定义 MCP 服务端代码。"
+---
+
+OpenMCP 可以将任何 OpenAPI/Swagger 规范转换为 MCP 服务端，无需编写自定义 MCP 服务端代码。
+
+## 第 1 步：添加 MCP 服务端
+
+在 `config.yaml` 中添加您的基于 OpenAPI 的服务端：
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  petstore_mcp:
+    url: "https://petstore.swagger.io/v2"
+    spec_path: "/path/to/openapi.json"
+    auth_type: "none"
+
+  my_api_mcp:
+    url: "http://0.0.0.0:8090"
+    spec_path: "/path/to/openapi.json"
+    auth_type: "api_key"
+    auth_value: "your-api-key-here"
+
+  secured_api_mcp:
+    url: "https://api.example.com"
+    spec_path: "/path/to/openapi.json"
+    auth_type: "bearer_token"
+    auth_value: "your-bearer-token"
+```
+
+或者通过 UI：进入 **MCP Servers → Add New MCP Server**，填写 URL 和 spec 路径，OpenMCP 将获取该规范并把所有端点加载为工具。
+
+**配置参数：**
+
+| 参数 | 是否必填 | 说明 |
+|-----------|----------|-------------|
+| `url` | 是 | 您 API 的基础 URL |
+| `spec_path` | 是 | OpenAPI 规范的路径或 URL（JSON 或 YAML） |
+| `auth_type` | 否 | `none`、`api_key`、`bearer_token`、`basic`、`authorization`、`oauth2` |
+| `auth_value` | 否 | 认证值（若设置了 `auth_type` 则为必填） |
+| `description` | 否 | 可选描述 |
+| `allowed_tools` | 否 | 特定工具的白名单 |
+| `disallowed_tools` | 否 | 特定工具的黑名单 |
+
+**支持的规范版本：** OpenAPI 3.0.x、3.1.x、Swagger 2.0。每个操作的 `operationId` 会作为工具名称，因此请确保它们唯一。
+
+## 内部规范 URL（SSRF）
+
+当 `spec_path` 是 `http://` 或 `https://` URL 时，OpenMCP 代理默认开启 **SSRF 防护**进行获取：系统会解析主机名，如果任何解析出的地址不是全局可路由的（例如 `10.x`、`192.168.x`、`127.0.0.1`），请求将被**拒绝**，除非您将 **URL 中的主机名**（而非解析出的 IP）加入白名单。
+
+典型情况：
+
+- 规范 URL 使用 `https://api.example.com/...`，但您网络内部的 DNS 返回的是私有 IP。请将 `api.example.com` 加入白名单（如果固定端口，则加入 `api.example.com:443`）。
+- 规范 URL 为 `http://127.0.0.1:8080/openapi.json`。请将 `127.0.0.1` 或 `127.0.0.1:8080` 加入白名单。
+
+在代理 `config.yaml` 的 **`openmcp_settings`** 下配置（此配置**不会**从 `general_settings` 读取）：
+
+```yaml title="config.yaml" showLineNumbers
+openmcp_settings:
+  user_url_validation: true # default; set false only if you fully trust URL sources
+  user_url_allowed_hosts:
+    - "api.example.com"
+    - "127.0.0.1"
+    - "127.0.0.1:8080"
+```
+
+有关这些字段的完整参考，请参阅配置设置：`openmcp_settings`。
+
+工具加载完成后，您会在 Tool Configuration 部分看到它们：
+
+<img src="/images/docs/mcp-gateway/mcp_openapi_tools_loaded.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+<br/>
+
+## 第 2 步：可选地覆盖工具名称和描述
+
+默认情况下，工具名称和描述来自规范中的 `operationId` 和 description 字段。您可以重命名或重写它们，让 MCP 客户端看到更整洁的名称，而无需修改上游规范。
+
+### 通过 UI
+
+每个工具卡片都有一个铅笔图标。点击它即可打开内联编辑器：
+
+<img src="/images/docs/mcp-gateway/mcp_openapi_tool_edit_panel.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+<br/>
+
+- **Display Name** —— 覆盖 MCP 客户端看到的名称
+- **Description** —— 覆盖 MCP 客户端看到的描述
+- 留空字段以保留规范中的原始内容
+
+设置覆盖后，工具卡片上会出现一个紫色的 **Custom name** 徽章：
+
+<img src="/images/docs/mcp-gateway/mcp_openapi_custom_name_badge.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+<br/>
+
+### 通过 API
+
+在创建或更新请求中传入 `tool_name_to_display_name` 和 `tool_name_to_description`：
+
+```bash title="Create server with tool name overrides" showLineNumbers
+curl -X POST http://localhost:4000/v1/mcp/server \
+  -H "Authorization: Bearer $OPENMCP_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "petstore_mcp",
+    "url": "https://petstore.swagger.io/v2",
+    "spec_path": "/path/to/openapi.json",
+    "tool_name_to_display_name": {
+      "getPetById": "Get Pet",
+      "findPetsByStatus": "List Available Pets"
+    },
+    "tool_name_to_description": {
+      "getPetById": "Look up a pet by its ID",
+      "findPetsByStatus": "Returns all pets matching a given status (available, pending, sold)"
+    }
+  }'
+```
+
+```bash title="Update overrides on an existing server" showLineNumbers
+curl -X PUT http://localhost:4000/v1/mcp/server/{server_id} \
+  -H "Authorization: Bearer $OPENMCP_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name_to_display_name": {
+      "getPetById": "Get Pet"
+    },
+    "tool_name_to_description": {
+      "getPetById": "Look up a pet by its ID"
+    }
+  }'
+```
+
+映射的键是规范中**原始的 `operationId`**，而不是带前缀的工具名称。OpenMCP 会在查找之前去掉服务端前缀。
+
+例如，如果您的服务端是 `petstore_mcp`，工具以 `petstore_mcp-getPetById` 的形式暴露。映射键仍然是 `getPetById`。
+
+**修改前后对比：**
+
+```
+# Without overrides
+Tool: "petstore_mcp-getPetById"
+Description: "Returns a single pet"
+
+Tool: "petstore_mcp-findPetsByStatus"
+Description: "Finds Pets by status"
+
+# After overrides
+Tool: "Get Pet"
+Description: "Look up a pet by its ID"
+
+Tool: "List Available Pets"
+Description: "Returns all pets matching a given status (available, pending, sold)"
+```
+
+## 使用该服务端
+
+<Tabs items={["Python FastMCP","Cursor IDE","OpenAI Responses API"]}>
+<Tab>
+
+```python title="Using OpenAPI-based MCP Server" showLineNumbers
+from fastmcp import Client
+import asyncio
+
+config = {
+    "mcpServers": {
+        "petstore": {
+            "url": "http://localhost:4000/petstore_mcp/mcp",
+            "headers": {
+                "x-openmcp-api-key": "Bearer sk-1234"
+            }
+        }
+    }
+}
+
+client = Client(config)
+
+async def main():
+    async with client:
+        tools = await client.list_tools()
+        print(f"Available tools: {[tool.name for tool in tools]}")
+
+        response = await client.call_tool(
+            name="Get Pet",        # overridden name
+            arguments={"petId": "1"}
+        )
+        print(f"Response: {response}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</Tab>
+
+<Tab>
+
+```json title="Cursor MCP Configuration" showLineNumbers
+{
+  "mcpServers": {
+    "Petstore": {
+      "url": "http://localhost:4000/petstore_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```bash title="Using OpenAPI MCP Server with OpenAI" showLineNumbers
+curl --location 'https://api.openai.com/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer $OPENAI_API_KEY" \
+--data '{
+    "model": "{{openai_large}}",
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "petstore",
+            "server_url": "http://localhost:4000/petstore_mcp/mcp",
+            "require_approval": "never",
+            "headers": {
+                "x-openmcp-api-key": "Bearer YOUR_OPENMCP_API_KEY"
+            }
+        }
+    ],
+    "input": "Find all available pets",
+    "tool_choice": "required"
+}'
+```
+
+</Tab>
+</Tabs>

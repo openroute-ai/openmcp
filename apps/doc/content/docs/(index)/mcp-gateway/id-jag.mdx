@@ -1,0 +1,257 @@
+---
+title: "MCP ID-JAG 认证（Okta）"
+description: "ID-JAG（Identity Assertion Authorization Grant，draft-ietf-oauth-identity-assertion-authz-grant）让 OpenMCP 能为这样一个 MCP 服务端获取访问令牌：其授权服务器与用户的..."
+---
+
+ID-JAG（Identity Assertion Authorization Grant，[draft-ietf-oauth-identity-assertion-authz-grant](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/)）让 OpenMCP 能为这样一个 MCP 服务端获取访问令牌：该服务端的授权服务器与用户的身份提供商不同。Okta 将其作为 [AI agent token exchange](https://developer.okta.com/docs/guides/ai-agent-token-exchange/-/main/) 提供。
+
+在以下场景中应使用 ID-JAG：
+
+- 该 MCP 服务端信任一个与认证用户所在组织（org）的授权服务器相独立的资源授权服务器（例如 Okta 自定义授权服务器）。
+- 你希望由身份提供商的管理策略（而不是交互式同意屏幕）来决定网关是否可以在用户授权下行调用 MCP。这正是它适用于无头（headless）智能体的原因。
+- 你希望网关收到的访问按用户限定范围（user scoped）、可审计，并且可以从身份提供商撤销。
+
+ID-JAG 与 [OBO token exchange](./mcp_obo_auth) 不同：OBO 是针对一个授权服务器的单次 RFC 8693 交换，而 ID-JAG 是跨越两个授权服务器的两段（two legs）交换。
+
+## 工作原理
+
+```mermaid
+flowchart TD
+    A[User signs in and the client gets an Okta id_token] --> B[Client calls OpenMCP with the id_token]
+    B --> C{MCP server auth_type is oauth2_id_jag?}
+    C -- No --> D[Use the server's configured auth flow]
+    C -- Yes --> E[Leg 1: OpenMCP POSTs an RFC 8693 token exchange to the org authorization server, requested_token_type=id-jag]
+    E --> F[Org authorization server applies admin policy and returns a signed ID-JAG assertion]
+    F --> G[Leg 2: OpenMCP POSTs an RFC 7523 jwt-bearer grant with the ID-JAG to the resource authorization server]
+    G --> H[Resource authorization server validates the ID-JAG and returns an access token]
+    H --> I[OpenMCP caches the access token per subject token and MCP server]
+    I --> J[OpenMCP calls the MCP server with the access token]
+    J --> K[MCP server executes the tool and returns the result]
+```
+
+简而言之：
+
+1. 客户端携带用户的 `id_token` 向 OpenMCP 发送请求。
+2. OpenMCP 将该 `id_token` 作为 RFC 8693 的 `subject_token`，在组织授权服务器（`token_exchange_endpoint`）上交换为 ID-JAG 断言。
+3. OpenMCP 通过 RFC 7523 `jwt-bearer` 授权向资源授权服务器（`id_jag_resource_token_endpoint`）出示 ID-JAG，并获得 MCP 访问令牌。
+4. OpenMCP 只将访问令牌转发给 MCP 服务端。
+5. OpenMCP 会缓存访问令牌直到过期，因此同一用户的重复调用可以避免两次授权服务器的往返。
+
+OpenMCP 使用私钥 JWT `client_assertion`（RFC 7523）向两个授权服务器进行认证，这也是 Okta 所要求的。当未配置私钥时，它会回退到 `client_secret`。
+
+## 设置 Okta
+
+ID-JAG 需要 **Okta for AI Agents** 订阅。大致流程如下：
+
+1. 将 OpenMCP 网关注册为 OAuth 应用（智能体）。将其配置为使用 `private_key_jwt` 客户端认证，并将公钥作为 JWKS 上传，同时为 OpenMCP 保留匹配的私钥。记下 `kid`。
+2. 确认组织授权服务器的令牌端点，`https://<your-org>.okta.com/oauth2/v1/token`。这是第 1 段的 `token_exchange_endpoint`。
+3. 设置 MCP 所信任的资源（自定义）授权服务器，其令牌端点为 `https://<your-org>.okta.com/oauth2/<custom-as-id>/v1/token`。这是第 2 段的 `id_jag_resource_token_endpoint`。其 issuer 标识符是第 1 段的 `audience`。
+4. 配置跨应用访问策略，授权网关应用为资源获取 ID-JAG，包括其可申请的 scope。
+
+请参阅 Okta 的 [AI agent token exchange 指南](https://developer.okta.com/docs/guides/ai-agent-token-exchange/-/main/)，了解逐步点击的设置方法。
+
+## 为 ID-JAG 配置 MCP 服务端
+
+在 MCP 服务端上设置 `auth_type: oauth2_id_jag`。
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  internal_tools:
+    url: "https://mcp.example.com/mcp"
+    transport: "http"
+    auth_type: oauth2_id_jag
+
+    # Org authorization server token endpoint (leg 1: token exchange -> ID-JAG)
+    token_exchange_endpoint: "https://your-org.okta.com/oauth2/v1/token"
+
+    # Resource (custom) authorization server token endpoint (leg 2: jwt-bearer -> access token)
+    id_jag_resource_token_endpoint: "https://your-org.okta.com/oauth2/<custom-as-id>/v1/token"
+
+    # Gateway app registered with Okta
+    client_id: "<okta-agent-client-id>"
+
+    # Private-key-JWT client authentication (RFC 7523). Okta requires this.
+    client_private_key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+      -----END PRIVATE KEY-----
+    client_private_key_id: "<jwks-kid>"
+    client_assertion_signing_alg: "RS256"
+
+    # Resource authorization server identifier; sent as the leg-1 audience
+    audience: "https://your-org.okta.com/oauth2/<custom-as-id>"
+
+    # Optional RFC 8707 resource indicator for leg 1
+    id_jag_resource: "https://mcp.example.com/"
+
+    # Optional scopes requested for the access token
+    scopes:
+      - "mcp.tools.read"
+      - "mcp.tools.execute"
+```
+
+### 配置字段
+
+| 字段 | 是否必填 | 说明 |
+|-------|----------|-------------|
+| `auth_type` | 是 | 必须为 `oauth2_id_jag`。 |
+| `token_exchange_endpoint` | 是 | 第 1 段（RFC 8693 令牌交换）的组织授权服务器令牌端点。 |
+| `id_jag_resource_token_endpoint` | 是 | 第 2 段（RFC 7523 jwt-bearer 授权）的资源授权服务器令牌端点。 |
+| `client_id` | 是 | 网关应用在授权服务器处的 OAuth 客户端标识符。 |
+| `client_private_key` | 推荐 | OpenMCP 用于签署 `client_assertion` 的 PEM 私钥。Okta 必需。 |
+| `client_private_key_id` | 可选 | 在 `client_assertion` JWT 请求头中以 `kid` 公布的密钥 ID。 |
+| `client_assertion_signing_alg` | 可选 | `client_assertion` 的签名算法。默认为 `RS256`。 |
+| `client_secret` | 可选 | 仅当未设置 `client_private_key` 时作为回退使用。 |
+| `audience` | 推荐 | 资源授权服务器标识符。OpenMCP 将其作为第 1 段的 `audience` 发送。 |
+| `id_jag_resource` | 可选 | 第 1 段发送的 RFC 8707 资源指示符。 |
+| `scopes` | 可选 | OpenMCP 申请的 scope。合并到 OAuth `scope` 参数中。 |
+| `subject_token_type` | 可选 | 第 1 段的 subject 令牌类型。ID-JAG 默认为 `urn:ietf:params:oauth:token-type:id_token`。 |
+
+## 两段交换
+
+### 第 1 段：为获取 ID-JAG 进行令牌交换
+
+对于每个未缓存的 subject 令牌与 MCP 服务端组合，OpenMCP 向 `token_exchange_endpoint` 发送一个 RFC 8693 令牌交换请求：
+
+```http
+POST /oauth2/v1/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange
+&requested_token_type=urn:ietf:params:oauth:token-type:id-jag
+&subject_token=<user-id-token>
+&subject_token_type=urn:ietf:params:oauth:token-type:id_token
+&audience=https://your-org.okta.com/oauth2/<custom-as-id>
+&resource=https://mcp.example.com/
+&scope=mcp.tools.read mcp.tools.execute
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<signed-jwt>
+```
+
+组织授权服务器应用其管理策略并返回 ID-JAG 断言：
+
+```json
+{
+  "issued_token_type": "urn:ietf:params:oauth:token-type:id-jag",
+  "access_token": "<id-jag-jwt>",
+  "token_type": "N_A",
+  "expires_in": 300
+}
+```
+
+ID-JAG 是一个签名 JWT，其 `typ` 为 `oauth-id-jag+jwt`，`aud` 是资源授权服务器。
+
+### 第 2 段：以 jwt-bearer 获取访问令牌
+
+OpenMCP 使用 RFC 7523 授权向 `id_jag_resource_token_endpoint` 出示 ID-JAG：
+
+```http
+POST /oauth2/<custom-as-id>/v1/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+&assertion=<id-jag-jwt>
+&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+&client_assertion=<signed-jwt>
+```
+
+资源授权服务器验证 ID-JAG 并返回访问令牌：
+
+```json
+{
+  "access_token": "access-token-for-mcp-server",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+随后 OpenMCP 使用以下方式调用 MCP 服务端：
+
+```http
+Authorization: Bearer access-token-for-mcp-server
+```
+
+## 调用 ID-JAG MCP 服务端
+
+第 1 段需要一个身份令牌来进行断言（assert）。OpenMCP 会从两个位置之一获取它。如果请求在 `Authorization` 中携带用户的 `id_token`，则该令牌即为 subject。否则，OpenMCP 使用在用户通过 OpenMCP SSO 登录时为其捕获的身份断言，这可以让仅持有 OpenMCP 虚拟密钥的智能体以该密钥所属用户的身份访问 MCP 服务端。用户始终是虚拟密钥解析到的那一方；没有任何请求字段可以选择上游断言的是谁的身份。
+
+自行发送 `id_token` 时，请将 OpenMCP 密钥放在 `x-openmcp-api-key` 中，并为用户令牌保留 `Authorization`：
+
+```bash title="Direct MCP call" showLineNumbers
+curl -X POST "https://openmcp.example.com/internal_tools/mcp" \
+  -H "Content-Type: application/json" \
+  -H "x-openmcp-api-key: Bearer <openmcp-api-key>" \
+  -H "Authorization: Bearer <user-okta-id-token>" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+<Callout type="info">
+
+如果 MCP 客户端只能发送一个 `Authorization` 请求头，请使用 `x-openmcp-api-key` 携带 OpenMCP 密钥，并为用户的 `id_token` 保留 `Authorization`。OpenMCP 需要 `id_token` 作为第 1 段的 `subject_token`。
+
+</Callout>
+
+### 仅凭虚拟密钥使用存储来源的 subject
+
+如果不带 `Authorization` 请求头，对于任何至少登录过一次 OpenMCP SSO 且断言尚未过期的用户，同样的调用都能正常工作：
+
+```bash title="Virtual key only" showLineNumbers
+curl -X POST "https://openmcp.example.com/internal_tools/mcp" \
+  -H "Content-Type: application/json" \
+  -H "x-openmcp-api-key: Bearer <openmcp-api-key>" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+断言读取按进程缓存，缓存时长为 `MCP_SSO_ASSERTION_CACHE_TTL_SECONDS`（默认 60），因此一个 pod 上的新 SSO 登录会在一个 TTL 内对其他 pod 可见。
+
+## 连接时的凭证错误
+
+在 `/internal_tools/mcp` 或 `/mcp/internal_tools` 这样的单服务端路由上，OpenMCP 在打开 MCP 会话之前解析 ID-JAG 凭证，因此失败会以客户端可以处理的 HTTP 状态码返回，而不是表现为一个看似没有工具的会话。这适用于存储来源的流程（无 `Authorization` 请求头），这正是下面这些失败在任何授权服务器被调用之前就确定的情形。
+
+| 状态码 | 含义 | 修复方法 |
+|--------|---------|---------------|
+| `412 Precondition Failed` | 该用户没有存储任何身份断言，或存储的断言已过期。响应体会指明是哪一种。 | 用户通过 OpenMCP SSO 登录，以便网关捕获当前的断言。 |
+| `503 Service Unavailable` | 断言存储（OpenMCP 数据库）不可达。 | 用户端无需处理；检查数据库连接。 |
+
+412 是一个带 JSON 响应体的普通状态码，不是 OAuth 质询（challenge）。没有 `WWW-Authenticate` 请求头，因为客户端无法通过获取授权服务器元数据并重试来解决它；只有通过 OpenMCP SSO 登录才能修复。
+
+```bash
+$ curl -s -i -X POST https://openmcp.example.com/mcp/internal_tools \
+    -H "x-openmcp-api-key: Bearer <openmcp-api-key>" \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+HTTP/1.1 412 Precondition Failed
+content-type: application/json
+
+{"detail":"precondition required: ID-JAG requires an IdP identity assertion for this user and none is stored. Sign in through OpenMCP SSO so the gateway captures one."}
+```
+
+同一路由上的 `tools/call` 会返回相同的 412，而不是报告工具不存在。
+
+在一次同时服务多个服务端的聚合 `/mcp` 路由上，一个服务端的凭证失败不能导致整个连接失败，因此它会按服务端报告。`tools/list` 成功，失败的服务端不贡献任何工具，原因会出现在响应的 `_meta` 中：
+
+```json
+{"_meta":{"openmcp.ai/server_outcomes":{"internal_tools":{"status":"internal","http_status":412}}},"tools":[]}
+```
+
+如果你看到这种形态并希望直接获取状态码和消息，请在单服务端路由上调用该服务端。
+
+已知限制：当请求携带 `Authorization` bearer 时，`tools/list` 目前仍从存储的断言解析 subject，而 `tools/call` 使用 bearer。因此，持有有效 `id_token` 但没有存储断言的调用者会得到带有上述 `_meta` 412 的空列表，而不是连接时的状态码，并且该请求不会运行预检，因此它无法拒绝一个工具调用本来会接受的凭证。通过 OpenMCP SSO 登录一次即可消除这种不一致。
+
+## 缓存行为
+
+OpenMCP 按 subject 令牌和 MCP 服务端 ID 缓存第 2 段的访问令牌，因此两个不同的用户会获得不同的令牌，而同一用户对同一 MCP 服务端的重复调用会复用缓存令牌直到过期。缓存 TTL 基于第 2 段的 `expires_in` 减去 OpenMCP 的 OAuth 过期缓冲。如果 `expires_in` 缺失或无效，OpenMCP 使用默认的 OAuth 令牌缓存 TTL。
+
+## 故障排查
+
+| 症状 | 检查项 |
+|---------|-------|
+| MCP 服务端收到了 OpenMCP 密钥 | 将 OpenMCP 密钥移到 `x-openmcp-api-key`，并为用户的 `id_token` 使用 `Authorization`。 |
+| 连接时 `412 Precondition Failed` | 该用户没有存储的 SSO 断言，或断言已过期。让用户通过 OpenMCP SSO 登录，然后重试。请参阅[连接时的凭证错误](#credential-errors-at-connect-time)。 |
+| 连接时 `503 Service Unavailable` | 断言存储不可达。检查 OpenMCP 数据库连接。 |
+| `tools/list` 返回空工具列表且 `_meta` 显示 `http_status: 412` | 你正在聚合 `/mcp` 路由上。调用单服务端路由以直接获取状态码和消息。 |
+| 第 1 段返回 400 或 403 | 确认跨应用访问策略授权网关应用访问资源和 scope，并确认 `audience` 与资源授权服务器标识符匹配。 |
+| 第 1 段返回 401 | 确认 `client_id`、`client_private_key` 和 `client_private_key_id` 与网关应用注册的 JWKS 匹配。 |
+| 第 2 段拒绝断言 | 确认 `id_jag_resource_token_endpoint` 指向信任组织授权服务器的资源授权服务器，并确认其时钟与 ID-JAG 的 `exp` 一致。 |
+| 每次请求都会调用授权服务器 | 确认第 2 段返回 `expires_in`，并确认复用相同的用户 `id_token` 和 MCP 服务端。 |

@@ -1,11 +1,13 @@
-import { createMDX } from 'fumadocs-mdx/next';
-
-const withMDX = createMDX();
-
 /** @type {import('next').NextConfig} */
 const config = {
-  serverExternalPackages: ['@takumi-rs/image-response'],
+  serverExternalPackages: [
+    "@takumi-rs/image-response",
+    "@takumi-rs/core",
+    "takumi-js",
+    "@fumadocs/local-md",
+    "@mdx-js/mdx",
+  ],
   reactStrictMode: true,
 };
 
-export default withMDX(config);
+export default config;

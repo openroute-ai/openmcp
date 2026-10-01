@@ -1,0 +1,275 @@
+---
+title: "EnkryptAI Guardrails"
+description: "OpenMCP 支持 EnkryptAI 护栏，用于对 LLM 输入和输出进行内容审核和安全检查。"
+---
+
+OpenMCP 支持 EnkryptAI 护栏，用于对 LLM 输入和输出进行内容审核和安全检查。
+
+## 快速开始
+
+### 1. 在 OpenMCP config.yaml 中定义护栏
+
+在 `guardrails` 部分定义你的护栏：
+
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "enkryptai-guard"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "pre_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      detectors:
+        toxicity:
+          enabled: true
+        nsfw:
+          enabled: true
+        pii:
+          enabled: true
+          entities: ["email", "phone", "secrets"]
+        injection_attack:
+          enabled: true
+```
+
+#### `mode` 支持的取值
+
+- `pre_call` - 在调用 **LLM 之前** 运行，作用于**输入**
+- `post_call` - 在调用 **LLM 之后** 运行，作用于**输出**
+- `during_call` - 在调用 **LLM 期间** 运行，作用于**输入**。与 `pre_call` 相同，但与 LLM 调用并行运行
+
+#### 可用的检测器
+
+EnkryptAI 支持多种内容检测类型：
+
+- **toxicity** - 检测有毒言论
+- **nsfw** - 检测 NSFW（不宜在工作场合观看）内容
+- **pii** - 检测个人身份信息
+  - 可配置的实体：`["pii", "email", "phone", "secrets", "ip_address", "url"]`
+- **injection_attack** - 检测提示词注入尝试
+- **keyword_detector** - 检测自定义关键词/短语
+- **policy_violation** - 检测策略违规
+- **bias** - 检测偏见内容
+- **sponge_attack** - 检测 sponge 攻击
+
+### 2. 设置环境变量
+
+```bash
+export ENKRYPTAI_API_KEY="your-api-key"
+```
+
+### 3. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 4. 测试请求
+
+**[Langchain、OpenAI SDK 使用示例](/docs/proxy/user_keys#request-format)**
+
+<Tabs items={["Successful Call","Unsuccessful Call"]}>
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Hello, how can you help me today?"}
+    ],
+    "guardrails": ["enkryptai-guard"]
+  }'
+```
+
+**响应：HTTP 200 成功**
+
+内容通过所有检测器检查并被放行。
+
+</Tab>
+
+<Tab>
+
+如果内容违反检测器策略，此请求预期会失败：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "My email is test@example.com and my SSN is 123-45-6789"}
+    ],
+    "guardrails": ["enkryptai-guard"]
+  }'
+```
+
+**失败时的预期响应：HTTP 400 错误**
+
+```json
+{
+  "error": {
+    "message": {
+      "error": "Content blocked by EnkryptAI guardrail",
+      "detected": true,
+      "violations": ["pii"],
+      "response": {
+        "summary": {
+          "pii": 1
+        },
+        "details": {
+          "pii": {
+            "detected": ["email", "ssn"]
+          }
+        }
+      }
+    },
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## 视频演示
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/ff222211e0864937aee4aeef0f28c3b7" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+## 高级配置
+
+### 使用自定义策略
+
+你可以指定自定义的 EnkryptAI 策略：
+
+```yaml
+guardrails:
+  - guardrail_name: "enkryptai-custom"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "pre_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      policy_name: "my-custom-policy"  # Sent via x-enkrypt-policy header
+      detectors:
+        toxicity:
+          enabled: true
+```
+
+### 使用部署
+
+指定一个 EnkryptAI 部署：
+
+```yaml
+guardrails:
+  - guardrail_name: "enkryptai-deployment"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "pre_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      deployment_name: "production"  # Sent via X-Enkrypt-Deployment header
+      detectors:
+        toxicity:
+          enabled: true
+```
+
+### 监控模式（只记录日志，不拦截）
+
+设置 `block_on_violation: false` 以只记录违规而不拦截请求：
+
+```yaml
+guardrails:
+  - guardrail_name: "enkryptai-monitor"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "pre_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      block_on_violation: false  # Log violations but don't block
+      detectors:
+        toxicity:
+          enabled: true
+        nsfw:
+          enabled: true
+```
+
+在监控模式下，所有违规都会被记录，但请求永远不会被拦截。
+
+### 输入和输出护栏
+
+为输入和输出配置独立的护栏：
+
+```yaml
+guardrails:
+  # Input guardrail
+  - guardrail_name: "enkryptai-input"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "pre_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      detectors:
+        pii:
+          enabled: true
+          entities: ["email", "phone", "ssn"]
+        injection_attack:
+          enabled: true
+
+  # Output guardrail
+  - guardrail_name: "enkryptai-output"
+    openmcp_params:
+      guardrail: enkryptai
+      mode: "post_call"
+      api_key: os.environ/ENKRYPTAI_API_KEY
+      detectors:
+        toxicity:
+          enabled: true
+        nsfw:
+          enabled: true
+```
+
+## 配置选项
+
+| 参数 | 类型 | 描述 | 默认值 |
+|-----------|------|-------------|---------|
+| `api_key` | string | EnkryptAI API 密钥 | `ENKRYPTAI_API_KEY` 环境变量 |
+| `api_base` | string | EnkryptAI API 基础 URL | `https://api.enkryptai.com` |
+| `policy_name` | string | 自定义策略名称（通过 `x-enkrypt-policy` 请求头发送） | None |
+| `deployment_name` | string | 部署名称（通过 `X-Enkrypt-Deployment` 请求头发送） | None |
+| `detectors` | object | 检测器配置 | `{}` |
+| `block_on_violation` | boolean | 发生违规时是否拦截请求 | `true` |
+| `mode` | string | 运行时机：`pre_call`、`post_call` 或 `during_call` | 必填 |
+
+## 可观测性
+
+EnkryptAI 护栏日志包括：
+
+- **guardrail_status**: `success`、`guardrail_intervened` 或 `guardrail_failed_to_respond`
+- **guardrail_provider**: `enkryptai`
+- **guardrail_json_response**: 包含检测详情的完整 API 响应
+- **duration**: 护栏检查所花费的时间
+- **start_time** 和 **end_time**: 时间戳
+
+这些日志可以通过你配置的 OpenMCP 日志回调获取。
+
+## 错误处理
+
+该护栏会优雅地处理错误：
+
+- **API 失败**：记录错误并抛出异常
+- **速率限制（429）**：记录错误并抛出异常
+- **无效配置**：在初始化时抛出 `ValueError`
+
+设置 `block_on_violation: false`，即使检测到违规也继续处理（监控模式）。
+
+## 支持
+
+有关 EnkryptAI 的更多信息：
+- 文档: [https://docs.enkryptai.com](https://docs.enkryptai.com)
+- 网站: [https://enkryptai.com](https://enkryptai.com)

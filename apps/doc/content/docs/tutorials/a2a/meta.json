@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "1-introduction",
+    "2-setup",
+    "3-agent-skills-and-card",
+    "4-agent-executor",
+    "5-start-server",
+    "6-interact-with-server",
+    "7-streaming-and-multiturn",
+    "8-next-steps"
+  ]
+}

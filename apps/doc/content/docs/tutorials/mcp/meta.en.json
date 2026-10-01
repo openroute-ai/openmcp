@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "build-client",
+    "build-server",
+    "build-with-agent-skills",
+    "connect-local-servers",
+    "connect-remote-servers"
+  ]
+}

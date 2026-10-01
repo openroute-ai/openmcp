@@ -1,0 +1,142 @@
+---
+title: "基于标签的策略附件"
+description: "将护栏策略自动应用于具有特定标签的任何密钥或团队。不必逐个附加策略，而是给你的密钥打上标签，让策略引擎处理其余的工作..."
+---
+
+将护栏策略自动应用于具有特定标签的任何密钥或团队。不必逐个附加策略，而是给你的密钥打上标签，让策略引擎处理其余的工作。
+
+**示例：**你的安全团队要求所有与医疗相关的密钥都运行 PII 掩码和 PHI 检测。给这些密钥打上 `health` 标签，创建单个基于标签的附件，每个匹配的密钥都会自动获得护栏。
+
+## 1. 创建带护栏的策略
+
+在左侧边栏中导航到 **Policies**。你会看到现有策略的列表以及它们的护栏。
+
+![Policies list page showing existing policies and the + Add New Policy button](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/d7aa1e1f-011e-40bf-a356-6dfe9d5d54f1/ascreenshot_8db95c231a7f4a79a36c2a98ba127542_text_export.jpeg)
+
+点击 **+ Add New Policy**。在弹窗中，为你的策略输入名称（例如 `high-risk-policy2`）。如果你想要引用现有策略名称，也可以输入搜索。
+
+![Create New Policy modal, enter the policy name and optional description](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/18f1ff69-9b83-4a98-9aad-9892a104d3ff/ascreenshot_1c6b85231cad4ec695750b53bbbda52c_text_export.jpeg)
+
+向下滚动到 **Guardrails to Add**。点击下拉菜单查看你的代理上配置的所有可用护栏，然后选择此策略应执行的护栏。
+
+![Guardrails to Add dropdown showing available guardrails like OAI-moderation, phi-pre-guard, pii-pre-guard](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/55cedad7-9939-44a1-8644-a184cde82ab7/ascreenshot_eab4e55b82b8411893eccb6234d60b82_text_export.jpeg)
+
+选择护栏后，它们会作为标签章出现在输入字段中。下方的 **Resolved Guardrails** 部分显示最终将被应用的一组（包括从父策略继承的任何护栏）。
+
+![Selected guardrails shown as chips: testing-pl, phi-pre-guard, pii-pre-guard. Resolved Guardrails preview below.](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/c06d5b08-1c85-4715-b827-3e6864880428/ascreenshot_7a082e55f3ad425f9009346c68afae23_text_export.jpeg)
+
+点击 **Create Policy** 保存。
+
+![Click Create Policy to save the new policy](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/7e6eae64-4bba-4d72-b226-d1308ac576a8/ascreenshot_22d0ed686c594221bbbd2f40df214d75_text_export.jpeg)
+
+## 2. 为策略添加标签附件
+
+创建策略后，切换到 **Attachments** 标签页。这就是你定义策略*应用于何处*的地方。
+
+![Switch to the Attachments tab, showing the attachment table and scope documentation](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/871ae6d9-16d1-44e2-baf2-7bb8a9e72087/ascreenshot_76e124619d70462ea0e2fbb46ded1ac9_text_export.jpeg)
+
+点击 **+ Add New Attachment**。Attachments 页面解释了可用的范围：Global、Teams、Keys、Models 和 **Tags**。
+
+![Attachments page showing scope types including Tags, click + Add New Attachment](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/d45ab8bc-fc1e-425b-8a3f-44d18df810ec/ascreenshot_425824030f3144b7ab3c0ac570349b00_text_export.jpeg)
+
+在 **Create Policy Attachment** 弹窗中，首先从下拉菜单选择你刚刚创建的策略。
+
+![Select the policy to attach from the dropdown (e.g., high-risk-policy2)](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/e0dcac40-e39c-4a6a-9d9c-4bbb9ec0ee91/ascreenshot_445b19894e0b466196a13e20c8e67f2d_text_export.jpeg)
+
+选择 **Specific (teams, keys, models, or tags)** 作为范围类型。这会展开表单以显示 Teams、Keys、Models 和 Tags 字段。
+
+![Select "Specific" scope type to reveal the Tags field](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/f685e02a-e22e-4c6c-9742-d5268746214b/ascreenshot_14d63d9d06dd4fc7854cfeb5e8d9ef85_text_export.jpeg)
+
+向下滚动到 **Tags** 字段，输入要匹配的标签；这里我们输入 `health`。你可以输入任何字符串，或使用诸如 `health-*` 之类的通配符模式来匹配所有以 `health-` 开头的标签（例如 `health-team`、`health-dev`）。
+
+![Tags field with "health" entered. Supports wildcards like prod-* matching prod-us, prod-eu.](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/14581df7-732c-4ea5-b36d-58270b00e92c/ascreenshot_e734c81418f046549b61a84b9d352a29_text_export.jpeg)
+
+## 3. 检查附件的影响
+
+在创建附件之前，点击 **Estimate Impact** 预览会影响到多少密钥和团队。这是你的爆炸半径检查：在应用之前确保范围符合你的预期。
+
+![Click Estimate Impact, with the tag "health" entered and ready to preview](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/6ccb81d7-3d11-48b0-b634-fc4d738aa530/ascreenshot_2eb89e6ff13a4b12b61004660a36c30c_text_export.jpeg)
+
+**Impact Preview** 会内联显示，精确展示会影响到多少密钥和团队。在此示例中："This attachment would affect **1 key** and **0 teams**"，并列出密钥别名 `hi`。
+
+![Impact Preview showing "This attachment would affect 1 key and 0 teams." Keys: hi](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/8834d85a-2c15-48dd-8d6b-810cf11ee5c4/ascreenshot_d814b42ca9f34c23b0c2269bfa3e64fb_text_export.jpeg)
+
+一旦你对影响满意，点击 **Create Attachment** 保存。
+
+![Click Create Attachment to finalize](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/4a8918f2-eedb-4f49-a53b-4e46d0387d2a/ascreenshot_b08d490d836d4f46b4e5cbb14f61377a_text_export.jpeg)
+
+现在附件会出现在表格中，并带有策略名称 `high-risk-policy2` 和可见的标签 `health`。
+
+![Attachments table showing the new attachment with policy high-risk-policy2 and tag "health"](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/45867887-0aec-44a4-963b-b6cc6c302e3e/ascreenshot_981caeff98574ec89a8a53cd295e5043_text_export.jpeg)
+
+## 4. 创建带标签的密钥
+
+在左侧边栏中导航到 **Virtual Keys**。点击 **+ Create New Key**。
+
+![Virtual Keys page showing existing keys, click + Create New Key](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/4c1f9448-e590-4546-9357-6f68aa395b27/ascreenshot_4a7bc5be9e4347f3a9fe46f78d938d7c_text_export.jpeg)
+
+输入密钥名称并选择一个模型。然后展开 **Optional Settings** 并向下滚动到 **Tags** 字段。
+
+![Create New Key modal, enter the key name](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/f84f7a2b-8057-4926-9f80-d68e437c77cf/ascreenshot_a277c8611b6e41059663b0759cd85cab_text_export.jpeg)
+
+在 **Tags** 字段中，输入 `health` 并按 Enter。这就是策略引擎将要匹配的标签。
+
+![Tags field in key creation, type "health" to add the tag](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/3ad3bf10-76d2-4f15-9a66-ed6c99bb25c4/ascreenshot_8a8773fb65fc49329cb1716da92b2723_text_export.jpeg)
+
+标签 `health` 现在作为标签章出现在 Tags 字段中。确认你的设置看起来正确。
+
+![Tags field showing "health" selected with a checkmark](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/de3e58a9-6013-4d0c-882e-5517ea286684/ascreenshot_c7eef1736fce4aa894ac3b118b3800a2_text_export.jpeg)
+
+点击表单底部的 **Create Key**。
+
+![Click Create Key to generate the new virtual key with the health tag](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/51d419ea-ee80-4e24-8e93-b99a844881bc/ascreenshot_097d4564289943a88e30b5d2e3eab262_text_export.jpeg)
+
+会出现一个包含你的新虚拟密钥的对话框。点击 **Copy Virtual Key**；下一步测试时你会需要它。
+
+![Save your Key dialog, click Copy Virtual Key to copy it to clipboard](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/e87a0cc1-4d12-4066-bfa2-973159808fd1/ascreenshot_7b616a7291d0497a9c61bdcdb59394d7_text_export.jpeg)
+
+## 5. 测试密钥并验证策略已应用
+
+在左侧边栏中导航到 **Playground** 以交互式测试密钥。
+
+![Navigate to Playground from the sidebar](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/e6f8a3ee-e9e8-4107-93d1-bfca734c5ce9/ascreenshot_539bde38abe646e49148a912fff2d257_text_export.jpeg)
+
+在 **Virtual Key Source** 下，选择 "Virtual Key" 并将你刚刚复制的密钥粘贴到输入字段中。
+
+![Paste the virtual key into the Playground configuration](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/a6612c4a-d499-4e54-8019-f54fde674ad9/ascreenshot_e85ebb9051554594bab0da57823fafad_text_export.jpeg)
+
+从 **Select Model** 下拉菜单中选择一个模型。
+
+![Select a model (e.g., bedrock-claude-opus-4.5) from the dropdown](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/325e330f-3eff-4c5e-b177-21916138a2f5/ascreenshot_693478f89c034e949e08f3ed0dd05120_text_export.jpeg)
+
+输入一条消息并按 Enter。如果护栏阻止了请求，你会在响应中看到。在此示例中，`testing-pl` 护栏检测到一个邮箱模式并返回 403 错误，确认策略正在生效。
+
+![Guardrail in action, the request was blocked with "Content blocked: email pattern detected"](https://colony-recorder.s3.amazonaws.com/files/2026-02-11/2cf16809-d2e5-4eae-a7dd-6a16dfcca7ce/ascreenshot_727d7d4ed20b4a52b2b41e39fd36eccb_text_export.jpeg)
+
+**使用 curl：**
+
+你也可以通过命令行验证。响应头确认应用了哪些策略和护栏：
+
+```bash
+curl -v http://localhost:4000/chat/completions \
+  -H "Authorization: Bearer <your-tagged-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "say hi"}]
+  }'
+```
+
+检查响应头：
+
+```
+x-openmcp-applied-policies: high-risk-policy2
+x-openmcp-applied-guardrails: pii-pre-guard,phi-pre-guard,testing-pl
+x-openmcp-policy-sources: high-risk-policy2=tag:health
+```
+
+| 响应头 | 它告诉你什么 |
+|--------|-------------------|
+| `x-openmcp-applied-policies` | 哪些策略匹配了此请求 |
+| `x-openmcp-applied-guardrails` | 哪些护栏实际运行了 |
+| `x-openmcp-policy-sources` | 每个策略匹配的**原因** — `tag:health` 确认正是这个标签 |

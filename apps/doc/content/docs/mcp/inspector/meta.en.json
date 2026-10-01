@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "index",
+    "authorization",
+    "cli",
+    "configuration",
+    "debugging",
+    "protocol-eras",
+    "recipes",
+    "tui",
+    "web"
+  ]
+}

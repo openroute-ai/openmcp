@@ -1,0 +1,11 @@
+{
+  "title": "Tutorials",
+  "description": "Step-by-step A2A and MCP tutorials",
+  "icon": "GraduationCap",
+  "root": true,
+  "pages": [
+    "index",
+    "a2a",
+    "mcp"
+  ]
+}

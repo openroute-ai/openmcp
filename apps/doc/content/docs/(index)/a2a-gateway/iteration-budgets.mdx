@@ -1,0 +1,188 @@
+---
+title: "智能体迭代预算"
+description: "通过按会话的迭代次数和预算上限控制智能体循环导致的失控成本。"
+---
+
+通过按会话的迭代次数和预算上限控制智能体循环导致的失控成本。
+
+## 概述
+
+当智能体运行智能体循环时，它们可能进行无上限的 LLM 调用，从而产生意料之外的成本。OpenMCP 提供了两个控制项：
+
+| 控制项 | 描述 |
+|---------|-------------|
+| **最大迭代次数** | 每个会话的 LLM 调用次数硬上限 |
+| **每会话最大预算** | 每会话的美元上限（通过 `x-openmcp-trace-id` 标识） |
+
+两个控制项都需要 `session_id`（通过 `x-openmcp-trace-id` 请求头或 `metadata.session_id` 发送）来跟踪会话内的调用。
+
+## Trace-ID 强制
+
+OpenMCP 支持两个独立的 trace-id 标志，在智能体的 `openmcp_params` 中配置：
+
+| 标志 | 描述 |
+|------|-------------|
+| `require_trace_id_on_calls_to_agent` | 要求调用此智能体的调用方包含 `x-openmcp-trace-id`。当智能体只应作为带追踪上下文的子智能体被调用时使用。缺失时返回 **400**。 |
+| `require_trace_id_on_calls_by_agent` | 要求此智能体（通过其虚拟密钥）发起的**所有** LLM/MCP 调用都包含 `x-openmcp-trace-id`。这是启用 `max_iterations` 和 `max_budget_per_session` 追踪的关键。缺失时返回 **400**。 |
+
+## 通过 UI 配置
+
+在 OpenMCP 管理界面创建智能体时：
+
+1. 导航到 **Agents** 标签页并点击 **Add Agent**
+2. 在 **Agent Settings** 步骤中，展开 **Tracing** 部分
+3. 切换 **Require x-openmcp-trace-id on calls BY this agent** 以启用会话追踪
+4. 设置 **Max Iterations** 以限制每会话的 LLM 调用次数
+5. 设置 **Max Budget Per Session ($)** 以限制每会话支出
+
+trace-id 标志存储在智能体的 `openmcp_params` 上。预算控制项（`max_iterations`、`max_budget_per_session`）存储在虚拟密钥的元数据中。
+
+## 通过 API 配置
+
+在智能体本身上设置 trace-id 强制：
+
+```bash
+curl -X POST 'http://localhost:4000/v1/agents' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent_name": "my-research-agent",
+    "agent_card_params": {
+      "name": "my-research-agent",
+      "description": "A research agent with budget controls",
+      "url": "http://my-agent:8080",
+      "version": "1.0.0"
+    },
+    "openmcp_params": {
+      "require_trace_id_on_calls_to_agent": true,
+      "require_trace_id_on_calls_by_agent": true
+    }
+  }'
+```
+
+预算控制项设置在智能体的 `openmcp_params` 上（而不是单个密钥上），因此它们适用于该智能体的所有密钥：
+
+```bash
+curl -X POST 'http://localhost:4000/v1/agents' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent_name": "my-research-agent",
+    "agent_card_params": {
+      "name": "my-research-agent",
+      "description": "A research agent with budget controls",
+      "url": "http://my-agent:8080",
+      "version": "1.0.0"
+    },
+    "openmcp_params": {
+      "require_trace_id_on_calls_by_agent": true,
+      "max_iterations": 25,
+      "max_budget_per_session": 5.00
+    }
+  }'
+```
+
+## 工作原理
+
+### 会话追踪
+
+调用方通过以下任一方式包含 `session_id` 来标识其会话：
+- **请求头**：`x-openmcp-trace-id: my-session-123`
+- **元数据**：`{"metadata": {"session_id": "my-session-123"}}`
+
+### 最大迭代次数
+
+当在智能体的 `openmcp_params` 中设置了 `max_iterations`：
+- 会话的每次 LLM 调用都会使计数器递增
+- 当计数器超过 `max_iterations` 时，请求会收到 **429 Too Many Requests**
+- 计数器默认在 1 小时后过期（可通过 `OPENMCP_MAX_ITERATIONS_TTL` 环境变量配置）
+
+### 每会话最大预算
+
+当在智能体的 `openmcp_params` 中设置了 `max_budget_per_session`：
+- 每次成功的 LLM 调用后，响应成本都会累加到该会话
+- 每次调用前，都会用已累加的支出与预算进行比较
+- 当支出超过预算时，请求会收到 **429 Too Many Requests**
+- 会话支出计数器默认在 1 小时后过期（可通过 `OPENMCP_MAX_BUDGET_PER_SESSION_TTL` 环境变量配置）
+
+## 示例
+
+创建一个最大 25 次迭代、预算上限 $5 的智能体：
+
+<Tabs items={["Via UI","Via API"]}>
+<Tab>
+
+1. 前往 **Agents** → **Add Agent**
+2. 配置你的智能体（名称、模型等）
+3. 在 **Agent Settings** 中，展开 **Tracing** 部分
+4. 切换启用 **Require x-openmcp-trace-id on calls BY this agent**
+5. 将 **Max Iterations** 设置为 `25`
+6. 将 **Max Budget Per Session** 设置为 `5.00`
+7. 继续为该智能体创建一个新密钥
+8. 点击 **Create Agent**
+
+</Tab>
+<Tab>
+
+```bash
+# 1. Create the agent with trace-id enforcement
+curl -X POST 'http://localhost:4000/v1/agents' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent_name": "my-research-agent",
+    "agent_card_params": {
+      "name": "my-research-agent",
+      "description": "A research agent with budget controls",
+      "url": "http://my-agent:8080",
+      "version": "1.0.0"
+    },
+    "openmcp_params": {
+      "require_trace_id_on_calls_by_agent": true
+    }
+  }'
+
+# 2. Create a key for the agent
+curl -X POST 'http://localhost:4000/key/generate' \
+  -H 'Authorization: Bearer sk-1234' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent_id": "<agent_id_from_step_1>",
+    "key_alias": "my-research-agent-key"
+  }'
+```
+
+</Tab>
+</Tabs>
+
+### 使用会话追踪发起调用
+
+```bash
+curl -X POST 'http://localhost:4000/chat/completions' \
+  -H 'Authorization: Bearer sk-agent-key-xxx' \
+  -H 'x-openmcp-trace-id: session-abc-123' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+在该会话内调用 25 次或花费 $5 之后，后续请求将收到：
+
+```json
+{
+  "error": {
+    "message": "Session budget exceeded for session session-abc-123. Current spend: $5.0032, max_budget_per_session: $5.00.",
+    "type": "budget_exceeded",
+    "code": 429
+  }
+}
+```
+
+## 环境变量
+
+| 变量 | 默认值 | 描述 |
+|----------|---------|-------------|
+| `OPENMCP_MAX_ITERATIONS_TTL` | `3600`（1 小时） | 会话迭代计数器的 TTL（秒） |
+| `OPENMCP_MAX_BUDGET_PER_SESSION_TTL` | `3600`（1 小时） | 会话预算计数器的 TTL（秒） |

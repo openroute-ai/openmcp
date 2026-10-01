@@ -1,0 +1,294 @@
+---
+title: "MCP 零信任认证（JWT 签名器）"
+description: "!零信任 MCP 网关"
+---
+
+![Zero Trust MCP Gateway](/images/docs/mcp-gateway/mcp_zero_trust_gateway.png)
+
+MCP 服务器没有内置的方法来验证请求确实经过了 OpenMCP。如果没有这道护栏，任何能直接访问你的 MCP 服务器的客户端都可以调用工具，从而完全绕过你的访问控制。
+
+`MCPJWTSigner` 解决了这个问题。它使用短期有效的 RS256 JWT 为每次出站工具调用签名。你的 MCP 服务器会用 OpenMCP 的公钥验证签名。未经过 OpenMCP 的请求没有有效签名，会被拒绝。
+
+---
+
+## 基本设置
+
+将护栏添加到你的配置中，并将 MCP 服务器指向 OpenMCP 的 JWKS 端点。每次工具调用都会自动获得签名的 JWT，客户端无需任何更改。
+
+```yaml title="config.yaml"
+mcp_servers:
+  - server_name: weather
+    url: http://localhost:8000/mcp
+    transport: http
+
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+      issuer: "https://my-openmcp.example.com"  # defaults to request base URL
+      audience: "mcp"                            # default: "mcp"
+      ttl_seconds: 300                           # default: 300
+```
+
+**自带签名密钥。**建议在生产环境中使用，因为自动生成的密钥在重启后会丢失。
+
+```bash
+export MCP_JWT_SIGNING_KEY="-----BEGIN RSA PRIVATE KEY-----\n..."
+# or point to a file
+export MCP_JWT_SIGNING_KEY="file:///secrets/mcp-signing-key.pem"
+```
+
+**使用 [FastMCP](https://gofastmcp.com) 构建经过验证的 MCP 服务器：**
+
+```python title="weather_server.py"
+from fastmcp import FastMCP, Context
+from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+auth = JWTVerifier(
+    jwks_uri="https://my-openmcp.example.com/.well-known/jwks.json",
+    issuer="https://my-openmcp.example.com",
+    audience="mcp",
+    algorithm="RS256",
+)
+
+mcp = FastMCP("weather-server", auth=auth)
+
+@mcp.tool()
+async def get_weather(city: str, ctx: Context) -> str:
+    caller = ctx.client_id  # JWT `sub` — the verified user identity
+    return f"Weather in {city}: sunny, 72°F (requested by {caller})"
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="0.0.0.0", port=8000)
+```
+
+FastMCP 会自动获取 JWKS，并在签名密钥更改时重新获取。
+
+OpenMCP 会发布 OIDC 发现信息，因此 MCP 服务器无需任何手动配置即可找到密钥：
+
+```
+GET /.well-known/openid-configuration  →  { "jwks_uri": "https://<openmcp>/.well-known/jwks.json" }
+GET /.well-known/jwks.json             →  { "keys": [{ "kty": "RSA", "alg": "RS256", ... }] }
+```
+
+> **仅当你有以下需求时才需要继续阅读：**将企业 IdP 身份注入 JWT、对调用方强制执行特定声明、添加自定义元数据、使用 AWS Bedrock AgentCore Gateway，或调试 JWT 拒绝问题。
+
+---
+
+## 将 IdP 身份注入 MCP JWT
+
+默认情况下，出站 JWT 的 `sub` 是 OpenMCP 内部的 `user_id`。如果你的用户使用 Okta、Azure AD 或其他 IdP 认证，MCP 服务器看到的将是 OpenMCP 内部 ID，而不是用户的邮箱或员工 ID。
+
+借助验证+重签名（verify+re-sign），OpenMCP 会先验证传入的 IdP 令牌，然后使用该令牌中的真实身份声明构建出站 JWT。MCP 服务器会获得用户的真实身份，而无需直接信任原始 IdP。
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+      issuer: "https://my-openmcp.example.com"
+
+      # Validate the incoming Bearer token against the IdP
+      access_token_discovery_uri: "https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration"
+      verify_issuer: "https://login.microsoftonline.com/{tenant}/v2.0"
+      verify_audience: "api://my-app"
+
+      # Which claim to use for `sub` in the outbound JWT — first non-empty value wins
+      end_user_claim_sources:
+        - "token:sub"       # from the verified incoming JWT
+        - "token:email"     # fallback to email
+        - "openmcp:user_id" # last resort: OpenMCP's internal user_id
+```
+
+如果传入的令牌是**不透明**的而非 JWT（某些 IdP 会签发此类令牌），请添加一个 introspection 端点。OpenMCP 会将令牌 POST 到该端点（RFC 7662），并使用返回的声明：
+
+```yaml
+      token_introspection_endpoint: "https://idp.example.com/oauth2/introspect"
+```
+
+**受支持的 `end_user_claim_sources` 值：**
+
+| 来源 | 解析为 |
+|--------|-------------|
+| `token:<claim>` | 已验证的传入 JWT 中的任何声明（例如 `token:sub`、`token:email`、`token:oid`） |
+| `openmcp:user_id` | OpenMCP 的内部用户 ID |
+| `openmcp:email` | 来自 OpenMCP 认证上下文的用户邮箱 |
+| `openmcp:end_user_id` | 如果单独设置了最终用户 ID |
+| `openmcp:team_id` | 来自 OpenMCP 认证上下文的团队 ID |
+
+---
+
+## 阻止缺少必需属性的调用方
+
+某些 MCP 服务器会暴露敏感操作，这些操作应只允许经过验证的员工访问，而不能由服务账户或外部 API 密钥访问。你可以在 OpenMCP 层强制执行这一点，使 MCP 服务器根本不会收到请求。
+
+如果传入的令牌缺少列出的任何声明，`required_claims` 会以 `403` 拒绝。`optional_claims` 会转发有用但非必需的声明。
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+
+      access_token_discovery_uri: "https://idp.example.com/.well-known/openid-configuration"
+
+      # Service accounts without `employee_id` are blocked before the tool runs
+      required_claims:
+        - "sub"
+        - "employee_id"
+
+      # Forward these into the outbound JWT when present — skipped silently if absent
+      optional_claims:
+        - "groups"
+        - "department"
+```
+
+**客户端被阻止时会看到什么：**
+```text
+HTTP 403
+{ "error": "MCPJWTSigner: incoming token is missing required claims: ['employee_id']. Configure the IdP to include these claims." }
+```
+
+---
+
+## 为每个 JWT 添加自定义元数据
+
+你的 MCP 服务器可能需要 OpenMCP 本身不携带的上下文：哪个部署发送了请求、租户 ID、环境标签。使用声明操作可以向出站 JWT 注入、覆盖或剥离声明。
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+
+      # add: insert only when the key is not already in the JWT
+      add_claims:
+        deployment_id: "prod-us-east-1"
+        tenant_id: "acme-corp"
+
+      # set: always override — even if the claim came from the incoming token
+      set_claims:
+        env: "production"
+
+      # remove: strip claims the MCP server shouldn't see
+      remove_claims:
+        - "nbf"   # some validators reject nbf; remove it if yours does
+```
+
+操作按顺序执行：`add_claims` → `set_claims` → `remove_claims`。`set_claims` 总是胜过 `add_claims`；`remove_claims` 会覆盖两者。
+
+---
+
+## AWS Bedrock AgentCore Gateway
+
+Bedrock AgentCore Gateway 使用两个独立的 JWT：一个用于认证传输连接，另一个用于授权工具调用。它们需要不同的 `aud` 值和 TTL，因此单个 JWT 无法同时满足两者。
+
+OpenMCP 可以在一个 hook 中签发两者，并将它们注入到不同的请求头中：
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+      issuer: "https://my-openmcp.example.com"
+      audience: "mcp-resource"   # for the MCP resource layer
+      ttl_seconds: 300
+
+      # Second JWT for the transport channel — same sub/act/scope, different aud + TTL
+      channel_token_audience: "bedrock-agentcore-gateway"
+      channel_token_ttl: 60      # transport tokens should be short-lived
+```
+
+OpenMCP 会在每次工具调用时注入两个请求头：
+- `Authorization: Bearer <resource-token>` — audience 为 `mcp-resource`，TTL 300 秒
+- `x-mcp-channel-token: Bearer <channel-token>` — audience 为 `bedrock-agentcore-gateway`，TTL 60 秒
+
+两个令牌都使用同一个 OpenMCP 密钥签名，因此你的 MCP 服务器只需信任一个 JWKS 端点即可。
+
+---
+
+## 控制进入 JWT 的 scope
+
+默认情况下，OpenMCP 会为每个请求生成最小权限的 scope：
+- 工具调用 → `mcp:tools/call mcp:tools/{name}:call`
+- 列出工具 → `mcp:tools/call mcp:tools/list`
+
+如果你的 MCP 服务器自行强制执行 scope，并且需要特定格式，可以设置 `allowed_scopes` 来完全替代自动生成：
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+
+      allowed_scopes:
+        - "mcp:tools/call"
+        - "mcp:tools/list"
+        - "mcp:admin"
+```
+
+无论调用哪个工具，每个 JWT 都只会携带这些 scope。
+
+---
+
+## 调试 JWT 拒绝问题
+
+你的 MCP 服务器返回 401，但你不知道 JWT 中有什么。启用 `debug_headers` 后，OpenMCP 会添加一个包含已签名关键声明的 `x-openmcp-mcp-debug` 响应头：
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: mcp-jwt-signer
+    openmcp_params:
+      guardrail: mcp_jwt_signer
+      mode: pre_mcp_call
+      default_on: true
+      debug_headers: true
+```
+
+响应头：
+```
+x-openmcp-mcp-debug: v=1; kid=a3f1b2c4d5e6f708; sub=alice@corp.com; iss=https://my-openmcp.example.com; exp=1712345678; scope=mcp:tools/call mcp:tools/get_weather:call
+```
+
+检查 `kid` 是否与 MCP 服务器从 JWKS 获取的一致、`iss`/`aud` 是否符合服务器的预期值，以及 `exp` 是否未过期。请在生产环境禁用该功能，因为此响应头会泄露声明元数据。
+
+---
+
+## JWT 声明参考
+
+| 声明 | 值 |
+|-------|-------|
+| `iss` | `issuer` 配置值（或请求基础 URL） |
+| `aud` | `audience` 配置值（默认：`"mcp"`） |
+| `sub` | 通过 `end_user_claim_sources` 解析（默认：`user_id` → api-key hash → `"openmcp-proxy"`） |
+| `act.sub` | `team_id` → `org_id` → `"openmcp-proxy"`（RFC 8693 委托） |
+| `email` | 来自 OpenMCP 认证上下文的 `user_email`（如果可用） |
+| `scope` | 每个工具调用自动生成，或设置 `allowed_scopes` 时使用 |
+| `iat`, `exp`, `nbf` | 标准时间声明（RFC 7519） |
+
+---
+
+## 限制
+
+- **基于 OpenAPI 的 MCP 服务器**（设置了 `spec_path`）不支持 JWT 注入。OpenMCP 会记录警告并跳过该请求头。请使用 SSE/HTTP 传输服务器以获得完整的 JWT 注入支持。
+- 密钥对**默认保存在内存中**，每次重启都会轮换，除非设置了 `MCP_JWT_SIGNING_KEY`。FastMCP 的 `JWTVerifier` 会通过 JWKS 密钥 ID 匹配透明地处理密钥轮换。
+
+---
+
+## 相关文档
+
+- [MCP 护栏](./mcp_guardrail) — MCP 调用的 PII 掩码和阻止
+- [MCP OAuth](./mcp_oauth) — 用于 MCP 服务器访问的上游 OAuth2
+- [MCP AWS SigV4](./mcp_aws_sigv4) — 对 MCP 服务器的 AWS 签名请求

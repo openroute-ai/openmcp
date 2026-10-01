@@ -1,0 +1,110 @@
+---
+title: MCP Registry 聚合器
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+聚合器是 MCP Registry 的下游消费者，它们提供额外的价值。例如，一个提供用户评分和安全扫描的服务器市场。
+
+MCP Registry 提供了一个无需认证的只读 REST API，聚合器可以使用它来填充自己的数据存储。聚合器应定期但不频繁地抓取数据（例如，每小时一次），并将数据持久化到自己的数据存储中。MCP Registry **不提供可用性或数据持久性保证**。
+
+## 消费 MCP Registry REST API
+
+MCP Registry REST API 的基础 URL 是 `https://registry.modelcontextprotocol.io`。它支持以下端点：
+
+- [`GET /v0.1/servers`](https://registry.modelcontextprotocol.io/docs#/operations/list-servers-v0.1) — 列出所有服务器。
+- [`GET /v0.1/servers/{serverName}/versions`](https://registry.modelcontextprotocol.io/docs#/operations/get-server-versions-v0.1) — 列出服务器的所有版本。
+- [`GET /v0.1/servers/{serverName}/versions/{version}`](https://registry.modelcontextprotocol.io/docs#/operations/get-server-version-v0.1) — 获取服务器的特定版本。使用特殊的 `latest` 版本可以获取服务器的最新版本。
+
+<Callout type="warn">
+
+诸如 `serverName` 和 `version` 之类的 URL 路径参数**必须**进行 URL 编码。例如，`io.modelcontextprotocol/everything` 必须编码为 `io.modelcontextprotocol%2Feverything`。
+
+</Callout>
+
+聚合器最有可能抓取 `GET /v0.1/servers` 端点。
+
+### 分页
+
+`GET /v0.1/servers` 端点支持基于游标的分页。
+
+例如，可以使用 `limit` 查询参数获取第一页：
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?limit=100"
+```
+
+```jsonc Output highlight={5}
+{
+  "servers": [
+    /* ... */
+  ],
+  "metadata": {
+    "count": 100,
+    "nextCursor": "com.example/my-server:1.0.0",
+  },
+}
+```
+
+然后通过将 `nextCursor` 值作为 `cursor` 查询参数传递来获取后续页面：
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?limit=100&cursor=com.example/my-server:1.0.0"
+```
+
+### 按时间过滤
+
+`GET /v0.1/servers` 端点支持过滤自某个时间戳以来更新过的服务器。
+
+例如，可以使用 [RFC 3339](https://datatracker.ietf.org/doc/html/rfc3339) 日期时间格式的 `updated_since` 查询参数获取自 2025-10-23 以来更新过的服务器：
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?updated_since=2025-10-23T00:00:00.000Z"
+```
+
+## 服务器状态
+
+服务器元数据通常是不可变的，但 `status` 字段除外，它可以更新为例如 `"deprecated"` 或 `"deleted"`。我们建议聚合器保持其本地保存的每个服务器的 `status` 为最新状态。
+
+`"deleted"` 状态通常表示服务器违反了我们的宽松[审核政策](./moderation-policy)，暗示该服务器可能是垃圾信息、恶意软件或非法内容。聚合器可能更愿意将这些服务器从索引中删除。
+
+## 充当子注册中心
+
+子注册中心是同时实现了 MCP Registry 定义的 [OpenAPI 规范](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/openapi.yaml) 的聚合器。这使得诸如 MCP 宿主应用程序之类的客户端可以通过标准化的接口消费服务器元数据。
+
+子注册中心 OpenAPI 规范允许子注册中心通过 `_meta` 字段注入自定义元数据。例如，子注册中心可以注入用户评分、下载次数和安全扫描结果：
+
+```json server.json highlight={17-26}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/email-integration-mcp",
+  "title": "Email Integration",
+  "description": "Send emails and manage email accounts",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@username/email-integration-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "com.example.subregistry/custom": {
+      "user_rating": 4.5,
+      "download_count": 12345,
+      "security_scan": {
+        "last_scanned": "2025-10-23T12:00:00Z",
+        "vulnerabilities_found": 0
+      }
+    }
+  }
+}
+```
+
+我们建议将自定义元数据放在一个能反映子注册中心的键下（例如，上面示例中的 `"com.example.subregistry/custom"`）。

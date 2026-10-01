@@ -1,0 +1,468 @@
+---
+title: '6. 常见工作流与示例'
+---
+
+## 6. 常见工作流与示例
+
+本节提供了不同绑定下常见 A2A 交互的示例。
+
+### 6.1. 基本任务执行
+
+**场景：**客户端提出问题并收到已完成的任务响应。
+
+**请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "What is the weather today?"}],
+    "messageId": "msg-uuid"
+  }
+}
+```
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+
+{
+  "task": {
+    "id": "task-uuid",
+    "contextId": "context-uuid",
+    "status": {"state": "TASK_STATE_COMPLETED"},
+    "artifacts": [{
+      "artifactId": "artifact-uuid",
+      "name": "Weather Report",
+      "parts": [{"text": "Today will be sunny with a high of 75°F"}]
+    }]
+  }
+}
+```
+
+### 6.2. 流式任务执行
+
+**场景：**客户端请求一个需要实时更新的长时运行任务。
+
+**请求：**
+
+```http
+POST /message:stream HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Write a detailed report on climate change"}],
+    "messageId": "msg-uuid"
+  }
+}
+```
+
+**SSE 响应流：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+
+data: {"task": {"id": "task-uuid", "contextId": "context-uuid", "status": {"state": "TASK_STATE_WORKING"}}}
+
+data: {"artifactUpdate": {"taskId": "task-uuid", "contextId": "context-uuid", "artifact": {"parts": [{"text": "# Climate Change Report\n\n"}]}}}
+
+data: {"statusUpdate": {"taskId": "task-uuid", "contextId": "context-uuid", "status": {"state": "TASK_STATE_COMPLETED"}}}
+```
+
+### 6.3. 多轮交互
+
+**场景：**智能体需要更多输入才能完成任务。
+
+**初始请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Book me a flight"}],
+    "messageId": "msg-1"
+  }
+}
+```
+
+**响应（需要输入）：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+
+{
+  "task": {
+    "id": "task-uuid",
+    "status": {
+      "state": "TASK_STATE_INPUT_REQUIRED",
+      "message": {
+        "role": "ROLE_AGENT",
+        "parts": [{"text": "I need more details. Where would you like to fly from and to?"}]
+      }
+    }
+  }
+}
+```
+
+**后续请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "taskId": "task-uuid",
+    "role": "ROLE_USER",
+    "parts": [{"text": "From San Francisco to New York"}],
+    "messageId": "msg-2"
+  }
+}
+```
+
+### 6.4. 版本协商错误
+
+**场景：**客户端请求了不支持的协议版本。
+
+**请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+A2A-Version: 0.5
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Hello"}],
+    "messageId": "msg-uuid"
+  }
+}
+```
+
+**响应：**
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/problem+json
+```
+
+### 6.5. 任务列示与管理
+
+**场景：**客户端希望查看特定上下文中的所有任务，或具有特定状态的所有任务。
+
+#### 请求：特定上下文中的所有任务
+
+**请求：**
+
+```http
+GET /tasks?contextId=c295ea44-7543-4f78-b524-7a38915ad6e4&pageSize=10&historyLength=3 HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer token
+```
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+    }
+  ],
+  "totalSize": 5,
+  "pageSize": 10,
+  "nextPageToken": ""
+}
+```
+
+#### 请求：所有上下文中所有进行中的任务
+
+**请求：**
+
+```http
+GET /tasks?status=TASK_STATE_WORKING&pageSize=20 HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer token
+```
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+          ],
+          "messageId": "msg-status-update"
+        },
+        "timestamp": "2024-03-15T10:20:00Z"
+      }
+    }
+  ],
+  "totalSize": 1,
+  "pageSize": 20,
+  "nextPageToken": ""
+}
+```
+
+#### 分页示例
+
+**请求：**
+
+```http
+GET /tasks?contextId=c295ea44-7543-4f78-b524-7a38915ad6e4&pageSize=10&pageToken=base64-encoded-cursor-token HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer token
+```
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+```
+
+#### 校验错误示例
+
+**请求：**
+
+```http
+GET /tasks?pageSize=150&historyLength=-5&status=TASK_STATE_RUNNING HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer token
+```
+
+**响应：**
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/problem+json
+
+{
+  "status": 400,
+  "detail": "Invalid parameters",
+  "errors": [
+    {
+      "field": "pageSize",
+      "message": "Must be between 1 and 100 inclusive, got 150"
+    },
+    {
+      "field": "historyLength",
+      "message": "Must be non-negative integer, got -5"
+    },
+  ]
+}
+```
+
+### 6.6. 推送通知的设置与使用
+
+**场景：**客户端请求生成一份长时运行的报告，并希望在完成时通过 webhook 收到通知。
+
+**带推送通知配置的初始请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+    ],
+    "messageId": "6dbc13b5-bd57-4c2b-b503-24e381b6c8d6"
+  },
+  "configuration":
+    }
+  }
+}
+```
+
+**响应（任务已提交）：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+  }
+}
+```
+
+**稍后：服务器向 webhook 发送通知：**
+
+```http
+POST /webhook/a2a-notifications HTTP/1.1
+Host: client.example.com
+Authorization: Bearer secure-client-token-for-task-aaa
+Content-Type: application/a2a+json
+  }
+}
+```
+
+### 6.7. 文件交换（上传与下载）
+
+**场景：**客户端发送一张图片用于分析，智能体返回修改后的图片。
+
+**带文件上传的请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [
+      {
+        "text": "Analyze this image and highlight any faces."
+      },
+    ],
+    "messageId": "6dbc13b5-bd57-4c2b-b503-24e381b6c8d6"
+  }
+}
+```
+
+**带文件引用的响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+
+{
+  "task": {
+    "id": "43667960-d455-4453-b0cf-1bae4955270d",
+    "contextId": "c295ea44-7543-4f78-b524-7a38915ad6e4",
+    "status": {
+      "state": "TASK_STATE_COMPLETED",
+      "timestamp": "2024-03-15T12:05:00Z"
+    },
+    "artifacts": [
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 6.8. 结构化数据交换
+
+**场景：**客户端请求以特定 JSON 格式返回一个待处理支持工单列表。
+
+**请求：**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [
+      {
+        "text": "Show me a list of my open IT tickets",
+        "metadata": {
+          "mediaType": "application/json",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ticketNumber": { "type": "string" },
+                "description":
+              }
+            }
+          }
+        }
+      }
+    ],
+    "messageId": "85b26db5-ffbb-4278-a5da-a7b09dea1b47"
+  }
+}
+```
+
+**带结构化数据的响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+
+{
+  "task": {
+    "id": "d8c6243f-5f7a-4f6f-821d-957ce51e856c",
+    "contextId": "c295ea44-7543-4f78-b524-7a38915ad6e4",
+    "status": {
+      "state": "TASK_STATE_COMPLETED",
+      "timestamp": "2025-04-17T17:47:09.680794Z"
+    },
+    "artifacts": [
+      {
+        "artifactId": "c5e0382f-b57f-4da7-87d8-b85171fad17c",
+        "parts": [
+          {
+            "text": "[{\"ticketNumber\":\"REQ12312\",\"description\":\"request for VPN access\"},{\"ticketNumber\":\"REQ23422\",\"description\":\"Add to DL - team-gcp-onboarding\"}]"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 6.9. 获取经认证的扩展 Agent Card
+
+**场景：**客户端发现一个公开的 Agent Card，表明支持经认证的扩展卡片，并希望检索完整详情。
+
+**步骤 1：客户端获取公开的 Agent Card：**
+
+```http
+GET /.well-known/agent-card.json HTTP/1.1
+Host: example.com
+```
+
+**响应包括：**
+
+```json
+{
+  "capabilities": {
+    "extendedAgentCard": true
+  },
+  "securitySchemes":
+    }
+  }
+}
+```
+
+### 步骤 2：客户端获取凭据（带外 OAuth 2.0 流程）
+
+### 步骤 3：客户端获取经认证的扩展 Agent Card
+
+```http
+GET /extendedAgentCard HTTP/1.1
+Host: agent.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**响应：**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+```

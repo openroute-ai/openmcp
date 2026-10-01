@@ -1,0 +1,109 @@
+---
+title: 日志记录
+---
+
+
+<div id="enable-section-numbers" />
+
+<Callout type="warn">
+  **已弃用**：自协议版本 `2026-07-28`（[SEP-2577](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2577)）起，日志记录功能已被弃用。根据[功能生命周期策略](#)，它将在该版本发布后至少十二个月内保留在规范中，之后才可被移除。新的实现**不得**采用该功能；现有实现**应当**迁移到：对于 stdio 传输，日志输出到 `stderr`；对于结构化可观测性，改用 [OpenTelemetry](https://opentelemetry.io/)。请参阅[已弃用功能注册表](/docs/mcp/specification/2026-07-28/deprecated)。
+</Callout>
+
+模型上下文协议（MCP）为服务端向客户端发送结构化日志消息提供了一种标准化方式。客户端通过 `_meta` 按请求控制日志详细程度，服务端发送的通知包含严重性级别、可选的记录器名称以及任意的 JSON 可序列化数据。
+
+## 用户交互模型
+
+实现可以自由地通过任何适合自身需求的界面模式来展示日志记录——协议本身并不强制规定任何特定的用户交互模型。
+
+## 能力
+
+发送日志消息通知的服务端**必须**声明 `logging` 能力：
+
+```json
+{
+  "capabilities": {
+    "logging": {}
+  }
+}
+```
+
+## 日志级别
+
+协议遵循 [RFC 5424](https://datatracker.ietf.org/doc/html/rfc5424#section-6.2.1) 中规定的标准 syslog 严重性级别：
+
+| 级别      | 描述                       | 示例用例                 |
+| --------- | -------------------------------- | -------------------------- |
+| debug     | 详细的调试信息                    | 函数入口/出口点            |
+| info      | 一般性信息消息                    | 操作进度更新               |
+| notice    | 正常但重要的事件                  | 配置变更                   |
+| warning   | 警告性状况                        | 使用已弃用功能             |
+| error     | 错误状况                          | 操作失败                   |
+| critical  | 严重状况                          | 系统组件故障               |
+| alert     | 必须立即采取措施                  | 检测到数据损坏             |
+| emergency | 系统不可用                        | 完全的系统故障             |
+
+## 请求日志消息
+
+### 按请求的日志级别
+
+要接收特定请求的日志消息，请在请求的 `_meta` 中包含 `io.modelcontextprotocol/logLevel`。对于不包含该字段的请求，服务端**不得**发送 `notifications/message`。
+
+当该字段存在时，服务端**可以**在该请求的响应流上、最终响应之前，发送不低于所请求级别的 `notifications/message` 通知。`notifications/message` 是按请求限定作用域的：服务端**不得**在 [`subscriptions/listen`](/docs/mcp/specification/2026-07-28/basic/patterns/subscriptions) 流上，或其他任何非承载设置了日志级别的请求响应的流上，传送该通知。
+
+## 协议消息
+
+### 日志消息通知
+
+服务端使用 `notifications/message` 通知发送日志消息：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/message",
+  "params": {
+    "level": "error",
+    "logger": "database",
+    "data": {
+      "error": "Connection failed",
+      "details": {
+        "host": "localhost",
+        "port": 5432
+      }
+    }
+  }
+}
+```
+
+## 错误处理
+
+如果请求 `_meta` 中携带的 `io.modelcontextprotocol/logLevel` 值不是可识别的[日志级别](#log-levels)，服务端**应当**使用标准的 JSON-RPC 错误拒绝该请求：
+
+- 无效的日志级别：`-32602`（参数无效）
+- 内部错误：`-32603`（内部错误）
+
+## 实现注意事项
+
+1. 服务端**应当**：
+   - 对日志消息进行速率限制
+   - 在 data 字段中包含相关上下文
+   - 使用一致的记录器名称
+   - 移除敏感信息
+
+2. 客户端**可以**：
+   - 在 UI 中展示日志消息
+   - 实现日志过滤/搜索
+   - 以可视化方式展示严重程度
+   - 持久化日志消息
+
+## 安全
+
+1. 日志消息**不得**包含：
+   - 凭据或机密信息
+   - 个人身份识别信息
+   - 可能助长攻击的内部系统详细信息
+
+2. 实现**应当**：
+   - 对消息进行速率限制
+   - 验证所有数据字段
+   - 控制日志访问
+   - 监控敏感内容

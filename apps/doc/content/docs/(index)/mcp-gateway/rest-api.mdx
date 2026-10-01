@@ -1,0 +1,279 @@
+---
+title: "MCP REST API"
+description: "通过 HTTP 直接调用 MCP 工具的指南。"
+---
+
+通过 HTTP **直接**调用 MCP 工具的指南。
+
+当您已经知道要运行哪个工具时使用。有关 LLM 驱动的工具使用，请参阅[使用您的 MCP](/docs/mcp-gateway/usage)。
+
+**基础 URL：** `http://localhost:4000`（替换为您的 OpenMCP 代理 URL）
+
+**认证：** 每个请求都使用 OpenMCP API key：
+
+```bash
+-H "Authorization: Bearer sk-1234"
+# or
+-H "x-openmcp-api-key: sk-1234"
+```
+
+---
+
+## 端点
+
+| 方法 | 路径 | 用途 |
+|--------|------|---------|
+| `GET` | `/v1/mcp/server` | 列出 MCP 服务端（获取 `server_id` / `server_name`） |
+| `GET` | `/mcp-rest/tools/list` | 列出工具（所有服务端，或单个服务端） |
+| `POST` | `/mcp-rest/tools/call` | 执行一个工具 |
+
+这些路由与 Claude Desktop 和 Cursor 使用的 `/mcp` 或 `/{server_name}/mcp` JSON-RPC MCP 传输相互独立。
+
+---
+
+## 工具命名
+
+OpenMCP 从多个 MCP 服务端注册工具。请求中的工具名称遵循以下两种模式之一：
+
+| 模式 | 使用时机 | 示例 |
+|---------|-------------|---------|
+| **带前缀** | 全局工具列表，或自包含的工具 id | `places_api-getPlaces` |
+| **不带前缀 + `server_id`** | 按服务端的工具列表 | `server_id: places_api`, `name: getPlaces` |
+
+**前缀格式：** `{server_prefix}{separator}{upstream_tool_name}`
+
+- 默认**分隔符**为 `-`（连字符）。
+- 可通过代理上的环境变量 `MCP_TOOL_PREFIX_SEPARATOR` 覆盖。
+- 当 `OPENMCP_USE_SHORT_MCP_TOOL_PREFIX=true` 时，前缀为 3 字符的 id，而非服务端名称（保持相同的 `{prefix}{separator}{tool}` 结构）。
+
+代理使用不带前缀的工具名称（例如 `getPlaces`）调用**上游** MCP 服务端，而不是完整的前缀字符串。
+
+---
+
+## 1. 列出 MCP 服务端
+
+```bash
+curl -s http://localhost:4000/v1/mcp/server \
+  -H "Authorization: Bearer sk-1234" | jq .
+```
+
+在后续调用中使用响应中的 `server_id` 或 `server_name`。两者都可在 `/mcp-rest/*` 中充当 `server_id`。
+
+---
+
+## 2. 列出工具
+
+### 所有服务端
+
+```bash
+curl -s http://localhost:4000/mcp-rest/tools/list \
+  -H "Authorization: Bearer sk-1234" | jq .
+```
+
+工具的 `name` 值通常**不带前缀**（例如 `getPlaces`），由 `mcp_info.server_name` 指明服务端。对于 `tools/call`，可以是：
+
+- 使用**带前缀**的 `name`：`places_api-getPlaces`，或  
+- 使用**不带前缀**的 `name` + **`server_id`**：`getPlaces` + `places_api`。
+
+### 单个服务端（推荐用于发现）
+
+`server_id` 接受 UUID、`server_name` 或别名。
+
+```bash
+curl -s "http://localhost:4000/mcp-rest/tools/list?server_id=places_api" \
+  -H "Authorization: Bearer sk-1234" | jq .
+```
+
+返回**不带前缀**的上游名称（例如 `getPlaces`、`ping`）。
+
+---
+
+## 3. 调用工具
+
+### 请求体
+
+| 字段 | 是否必填 | 类型 | 说明 |
+|-------|----------|------|-------------|
+| `server_id` | 是 | string | UUID、`server_name` 或别名 |
+| `name` | 是 | string | 带前缀或不带前缀的工具名称（见上文） |
+| `arguments` | 推荐 | object | 工具参数；无参数时使用 `{}`。如果省略，代理会将其视为 `{}`。不要传 `null`。 |
+
+REST 处理器会忽略可选的 JSON-RPC 字段（`jsonrpc`、`method`、`id`）；您可以为客户端兼容性保留它们。
+
+### 可用：带前缀的名称 + 服务端 UUID
+
+```bash
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "17a4490465f74d3696caf12b30220166",
+    "name": "places_api-getPlaces",
+    "arguments": {}
+  }' | jq .
+```
+
+### 可用：不带前缀的名称 + 服务端名称
+
+```bash
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "places_api",
+    "name": "getPlaces",
+    "arguments": { "query": "coffee" }
+  }' | jq .
+```
+
+### 可用：`x-openmcp-api-key` 头
+
+```bash
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "x-openmcp-api-key: sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "order_status_mcp",
+    "name": "order_status_mcp-order_status",
+    "arguments": { "orderId": "ord1234" }
+  }' | jq .
+```
+
+---
+
+## 什么情况**不**奏效
+
+### 缺少 `server_id`
+
+```bash
+# 400 missing_parameter
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "places_api-getPlaces", "arguments": {} }'
+```
+
+### `arguments: null`
+
+```bash
+# 500 — arguments must be a JSON object, not null
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "places_api",
+    "name": "places_api-getPlaces",
+    "arguments": null
+  }'
+```
+
+**修复：** 使用 `"arguments": {}` 或完全省略该字段。
+
+### 工具名称中的分隔符错误（下划线而非连字符）
+
+默认分隔符是 `-`，而不是 `_`。
+
+```bash
+# Tool not found or wrong routing
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "places_api",
+    "name": "places_api_getPlaces",
+    "arguments": {}
+  }'
+```
+
+**修复：** 使用 `places_api-getPlaces`，或将 `MCP_TOOL_PREFIX_SEPARATOR` 设置为与您的命名约定一致。
+
+### 工具所属的服务端与 `server_id` 不一致
+
+```bash
+# 403 tool_server_mismatch
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "order_status_mcp",
+    "name": "places_api-getPlaces",
+    "arguments": {}
+  }'
+```
+
+响应：
+
+```json
+{
+  "detail": {
+    "error": "tool_server_mismatch",
+    "message": "Tool 'places_api-getPlaces' belongs to MCP server 'places_api' but request specified server_id for 'order_status_mcp'."
+  }
+}
+```
+
+### 无效或未知的 `server_id`
+
+```bash
+# 404 server_not_found (unknown name/uuid)
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "serverid1",
+    "name": "some-tool",
+    "arguments": {}
+  }'
+```
+
+```bash
+# 403 access_denied (server exists but key cannot access it)
+```
+
+### 来自客户示例的占位服务端 id
+
+除非您创建过 id 完全相同的服务端，否则 `"serverid1"` / `"serverid2"` 之类的字符串均无效。请运行 `GET /v1/mcp/server` 并复制真实的 `server_id`，或使用 `server_name`。
+
+---
+
+## 快速参考
+
+<Tabs items={["List tools","Call tool"]}>
+<Tab>
+
+```bash
+# All servers
+curl -s http://localhost:4000/mcp-rest/tools/list \
+  -H "Authorization: Bearer sk-1234"
+
+# One server
+curl -s "http://localhost:4000/mcp-rest/tools/list?server_id=MY_SERVER" \
+  -H "Authorization: Bearer sk-1234"
+```
+
+</Tab>
+<Tab>
+
+```bash
+curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_id": "MY_SERVER",
+    "name": "MY_SERVER-tool_name",
+    "arguments": {}
+  }'
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## 相关文档
+
+- [使用您的 MCP](/docs/mcp-gateway/usage) —— Responses API、Cursor、OpenAI SDK（LLM 驱动的 MCP）
+- [MCP 概览](/docs/mcp-gateway) —— 网关设置与 JSON-RPC `/mcp` 路由
+- [MCP OAuth](/docs/mcp-gateway/oauth) —— 受 OAuth 保护的 MCP 服务端
+- [MCP Zero Trust](/docs/mcp-gateway/zero-trust) —— 上游 MCP 服务端的 JWT 签名
+- [MCP 故障排查](/docs/mcp-gateway/troubleshoot) —— 连接与认证问题

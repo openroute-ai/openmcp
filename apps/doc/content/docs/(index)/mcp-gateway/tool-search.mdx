@@ -1,0 +1,147 @@
+---
+title: "MCP 工具搜索"
+description: "将完整的 MCP 目录替换为一组固定的虚拟工具（mcp_tool_search、mcp_tool_call、agent_search、skill_search），这样即使某个密钥拥有数百个可用工具，t..."
+---
+
+将完整的 MCP 目录替换为一组固定的虚拟工具（`mcp_tool_search`、`mcp_tool_call`、`agent_search`、`skill_search`），这样即使某个密钥拥有数百个可用工具，在 `tools/list` 上也始终只暴露四个工具。LLM 按关键字搜索，获取排名后的匹配结果，然后按名称调用发现的工具。`agent_search` 对 [A2A 智能体注册表](/docs/a2a-gateway#search-the-registry) 执行相同操作，`skill_search` 则用于 OpenMCP 托管的技能注册表，两者都用嵌入向量而非关键字排序。
+
+<Callout type="info" title="Related Documentation">
+
+- [MCP 概览](/docs/mcp-gateway)
+- [MCP 权限管理](/docs/mcp-gateway/control) 针对底层的 `object_permission` 模型
+- [MCP 语义过滤](/docs/mcp-gateway/semantic-filter) 针对应用于 `/v1/responses` 层的基于嵌入向量的替代方案
+
+</Callout>
+
+## 快速开始
+
+生成一个启用了 `mcp_tool_search_enabled: true` 的密钥并置于 `object_permission` 之下，并将它与 `mcp_servers`（或 `mcp_access_groups`）配对，这样搜索就有内容可查，然后进行发现和调用。
+
+```bash title="1. Create a key with tool search enabled" showLineNumbers
+curl -X POST http://localhost:4000/key/generate \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "object_permission": {
+      "mcp_tool_search_enabled": true,
+      "mcp_servers": ["github", "slack"]
+    }
+  }'
+```
+
+```console title="2. tools/list returns only the virtual tools" showLineNumbers
+$ curl -s http://localhost:4000/mcp-rest/tools/list \
+    -H "Authorization: Bearer $KEY" | jq '[.tools[].name]'
+["mcp_tool_search", "mcp_tool_call", "agent_search", "skill_search"]
+```
+
+```console title="3. Search discovers the real tools" showLineNumbers
+$ curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+    -H "Authorization: Bearer $KEY" \
+    -d '{"name":"mcp_tool_search","arguments":{"query":"add numbers"}}' \
+  | jq -r '.content[0].text | fromjson | [.[].name]'
+["math-add", "math-multiply"]
+```
+
+```console title="4. Call a discovered tool" showLineNumbers
+$ curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+    -H "Authorization: Bearer $KEY" \
+    -d '{"name":"mcp_tool_call","arguments":{"tool_name":"math-add","arguments":{"a":3,"b":4}}}' \
+  | jq '{result: .content[0].text, isError}'
+{
+  "result": "7",
+  "isError": false
+}
+```
+
+同一个密钥也可以通过 streamable-http 协议端点（`/mcp/`）用于真实的 MCP 客户端：
+
+```python title="MCP Python SDK against /mcp/" showLineNumbers
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+async with streamablehttp_client(
+    "http://localhost:4000/mcp/",
+    headers={"Authorization": f"Bearer {KEY}"},
+) as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+
+        tools = await session.list_tools()
+        print([t.name for t in tools.tools])
+        # ['mcp_tool_search', 'mcp_tool_call', 'agent_search', 'skill_search']
+
+        found = await session.call_tool("mcp_tool_search", {"query": "add numbers"})
+        print(found.content[0].text)
+
+        result = await session.call_tool(
+            "mcp_tool_call",
+            {"tool_name": "math-add", "arguments": {"a": 3, "b": 4}},
+        )
+        print(result.content[0].text)  # "7"
+```
+
+未设置该标志的密钥保持原有行为不变：`tools/list` 返回完整的目录，两个虚拟工具名称会被拒绝并返回 `forbidden` 错误。
+
+## 为每个新密钥默认启用
+
+如果你希望每个新密钥都默认启用工具搜索，而无需每个调用方都记住这个标志，可以将其放在 `openmcp_settings.default_key_generate_params.object_permission`（即 `config.yaml`）下。任何省略该字段的 `/key/generate` 请求都会自动合并默认值；设置了部分 `object_permission`（例如只设置 `mcp_servers`）的请求会保留其显式字段，只补充其未设置的字段。
+
+```yaml title="config.yaml" showLineNumbers
+openmcp_settings:
+  default_key_generate_params:
+    object_permission:
+      mcp_tool_search_enabled: true
+      mcp_servers: ["github", "slack"]
+```
+
+默认值在调用方作用域验证运行**之后**才合并，因此它绝不会把普通的非管理员个人密钥请求变成 403。当调用方显式设置 `mcp_servers` 等团队级字段时，仍会根据调用方自己的团队进行检查；管理员配置的默认值只应用于持久化后的密钥，而不应用于正在验证的请求。
+
+## 工作原理
+
+当 `mcp_tool_search_enabled: true` 设置在密钥的 `object_permission` 上时，streamable-http 端点（`/mcp/`）和 REST 接口（`/mcp-rest/tools/list`）都会返回恰好四个工具，无论该密钥可以到达多少个 MCP 服务器：
+
+- `mcp_tool_search(query, top_k=5)` 返回与查询匹配的真实工具的排序列表。
+- `mcp_tool_call(tool_name, arguments)` 执行 LLM 通过搜索发现的其中一个工具。
+- `agent_search(query, top_k=5)` 返回密钥可以到达的 A2A 智能体，按与 `query` 中描述的任务的语义相似度排序。它需要 `openmcp_settings.agent_search_embedding_model`；请参阅[搜索注册表](/docs/a2a-gateway#search-the-registry)。
+- `skill_search(query, top_k=5)` 返回密钥可以到达的 OpenMCP 托管技能（`custom_llm_provider=openmcp_proxy`），按语义相似度排序。它需要 `openmcp_settings.skill_search_embedding_model`；请参阅"对 OpenMCP 托管的技能进行语义搜索"。
+
+两个处理器都走与常规 `/tools/call` 路由相同的过滤目录和分发路径，因此搜索只会呈现密钥已被允许看到的工具，而调用仍然通过 `_get_allowed_mcp_servers` 和 `execute_mcp_tool` 解析。
+
+### 搜索算法
+
+排序是对工具的 `name` 和 `description` 字段进行 token 重叠计数；不需要嵌入向量，也没有额外依赖。对于每个请求，代理会：
+
+1. 将查询转为小写，并按空白拆分为 token（`"add numbers"` 变成 `["add", "numbers"]`）。
+2. 对于调用方可以到达的每个工具，构建一个 `lower(name + " " + description)` 的检索文本。
+3. 根据在检索文本中以子串形式出现的查询 token 数量对每个工具打分。同时包含 `add` 和 `numbers` 的工具得分 2；只包含 `add` 的工具得分 1。
+4. 丢弃任何得分为 0 的结果，将其余按分数降序排序，并返回前 `top_k` 个（默认 5）。
+
+除"得分 > 0"之外没有相似度阈值，因此只能命中一个 token 的查询仍然会返回匹配项。得分相同的工具之间的顺序遵循 Python 对底层目录的稳定排序。空查询返回空列表。`top_k` 参数（作用于 `mcp_tool_search`）是每次调用独立的，因此当第一批结果过窄时，LLM 可以自行扩大窗口。
+
+## 前置条件
+
+需要 OpenMCP v1.92.x 或更高版本。
+
+## 访问控制
+
+工具搜索不会扩大访问面。`mcp_tool_search` 遍历的是常规 `tools/list` 处理器所使用的同一过滤目录，因此密钥无法到达的工具对搜索也是不可见的。`mcp_tool_call` 解析调用方允许的服务器，应用基于请求 IP 的 `filter_server_ids_by_ip` 过滤，并通过 `execute_mcp_tool` 分发，后者会强制实施服务器白名单和调用方的 `mcp_tool_permissions`。尝试将 `mcp_tool_call` 路由到密钥作用域之外的服务器，会从保护直接调用的同一守卫处返回 `403`：
+
+```console
+$ curl -s -X POST http://localhost:4000/mcp-rest/tools/call \
+    -H "Authorization: Bearer $KEY" \
+    -d '{"name":"mcp_tool_call","arguments":{"tool_name":"secret-server-delete_all","arguments":{}}}'
+{"detail":"User not allowed to call this tool. Allowed MCP servers: [math]"}
+```
+
+使用 `/key/info` 检查任意密钥上的标志：
+
+```bash
+curl "http://localhost:4000/key/info?key=$KEY" \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  | jq '.info.object_permission | {mcp_tool_search_enabled, mcp_servers}'
+```
+
+## 何时使用工具搜索 vs. 语义过滤
+
+这两个功能都解决大型目录膨胀的问题，但它们位于不同的层次。工具搜索是每个密钥在 MCP 层的自主选用；LLM 只看到三个工具，并自己通过 MCP 协议驱动发现，这非常适合端到端使用 MCP 的智能体框架。[语义过滤](/docs/mcp-gateway/semantic-filter)位于 `/v1/responses` 和 `/v1/chat/completions` 之上，每次请求都用嵌入向量重写工具列表，这适合从不直接接触 `/mcp/` 的聊天补全调用方。两者可以共存；启用了工具搜索的密钥即使在上游启用了语义过滤，也只暴露三个虚拟工具。

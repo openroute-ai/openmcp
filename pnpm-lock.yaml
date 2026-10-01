@@ -298,12 +298,15 @@ importers:
 
   apps/doc:
     dependencies:
-      '@ai-sdk/mistral':
-        specifier: ^4.0.52
-        version: 4.0.56(zod@4.6.5)
+      '@ai-sdk/openai':
+        specifier: ^4.0.80
+        version: 4.0.83(zod@4.6.5)
       '@ai-sdk/react':
         specifier: ^4.0.121
         version: 4.0.129(react@19.3.0)(zod@4.6.5)
+      '@fumadocs/local-md':
+        specifier: 0.3.5
+        version: 0.3.5(@types/estree-jsx@1.0.5)(@types/estree@1.0.9)(@types/hast@3.0.5)(@types/mdx@2.0.14)(@types/react@19.3.0)(bufferutil@4.1.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(unified@11.0.5)(vite@7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
       '@radix-ui/react-presence':
         specifier: ^1.1.10
         version: 1.1.10(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -325,15 +328,15 @@ importers:
       fumadocs-core:
         specifier: 16.15.15
         version: 16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
-      fumadocs-mdx:
-        specifier: ^15.4.5
-        version: 15.4.5(@types/mdast@4.0.4)(@types/mdx@2.0.14)(@types/react@19.3.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(mdast-util-directive@3.1.0)(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(rolldown@1.2.12)(vite@7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
       fumadocs-ui:
         specifier: 16.15.15
         version: 16.15.15(@types/mdx@2.0.14)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)(takumi-js@2.14.0(csstype@3.2.3)(react@19.3.0))
       hast-util-to-jsx-runtime:
         specifier: ^2.3.6
         version: 2.3.6
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.49.0(@types/react@19.3.0)(react@19.3.0)
       next:
         specifier: 16.3.6
         version: 16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -343,6 +346,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.3.0)(react@19.3.0)
       remark:
         specifier: ^15.0.1
         version: 15.0.1
@@ -352,6 +358,9 @@ importers:
       remark-rehype:
         specifier: ^11.1.2
         version: 11.1.2
+      shiki:
+        specifier: ^4.4.3
+        version: 4.4.3
       unist-util-visit:
         specifier: ^5.1.0
         version: 5.1.0
@@ -1035,12 +1044,6 @@ packages:
 
   '@ai-sdk/mcp@2.0.65':
     resolution: {integrity: sha512-KQPNhSkDa7NBn+NRx+ymUXBz4ItMdD4Xr1nIi5KPpdIIptj71Ja38dmWdonZV9JIZQOL9vSF9X4y1SJKV7pbaw==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/mistral@4.0.56':
-    resolution: {integrity: sha512-Kppa/gmT0/W9eYwm3ihbrsXR8R8D/OCnTnKTQS/+L4Ssd3AYOdwRbRUnYcEL/HzoWNwd/pfVD5dof1a5c8hKnQ==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2080,6 +2083,48 @@ packages:
       react-dom: ^19.2.0
     peerDependenciesMeta:
       '@types/react':
+        optional: true
+
+  '@fumadocs/local-content@0.2.2':
+    resolution: {integrity: sha512-mpUBhrTc1iKIhqPGobvjsmxIQVgL1jIp1iNkWVKhD4azQvbNxG3de3GpCC31f9ylU6JdXsT6iqrpaCMVtcy3sQ==}
+    peerDependencies:
+      '@types/react': '*'
+      fumadocs-core: ^16.15.0
+      react: ^19.2.0
+      vite: ^7.0.0 || ^8.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+      vite:
+        optional: true
+
+  '@fumadocs/local-md@0.3.5':
+    resolution: {integrity: sha512-Co4MrbQS60tyiZvjU4Gw4AFWUmNJZN2xoP8MFhbHP60sgAKsp7USvia/HseC5urKZqyZzJLuFDdqRUetxCvI1A==}
+    hasBin: true
+    peerDependencies:
+      '@types/estree': '*'
+      '@types/estree-jsx': '*'
+      '@types/hast': '*'
+      '@types/mdx': '*'
+      '@types/react': '*'
+      fumadocs-core: ^16.8.0
+      react: ^19.2.0
+      react-dom: ^19.2.0
+      unified: '*'
+    peerDependenciesMeta:
+      '@types/estree':
+        optional: true
+      '@types/estree-jsx':
+        optional: true
+      '@types/hast':
+        optional: true
+      '@types/mdx':
+        optional: true
+      '@types/react':
+        optional: true
+      unified:
         optional: true
 
   '@fumadocs/mdx-remote@1.5.2':
@@ -9489,12 +9534,6 @@ snapshots:
       pkce-challenge: 5.0.1
       zod: 4.6.5
 
-  '@ai-sdk/mistral@4.0.56(zod@4.6.5)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.21
-      '@ai-sdk/provider-utils': 5.0.53(zod@4.6.5)
-      zod: 4.6.5
-
   '@ai-sdk/openai@4.0.83(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 4.0.21
@@ -10641,6 +10680,48 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
     optionalDependencies:
       '@types/react': 19.3.0
+
+  '@fumadocs/local-content@0.2.2(@types/react@19.3.0)(bufferutil@4.1.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react@19.3.0)(vite@7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))':
+    dependencies:
+      chokidar: 5.0.0
+      fumadocs-core: 16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
+      picomatch: 4.0.7
+      tinyglobby: 0.2.17
+      ws: 8.22.0(bufferutil@4.1.0)
+    optionalDependencies:
+      '@types/react': 19.3.0
+      react: 19.3.0
+      vite: 7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@fumadocs/local-md@0.3.5(@types/estree-jsx@1.0.5)(@types/estree@1.0.9)(@types/hast@3.0.5)(@types/mdx@2.0.14)(@types/react@19.3.0)(bufferutil@4.1.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(unified@11.0.5)(vite@7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))':
+    dependencies:
+      '@fumadocs/local-content': 0.2.2(@types/react@19.3.0)(bufferutil@4.1.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react@19.3.0)(vite@7.3.6(@types/node@24.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
+      '@mdx-js/mdx': 3.1.1
+      '@standard-schema/spec': 1.1.0
+      estree-util-build-jsx: 3.0.1
+      estree-util-to-js: 2.0.0
+      fumadocs-core: 16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
+      hast-util-to-jsx-runtime: 2.3.6
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+      remark: 15.0.1
+      remark-rehype: 11.1.2
+      vfile: 6.0.3
+    optionalDependencies:
+      '@types/estree': 1.0.9
+      '@types/estree-jsx': 1.0.5
+      '@types/hast': 3.0.5
+      '@types/mdx': 2.0.14
+      '@types/react': 19.3.0
+      unified: 11.0.5
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - vite
 
   '@fumadocs/mdx-remote@1.5.2(@types/mdx@2.0.14)(@types/react@19.3.0)(fumadocs-core@16.15.15(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.3.0)(flexsearch@0.8.212)(lucide-react@1.49.0(@types/react@19.3.0)(react@19.3.0))(next@16.3.6(@types/node@24.19.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react@19.3.0)':
     dependencies:

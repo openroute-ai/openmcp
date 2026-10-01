@@ -1,0 +1,290 @@
+---
+title: "快速入门：向 MCP Registry 发布 MCP 服务器"
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+本教程将向您展示如何使用官方的 `mcp-publisher` CLI 工具，将用 TypeScript 编写的 MCP 服务器发布到 MCP Registry。
+
+## 前置条件
+
+- **Node.js** — 本教程假定 MCP 服务器使用 TypeScript 编写。
+- **npm 账户** — MCP Registry 只托管元数据，不托管制品。在向 MCP Registry 发布之前，我们会先将 MCP 服务器的软件包发布到 npm，因此您需要一个 [npm](https://www.npmjs.com) 账户。
+- **GitHub 账户** — MCP Registry 支持[多种认证方式](./authentication)。为简单起见，本教程将使用基于 GitHub 的认证，因此您需要一个 [GitHub](https://github.com/) 账户。
+
+如果您没有用 TypeScript 编写的 MCP 服务器，可以复制 [`modelcontextprotocol/quickstart-resources` 仓库](https://github.com/modelcontextprotocol/quickstart-resources) 中的 `weather-server-typescript` 服务器来跟随本教程：
+
+```bash
+git clone --depth 1 git@github.com:modelcontextprotocol/quickstart-resources.git
+cp -r quickstart-resources/weather-server-typescript .
+rm -rf quickstart-resources
+cd weather-server-typescript
+```
+
+并编辑 `package.json` 以反映您的信息：
+
+```diff package.json
+ {
+-  "name": "mcp-quickstart-ts",
+-  "version": "1.0.0",
++  "name": "@my-username/mcp-weather-server",
++  "version": "1.0.1",
+   "main": "index.js",
+```
+
+```diff package.json
+   "license": "ISC",
+-  "description": "",
++  "repository": {
++    "type": "git",
++    "url": "https://github.com/my-username/mcp-weather-server.git"
++  },
++  "description": "An MCP server for weather information.",
+   "devDependencies": {
+```
+
+## 步骤 1：向软件包添加验证信息
+
+MCP Registry 会验证服务器的底层软件包是否与其元数据匹配。对于 npm 软件包，这需要在 `package.json` 中添加 `mcpName` 属性：
+
+```diff package.json
+ {
+   "name": "@my-username/mcp-weather-server",
+   "version": "1.0.1",
++  "mcpName": "io.github.my-username/weather",
+   "main": "index.js",
+```
+
+`mcpName` 的值将是您的服务器在 MCP Registry 中的名称。
+
+由于我们将使用基于 GitHub 的认证，`mcpName` **必须**以 `io.github.my-username/` 开头。
+
+## 步骤 2：发布软件包
+
+MCP Registry 只托管元数据，不托管制品，因此我们必须在将服务器发布到 MCP Registry 之前先将软件包发布到 npm。
+
+确保分发文件已构建：
+
+```bash
+# Navigate to project directory
+cd weather-server-typescript
+
+# Install dependencies
+npm install
+
+# Build the distribution files
+npm run build
+```
+
+然后遵循 npm 的[发布指南](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages)。具体来说，您可能需要运行以下命令：
+
+```bash
+# If necessary, authenticate to npm
+npm adduser
+
+# Publish the package
+npm publish --access public
+```
+
+您可以通过访问其 npm URL 来验证软件包是否已发布，例如 https://www.npmjs.com/package/@my-username/mcp-weather-server。
+
+## 步骤 3：安装 `mcp-publisher`
+
+使用预构建的二进制文件或 [Homebrew](https://brew.sh) 安装 `mcp-publisher` CLI 工具：
+
+```bash macOS/Linux
+curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher && sudo mv mcp-publisher /usr/local/bin/
+```
+
+```powershell Windows
+$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") { "arm64" } else { "amd64" }; Invoke-WebRequest -Uri "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_windows_$arch.tar.gz" -OutFile "mcp-publisher.tar.gz"; tar xf mcp-publisher.tar.gz mcp-publisher.exe; rm mcp-publisher.tar.gz
+# Move mcp-publisher.exe to a directory in your PATH
+```
+
+```bash
+brew install mcp-publisher
+```
+
+
+通过运行以下命令验证 `mcp-publisher` 是否安装正确：
+
+```bash
+mcp-publisher --help
+```
+
+您应该会看到类似如下的输出：
+
+```text Output
+MCP Registry Publisher Tool
+
+Usage:
+  mcp-publisher <command> [arguments]
+
+Commands:
+  init          Create a server.json file template
+  login         Authenticate with the registry
+  logout        Clear saved authentication
+  publish       Publish server.json to the registry
+```
+
+## 步骤 4：创建 `server.json`
+
+`mcp-publisher init` 命令可以根据您项目中的一些信息生成 `server.json` 模板文件。
+
+在您的服务器项目目录中运行 `mcp-publisher init`：
+
+```bash
+mcp-publisher init
+```
+
+打开生成的 `server.json` 文件，您应该会看到类似如下的内容：
+
+```json server.json
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.my-username/weather",
+  "description": "An MCP server for weather information.",
+  "repository": {
+    "url": "https://github.com/my-username/mcp-weather-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@my-username/mcp-weather-server",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your API key for the service",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "YOUR_API_KEY"
+        }
+      ]
+    }
+  ]
+}
+```
+
+根据需要编辑内容：
+
+```diff server.json
+ {
+   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+   "name": "io.github.my-username/weather",
+   "description": "An MCP server for weather information.",
+   "repository": {
+     "url": "https://github.com/my-username/mcp-weather-server",
+     "source": "github"
+   },
+-  "version": "1.0.0",
++  "version": "1.0.1",
+   "packages": [
+     {
+       "registryType": "npm",
+       "identifier": "@my-username/mcp-weather-server",
+-      "version": "1.0.0",
++      "version": "1.0.1",
+       "transport": {
+         "type": "stdio"
+-      },
+-      "environmentVariables": [
+-        {
+-          "description": "Your API key for the service",
+-          "isRequired": true,
+-          "format": "string",
+-          "isSecret": true,
+-          "name": "YOUR_API_KEY"
+-        }
+-      ]
++      }
+     }
+   ]
+ }
+```
+
+`server.json` 中的 `name` 属性**必须**与 `package.json` 中的 `mcpName` 属性一致。
+
+## 步骤 5：与 MCP Registry 完成认证
+
+在本教程中，我们将使用基于 GitHub 的认证来与 MCP Registry 完成认证。
+
+运行 `mcp-publisher login` 命令以发起认证：
+
+```bash
+mcp-publisher login github
+```
+
+您应该会看到类似如下的输出：
+
+```text Output
+Logging in with github...
+
+To authenticate, please:
+1. Go to: https://github.com/login/device
+2. Enter code: ABCD-1234
+3. Authorize this application
+Waiting for authorization...
+```
+
+访问该链接，按照提示进行操作，并输入终端中打印的授权码（例如，上面输出中的 `ABCD-1234`）。完成后，回到终端，您应该会看到类似如下的输出：
+
+```text Output
+Successfully authenticated!
+✓ Successfully logged in
+```
+
+## 步骤 6：发布到 MCP Registry
+
+最后，使用 `mcp-publisher publish` 命令将您的服务器发布到 MCP Registry：
+
+```bash
+mcp-publisher publish
+```
+
+您应该会看到类似如下的输出：
+
+```text Output
+Publishing to https://registry.modelcontextprotocol.io...
+✓ Successfully published
+✓ Server io.github.my-username/weather version 1.0.1
+```
+
+您可以通过使用 MCP Registry API 搜索来验证您的服务器是否已发布：
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.my-username/weather"
+```
+
+您应该会在搜索结果 JSON 中看到您服务器的元数据：
+
+```text Output
+{"servers":[{ ... "name":"io.github.my-username/weather" ... }]}
+```
+
+## 故障排除
+
+{/* prettier-ignore-start */}
+
+| 错误消息                                       | 处理方法                                                                                                                                                |
+| ---                                            | ---                                                                                                                                                     |
+| "Registry validation failed for package"       | 确保您的软件包包含所需的验证信息（例如，`package.json` 中的 `mcpName` 属性）。                                                                          |
+| "Invalid or expired Registry JWT token"        | 通过运行 `mcp-publisher login github` 重新认证。                                                                                                        |
+| "You do not have permission to publish this server" | 您的认证方式与服务器的命名空间格式不匹配。使用 GitHub 认证时，您的服务器名称必须以 `io.github.your-username/` 开头。                                    |
+
+{/* prettier-ignore-end */}
+
+## 后续步骤
+
+- 了解[其他软件包类型的支持](./package-types)。
+- 了解[远程服务器的支持](./remote-servers)。
+- 了解如何[使用其他认证方式](./authentication)，例如[ DNS 认证](./authentication#dns-authentication)，它可以为服务器名称前缀启用自定义域名。
+- 了解如何[使用 GitHub Actions 自动化发布](./github-actions)。

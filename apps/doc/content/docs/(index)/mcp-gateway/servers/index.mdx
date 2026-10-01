@@ -1,0 +1,37 @@
+---
+title: "MCP 服务端使用"
+description: "每份指南都涵盖服务端的端点、OpenMCP 所需的认证方式、如何注册它，以及如何从智能体调用它的工具。网关对每个服务端一视同仁，无论厂商是谁。"
+---
+
+> 通过 OpenMCP MCP 网关连接流行的第三方 MCP 服务端的设置指南。
+
+每份指南都涵盖服务端的端点、OpenMCP 所需的认证方式、如何注册它，以及如何从智能体调用它的工具。网关对每个服务端一视同仁，无论厂商是谁：所有客户端共享一个端点，权限按 key、团队和组织划分，每次工具调用都有成本跟踪，并保留单一的审计轨迹。
+
+## 服务端
+
+| 服务端 | 端点 | 认证 | 覆盖内容 |
+|---|---|---|---|
+| [Slack](/docs/mcp-gateway/servers/slack) | `https://mcp.slack.com/mcp` | OAuth 2.1，使用您自己的 Slack 应用 | 搜索、频道和话题读取、消息、画板 |
+| [Atlassian](/docs/mcp-gateway/servers/atlassian) | `https://mcp.atlassian.com/v1/mcp/authv2` | OAuth 2.1，动态注册 | Jira、Confluence、Compass、Jira Service Management、Bitbucket |
+| [Linear](/docs/mcp-gateway/servers/linear) | `https://mcp.linear.app/mcp` | OAuth 2.1，动态注册 | 事项、项目、周期、文档、评论 |
+
+任何其他远程 MCP 服务端都遵循相同的格式：将 `url` 指向其端点，并从 [MCP 概览](/docs/mcp-gateway) 的认证表中选取匹配的 `auth_type`。
+
+## 这些指南的前提
+
+这三个服务端都由其厂商托管并使用 Streamable HTTP，因此您无需自行安装或运行任何东西。三者都通过交互式 OAuth 按用户认证，即每个调用方通过浏览器登录一次，工具调用携带的是该用户自身的权限，而不是共享的服务身份。存储 MCP 服务端需要在代理上设置 `store_model_in_db: true`，见[前提条件](/docs/mcp-gateway#prerequisites)。
+
+```yaml title="config.yaml" showLineNumbers
+general_settings:
+  store_model_in_db: true
+```
+
+<Callout type="warn" title="Put the OpenMCP key in x-openmcp-api-key">
+
+交互式 OAuth 需要 `Authorization` 头为空闲状态，以供上游令牌使用。如果客户端将 OpenMCP API key 作为 `Authorization: Bearer sk-...` 发送，OAuth 流程永远不会运行，代理会把您的 OpenMCP key 转发给 Slack、Atlassian 或 Linear，而这些服务端会拒绝它。这是三个服务端上最常见的失败。见[调试 OAuth](/docs/mcp-gateway/oauth#debugging-oauth)。
+
+</Callout>
+
+## 相关页面
+
+客户端侧的模式见[使用您的 MCP](/docs/mcp-gateway/usage)，按 key 和团队进行访问控制见[MCP 权限管理](/docs/mcp-gateway/control)，OAuth 流程见[MCP OAuth](/docs/mcp-gateway/oauth)，按工具的开销见[MCP 成本跟踪](/docs/mcp-gateway/cost)，连接故障见[MCP 故障排查指南](/docs/mcp-gateway/troubleshoot)。

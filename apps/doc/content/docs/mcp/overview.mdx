@@ -1,0 +1,61 @@
+---
+title: 什么是模型上下文协议（MCP）？
+---
+
+
+MCP（模型上下文协议，Model Context Protocol）是一个开源标准，用于将 AI 应用连接到外部系统。
+
+借助 MCP，像 Claude 或 ChatGPT 这样的 AI 应用可以连接到数据源（例如本地文件、数据库）、工具（例如搜索引擎、计算器）和工作流（例如专用的提示词），从而访问关键信息并执行任务。
+
+可以把 MCP 想象成 AI 应用的 USB-C 接口。正如 USB-C 为连接电子设备提供了标准化方式，MCP 为连接 AI 应用与外部系统提供了标准化方式。
+
+<img src="/images/docs/mcp/mcp-simple-diagram.png" />
+
+## MCP 能带来什么？
+
+- 智能体可以访问你的 Google Calendar 和 Notion，充当更个性化的 AI 助手。
+- Claude Code 可以用一份 Figma 设计生成一个完整的 Web 应用。
+- 企业聊天机器人可以连接组织内的多个数据库，让用户通过聊天分析数据。
+- AI 模型可以在 Blender 中创建 3D 设计，并用 3D 打印机将其打印出来。
+
+## 为什么 MCP 很重要？
+
+取决于你在生态系统中扮演的角色，MCP 可以带来一系列好处。
+
+- **开发者**：MCP 降低了构建或集成 AI 应用与智能体时的开发时间和复杂度。
+- **AI 应用或智能体**：MCP 让它们能够访问由数据源、工具和应用构成的生态系统，从而增强其能力并改善最终用户的体验。
+- **最终用户**：MCP 带来了更强大的 AI 应用或智能体，它们可以访问用户数据，并在必要时代表用户采取行动。
+
+## 广泛的生态系统支持
+
+MCP 是一种开放协议，受到广泛的客户端和服务器支持。像 [Claude](https://claude.com/docs/connectors/building) 和 [ChatGPT](https://developers.openai.com/api/docs/mcp/) 这样的 AI 助手，像 [Visual Studio Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)、[Cursor](https://cursor.com/docs/context/mcp)、[MCPJam](https://docs.mcpjam.com/getting-started) 这样的开发工具，以及其他许多工具都支持 MCP——一次构建、处处集成，变得轻而易举。
+
+## 开始构建
+
+<Cards>
+  <Card title="构建服务器" href="/docs/mcp/develop/build-server">
+    创建 MCP 服务器，暴露你的数据和工具
+  </Card>
+
+<Card
+  title="构建客户端"
+  href="/docs/mcp/develop/build-client"
+>
+  开发连接到 MCP 服务器的应用
+</Card>
+
+  <Card title="构建 MCP 应用" href="/docs/mcp/extensions/apps/overview">
+    构建运行在 AI 客户端内部的交互式应用
+  </Card>
+</Cards>
+
+## 了解更多
+
+<Cards>
+  <Card
+    title="理解概念"
+    href="/docs/mcp/learn/architecture"
+  >
+    学习 MCP 的核心概念与架构
+  </Card>
+</Cards>

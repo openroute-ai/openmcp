@@ -1,0 +1,46 @@
+---
+title: 常见问题解答
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+## 常规问题
+
+### "官方 MCP Registry"、"MCP Registry"、"MCP registry"、"MCP Registry API" 等有什么区别？
+
+- "MCP Registry API" — 实现了由 MCP Registry 定义的 [OpenAPI 规范](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/openapi.yaml) 的 API。
+- "官方 MCP Registry API" — 托管在 `https://registry.modelcontextprotocol.io` 的 REST API，它是 MCP Registry API 的超集。其 OpenAPI 规范可从 [https://registry.modelcontextprotocol.io/openapi.yaml](https://registry.modelcontextprotocol.io/openapi.yaml) 下载。
+- "MCP registry" — 提供 MCP Registry API 的第三方服务。
+- "官方 MCP Registry"（或 "The MCP Registry"）— 托管在 `https://registry.modelcontextprotocol.io` 的服务。
+
+### 我可以删除/取消发布我的服务器吗？
+
+目前不可以。截至撰写本文时，[社区仍在讨论此事](https://github.com/modelcontextprotocol/registry/issues/104)。
+
+### 如何更新我的服务器元数据？
+
+提交一份包含唯一版本字符串的新的 `server.json`。一旦发布，版本元数据即为不可变（类似于 npm）。
+
+### 我可以在发布时添加自定义元数据吗？
+
+可以，位于 `_meta.io.modelcontextprotocol.registry/publisher-provided` 下的自定义元数据在发布到注册中心时会予以保留。这使您可以包含与您发布流程相关的自定义元数据。
+
+<Callout type="warn">
+
+存在 4KB 的大小限制（4096 字节的 JSON）。如果超过此限制，发布将会失败。
+
+</Callout>
+
+## 报告问题
+
+### 如果需要举报垃圾或恶意服务器怎么办？
+
+1. 向底层软件包注册中心（例如 NPM、PyPI、DockerHub 等）举报滥用；以及
+2. 在注册中心的代码仓库上提交一个标题以 `Abuse report: ` 开头的 GitHub issue。
+
+### 如果需要报告注册中心本身的安全漏洞怎么办？
+
+请遵循 [MCP 社区的 SECURITY.md](https://github.com/modelcontextprotocol/.github/blob/main/SECURITY.md)。

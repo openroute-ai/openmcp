@@ -1,0 +1,43 @@
+---
+title: '后续步骤'
+---
+
+恭喜你完成了 A2A Python SDK 教程！你已经学会了如何：
+
+- 为 A2A 开发配置环境。
+- 使用 SDK 的类型定义智能体技能和智能体名片。
+- 实现一个基本的 HelloWorld A2A 服务端和客户端。
+- 理解并实现流式能力。
+- 使用 LangGraph 集成更复杂的智能体，演示任务状态管理和工具使用。
+
+你现在拥有了构建和集成自己的 A2A 兼容智能体的坚实基础。
+
+## 接下来该做什么？
+
+以下是一些继续你的 A2A 之旅的建议和资源：
+
+- **探索其他示例：**
+    - 查看 [a2a-samples GitHub 仓库](https://github.com/a2aproject/a2a-samples/tree/main/samples) 中的其他示例，了解更复杂的智能体集成和功能。
+- **深入理解协议：**
+    - 📚 阅读完整的 [A2A 协议文档站](https://a2a-protocol.org)，获取全面概述。
+    - 📝 查看详细的 [A2A 协议规范](/docs/a2a/specification/index)，了解所有数据结构和 RPC 方法的细节。
+- **复习 A2A 关键主题：**
+    - [A2A 与 MCP](/docs/a2a/a2a-and-mcp)：了解 A2A 如何与模型上下文协议 (Model Context Protocol) 互补以支持工具使用。
+    - [企业级功能](/docs/a2a/enterprise-ready)：了解安全、可观测性及其他企业级考量。
+    - [流式与异步操作](/docs/a2a/streaming-and-async)：获取关于 SSE 和推送通知的更多详情。
+    - [智能体发现](/docs/a2a/agent-discovery)：探索智能体相互发现的不同方式。
+- **构建你自己的智能体：**
+    - 尝试使用你喜欢的 Python 智能体框架（如 LangChain、CrewAI、AutoGen、Semantic Kernel 或自定义方案）创建新的 A2A 智能体。
+    - 实现 `a2a.server.agent_execution.AgentExecutor` 接口，将你的智能体逻辑与 A2A 协议桥接起来。
+    - 思考你的智能体可以提供哪些独特的技能，以及它的智能体名片应如何呈现这些技能。
+- **试验高级功能：**
+    - 如果你的智能体需要处理长时间运行或多会话的任务，实现带有持久化 `TaskStore` 的健壮任务管理。
+    - 如果你的智能体的任务生命周期很长，探索实现推送通知。
+    - 考虑更复杂的输入和输出模式（例如，通过文件 Part 处理文件上传/下载，或通过数据 Part 处理结构化数据）。
+- **参与 A2A 社区：**
+    - 加入 [A2A Discord 服务器](https://discord.gg/a2aprotocol)。
+    - 参与 [A2A GitHub Discussions 页面](https://github.com/a2aproject/A2A/discussions) 上的讨论。
+    - 通过 [GitHub Issues](https://github.com/a2aproject/A2A/issues) 报告问题或提出改进建议。
+    - 考虑贡献代码、示例或文档。请参阅 [CONTRIBUTING.md](https://github.com/a2aproject/A2A/blob/main/CONTRIBUTING.md) 指南。
+
+A2A 协议旨在促进一个互操作的 AI 智能体生态系统。通过构建和分享符合 A2A 标准的智能体，你可以成为这一令人兴奋的发展的一部分！

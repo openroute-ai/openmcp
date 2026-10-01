@@ -1,0 +1,211 @@
+---
+title: "MCP 服务端提交"
+description: "OpenMCP 支持 MCP 服务端的提交与审批工作流。团队成员可以提交 MCP 服务端供管理员审查，服务端会保持在 pending_review 状态，直到管理员批准或拒绝。"
+---
+
+OpenMCP 支持 MCP 服务端的提交与审批工作流。团队成员可以提交 MCP 服务端供管理员审查，服务端会保持在 `pending_review` 状态，直到管理员批准或拒绝。
+
+这让组织可以为团队成员提供自助式 MCP 注册，而不会立即将未经批准的服务端暴露给所有用户。
+
+<Callout type="info" title="Related Documentation">
+
+- [MCP 概览](/docs/mcp-gateway) - 添加和管理 MCP 服务端
+- [MCP 权限管理](/docs/mcp-gateway/control) - 按 key、团队或组织控制 MCP 访问
+
+</Callout>
+
+## 工作原理
+
+```
+Team member submits MCP server via API
+        ↓
+Server saved as "pending_review" (NOT loaded into registry)
+        ↓
+Admin reviews in the Submitted MCPs tab
+        ↓
+Approve → server goes "active" and is loaded into the registry
+Reject  → server stays out with optional review notes
+```
+
+**前提条件：**
+- 必须在代理配置中设置 `store_model_in_db: true`（持久化 MCP 服务端所必需）
+- 提交者必须使用**团队作用域的 API key**（管理员 key 会绕过该工作流，直接使用 `POST /v1/mcp/server`）
+
+```yaml title="config.yaml" showLineNumbers
+general_settings:
+  store_model_in_db: true
+```
+
+---
+
+## 用户：提交 MCP 服务端
+
+使用团队作用域的 API key。管理员 key 在此端点会被拒绝；管理员应直接使用 `POST /v1/mcp/server`。
+
+<Tabs items={["curl","Python"]}>
+<Tab>
+
+```bash title="Submit MCP server for review" showLineNumbers
+curl -X POST http://localhost:4000/v1/mcp/server/register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEAM_API_KEY" \
+  -d '{
+    "server_name": "github_mcp",
+    "url": "https://api.githubcopilot.com/mcp",
+    "transport": "sse",
+    "description": "GitHub MCP for code search and PR management"
+  }'
+```
+
+</Tab>
+<Tab>
+
+```python title="Submit MCP server for review" showLineNumbers
+import requests
+
+response = requests.post(
+    "http://localhost:4000/v1/mcp/server/register",
+    headers={
+        "Authorization": f"Bearer {team_api_key}",
+        "Content-Type": "application/json",
+    },
+    json={
+        "server_name": "github_mcp",
+        "url": "https://api.githubcopilot.com/mcp",
+        "transport": "sse",
+        "description": "GitHub MCP for code search and PR management",
+    },
+)
+print(response.json())
+```
+
+</Tab>
+</Tabs>
+
+**响应。** 服务端以 `pending_review` 状态创建：
+
+```json
+{
+  "server_id": "832d6abc-7a5c-457a-a9f6-cfe4ae05f776",
+  "server_name": "github_mcp",
+  "url": "https://api.githubcopilot.com/mcp",
+  "transport": "sse",
+  "approval_status": "pending_review",
+  "submitted_by": "7fd77c87-207b-4d6c-9d51-b72efb8962dc",
+  "submitted_at": "2026-04-29T18:50:34Z"
+}
+```
+
+<Callout type="info">
+
+该服务端尚**不能**被 MCP 客户端访问。只有在管理员批准后才会变为 active。
+
+</Callout>
+
+---
+
+## 管理员：审查提交
+
+### 通过 UI
+
+进入 **MCP Servers → Submitted MCPs** 标签页。您会看到：
+- 提交计数：总提交数、待审查、已激活、已拒绝
+- 每张提交卡片包含服务端名称、描述、URL、传输方式和提交日期
+- 每张卡片上都有 **Approve**（批准）和 **Reject**（拒绝）按钮
+
+<img src="/images/docs/mcp-gateway/02_submitted_mcps_tab.png" style={{width: '100%', display: 'block', margin: '1rem 0'}} />
+
+**批准**服务端会弹出确认对话框。点击 **Approve** 可将其立即激活并加载到 MCP 注册中心。
+
+<img src="/images/docs/mcp-gateway/04_approve_dialog.png" style={{width: '100%', display: 'block', margin: '1rem 0'}} />
+
+批准后，卡片徽章会变为 **Active**，计数也会更新：
+
+<img src="/images/docs/mcp-gateway/05_after_approve.png" style={{width: '100%', display: 'block', margin: '1rem 0'}} />
+
+**拒绝**会打开一个带可选审查备注字段的对话框，您可以在其中说明拒绝提交的原因：
+
+<img src="/images/docs/mcp-gateway/03_reject_dialog.png" style={{width: '100%', display: 'block', margin: '1rem 0'}} />
+
+### 通过 API
+
+需要 Admin 或 `proxy_admin_viewer` 角色。
+
+<Tabs items={["List submissions","Approve","Reject"]}>
+<Tab>
+
+```bash title="List all MCP submissions" showLineNumbers
+curl http://localhost:4000/v1/mcp/server/submissions \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+```
+
+响应：
+
+```json
+{
+  "total": 1,
+  "pending_review": 1,
+  "active": 0,
+  "rejected": 0,
+  "items": [
+    {
+      "server_id": "832d6abc-7a5c-457a-a9f6-cfe4ae05f776",
+      "server_name": "github_mcp",
+      "approval_status": "pending_review",
+      "submitted_by": "7fd77c87-207b-4d6c-9d51-b72efb8962dc",
+      "submitted_at": "2026-04-29T18:50:34Z"
+    }
+  ]
+}
+```
+
+</Tab>
+<Tab>
+
+```bash title="Approve a submitted MCP server" showLineNumbers
+curl -X PUT http://localhost:4000/v1/mcp/server/{server_id}/approve \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+```
+
+服务端状态会变为 `active`，并立即加载到 MCP 运行时注册中心。
+
+</Tab>
+<Tab>
+
+```bash title="Reject a submitted MCP server" showLineNumbers
+curl -X PUT http://localhost:4000/v1/mcp/server/{server_id}/reject \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -d '{"review_notes": "This URL is not on the approved vendor list."}'
+```
+
+`review_notes` 是可选的。服务端将不会进入注册中心。
+
+</Tab>
+</Tabs>
+
+---
+
+## 审批状态值
+
+| 状态 | 含义 |
+|--------|---------|
+| `pending_review` | 已提交，等待管理员审查。MCP 客户端无法访问。 |
+| `active` | 已批准。已加载到 MCP 注册中心并可被客户端使用。 |
+| `rejected` | 已被管理员拒绝。无法访问。可能包含 `review_notes`。 |
+
+---
+
+## 常见问题
+
+**管理员可以重新批准已拒绝的服务端吗？**
+
+可以。调用 `PUT /v1/mcp/server/{id}/approve`；该端点接受 `pending_review` 和 `rejected` 两种状态的服务端。
+
+**如果之前处于 active 状态的服务端被拒绝会发生什么？**
+
+它会立即从运行时注册中心被移除，客户端将不再看到它的工具。
+
+**启用提交是否需要特殊的配置标志？**
+
+不需要。只要设置了 `store_model_in_db: true`，提交端点默认即可用。无需额外的功能开关。

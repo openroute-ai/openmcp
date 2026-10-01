@@ -1,0 +1,144 @@
+---
+title: "Cato Networks"
+description: "前往 Cato Networks CMA 并创建一个新的 AI Security guard。"
+---
+
+## 快速开始
+### 1. 创建一个新的 Cato Networks AI Security Guard
+
+前往 [Cato Networks CMA](https://cc.catonetworks.com/) 并创建一个新的 AI Security guard。
+
+为你的 guard 命名并选择 AI Gateway 选项。
+
+<Callout type="info">
+
+使用带虚拟密钥的 OpenMCP 时，请使用虚拟密钥别名作为 guard 的名称，以便能够设置针对特定密钥的策略。
+
+只会将你的虚拟密钥别名（而非实际的密钥机密）发送给 Cato Networks。
+
+</Callout>
+
+### 2. 配置你的 Cato Networks AI Security Guard 策略
+
+创建一个 Engine Profile，选择要启用的检测项。
+创建一个引用该 Engine Profile 和你的 Guard 的 Guard Policy 规则，然后配置要执行的动作。
+
+### 3. 在 OpenMCP config.yaml 中添加 Cato Networks Guardrail
+
+在 `guardrails` 部分定义你的护栏
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: cato-protected-app
+    openmcp_params:
+      guardrail: cato_networks
+      mode: [pre_call, post_call] # "During_call" is also available
+      api_key: os.environ/CATO_API_KEY
+      api_base: os.environ/CATO_API_BASE
+      ssl_verify: False # Optional, set to False to disable SSL verification or a string path to a custom CA bundle
+      inspect_embeddings: false # Optional, set to true to inspect /embeddings input
+```
+
+在 `api_key` 中填入颁发给你的 API 密钥。该密钥可以在 guard 的页面中找到。
+你也可以将 `CATO_API_KEY` 设置为环境变量。
+
+默认情况下，`api_base` 设置为 `https://api.aisec.catonetworks.com`。请为你的区域设置正确的 URL。
+如果你使用自托管的 Outpost，可以将 `api_base` 设置为你的 Outpost URL。
+
+### 4. 启动 OpenMCP 网关
+```shell
+openmcp --config config.yaml
+```
+
+### 5. 发出你的第一个请求
+
+<Callout type="info">
+
+以下示例依赖于在你的策略中启用 *PII* 检测。
+你可以调整请求内容以匹配不同的 guard 策略。
+
+</Callout>
+
+<Tabs items={["Successfully blocked request","Successfully permitted request"]}>
+<Tab>
+
+<Callout type="info">
+
+使用带虚拟密钥的 OpenMCP 时，需要携带虚拟密钥的 `Authorization` 请求头。
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi my email is ishaan@berri.ai"}
+    ],
+    "guardrails": ["cato-protected-app"]
+  }'
+```
+
+如果配置正确，由于 `ishaan@berri.ai` 会被 Cato Networks AI Security Guard 检测为 PII，你将收到类似以下带有 `400 Bad Request` 状态码的响应：
+
+```json
+{
+  "error": {
+    "message": "\"ishaan@berri.ai\" detected as email",
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+<Callout type="info">
+
+使用带虚拟密钥的 OpenMCP 时，需要携带虚拟密钥的 `Authorization` 请求头。
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["cato-protected-app"]
+  }'
+```
+
+上述请求不应被拦截，你应该会收到一个正常的 LLM 响应（为简洁起见做了简化）：
+
+```json
+{
+  "model": "{{openai_small}}",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "I can’t provide live weather updates without the internet. Let me know if you’d like general weather trends for a location and season instead!",
+        "role": "assistant"
+      }
+    }
+  ]
+}
+```
+
+</Tab>
+
+</Tabs>

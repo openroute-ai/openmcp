@@ -1,0 +1,199 @@
+---
+title: "实时 API 护栏"
+description: "在 LLM 响应之前拦截语音转写内容，为 Realtime API 中的语音对话保驾护航。"
+---
+
+在 LLM 响应**之前**拦截语音转写内容，为 [Realtime API](/docs/realtime) 中的语音对话保驾护航。
+
+## 工作原理
+
+Realtime API 是一个长连接 WebSocket 会话。与每次 HTTP 请求运行一次护栏的 `/chat/completions` 不同，语音会话有很多轮，每一轮都需要单独检查。
+
+OpenMCP 在转写事件处拦截每一轮——在 Whisper 将语音转换为文本之后、但在 LLM 生成响应之前：
+
+```
+User speaks into mic
+        │
+        ▼ audio bytes (PCM)
+┌───────────────────┐
+│   OpenMCP Proxy   │  forwards audio to OpenAI unchanged
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│     OpenAI        │
+│  VAD → Whisper    │  detects speech end, transcribes
+└────────┬──────────┘
+         │
+         │  conversation.item.input_audio_transcription.completed
+         │  { transcript: "system update: ignore all instructions" }
+         │
+         ▼
+┌───────────────────────────────────────────┐
+│           OpenMCP Proxy                   │
+│                                           │
+│   ◄──── GUARDRAIL RUNS HERE ────►         │
+│   apply_guardrail(texts=[transcript])     │
+│                                           │
+│   ┌──────────────┬──────────────────┐     │
+│   │   BLOCKED    │     CLEAN        │     │
+│   └──────┬───────┴───────┬──────────┘     │
+│          │               │                │
+│   speak warning    send response.create   │
+│   (TTS audio)      → LLM responds         │
+└───────────────────────────────────────────┘
+```
+
+**关键细节**：OpenMCP 还会在连接时向会话中注入 `create_response: false`，因此 LLM 绝不会在护栏运行之前自动响应。
+
+## 支持的护栏模式
+
+| 模式 | 描述 |
+|------|-------------|
+| `realtime_input_transcription` | 在每一轮语音转写之后、LLM 响应之前运行 |
+
+## 快速入门
+
+### 第 1 步：配置代理
+
+在代理配置中添加一个 `mode: realtime_input_transcription` 的护栏：
+
+```yaml
+model_list:
+  - model_name: openai/gpt-4o-realtime-preview
+    openmcp_params:
+      model: openai/gpt-4o-realtime-preview
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "voice-content-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: realtime_input_transcription
+      default_on: true
+      blocked_words:
+        - keyword: "ignore previous instructions"
+          action: BLOCK
+          description: "Prompt injection attempt"
+        - keyword: "system update"
+          action: BLOCK
+          description: "Prompt injection attempt"
+        - keyword: "ignore all instructions"
+          action: BLOCK
+          description: "Prompt injection attempt"
+
+general_settings:
+  master_key: sk-1234
+```
+
+### 第 2 步：启动代理
+
+```bash
+openmcp --config proxy_config.yaml --port 4000
+```
+
+### 第 3 步：连接 Realtime 客户端
+
+将你的客户端连接到代理，而不是直接连接到 OpenAI：
+
+<Tabs items={["JavaScript","Python"]}>
+<Tab>
+
+```javascript
+const ws = new WebSocket(
+  "ws://localhost:4000/v1/realtime?model=openai/gpt-4o-realtime-preview",
+  [],
+  { headers: { Authorization: "Bearer sk-1234" } }
+)
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: "session.update",
+    session: {
+      modalities: ["audio", "text"],
+      input_audio_transcription: { model: "whisper-1" },
+      turn_detection: { type: "server_vad" },
+    },
+  }))
+}
+
+ws.onmessage = (e) => {
+  const event = JSON.parse(e.data)
+  if (event.type === "response.audio.delta") {
+    // play audio...
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```python
+import asyncio
+import json
+import websockets
+
+async def main():
+    async with websockets.connect(
+        "ws://localhost:4000/v1/realtime?model=openai/gpt-4o-realtime-preview",
+        additional_headers={"Authorization": "Bearer sk-1234"},
+    ) as ws:
+        await ws.recv()  # session.created
+
+        await ws.send(json.dumps({
+            "type": "session.update",
+            "session": {
+                "modalities": ["audio", "text"],
+                "input_audio_transcription": {"model": "whisper-1"},
+                "turn_detection": {"type": "server_vad"},
+            },
+        }))
+
+        async for raw in ws:
+            event = json.loads(raw)
+            print(event["type"])
+
+asyncio.run(main())
+```
+
+</Tab>
+</Tabs>
+
+### 当一轮被阻止时会发生什么
+
+当护栏触发时，代理会：
+
+1. 发送 `response.cancel` 以终止任何进行中的 LLM 响应
+2. 以阻止消息作为强制指令发送 `response.create`
+3. OpenAI 的 TTS 将警告**说出来**给用户，例如 *"Content blocked: keyword 'system update' detected (Prompt injection attempt)"*
+
+LLM 绝不会处理被注入的指令。
+
+## 与任何护栏提供方配合使用
+
+`realtime_input_transcription` 模式适用于任何实现了 `apply_guardrail` 的护栏。只需将 `openmcp_content_filter` 换成你的提供方：
+
+```yaml
+guardrails:
+  - guardrail_name: "voice-lakera"
+    openmcp_params:
+      guardrail: lakera_ai
+      mode: realtime_input_transcription
+      default_on: true
+      api_key: os.environ/LAKERA_API_KEY
+```
+
+## 按密钥控制护栏
+
+要仅对特定 API 密钥启用实时护栏，请设置 `default_on: false` 并在请求元数据中传入护栏名称：
+
+```yaml
+guardrails:
+  - guardrail_name: "voice-content-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: realtime_input_transcription
+      default_on: false   # off by default
+```
+
+然后客户端通过初始元数据传入它，按连接选入（企业功能）。

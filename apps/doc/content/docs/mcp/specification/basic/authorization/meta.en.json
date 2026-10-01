@@ -1,0 +1,8 @@
+{
+  "pages": [
+    "index",
+    "authorization-server-discovery",
+    "client-registration",
+    "security-considerations"
+  ]
+}

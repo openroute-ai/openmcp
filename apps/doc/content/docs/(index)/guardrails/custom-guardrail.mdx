@@ -1,0 +1,720 @@
+---
+title: "自定义护栏"
+description: "如果你想编写代码来运行自定义护栏，请使用此方法"
+---
+
+如果你想编写代码来运行自定义护栏，请使用此方法
+
+## 快速入门
+
+### 1. 编写一个 `CustomGuardrail` 类
+
+你只需要实现一个方法：`apply_guardrail`。OpenMCP 从请求（或响应）中提取内容，以 `inputs` 的形式交给你，然后写回你返回的任何内容。抛出异常即可阻止该调用。
+
+**`CustomGuardrail` 类示例**
+
+新建一个名为 `custom_guardrail.py` 的文件，并将以下代码添加到其中：
+
+```python
+import os
+from typing import TYPE_CHECKING, List, Literal, Optional
+
+from openmcp.integrations.custom_guardrail import CustomGuardrail
+from openmcp.llms.custom_httpx.http_handler import (
+    get_async_httpx_client,
+    httpxSpecialProvider,
+)
+from openmcp.types.utils import GenericGuardrailAPIInputs
+
+if TYPE_CHECKING:
+    from openmcp.openmcp_core_utils.openmcp_logging import Logging as OpenMCPLoggingObj
+
+class myCustomGuardrail(CustomGuardrail):
+    def __init__(self, api_key: Optional[str] = None, api_base: Optional[str] = None, **kwargs):
+        self.api_key = api_key or os.getenv("MY_GUARDRAIL_API_KEY")
+        self.api_base = api_base or os.getenv("MY_GUARDRAIL_API_BASE", "https://api.myguardrail.com")
+        super().__init__(**kwargs)
+
+    async def apply_guardrail(
+        self,
+        inputs: GenericGuardrailAPIInputs,
+        request_data: dict,
+        input_type: Literal["request", "response"],
+        logging_obj: Optional["OpenMCPLoggingObj"] = None,
+    ) -> GenericGuardrailAPIInputs:
+        """
+        Check the extracted content against your guardrail rules.
+        Raise an exception to block the call.
+        Return the inputs (optionally modified) to allow it through.
+        """
+        checked_texts: List[str] = []
+        for text in inputs.get("texts") or []:
+            result = await self._check_with_api(text, request_data)
+
+            if result.get("action") == "BLOCK":
+                raise Exception(f"Content blocked: {result.get('reason', 'Policy violation')}")
+
+            checked_texts.append(result.get("masked_text") or text)
+
+        inputs["texts"] = checked_texts
+        return inputs
+
+    async def _check_with_api(self, text: str, request_data: dict) -> dict:
+        async_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.LoggingCallback)
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        response = await async_client.post(
+            f"{self.api_base}/check",
+            headers=headers,
+            json={"text": text},
+            timeout=5,
+        )
+
+        response.raise_for_status()
+        return response.json()
+```
+
+### `apply_guardrail` 参数
+
+| 参数 | 是什么 |
+|-----------|------------|
+| `inputs` | OpenMCP 从这次调用中提取的所有内容。键如下。 |
+| `request_data` | 请求体。`request_data["metadata"]` 保存调用方信息 — `user_api_key_user_id`、`user_api_key_team_id` 等。 |
+| `input_type` | 进入时为 `"request"`，返回时为 `"response"`。让一个类可以处理两个方向。 |
+| `logging_obj` | 该调用的 OpenMCP 日志对象，如果你想附加自己的元数据。 |
+
+`inputs` 中的每个键都是可选的，因此你只会得到这次调用实际拥有的键：
+
+| 键 | 内容 |
+|-----|--------------|
+| `texts` | 要检查的文本。这是大多数护栏使用的键。 |
+| `images` | 请求中的图像，以 base64 或 URL 形式。 |
+| `tools` | 发送给 LLM 的工具定义。 |
+| `tool_calls` | LLM 请求的工具调用。 |
+| `structured_messages` | OpenAI 格式的完整消息，因此你可以区分系统消息和用户消息。 |
+| `model` | 此调用所路由到的模型。 |
+
+**要允许调用，请返回 `inputs`。** 要进行掩码，请就地编辑 `texts` 或 `tool_calls`；OpenMCP 会将它们映射回原始请求或响应。
+
+`structured_messages` 是个例外：**用一个新列表替换它。** OpenMCP 只有在你交回不同的对象时才会使用它，因此就地所做的编辑会被忽略。
+
+在流式传输期间，你还可以设置 `stream_holdback_chars`，即每个文本要保留的尾随字符数，这样匹配就不会被拆分成两个分块。
+
+<Callout type="info" title="高级：使用单个事件钩子">
+
+如果你需要更精细的控制，可以实现单个事件钩子来替代（或补充）`apply_guardrail`：
+
+- `async_pre_call_hook` - 在发起 LLM API 调用之前修改输入或拒绝请求
+- `async_moderation_hook` - 拒绝请求，与 LLM API 调用并行运行（有助于降低延迟）
+- `async_post_call_success_hook` - 对输入/输出应用护栏，在 LLM API 调用之后运行
+- `async_post_call_streaming_iterator_hook` - 将整个流传递给护栏
+
+**[在此查看单个事件钩子的示例](#advanced-individual-event-hooks)** | **[在此查看方法的详细规范](#customguardrail-methods)**
+
+</Callout>
+
+### 2. 在 OpenMCP `config.yaml` 中传入你的自定义护栏类
+
+在下面的配置中，我们通过设置 `guardrail: custom_guardrail.myCustomGuardrail` 将护栏指向自定义护栏
+
+- Python 文件名：`custom_guardrail.py`
+- 护栏类名：`myCustomGuardrail`。这在第 1 步中定义
+
+`guardrail: custom_guardrail.myCustomGuardrail`
+
+```yaml
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "my-custom-guardrail"
+    openmcp_params:
+      guardrail: custom_guardrail.myCustomGuardrail  # 👈 Key change
+      mode: "pre_call"                  # when apply_guardrail runs - see Mode Options below
+      api_key: os.environ/MY_GUARDRAIL_API_KEY
+      api_base: https://api.myguardrail.com
+```
+
+<Callout type="info" title="模式选项">
+
+`apply_guardrail` 在全部三种模式下运行。模式决定它*何时*运行以及它看到的是请求还是响应。
+
+| 模式 | 运行时机 | `input_type` | 能否掩码？ |
+|------|--------------|--------------|------|
+| `pre_call` | 在 LLM 调用之前 | `"request"` | 是 |
+| `during_call` | 与 LLM 调用并行 | `"request"` | 仅阻止 — 见下文 |
+| `post_call` | 在 LLM 响应之后 | `"response"` | 是 |
+
+**如果你要掩码或重写内容，请使用 `pre_call`。** `during_call` 与 LLM 调用并行运行你的护栏以节省延迟，因此它能可靠地*阻止*糟糕的请求，但你的编辑可能无法在请求发出之前生效。
+
+如果你改为实现单个事件钩子，相同的三种模式将调用 `async_pre_call_hook`、`async_moderation_hook` 和 `async_post_call_success_hook`。
+
+</Callout>
+
+<Callout type="info" title="流式传输与 post_call 护栏">
+
+对于**流式响应**，`post_call` 护栏会在所有分块都已传递给客户端**之后**在完全组装好的响应上运行。这使得流式传输上的 `post_call` 护栏成为**仅审计**模式：它们可以检查并记录完整响应，但无法阻止内容传递。护栏结果会记录在日志负载中的 `guardrail_information` 内，用于合规与审计。
+
+要实时过滤或阻止流式内容，请改用 `async_post_call_streaming_iterator_hook`，它会在分块到达时处理分块。
+
+实现了 `apply_guardrail` 的内置护栏（例如 [Bedrock](./bedrock#streaming)）在流上采用相反的默认行为：OpenMCP 会缓冲每个分块，直到组装后的响应通过内容审核，因此阻止会在任何内容到达客户端之前发生。在此类护栏上同时设置 `streaming_buffer_until_moderated: false` 和 `streaming_end_of_stream_only: true`，即可获得上述仅审计的行为，且不会增加首令牌时间。
+
+</Callout>
+
+<details>
+<summary>高级：使用单个事件钩子的多种模式</summary>
+
+如果你使用单个事件钩子，可以配置多个具有不同模式的护栏：
+
+```yaml
+guardrails:
+  - guardrail_name: "custom-pre-guard"
+    openmcp_params:
+      guardrail: custom_guardrail.myCustomGuardrail
+      mode: "pre_call"                  # runs async_pre_call_hook
+  - guardrail_name: "custom-during-guard"
+    openmcp_params:
+      guardrail: custom_guardrail.myCustomGuardrail  
+      mode: "during_call"               # runs async_moderation_hook
+  - guardrail_name: "custom-post-guard"
+    openmcp_params:
+      guardrail: custom_guardrail.myCustomGuardrail
+      mode: "post_call"                 # runs async_post_call_success_hook
+```
+
+</details>
+
+### 3. 启动 OpenMCP 网关
+
+<Tabs items={["Docker 运行","openmcp pip"]}>
+<Tab>
+
+将你的 `custom_guardrail.py` 挂载到 OpenMCP Docker 容器上
+
+这会将你本地目录中的 `custom_guardrail.py` 文件挂载到 Docker 容器中的 `/app` 目录，使其对 OpenMCP 网关可用。
+
+```shell
+docker run -d \
+  -p 4000:4000 \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  --name my-app \
+  -v $(pwd)/my_config.yaml:/app/config.yaml \
+  -v $(pwd)/custom_guardrail.py:/app/custom_guardrail.py \
+  my-app:latest \
+  --config /app/config.yaml \
+  --port 4000 \
+  --detailed_debug \
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+</Tab>
+
+</Tabs>
+
+### 4. 进行测试
+
+**[Langchain、OpenAI SDK 使用示例](/docs/proxy/user_keys#request-format)**
+
+<Tabs items={["被阻止的请求","成功的调用"]}>
+<Tab>
+
+如果此请求违反你的护栏策略，将被阻止：
+
+```shell
+curl -i -X POST http://localhost:4000/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer sk-1234" \
+-d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Content that violates policy"
+        }
+    ],
+   "guardrails": ["my-custom-guardrail"]
+}'
+```
+
+被阻止时的预期响应：
+
+```json
+{
+  "error": {
+    "message": "Content blocked: Policy violation",
+    "type": "None",
+    "param": "None",
+    "code": "500"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+此请求通过护栏：
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "What is the weather like today?"}
+    ],
+    "guardrails": ["my-custom-guardrail"]
+  }'
+```
+
+</Tab>
+
+</Tabs>
+
+<details>
+<summary>高级：测试单个事件钩子</summary>
+
+如果你使用单个事件钩子，可以分别测试每种模式：
+
+#### 测试 `"custom-pre-guard"`
+
+<Tabs items={["修改输入","成功的调用"]}>
+<Tab>
+
+预期这会在将请求发送到 LLM API 之前掩码 `openmcp` 一词。 [这会运行 `async_pre_call_hook`](#advanced-individual-event-hooks)
+
+```shell
+curl -i  -X POST http://localhost:4000/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer sk-1234" \
+-d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "say the word - `openmcp`"
+        }
+    ],
+   "guardrails": ["custom-pre-guard"]
+}'
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["custom-pre-guard"]
+  }'
+```
+
+</Tab>
+
+</Tabs>
+
+#### 测试 `"custom-during-guard"`
+
+<Tabs items={["失败的调用","成功的调用"]}>
+<Tab>
+
+预期这会失败，因为 `openmcp` 在消息内容中。 [这会运行 `async_moderation_hook`](#advanced-individual-event-hooks)
+
+```shell
+curl -i  -X POST http://localhost:4000/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer sk-1234" \
+-d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "say the word - `openmcp`"
+        }
+    ],
+   "guardrails": ["custom-during-guard"]
+}'
+```
+
+预期响应：
+
+```json
+{
+  "error": {
+    "message": "Guardrail failed words - `openmcp` detected",
+    "type": "None",
+    "param": "None",
+    "code": "500"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["custom-during-guard"]
+  }'
+```
+
+</Tab>
+
+</Tabs>
+
+#### 测试 `"custom-post-guard"`
+
+<Tabs items={["失败的调用","成功的调用"]}>
+<Tab>
+
+预期这会失败，因为 `coffee` 会出现在响应内容中。 [这会运行 `async_post_call_success_hook`](#advanced-individual-event-hooks)
+
+```shell
+curl -i  -X POST http://localhost:4000/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer sk-1234" \
+-d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "what is coffee"
+        }
+    ],
+   "guardrails": ["custom-post-guard"]
+}'
+```
+
+预期响应：
+
+```json
+{
+  "error": {
+    "message": "Guardrail failed Coffee Detected",
+    "type": "None",
+    "param": "None",
+    "code": "500"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i  -X POST http://localhost:4000/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer sk-1234" \
+-d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "what is tea"
+        }
+    ],
+   "guardrails": ["custom-post-guard"]
+}'
+```
+
+</Tab>
+
+</Tabs>
+
+</details>
+
+## ✨ 向护栏传递额外参数
+
+<EnterpriseFeature />
+
+使用此功能向护栏 API 调用传递额外参数，例如成功阈值等
+
+1. 使用 `get_guardrail_dynamic_request_body_params`
+
+`get_guardrail_dynamic_request_body_params` 是 `openmcp.integrations.custom_guardrail.CustomGuardrail` 类的一个方法，用于获取请求体中传递的动态护栏参数。
+
+```python
+from typing import Any, Dict, List, Literal, Optional, Union
+import openmcp
+from openmcp._logging import verbose_proxy_logger
+from openmcp.caching.caching import DualCache
+from openmcp.integrations.custom_guardrail import CustomGuardrail
+from openmcp.proxy._types import UserAPIKeyAuth
+
+class myCustomGuardrail(CustomGuardrail):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    async def async_pre_call_hook(
+        self,
+        user_api_key_dict: UserAPIKeyAuth,
+        cache: DualCache,
+        data: dict,
+        call_type: Literal[
+            "completion",
+            "text_completion",
+            "embeddings",
+            "image_generation",
+            "moderation",
+            "audio_transcription",
+            "pass_through_endpoint",
+            "rerank"
+        ],
+    ) -> Optional[Union[Exception, str, dict]]:
+        # Get dynamic params from request body
+        params = self.get_guardrail_dynamic_request_body_params(request_data=data)
+        # params will contain: {"success_threshold": 0.9}
+        verbose_proxy_logger.debug("Guardrail params: %s", params)
+        return data
+```
+
+2. 在你的 API 请求中传递参数：
+
+OpenMCP 代理允许你在请求体中传递 `guardrails`，遵循 [`guardrails` 规范](/docs/proxy/guardrails/quick_start#guardrails-request-parameter)。
+
+<Tabs items={["OpenAI Python","Curl"]}>
+<Tab>
+
+```python
+import openai
+client = openai.OpenAI(
+    api_key="anything",
+    base_url="http://0.0.0.0:4000"
+)
+
+response = client.chat.completions.create(
+    model="{{openai_large}}",
+    messages=[{"role": "user", "content": "Write a short poem"}],
+    extra_body={
+        "guardrails": {
+            "custom-pre-guard": {
+                "extra_body": {
+                    "success_threshold": 0.9
+                }
+            }
+        }
+    }
+)
+```
+</Tab>
+
+<Tab>
+
+```shell
+curl 'http://0.0.0.0:4000/chat/completions' \
+    -H 'Content-Type: application/json' \
+    -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Write a short poem"
+        }
+    ],
+    "guardrails": [
+        "custom-pre-guard": {
+            "extra_body": {
+                "success_threshold": 0.9
+            }
+        }
+    ]
+}'
+```
+</Tab>
+</Tabs>
+
+`get_guardrail_dynamic_request_body_params` 方法将返回：
+```json
+{
+    "success_threshold": 0.9
+}
+```
+
+## 高级：单个事件钩子
+
+优点：更灵活
+缺点：你需要为每种 LLM 调用类型实现该方法（聊天补全、文本补全、嵌入、图像生成、内容审核、音频转写、透传端点、rerank 等）
+
+要更精细地控制护栏何时运行以及如何运行，你可以实现单个事件钩子。这为你提供了以下灵活性：
+- 在 LLM 调用之前修改输入
+- 与 LLM 调用并行运行检查（降低延迟）
+- 在 LLM 调用之后校验或修改输出
+- 处理流式响应
+
+### 使用单个事件钩子的示例
+
+```python
+from typing import Any, AsyncGenerator, Literal, Optional, Union
+
+import openmcp
+from openmcp._logging import verbose_proxy_logger
+from openmcp.caching.caching import DualCache
+from openmcp.integrations.custom_guardrail import CustomGuardrail
+from openmcp.proxy._types import UserAPIKeyAuth
+from openmcp.types.utils import ModelResponseStream, CallTypes
+
+class myCustomGuardrail(CustomGuardrail):
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        # store kwargs as optional_params
+        self.optional_params = kwargs
+
+        super().__init__(**kwargs)
+
+    async def async_pre_call_hook(
+        self,
+        user_api_key_dict: UserAPIKeyAuth,
+        cache: DualCache,
+        data: dict,
+        call_type: Optional[CallTypes],
+    ) -> Optional[Union[Exception, str, dict]]:
+        """
+        Runs before the LLM API call
+        Runs on only Input
+        Use this if you want to MODIFY the input
+        """
+
+        # In this guardrail, if a user inputs `openmcp` we will mask it and then send it to the LLM
+        _messages = data.get("messages")
+        if _messages:
+            for message in _messages:
+                _content = message.get("content")
+                if isinstance(_content, str):
+                    if "openmcp" in _content.lower():
+                        _content = _content.replace("openmcp", "********")
+                        message["content"] = _content
+
+        verbose_proxy_logger.debug(
+            "async_pre_call_hook: Message after masking %s", _messages
+        )
+
+        return data
+
+    async def async_moderation_hook(
+        self,
+        data: dict,
+        user_api_key_dict: UserAPIKeyAuth,
+        call_type: Literal["completion", "embeddings", "image_generation", "moderation", "audio_transcription"],
+    ):
+        """
+        Runs in parallel to LLM API call
+        Runs on only Input
+
+        This can NOT modify the input, only used to reject or accept a call before going to LLM API
+        """
+
+        # this works the same as async_pre_call_hook, but just runs in parallel as the LLM API Call
+        # In this guardrail, if a user inputs `openmcp` we will mask it.
+        _messages = data.get("messages")
+        if _messages:
+            for message in _messages:
+                _content = message.get("content")
+                if isinstance(_content, str):
+                    if "openmcp" in _content.lower():
+                        raise ValueError("Guardrail failed words - `openmcp` detected")
+
+    async def async_post_call_success_hook(
+        self,
+        data: dict,
+        user_api_key_dict: UserAPIKeyAuth,
+        response,
+    ):
+        """
+        Runs on response from LLM API call
+
+        It can be used to reject a response
+
+        If a response contains the word "coffee" -> we will raise an exception
+        """
+        verbose_proxy_logger.debug("async_pre_call_hook response: %s", response)
+        if isinstance(response, openmcp.ModelResponse):
+            for choice in response.choices:
+                if isinstance(choice, openmcp.Choices):
+                    verbose_proxy_logger.debug("async_pre_call_hook choice: %s", choice)
+                    if (
+                        choice.message.content
+                        and isinstance(choice.message.content, str)
+                        and "coffee" in choice.message.content
+                    ):
+                        raise ValueError("Guardrail failed Coffee Detected")
+
+    async def async_post_call_streaming_iterator_hook(
+        self,
+        user_api_key_dict: UserAPIKeyAuth,
+        response: Any,
+        request_data: dict,
+    ) -> AsyncGenerator[ModelResponseStream, None]:
+        """
+        Passes the entire stream to the guardrail
+
+        This is useful for guardrails that need to see the entire response, such as PII masking.
+
+        See Aim guardrail implementation for an example - https://github.com/BerriAI/openmcp/blob/d0e022cfacb8e9ebc5409bb652059b6fd97b45c0/openmcp/proxy/guardrails/guardrail_hooks/aim.py#L168
+
+        Triggered by mode: 'post_call'
+        """
+        async for item in response:
+            yield item
+
+```
+
+## **CustomGuardrail 方法**
+
+| 组件 | 描述 | 可选 | 检查的数据 | 可修改输入 | 可修改输出 | 可使调用失败 |
+|-----------|-------------|----------|--------------|------------------|-------------------|----------------|
+| `apply_guardrail` | 检查并可选修改提取输入的单一方法，适用于请求和响应 | ✅ | INPUT 或 OUTPUT | ✅ | ✅ | ✅ |
+| `async_pre_call_hook` | 在 LLM API 调用之前运行的钩子 | ✅ | INPUT | ✅ | ❌ | ✅ |
+| `async_moderation_hook` | 在 LLM API 调用期间运行的钩子 | ✅ | INPUT | ❌ | ❌ | ✅ |
+| `async_post_call_success_hook` | 在 LLM API 调用成功后运行的钩子。对于流式请求，在传递之后在组装完成的响应上运行（仅审计，无法阻止）。 | ✅ | INPUT、OUTPUT | ❌ | ✅ | ✅（仅非流式） |
+| `async_post_call_streaming_iterator_hook` | 实时处理流式响应的钩子（可过滤/阻止分块） | ✅ | OUTPUT | ❌ | ✅ | ✅ |
+
+## 常见问题
+
+**问：`apply_guardrail` 是否同时适用于请求和响应（pre_call、during_call 和 post_call 钩子）？**
+
+**答：**是的，一个函数即可同时应用于两者 - 参见实现[此处](https://github.com/BerriAI/openmcp/blob/0292b84dc47473ddeff29bd5a86f529bc523034b/openmcp/proxy/utils.py#L825)
+
+**问：`apply_guardrail` 的 inputs 中会得到什么？每个字段代表什么？**
+
+**答：**参见[上面的参数参考](#apply_guardrail-parameters)。你首先应该关注的是 `inputs["texts"]`，即你会发送到 API 进行验证的提取文本 - 参见实现[此处](https://github.com/BerriAI/openmcp/blob/main/openmcp/llms/anthropic/chat/guardrail_translation/handler.py)
+
+**问：此函数是否与 LLM 提供方无关？也就是说，例如它对 OpenAI 和 Anthropic 传递的值是否相同？**
+
+**答：**是
+
+**问：如何知道我的护栏正在运行？**
+
+**答：**如果你实现了 `apply_guardrail`，可以直接通过 [ `/apply_guardrail` API](../../apply_guardrail) 查询护栏。

@@ -1,0 +1,237 @@
+---
+title: '8. Agent 发现：Agent Card'
+---
+
+## 8. Agent 发现：Agent Card
+
+<span id="5-agent-discovery-the-agent-card"></span>
+
+### 8.1. 目的
+
+A2A 服务端**必须**提供 Agent Card。Agent Card 描述了服务端的身份、能力、技能和交互要求。客户端使用这些信息来发现合适的智能体并配置交互。
+
+有关发现策略的更多信息，请参阅 [Agent 发现指南](/docs/a2a/agent-discovery)。
+
+### 8.2. 发现机制
+
+客户端可以通过以下方式获取 Agent Card：
+
+- **Well-Known URI（标准 URI）：**访问 `https://{server_domain}/.well-known/agent-card.json`（缓存相关的指引请参阅[第 8.6 节](#86-caching)）
+- **注册表/目录：**查询经过筛选的智能体目录
+- **直接配置：**预配置的 Agent Card URL 或内容
+
+### 8.3. 协议声明要求
+
+AgentCard **必须**正确声明受支持的协议：
+
+#### 8.3.1. 受支持接口的声明
+
+- `supportedInterfaces` 字段**应当**按偏好顺序声明所有受支持的协议组合
+- `supportedInterfaces` 中的第一个条目代表首选接口
+- 每个接口**必须**准确声明其传输协议和 URL
+- 如果同一端点上提供多种传输方式，则**可以**复用 URL
+
+#### 8.3.2. 客户端协议选择
+
+客户端**必须**遵循以下规则：
+
+1. 解析 `supportedInterfaces`（如果存在），并选择第一个受支持的传输方式
+2. 当支持多个选项时，优先选择有序列表中靠前的条目
+3. 为所选传输方式使用正确的 URL
+4. 将每个请求消息中的 `tenant` 字段设置为所选 `AgentInterface` 条目中声明的确切值（如果该条目中未设置 `tenant`，则省略该字段）
+
+### 8.4. Agent Card 签名
+
+Agent Card **可以**使用 [RFC 7515](https://tools.ietf.org/html/rfc7515) 中定义的 JSON Web Signature (JWS) 进行数字签名，以确保真实性和完整性。签名使客户端能够验证 Agent Card 未被篡改，且确实来自所声明的提供方。
+
+#### 8.4.1. 规范化要求
+
+在签名之前，Agent Card 内容**必须**使用 [RFC 8785](https://tools.ietf.org/html/rfc8785) 中定义的 JSON 规范化方案（JSON Canonicalization Scheme，JCS）进行规范化。这确保了在不同 JSON 实现之间签名生成和验证的一致性。
+
+**规范化规则：**
+
+1. **字段存在性与默认值处理**：在规范化之前，JSON 表示**必须**遵循[第 5.7 节](#57-field-presence-and-optionality)中定义的 Protocol Buffer 字段存在性语义。这确保了规范化形式能准确反映哪些字段被显式提供、哪些字段被省略，从而在 Agent Card 被重建时能够验证签名：
+    - **未显式设置的可选字段**：未显式设置但标记了 `optional` 关键字的字段**必须**从 JSON 对象中省略
+    - **显式设置为默认值的可选字段**：显式设置为某个值（即使该值与默认值一致）的 `optional` 字段**必须**包含在 JSON 对象中
+    - **必填字段**：标记为 `REQUIRED` 的字段**必须**始终存在，即使字段值等于默认值。
+    - **默认值**：带有默认值的字段**必须**被省略，除非该字段标记为 `REQUIRED` 或带有 `optional` 关键字。
+
+2. **RFC 8785 合规性**：Agent Card JSON **必须**根据 RFC 8785 进行规范化，该规范规定：
+    - 可预测的对象属性排序（按键的字典序）
+    - 数字、字符串和其他基本类型值的一致表示
+    - 去除无意义的空白字符
+
+3. **签名字段排除**：被签名的内容**必须**排除 `signatures` 字段本身，以避免循环依赖。
+
+**默认值移除示例：**
+
+原始 Agent Card 片段：
+
+```json
+{
+  "name": "Example Agent",
+  "description": "",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": []
+  },
+  "skills": []
+}
+```
+
+应用规范化规则：
+
+- `name`："Example Agent" - REQUIRED 字段 → **包含**
+- `description`："" - REQUIRED 字段 → **包含**
+- `capabilities`：object - REQUIRED 字段 → **包含**（在处理子项之后）
+    - `streaming`：false - 可选字段，存在于 JSON 中（已显式设置） → **包含**
+    - `pushNotifications`：false - 可选字段，存在于 JSON 中（已显式设置） → **包含**
+    - `extensions`：[] - 重复字段（非 REQUIRED）且为空数组 → **省略**
+- `skills`：[] - REQUIRED 字段 → **包含**
+
+应用 RFC 8785 之后：
+
+```json
+{"capabilities":{"pushNotifications":false,"streaming":false},"description":"","name":"Example Agent","skills":[]}
+```
+
+#### 8.4.2. 签名格式
+
+签名使用 [RFC 7515](https://tools.ietf.org/html/rfc7515) 中定义的 JSON Web Signature (JWS) 格式。[`AgentCardSignature`](#447-agentcardsignature) 对象通过三个字段表示 JWS 组件：
+
+- **`protected`**（必填，字符串）：包含 JWS 受保护头（Protected Header）的 Base64url 编码的 JSON 对象
+- **`signature`**（必填，字符串）：Base64url 编码的签名值
+- **`header`**（可选，对象）：以 JSON 对象表示的 JWS 非受保护头（Unprotected Header）（非 base64url 编码）
+
+**JWS 受保护头参数：**
+
+受保护头**必须**包含：
+
+- `alg`：用于签名的算法（例如 "ES256"、"RS256"）
+- `typ`：对于 JWS，**应当**设置为 "JOSE"
+- `kid`：用于标识签名密钥的密钥 ID
+
+受保护头**可以**包含：
+
+- `jku`：包含公钥的 JSON Web Key Set (JWKS) 的 URL
+
+**签名生成过程：**
+
+1. **准备负载：**
+    - 从 Agent Card 中移除具有默认值的属性
+    - 排除 `signatures` 字段
+    - 使用 RFC 8785 对生成的 JSON 进行规范化，以产生规范化负载
+
+2. **创建受保护头：**
+    - 使用必填头参数（`alg`、`typ`、`kid`）与任何可选参数（`jku`）构造一个 JSON 对象
+    - 将头序列化为 JSON
+    - 对序列化后的头进行 Base64url 编码，生成 `protected` 字段值
+
+3. **计算签名：**
+    - 构造 JWS 签名输入：`ASCII(BASE64URL(UTF8(JWS Protected Header)) || '.' || BASE64URL(JWS Payload))`
+    - 使用 `alg` 头参数中指定的算法和私钥对 JWS 签名输入进行签名
+    - 对生成的签名字节进行 Base64url 编码，生成 `signature` 字段值
+
+4. **组装 AgentCardSignature：**
+    - 将 `protected` 设置为第 2 步中 Base64url 编码后的受保护头
+    - 将 `signature` 设置为第 3 步中 Base64url 编码后的签名值
+    - 可选地将 `header` 设置为包含任何非受保护头参数的 JSON 对象。
+
+**示例：**
+
+给定规范化的 Agent Card 负载和签名密钥，签名生成会产生：
+
+```json
+```
+
+其中 `protected` 值解码为：
+
+```json
+```
+
+#### 8.4.3. 签名验证
+
+验证 Agent Card 签名的客户端**必须**：
+
+1. 从 `signatures` 数组中提取签名
+2. 使用 `kid` 和 `jku`（或从受信任的密钥库）检索公钥
+3. 从收到的 Agent Card 中移除具有默认值的属性
+4. 排除 `signatures` 字段
+5. 使用 RFC 8785 对生成的 JSON 进行规范化
+6. 针对规范化后的负载验证签名
+
+**安全注意事项：**
+
+- 客户端在信任 Agent Card 之前**应当**至少验证一个签名
+- 公钥**应当**通过安全通道（HTTPS）获取
+- 客户端**可以**为已知的智能体提供方维护一个受信任的密钥库
+- 过期或被吊销的密钥**不得**用于验证
+- **可以**存在多个签名以支持密钥轮换
+
+### 8.5. 示例 Agent Card
+
+```json
+{
+  "name": "GeoSpatial Route Planner Agent",
+  "description": "Provides advanced route planning, traffic analysis, and custom map generation services. This agent can calculate optimal routes, estimate travel times considering real-time traffic, and create personalized maps with points of interest.",
+  "supportedInterfaces": [
+    {"url": "https://georoute-agent.example.com/a2a/v1", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"},
+    {"url": "https://georoute-agent.example.com/a2a/grpc", "protocolBinding": "GRPC", "protocolVersion": "1.0"},
+  ],
+  "provider": {
+    "organization": "Example Geo Services Inc.",
+    "url": "https://www.examplegeoservices.com"
+  },
+  "iconUrl": "https://georoute-agent.example.com/icon.png",
+  "version": "1.2.0",
+  "documentationUrl": "https://docs.examplegeoservices.com/georoute-agent/api",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": true,
+    "extendedAgentCard": true
+  },
+  "securitySchemes":
+    }
+  },
+  "securityRequirements": [{ "schemes": { "google": { "list": ["openid", "profile", "email"] } } }],
+  "defaultInputModes": ["application/json", "text/plain"],
+  "defaultOutputModes": ["application/json", "image/png"],
+  "skills": [
+    {
+      "id": "route-optimizer-traffic",
+      "name": "Traffic-Aware Route Optimizer",
+      "description": "Calculates the optimal driving route between two or more locations, taking into account real-time traffic conditions, road closures, and user preferences (e.g., avoid tolls, prefer highways).",
+      "tags": ["maps", "routing", "navigation", "directions", "traffic"],
+      "examples": [
+        "Plan a route from '1600 Amphitheatre Parkway, Mountain View, CA' to 'San Francisco International Airport' avoiding tolls.",
+        "{\"origin\": {\"lat\": 37.422, \"lng\": -122.084}, \"destination\": {\"lat\": 37.7749, \"lng\": -122.4194}, \"preferences\": [\"avoid_ferries\"]}"
+      ],
+      "inputModes": ["application/json", "text/plain"],
+      "outputModes": [
+        "application/json",
+        "application/vnd.geo+json",
+        "text/html"
+      ]
+    },
+  ],
+  "signatures": [
+  ]
+}
+```
+
+### 8.6. 缓存
+
+与客户端获取 Agent Card 的频率相比，Agent Card 内容的变化并不是很频繁。服务端和客户端**应当**使用标准 HTTP 缓存机制来减少不必要的网络开销。
+
+#### 8.6.1. 服务端要求
+
+- Agent Card HTTP 端点**应当**包含 `Cache-Control` 响应头，其中的 `max-age` 指令应与智能体的预期更新频率相匹配
+- Agent Card HTTP 端点**应当**包含 `ETag` 响应头，该头基于 Agent Card 的 `version` 字段或卡片内容的哈希值生成
+- Agent Card HTTP 端点**可以**包含 `Last-Modified` 响应头
+
+#### 8.6.2. 客户端要求
+
+- 客户端在获取 Agent Card 时**应当**遵循 [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) 中定义的 HTTP 缓存语义
+- 当缓存的 Agent Card 过期时，客户端**应当**使用条件请求（`If-None-Match` 配合存储的 `ETag`，或 `If-Modified-Since`）以避免重新下载未变化的卡片
+- 当服务端未包含缓存头时，客户端**可以**应用实现特定的默认缓存时长

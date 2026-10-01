@@ -1,0 +1,144 @@
+---
+title: "Cato Networks"
+description: "Go to Cato Networks CMA and create a new AI Security guard."
+---
+
+## Quick Start
+### 1. Create a new Cato Networks AI Security Guard
+
+Go to [Cato Networks CMA](https://cc.catonetworks.com/) and create a new AI Security guard.
+
+Name your guard and select the AI Gateway option.
+
+<Callout type="info">
+
+When using OpenMCP with virtual keys, use the virtual key alias as the name of the guard to be able to set key-specific policies.
+
+Only the aliases of your virtual keys (and not the actual key secrets) will be sent to Cato Networks.
+
+</Callout>
+
+### 2. Configure your Cato Networks AI Security Guard policies
+
+Create an Engine Profile, selecting which detections to enable.
+Create a Guard Policy rule that references this Engine Profile and your Guard, then configure the action to apply.
+
+### 3. Add Cato Networks Guardrail on your OpenMCP config.yaml 
+
+Define your guardrails under the `guardrails` section
+```yaml
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: cato-protected-app
+    openmcp_params:
+      guardrail: cato_networks
+      mode: [pre_call, post_call] # "During_call" is also available
+      api_key: os.environ/CATO_API_KEY
+      api_base: os.environ/CATO_API_BASE
+      ssl_verify: False # Optional, set to False to disable SSL verification or a string path to a custom CA bundle
+      inspect_embeddings: false # Optional, set to true to inspect /embeddings input
+```
+
+Under the `api_key`, insert the API key you were issued. The key can be found in the guard's page.
+You can also set `CATO_API_KEY` as an environment variable.
+
+By default, the `api_base` is set to `https://api.aisec.catonetworks.com`. Set the correct url for your region.
+If you are using a self-hosted Outpost, you can set the `api_base` to your Outpost's URL.
+
+### 4. Start OpenMCP Gateway
+```shell
+openmcp --config config.yaml
+```
+
+### 5. Make your first request
+
+<Callout type="info">
+
+The following example depends on enabling *PII* detection in your policy.
+You can adjust the request content to match different guard's policies.
+
+</Callout>
+
+<Tabs items={["Successfully blocked request","Successfully permitted request"]}>
+<Tab>
+
+<Callout type="info">
+
+When using OpenMCP with virtual keys, an `Authorization` header with the virtual key is required.
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi my email is ishaan@berri.ai"}
+    ],
+    "guardrails": ["cato-protected-app"]
+  }'
+```
+
+If configured correctly, since `ishaan@berri.ai` would be detected by the Cato Networks AI Security Guard as PII, you'll receive a response similar to the following with a `400 Bad Request` status code:
+
+```json
+{
+  "error": {
+    "message": "\"ishaan@berri.ai\" detected as email",
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+<Callout type="info">
+
+When using OpenMCP with virtual keys, an `Authorization` header with the virtual key is required.
+
+</Callout>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "hi what is the weather"}
+    ],
+    "guardrails": ["cato-protected-app"]
+  }'
+```
+
+The above request should not be blocked, and you should receive a regular LLM response (simplified for brevity):
+
+```json
+{
+  "model": "{{openai_small}}",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "I can’t provide live weather updates without the internet. Let me know if you’d like general weather trends for a location and season instead!",
+        "role": "assistant"
+      }
+    }
+  ]
+}
+```
+
+</Tab>
+
+</Tabs>

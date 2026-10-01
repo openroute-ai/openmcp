@@ -1,0 +1,328 @@
+---
+title: "MCP 故障排查指南"
+description: "当 OpenMCP 作为 MCP 网关时，流量按 Client -> OpenMCP Proxy -> MCP Server 流动，启用 OAuth 的配置还会增加一个用于元数据发现的授权服务器。本页是一份从症状到修复的排查手册。"
+---
+
+当 OpenMCP 作为 MCP 网关时，流量按 `Client -> OpenMCP Proxy -> MCP Server` 流动，启用 OAuth 的配置还会增加一个用于元数据发现的授权服务器。本页是一份从症状到修复的排查手册：运行一次诊断，在矩阵中匹配症状，然后按对应行找到修复方法。如果您仍需要升级处理，请收集[支持包](#support-bundle)，这样事后无需有人重新构建上下文。
+
+有关配置步骤、传输方式和配置字段，请参阅 [mcp.md](/docs/mcp-gateway)。
+
+## 五分钟快速排查
+
+本页的所有命令都使用快速入门约定：代理位于 `http://localhost:4000`，OpenMCP key 放在 `x-openmcp-api-key` 中，服务端别名（如 `deepwiki`）取自 `config.yaml` 中的 `mcp_servers`。请替换为您自己的主机、key 和别名。
+
+第 1 步：针对故障服务端的命名端点运行下面的诊断命令。它会保留 HTTP 状态码、响应头和响应体，这就是您需要的全部证据。不要将其通过 `grep` 管道处理，否则您会丢弃用于识别问题层的关键部分。
+
+```bash
+curl -sS -D - -X POST http://localhost:4000/deepwiki/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "x-openmcp-api-key: Bearer sk-1234" \
+  -H "x-openmcp-mcp-debug: true" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+第 2 步：读取 HTTP 状态行和响应体，然后在矩阵中找到对应行。状态码会告诉您所在层：401/403/404/405/406 来自 OpenMCP 发起上游调用之前（Client -> OpenMCP）；而响应体报告 `"status": "unreachable"` 或工具列表为空的 `200`，则意味着 OpenMCP 已应答，但上游一跳失败（OpenMCP -> MCP Server）。
+
+第 3 步：使用 `x-mcp-debug-*` 响应头（由 `x-openmcp-mcp-debug: true` 启用，见[调试头](#debug-headers)）以及相应的代理日志行来确认所在层，然后应用该行的修复方法。
+
+健康对照响应如下所示。请先获取一份，因为一个正常工作的基线是让下面每个故障都可解释的前提：
+
+```text
+HTTP/1.1 200 OK
+content-type: text/event-stream
+
+event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"_meta":{"openmcp.ai/server_outcomes":{"deepwiki":{"status":"ok","tool_count":3}}},"tools":[{"name":"deepwiki-ask_question",...}]}}
+```
+
+## 症状矩阵
+
+| 症状 | 疑似层 | 诊断 | 预期证据 | 修复 | 附带升级 |
+|---|---|---|---|---|---|
+| `401` `Authentication Error, Malformed API Key` | Client -> OpenMCP | 带/不带 key 头的诊断 curl | `{"detail":"Authentication Error, Malformed API Key passed in. Ensure Key has 'Bearer ' prefix."}` | 发送 `x-openmcp-api-key: Bearer <key>`，包含前缀 | 完整状态码 + 响应体，[支持包](#support-bundle) |
+| `401` 无效或过期的 key | Client -> OpenMCP | 诊断 curl；检查 `x-mcp-debug-inbound-auth` | 401 响应体指明 key；调试头显示代理看到的脱敏 key | 使用有效的虚拟 key 或 master key；过期则重新生成 | 脱敏 key ID、key 创建时间 |
+| `403` key 有效但不被允许 | OpenMCP 认证/路由 | 针对命名端点的诊断 curl | 403 响应体引用团队/key MCP 权限 | 授予 key/团队对服务端或[访问组](/docs/mcp-gateway/control)的访问权限 | key/团队配置子集 |
+| `404` `MCP server, toolset, or access group '<alias>' not found` | OpenMCP 认证/路由 | 对 `/<alias>/mcp` 的诊断 curl | 指明别名的精确 404 响应体 | 将别名修正为与 `config.yaml` 中的 `mcp_servers` 一致，或添加该服务端 | `mcp_servers` 配置子集 |
+| `404` `{"detail":"Not Found"}` | Client -> OpenMCP | 将 URL 与 `/<alias>/mcp` 对比 | 纯 FastAPI 404，未指明别名 | 添加缺失的 `/mcp` 后缀或修正路径 | 实际使用的 URL |
+| `405` `Method Not Allowed` | Client -> OpenMCP | `curl -sS -D - -X PUT ...` 可复现 | `allow: GET, POST, DELETE` 头加上 JSON-RPC 错误响应体 | JSON-RPC 调用使用 POST；该端点支持可流式 HTTP，而非仅 SSE 或 WebSocket | 方法与传输方式的客户端配置 |
+| `406` `Not Acceptable` | Client -> OpenMCP | 不带 `Accept` 头的诊断 curl | `Client must accept both application/json and text/event-stream` | 发送 `Accept: application/json, text/event-stream` | 客户端 HTTP 配置 |
+| UI 上 OAuth Connect 返回 `400`：`{"detail":"invalid_request"}` | OpenMCP 认证/路由 | 见 [OAuth redirect_uri 被拒绝](#mcp-oauth-invalid-request) | 日志行 `MCP OAuth: rejecting redirect_uri ...` | 设置 `PROXY_BASE_URL` 或信任 `X-Forwarded-*` | `.well-known` 签发者输出 |
+| OAuth 流程将 OpenMCP key 发送到上游 | OpenMCP 认证/路由 | 诊断 curl，读取 `x-mcp-debug-oauth2-token` | 头中出现 `SAME_AS_OPENMCP_KEY` | 将 OpenMCP key 移到 `x-openmcp-api-key`，让 `Authorization` 保留给上游令牌，见[调试 OAuth](./mcp_oauth#debugging-oauth) | 调试头 |
+| 客户端无法注册（DCR）或发现失败 | OpenMCP 认证/路由 | `curl -sS http://localhost:4000/.well-known/oauth-authorization-server` | 包含 `authorization_endpoint` 和 `token_endpoint` 的 JSON | 验证客户端可访问元数据；受支持的授权类型见 [OAuth 文档](./mcp_oauth) | 元数据 JSON、客户端的原始错误 |
+| `200` 但 `"status": "unreachable"`、工具列表为空 | OpenMCP -> MCP Server | 诊断 curl + 代理日志中搜索别名 | 日志：`httpx.ConnectError: All connection attempts failed`（网络）或 `CERTIFICATE_VERIFY_FAILED`（TLS） | 修复上游 URL、网络路径、防火墙或服务端证书 | 代理日志行 + MCP 服务端日志 |
+| `200` 但聚合 `/mcp` 的工具列表为空 | OpenMCP -> MCP Server | 读取响应体中的 `openmcp.ai/server_outcomes` | 每个服务端的 `status` 指明哪个上游失败、哪个返回了工具 | 修复失败的服务端；聚合会吸收单个服务端的失败，而不会让整个列表失败 | `server_outcomes` 对象 |
+| 工具调用失败：`Tool '<name>' not found` | Client -> OpenMCP | 使用 `tools/list` 中的精确名称进行 `tools/call` | `{"content":[{"type":"text","text":"Error: Tool 'nonexistent_tool' not found"}],"isError":true}` | 在聚合端点和命名端点上都使用带前缀的名称（`deepwiki-ask_question`） | `tools/list` 输出 |
+| `/v1/responses` 或 `/v1/chat/completions` 忽略 MCP 工具 | OpenMCP 认证/路由 | 将 `server_label` 与您的配置别名对比 | 成功时显示 `mcp_tools_fetched` 和 `tool_execution_results` 输出项；标签错误时返回不带工具项的普通回答 | 将 `server_label` 设置为精确别名，`server_url` 设置为 `openmcp_proxy` | 完整请求体（已脱敏）+响应 |
+| 请求中途超时 | OpenMCP -> MCP Server | 对诊断 curl 计时；检查 MCP 服务端日志 | curl 挂起后报错；代理日志显示超时 | 提高客户端超时，检查上游延迟和网络路径 | 双方时间戳、拓扑 |
+
+## 端点和会话
+
+OpenMCP 为每个服务端暴露一个聚合端点和一个命名端点。`POST /mcp` 列出您的 key 可访问的所有服务端的工具，每个工具带有其服务端别名前缀（`deepwiki-ask_question`），并在 `_meta` 中提供每个服务端的 `openmcp.ai/server_outcomes` 报告。`POST /<alias>/mcp` 将调用限定到单个服务端，是排查的合适目标，因为聚合响应可能用一个失败的服务端隐藏在健康服务端后面。
+
+这些端点使用 MCP 可流式 HTTP。即使对于单个 JSON-RPC 调用，响应也会以 `text/event-stream` 帧到达，因此 `Accept` 头必须允许两种内容类型。普通的 `tools/list` 和 `tools/call` 请求无需先进行 `initialize` 握手即可工作，因此 curl 排查无需会话设置。执行 `initialize` 的 MCP 客户端会获得一个会话；如果客户端在列出工具之前失败，请捕获它的第一次 HTTP 交换，因为传输方式不匹配（405）和缺失 `Accept` 头（406）都会发生在那次首次请求上。
+
+## 已验证的失败模式
+
+下面的每个响应都是在使用快速入门配置和 `deepwiki` 服务端的真实代理上捕获的，另外特意搭建了损坏的服务端用于网络和 TLS 行。
+
+### 401 和 403：认证
+
+缺失或格式错误的 key：
+
+```text
+HTTP/1.1 401 Unauthorized
+{"detail":"Authentication Error, Malformed API Key passed in. Ensure Key has `Bearer ` prefix."}
+```
+
+未知或过期的 key 也返回 401，其响应体指明被拒绝的 key：
+
+```text
+HTTP/1.1 401 Unauthorized
+{"detail":"Authentication Error, Invalid proxy server token passed. Received API Key = sk-..., Key Hash (Token) =2ab06c... Unable to find token in cache or `OpenMCP_VerificationTokenTable`"}
+```
+
+403 表示 key 已通过认证，但缺少对该服务端的 MCP 权限；请修复 key/团队的[权限分配](/docs/mcp-gateway/control)，而不是凭据。
+
+### 404：服务端或路由
+
+未知别名，OpenMCP 路由拒绝：
+
+```text
+HTTP/1.1 404 Not Found
+{"detail":"MCP server, toolset, or access group 'nosuchserver' not found"}
+```
+
+错误的路径（缺少 `/mcp` 后缀），请求从未到达 MCP 路由：
+
+```text
+HTTP/1.1 404 Not Found
+{"detail":"Not Found"}
+```
+
+这两种响应体看起来相似但含义不同：第一种是配置/别名问题，第二种是 URL 问题。
+
+### 405 和 406：传输方式或端点不匹配
+
+非 JSON-RPC 方法（例如 PUT）返回 405 并列出允许的方法：
+
+```text
+HTTP/1.1 405 Method Not Allowed
+allow: GET, POST, DELETE
+{"jsonrpc":"2.0","id":"server-error","error":{"code":-32600,"message":"Method Not Allowed"}}
+```
+
+省略 `Accept` 头返回 406：
+
+```text
+HTTP/1.1 406 Not Acceptable
+{"jsonrpc":"2.0","id":"server-error","error":{"code":-32600,"message":"Not Acceptable: Client must accept both application/json and text/event-stream"}}
+```
+
+两者都表明客户端传输配置有问题，而非上游服务端。在端点上使用 GET 会打开一个可流式 HTTP 事件流（您会看到 `: ping` 心跳），这是预期行为，并非错误。
+
+### OAuth 发现、DCR 和重定向
+
+在调试任何客户端流程之前，先确认代理发布了 OAuth 元数据：
+
+```bash
+curl -sS http://localhost:4000/.well-known/oauth-authorization-server
+```
+
+```text
+{"issuer":"http://localhost:4000","authorization_endpoint":"http://localhost:4000/v1/mcp/oauth/authorize","token_endpoint":"http://localhost:4000/v1/mcp/oauth/token","response_types_supported":["code"],"grant_types_supported":["authorization_code"],"code_challenge_methods_supported":["S256"]}
+```
+
+`issuer` 必须与用户在浏览器中输入的来源匹配。如果它显示的是入口后面的内部主机名，请参阅下面的 redirect_uri 部分。对于令牌流程的调试，`x-mcp-debug-oauth2-token` 中出现 `SAME_AS_OPENMCP_KEY` 意味着 OpenMCP key 正在泄漏到上游，而不是 OAuth 令牌；见[调试 OAuth](./mcp_oauth#debugging-oauth)。
+
+#### MCP OAuth：Connect 返回 `{"detail":"invalid_request"}`
+
+**症状。** 在 OpenMCP UI 中点击 MCP OAuth 服务端上的 **Connect** 会返回：
+
+```text
+HTTP/1.1 400 Bad Request
+{"detail":"invalid_request"}
+```
+
+代理日志（启用详细日志时）会显示类似 `MCP OAuth: rejecting redirect_uri ... as invalid_request. Computed proxy base=...` 的行。
+
+**原因。** `/v1/mcp/server/oauth/{server_id}/authorize` 端点会验证浏览器提供的 `redirect_uri`（`https://llm.example.com/ui/mcp/oauth/callback`）是否与代理自身的公共来源共享 scheme、host 和 port。在终止 TLS 的入口（Kubernetes、ALB、nginx、Cloudflare 等）后面，代理默认解析为内部地址（`http://<pod-ip>:4000`），因此同源检查会拒绝。
+
+**诊断。** 将代理声明为自身来源的值与浏览器看到的值进行对比：
+
+```bash
+curl -sS https://llm.example.com/.well-known/oauth-authorization-server | jq .issuer
+```
+
+`issuer` 值应等于用户在浏览器中输入来源（`https://llm.example.com`）。如果它返回内部主机名或 `http://...`，则代理解析出的来源有误。
+
+**修复方法**，按优先级排序：
+
+1. **设置 `PROXY_BASE_URL`**（推荐）。运维人员在带外声明代理的真实公共来源，无需信任任何头：
+
+   ```bash
+   PROXY_BASE_URL=https://llm.example.com
+   ```
+
+   仅限完整来源：scheme + host（非默认端口时含 port），无尾部斜杠，无路径。见[反向代理和入口配置](./mcp_oauth#reverse-proxy-and-ingress-configuration)。
+
+2. **信任入口的 `X-Forwarded-*`。** 在 `general_settings` 中同时设置两个键：
+
+   ```yaml title="config.yaml" showLineNumbers
+   general_settings:
+     use_x_forwarded_for: true
+     mcp_trusted_proxy_ranges:
+       - "10.0.0.0/8"      # your ingress / load-balancer CIDR(s)
+   ```
+
+   仅设置 `use_x_forwarded_for` 是不够的。没有 `mcp_trusted_proxy_ranges`，代理会拒绝采纳 `X-Forwarded-*`，因为它无法区分可信的反向代理与直接攻击者。请验证您的入口会发送 `X-Forwarded-Proto`、`X-Forwarded-Host`，以及（运行在非默认端口时）`X-Forwarded-Port`。
+
+3. **修复入口。** 如果入口正在剥离或改写 `X-Forwarded-*`，任何代理设置都无法解决；请在入口层恢复这些头。
+
+如果 `redirect_uri` 确实位于您控制的姊妹域名上（例如注册为 MCP 代理 OAuth 客户端的内部 Web 应用），请通过 `MCP_TRUSTED_REDIRECT_ORIGINS` 将其来源加入白名单。见[允许额外的第一方 redirect_uri 来源](./mcp_oauth#allowing-additional-first-party-redirect_uri-origins)。如果客户端报告无法注册（动态客户端注册），请捕获客户端的原始错误以及上面的元数据 JSON；受支持的授权类型已列在元数据中。
+
+### 网络、TLS 和超时
+
+无法访问的上游不会以网关 502 的形式显现。命名端点返回 200，工具列表为空，并带有一个按服务端的状态：
+
+```text
+HTTP/1.1 200 OK
+event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"_meta":{"openmcp.ai/server_outcomes":{"brokenserver":{"status":"unreachable"}}},"tools":[]}}
+```
+
+代理日志会指明是哪种失败类别。连接被拒绝或 DNS：
+
+```text
+09:00:34 - OpenMCP:WARNING: mcp_server_manager.py - Error listing tools from brokenserver: All connection attempts failed
+httpx.ConnectError: All connection attempts failed
+```
+
+TLS 失败（证书过期或不受信任）：
+
+```text
+09:01:40 - OpenMCP:WARNING: mcp_server_manager.py - Error listing tools from tlsbroken: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1000)
+```
+
+对于超时，请对诊断 curl 计时，并对比代理与 MCP 服务端日志之间的时间戳，以判断哪一侧停滞。
+
+### 空工具列表和工具命名
+
+在聚合 `/mcp` 端点上，一个损坏的服务端不会导致请求失败。健康服务端仍会返回工具，`openmcp.ai/server_outcomes` 会分别报告每个服务端：
+
+```text
+data: {"jsonrpc":"2.0","id":1,"result":{"_meta":{"openmcp.ai/server_outcomes":{"deepwiki":{"status":"ok","tool_count":3},"brokenserver":{"status":"unreachable"}}},"tools":[{"name":"deepwiki-ask_question",...}]}}
+```
+
+如果整个列表为空，请检查 `server_outcomes` 中各服务端的失败状态，而不是猜测。工具名称带有服务端别名前缀，因此请调用 `deepwiki-ask_question`，而不是 `ask_question`。调用不带前缀或错误的名称会在工具结果内部失败，而不是在 HTTP 层：
+
+```text
+HTTP/1.1 200 OK
+data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"Error: Tool 'nonexistent_tool' not found"}],"isError":true}}
+```
+
+### Responses 和 Chat Completions 失败
+
+在 `/v1/responses` 或 `/v1/chat/completions` 期间，当请求包含 `server_url: "openmcp_proxy"` 的 MCP 工具时，OpenMCP 会在请求中途执行 MCP 工具调用。正常工作的请求会在输出项中明确显示 MCP 这一跳：
+
+```bash
+curl -sS http://localhost:4000/v1/responses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "input": "List the top-level wiki pages for BerriAI/openmcp",
+    "tools": [{"type": "mcp", "server_label": "deepwiki", "server_url": "openmcp_proxy", "require_approval": "never"}]
+  }'
+```
+
+成功时，除助手消息外，还会包含 `mcp_tools_fetched` 和 `tool_execution_results` 项。如果 `server_label` 与任何已配置的别名都不匹配，请求仍返回 200，但这些项会缺失，模型会在不使用工具的情况下作答；这种静默降级就是要寻找的症状。`/v1/chat/completions` 使用完全相同的 `tools` 数组也是如此。如果工具项存在但工具结果包含错误，请跳到该错误的对应行（未知工具名称、上游不可达），因为内嵌调用与直接 curl 走的是同一条 MCP 路径。
+
+## 调试头
+
+向任何 MCP 请求添加 `x-openmcp-mcp-debug: true` 即可获得脱敏的诊断响应头：
+
+```text
+x-mcp-debug-inbound-auth: x-openmcp-api-key=Bearer****1234
+x-mcp-debug-oauth2-token: (none)
+x-mcp-debug-auth-resolution: no-auth
+x-mcp-debug-outbound-url: https://mcp.deepwiki.com/mcp
+x-mcp-debug-server-auth-type: (none)
+```
+
+`x-mcp-debug-auth-resolution` 会告诉您 OpenMCP 如何解析出站认证：`oauth2-passthrough`、`m2m-client-credentials`、`per-request-header`、`static-token` 或 `no-auth`。`x-mcp-debug-outbound-url` 确认代理实际调用了哪个上游。这些值都已脱敏，因此可以安全地包含在支持包中。
+
+对于 Claude Code，请将调试头添加到您的 MCP 配置：
+
+```bash
+claude mcp add --transport http my_server http://localhost:4000/deepwiki/mcp \
+  --header "x-openmcp-api-key: Bearer sk-..." \
+  --header "x-openmcp-mcp-debug: true"
+```
+
+## 验证连通性
+
+### MCP Inspector
+
+当您需要在一个地方同时测试 `Client -> OpenMCP` 和 `Client -> MCP` 通信时，请使用 MCP Inspector；它能让隔离失败的一跳变得简单直接。
+
+1. 在工作站上执行 `npx @modelcontextprotocol/inspector`。
+2. 配置并连接：
+   - **传输类型：** 选择客户端使用的传输方式（OpenMCP 使用 Streamable HTTP）。
+   - **URL：** 被测端点（`Client -> OpenMCP` 使用 OpenMCP MCP URL，`Client -> MCP` 使用 MCP 服务端 URL）。
+   - **自定义头：** 例如 `x-openmcp-api-key: Bearer <OpenMCP API Key>`。
+3. 打开 **工具** 标签页并点击 **列出工具** 以验证 MCP 别名是否响应。
+
+### `curl` 冒烟测试
+
+在不方便安装 Inspector 的服务端上，`curl` 很理想。它复现了 OpenMCP 会发起的 MCP 工具调用；将域名换成被测系统（OpenMCP 或 MCP 服务端）。
+
+```bash
+curl -sS -D - -X POST https://your-target-domain.example.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+当目标是需要认证的 OpenMCP 端点时，请添加 `-H "x-openmcp-api-key: Bearer <OpenMCP API Key>"`。`curl` 与 OpenMCP 的失败一致，可确认罪魁祸首是 MCP 服务端或网络/OAuth 层。从 OpenMCP 主机直接测试 MCP 服务端即可排除或确认网络路径。
+
+### OpenMCP UI / Playground
+
+MCP 创建表单或 MCP 工具测试 Playground 中显示的失败，意味着 OpenMCP 代理无法到达 MCP 服务端。典型原因包括配置错误（传输方式、头、凭据）、MCP/服务端宕机、网络/防火墙拦截或 OAuth 元数据无法访问。在 Playground 中复现客户端失败，可确认问题出在 OpenMCP -> MCP 这一跳，而不是客户端。
+
+<img src="/images/docs/mcp-gateway/mcp_tool_testing_playground.png" style={{width: '80%', display: 'block', margin: '0'}} />
+
+## 检查日志
+
+范围清晰的日志能清楚表明 OpenMCP 是否到达了 MCP 服务端，以及之后发生了什么。
+
+### 访问日志示例（成功的 MCP 调用）
+
+```text
+INFO:     127.0.0.1:57230 - "POST /deepwiki/mcp HTTP/1.1" 200 OK
+```
+
+### 错误日志示例（失败的 MCP 调用）
+
+```text
+07:22:00 - OpenMCP:ERROR: client.py:224 - MCP client list_tools failed - Error Type: ExceptionGroup, Error: unhandled errors in a TaskGroup (1 sub-exception), Server: http://localhost:3001/mcp, Transport: MCPTransport.http
+  httpcore.ConnectError: All connection attempts failed
+ERROR:OpenMCP:MCP client list_tools failed - Error Type: ExceptionGroup, Error: unhandled errors in a TaskGroup (1 sub-exception)...
+  httpx.ConnectError: All connection attempts failed
+```
+
+## 支持包
+
+如果矩阵未能解决问题，请一次性收集以下所有内容。一份完整的支持包可以免去支持的排查电话中重建配置的环节。
+
+1. OpenMCP 版本：`curl -sS http://localhost:4000/health/readiness` 的输出或镜像标签。
+2. 配置子集：`mcp_servers` 块以及 `general_settings` 中涉及 MCP 或转发的键，移除机密信息。
+3. 精确的失败请求：完整的 curl 命令，key 已脱敏（`sk-****1234`）。
+4. 诊断 curl 输出的 HTTP 状态行、响应头和响应体（`-D -` 输出，未过滤）。
+5. 使用 `x-openmcp-mcp-debug: true` 运行时的 `x-mcp-debug-*` 头（已脱敏）。
+6. 覆盖失败请求时间的 OpenMCP 代理日志，如可能请以 `--detailed_debug` 启动。
+7. 同一时间窗口的 MCP 服务端日志。
+8. 拓扑：客户端、OpenMCP、入口/负载均衡器和 MCP 服务端各自在哪里运行，TLS 在哪里终止。
+9. 每个捕获请求的带时区时间戳，以便关联日志。
+
+切勿分享：原始的 OpenMCP 虚拟 key 或 master key、`mcp_servers` 认证配置中的上游 API key 或静态令牌、OAuth 客户端密钥、未脱敏的 `Authorization` 头值或 `.env` 内容。脱敏的调试头的存在，正是为了您无需粘贴真实凭据。

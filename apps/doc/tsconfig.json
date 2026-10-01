@@ -4,7 +4,6 @@
     "paths": {
       "@/*": ["./src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"],
-      "collections/*": ["./.source/*"],
     },
     "plugins": [
       {

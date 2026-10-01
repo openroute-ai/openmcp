@@ -1,0 +1,449 @@
+---
+title: "MCP OAuth"
+description: "OpenMCP 支持针对 MCP 服务端的多种 OAuth 2.0 模式。config.yaml 中每个 auth_type: oauth2 的服务端都必须通过 oauth2_flow 声明其流程；透传模式使用它们自己的 auth_type 值..."
+---
+
+OpenMCP 支持针对 MCP 服务端的多种 OAuth 2.0 模式。`config.yaml` 中每个 `auth_type: oauth2` 的服务端都必须通过 `oauth2_flow` 声明其流程；透传模式使用它们自己的 `auth_type` 值，在 [MCP OAuth Passthrough](/docs/mcp-gateway/oauth-passthrough) 中有相关文档：
+
+| 流程 | `oauth2_flow` | 用例 | 工作原理 |
+|------|---------------|----------|--------------|
+| **交互式（PKCE）** | `authorization_code` | 面向用户的应用（Claude Code、Cursor） | 基于浏览器的同意，每用户令牌 |
+| **机器到机器（M2M）** | `client_credentials` | 后端服务、CI/CD、自动化智能体 | `client_credentials` 授权，代理托管的令牌 |
+| **On-Behalf-Of（OBO）** | 不适用（使用 `auth_type: oauth2_token_exchange`） | 使用用户上下文对受保护的 MCP 服务端发起工具调用 | OpenMCP 将调用方令牌交换为限定范围的 MCP 令牌。参见 [MCP OBO Auth](/docs/mcp-gateway/obo-auth)。 |
+| **透传（透明）** | 不适用（使用 `auth_type: true_passthrough`） | 客户端已持有上游令牌；OpenMCP 不附加自身的认证 | 原样转发客户端的 `Authorization`，不经 OpenMCP 准入。[参见 MCP OAuth Passthrough](/docs/mcp-gateway/oauth-passthrough) |
+| **委托上游 OAuth** | 不适用（使用 `auth_type: oauth_delegate`） | OpenMCP 准入调用方；上游负责工具授权 | OpenMCP 准入外加单独转发的上游 bearer，保留消费与速率限制。[参见 MCP OAuth Passthrough](/docs/mcp-gateway/oauth-passthrough) |
+
+## 交互式 OAuth（PKCE）
+
+对于面向用户的 MCP 客户端（Claude Code、Cursor），OpenMCP 支持完整的 OAuth 2.0 authorization code 流程及 PKCE。
+
+### 设置
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  github_mcp:
+    url: "https://api.githubcopilot.com/mcp"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+    client_id: os.environ/GITHUB_OAUTH_CLIENT_ID
+    client_secret: os.environ/GITHUB_OAUTH_CLIENT_SECRET
+```
+
+[**参见 Claude Code 教程**](/docs/tutorials/claude_responses_api)
+
+### 工作原理
+
+```mermaid
+sequenceDiagram
+    participant Browser as User-Agent (Browser)
+    participant Client as Client
+    participant OpenMCP as OpenMCP Proxy
+    participant MCP as MCP Server (Resource Server)
+    participant Auth as Authorization Server
+
+    Note over Client,OpenMCP: Step 1 – Resource discovery
+    Client->>OpenMCP: GET /.well-known/oauth-protected-resource/{mcp_server_name}/mcp
+    OpenMCP->>Client: Return resource metadata
+
+    Note over Client,OpenMCP: Step 2 – Authorization server discovery
+    Client->>OpenMCP: GET /.well-known/oauth-authorization-server/{mcp_server_name}
+    OpenMCP->>Client: Return authorization server metadata
+
+    Note over Client,Auth: Step 3 – Dynamic client registration
+    Client->>OpenMCP: POST /{mcp_server_name}/register
+    OpenMCP->>Auth: Forward registration request
+    Auth->>OpenMCP: Issue client credentials
+    OpenMCP->>Client: Return client credentials
+
+    Note over Client,Browser: Step 4 – User authorization (PKCE)
+    Client->>Browser: Open authorization URL + code_challenge + resource
+    Browser->>Auth: Authorization request
+    Note over Auth: User authorizes
+    Auth->>Browser: Redirect with authorization code
+    Browser->>OpenMCP: Callback to OpenMCP with code
+    OpenMCP->>Browser: Redirect back with authorization code
+    Browser->>Client: Callback with authorization code
+
+    Note over Client,Auth: Step 5 – Token exchange
+    Client->>OpenMCP: Token request + code_verifier + resource
+    OpenMCP->>Auth: Forward token request
+    Auth->>OpenMCP: Access (and refresh) token
+    OpenMCP->>Client: Return tokens
+
+    Note over Client,MCP: Step 6 – Authenticated MCP call
+    Client->>OpenMCP: MCP request with access token + OpenMCP API key
+    OpenMCP->>MCP: MCP request with Bearer token
+    MCP-->>OpenMCP: MCP response
+    OpenMCP-->>Client: Return MCP response
+```
+
+**参与方**
+
+- **客户端（Client）** -- 代表用户发起 OAuth 发现、授权和工具调用的支持 MCP 的 AI 智能体（例如 Claude Code、Cursor 或其他 IDE/智能体）。
+- **OpenMCP Proxy** -- 在保护已存储凭证的同时，代理所有的 OAuth 发现、注册、令牌交换和 MCP 流量。
+- **授权服务器（Authorization Server）** -- 通过动态客户端注册、PKCE 授权和令牌端点签发 OAuth 2.0 令牌。
+- **MCP 服务端（资源服务器）** -- 接收 OpenMCP 经认证的 JSON-RPC 请求的受保护 MCP 端点。
+- **用户代理（浏览器）** -- 临时参与，以便最终用户在授权步骤中授予同意。
+
+**流程步骤**
+
+1. **资源发现**：客户端从 OpenMCP 的 `.well-known/oauth-protected-resource` 端点获取 MCP 资源元数据，以了解 scope 和能力。
+2. **授权服务器发现**：客户端通过 OpenMCP 的 `.well-known/oauth-authorization-server` 端点取回 OAuth 服务器元数据（令牌端点、授权端点、支持的 PKCE 方法）。
+3. **动态客户端注册**：客户端通过 OpenMCP 进行注册，OpenMCP 会将请求转发给授权服务器（RFC 7591）。如果提供商不支持动态注册，你可以在 OpenMCP 中预先存储 `client_id`/`client_secret`（例如 GitHub MCP），流程照常进行。
+4. **用户授权**：客户端启动一个浏览器会话（带 code challenge 和资源提示）。用户批准访问，授权服务器通过 OpenMCP 将 code 送回到客户端。
+5. **令牌交换**：客户端携带 authorization code、code verifier 和 resource 调用 OpenMCP。OpenMCP 用它们在授权服务器处进行交换，并返回签发的访问/刷新令牌。
+6. **MCP 调用**：持有有效令牌后，客户端将 MCP JSON-RPC 请求（外加 OpenMCP API key）发送到 OpenMCP，后者将其转发给 MCP 服务端并转达工具响应。
+
+更多参考请参见官方的 [MCP Authorization Flow](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization#authorization-flow-steps)。
+
+### 反向代理与 Ingress 配置
+
+如果 OpenMCP 运行在 TLS 终结的 ingress 之后（Kubernetes、ALB、nginx、Cloudflare 等），代理需要知道其公共 origin，这样 OAuth `authorize` 端点才能将浏览器提供的 `redirect_uri`（例如 `https://llm.example.com/ui/mcp/oauth/callback`）与自身的 scheme + host + port 进行比较。如果代理解析到其内部地址（`http://<pod-ip>:4000`），同源检查会失败，MCP 服务端页面上的 **Connect** 按钮会返回 `400 Bad Request` 及 `{"detail":"invalid_request"}`。
+
+最简单且推荐的修复方法是，将 `PROXY_BASE_URL` 设置为用户在地址栏看到的精确 origin：
+
+```bash
+PROXY_BASE_URL=https://llm.example.com
+```
+
+对值的规则：
+
+- 仅完整 origin：scheme + host（非默认端口时加 port）。
+- 无尾部斜杠，无路径组件。
+- 必须与地址栏完全一致。`https://llm.example.com` 和 `https://llm.example.com:443` 被视为同一 origin（默认端口会被规范化掉），但浏览器打开 `https://llm.example.com:8443` 时，`https://llm.example.com` 将无法匹配。
+
+设置 `PROXY_BASE_URL` 后，OpenMCP 会直接使用它，并跳过下面描述的 `X-Forwarded-*` 信任路径。
+
+#### Origin 解析顺序
+
+对于 MCP OAuth 端点，OpenMCP 按以下顺序解析代理的公共 origin：
+
+1. **`PROXY_BASE_URL` 环境变量** —— 如果设置为合法的 `http(s)` URL，则原样使用。无效值会被忽略并给出警告。
+2. **`X-Forwarded-Proto` / `X-Forwarded-Host` / `X-Forwarded-Port`** —— 仅在 **`use_x_forwarded_for`** 为 `true` **且**请求对端的 IP 位于 [`mcp_trusted_proxy_ranges`](./proxy/config_settings#general_settings---reference) 之内时才被采用。若只启用 `use_x_forwarded_for` 而不设置 `mcp_trusted_proxy_ranges`，这些请求头不会被信任（无法区分可信的反向代理与直接攻击者）。
+3. **`request.base_url`** —— FastAPI 在请求上看到的字面 URL。对 ingress 部署而言，这通常是 `http://<internal-host>:4000`，不会匹配浏览器 origin。
+
+如果你无法或不想设置 `PROXY_BASE_URL`，请显式配置 X-Forwarded 路径：
+
+```yaml title="config.yaml" showLineNumbers
+general_settings:
+  use_x_forwarded_for: true
+  mcp_trusted_proxy_ranges:
+    - "10.0.0.0/8"      # your ingress / load-balancer CIDR(s)
+```
+
+并确认你的 ingress 会发送 `X-Forwarded-Proto`、`X-Forwarded-Host` 以及（非默认端口时）`X-Forwarded-Port`。故障排查用的 curl 请参见 [MCP OAuth troubleshooting](./mcp_troubleshoot#mcp-oauth-invalid-request)。
+
+#### 允许其他第一方 redirect_uri origin
+
+如果第一方 OAuth 客户端位于同层次域名（例如，`app.example.com` 上的内部 Web 应用向 `llm.example.com` 上的 MCP 代理注册），请在代理自身 origin 之外，将 `MCP_TRUSTED_REDIRECT_ORIGINS` 设置为允许它的 origin：
+
+```bash
+MCP_TRUSTED_REDIRECT_ORIGINS=app.example.com,*.tools.example.com
+```
+
+- 以逗号分隔的 `host` 或 `host:port` 条目列表。
+- 仅 HTTPS。允许列表路径会拒绝任何非 `https` 的 `redirect_uri`。
+- `*.` 后缀条目匹配 `suffix` 的任意严格更深层子域（`*.tools.example.com` 匹配 `a.tools.example.com`，但不匹配 `tools.example.com`）。
+- 无论此设置如何，loopback（`localhost`、`127.0.0.0/8`、`::1`）始终被接受。
+
+这适用于你控制的第一方 OAuth 客户端。对于标准 ingress 场景，请优先使用 `PROXY_BASE_URL`。
+
+#### 为什么存在同源检查
+
+MCP 代理的 `/v1/mcp/server/oauth/<server_id>/authorize` 端点会验证调用方的 `redirect_uri` 是否与代理自身的公共 origin（或上述 loopback / 允许列表条目之一）共享 scheme + host + port。该检查用于阻止攻击者将登录中的管理员钓鱼到一个链接上，让 authorization code 经由攻击者控制的 host 反弹回 GitHub 或 Slack 这类由上游 OAuth 保护的 MCP 服务端。同源（外加显式的运维允许列表）是对原生 MCP 客户端 loopback-only 规则在威胁模型上等价且安全的形式。
+
+`PROXY_BASE_URL` 是 ingress 部署下正确的逃生舱，因为由运维者在频带外声明代理真实的公共 origin，而不是让代理从攻击者可能设置的请求头来推断。检查本身不会被放宽。
+
+## 机器到机器（M2M）认证
+
+OpenMCP 使用 `client_credentials` 授权自动获取、缓存并刷新 OAuth2 令牌。无需手动管理令牌。
+
+### 设置
+
+你可以通过 OpenMCP UI 或 `config.yaml` 配置 M2M OAuth。
+
+### UI 设置
+
+导航到 **MCP Servers** 页面并点击 **+ Add New MCP Server**。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/d1f1e89c-a789-4975-8846-b15d9821984a/ascreenshot_630800e00a2e4b598baabfc25efbabd3_text_export.jpeg)
+
+为你的服务端输入一个名称，并选择 **HTTP** 作为传输类型。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/2008c9d6-6093-4121-beab-1e52c71376aa/ascreenshot_516ffd6c7b524465a253a56048c3d228_text_export.jpeg)
+
+粘贴 MCP 服务端 URL。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/b0ee8b7d-6de8-492b-8962-287987feec29/ascreenshot_b3efca82078a4c6bb1453c58161909f9_text_export.jpeg)
+
+在 **Authentication** 下选择 **OAuth**。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/e1597814-ff8e-40b9-9d7b-864dcdbe0910/ascreenshot_2097612712264d8f9e553f7ca9175fb0_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/f6ea5694-f28a-4bc3-9c9a-bb79f199bd65/ascreenshot_9be839f55b1b4f96bfe24030ba2c7f8d_text_export.jpeg)
+
+选择 **Machine-to-Machine (M2M)** 作为 OAuth 流程类型。这用于使用 `client_credentials` 授权进行服务端到服务端的认证，无需浏览器交互。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/9853310c-1d86-4628-bad1-7a391eca0e4d/ascreenshot_f302a286fa264fdd8d56db53b8f9395c_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/df64dc65-ef86-475d-adaf-12e227d5e873/ascreenshot_9e2f41d43a76435f918a00b52ffcc639_text_export.jpeg)
+
+填写你的 OAuth 提供商提供的 **Client ID** 和 **Client Secret**。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/0de5a7bd-9898-4fc7-8843-b23dd5aac47f/ascreenshot_b9087aaa81a14b5b9c199929efc4a563_text_export.jpeg)
+
+输入 **Token URL**，即 OpenMCP 将使用 `client_credentials` 调用以获取访问令牌的端点。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/0aea70f1-558c-4dca-91bc-1175fe1ddc89/ascreenshot_b3fcf8a1287e4e2d9a3d67c4a29f7bff_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/e842ef09-1fd7-47a6-909b-252d389f0abc/ascreenshot_2a87dad3624847e7ac370591d1d1aedd_text_export.jpeg)
+
+向下滚动并检查服务端 URL 和所有字段，然后点击 **Create MCP Server**。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/0857712b-4b53-40f8-8c1f-a4c72edaa644/ascreenshot_47be3fcd5de64ed391f70c1fb74a8bfc_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/9d961765-955f-4905-a3dc-1a446aa3b2cc/ascreenshot_43fd39d014224564bc6b35aced1fb6d3_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/3825d5fa-8fd1-4e71-b090-77ff0259c3f6/ascreenshot_2509a7ebd9bf421eb0e82f2553566745_text_export.jpeg)
+
+创建完成后，打开该服务端并导航到 **MCP Tools** 标签页，确认 OpenMCP 可以连接并列出现有的工具。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/8107e27b-5072-4675-8fd6-89b47692b1bd/ascreenshot_f774bc76138f430d808fb4482ebfcdca_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/ce94bb7b-c81b-4396-9939-178efb2cdfce/ascreenshot_28b838ab6ae34c76858454555c4c1d79_text_export.jpeg)
+
+选择一个工具（例如 **echo**）进行测试。填写所需的参数并点击 **Call Tool**。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/c459c1d3-ec29-4211-9c28-37fbe7783bbc/ascreenshot_e9b138b3c2cc4440bb1a6f42ac7ae861_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/5438ac60-e0ac-4a79-bf6f-5594f160d3b5/ascreenshot_9133a17d26204c46bce497e74685c483_text_export.jpeg)
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/a8f6821b-3982-4b4d-9b25-70c8aff5ac31/ascreenshot_28d474d0e62545a482cff6128527883a_text_export.jpeg)
+
+OpenMCP 会在后台自动获取 OAuth 令牌并调用该工具。这个结果确认了 M2M OAuth 流程端到端地正常工作。
+
+![](https://colony-recorder.s3.amazonaws.com/files/2026-02-10/c3924549-a949-48d1-ac67-ab4c30475859/ascreenshot_8f6eca9d717f45478d50a881bd244bb3_text_export.jpeg)
+
+### Config.yaml 设置
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  my_mcp_server:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: oauth2
+    oauth2_flow: client_credentials
+    client_id: os.environ/MCP_CLIENT_ID
+    client_secret: os.environ/MCP_CLIENT_SECRET
+    token_url: "https://auth.example.com/oauth/token"
+    scopes: ["mcp:read", "mcp:write"]  # optional
+```
+
+### 在另一个请求头上发送令牌
+
+默认情况下，OpenMCP 解析到的令牌会以 `Authorization: Bearer <token>` 的形式出站，这也是几乎所有 MCP 服务端所期望的。有些部署会把 MCP 服务端放在 API 网关之后，网关从某个私有请求头读取自己的凭证，而网关后面的服务端仍然期望在 `Authorization` 上收到自己的 bearer。这需要同一个请求上携带两个凭证。
+
+将 `upstream_token_header` 设置为要承载已解析令牌的请求头名称。此后 `static_headers` 下配置的任何内容都会被保留原样，因此第二个凭证会原封不动地到达网关后面的服务端。
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  my_mcp_server:
+    url: "https://my-mcp-server.com/mcp"
+    auth_type: oauth2
+    oauth2_flow: client_credentials
+    client_id: os.environ/MCP_CLIENT_ID
+    client_secret: os.environ/MCP_CLIENT_SECRET
+    token_url: "https://auth.example.com/oauth/token"
+    upstream_token_header: "esb-oauth"
+    static_headers:
+      Authorization: "Bearer os.environ/UPSTREAM_MCP_TOKEN"
+```
+
+随后对 MCP 服务端的每个请求都会同时携带：
+
+```
+esb-oauth: Bearer <the token OpenMCP minted>
+Authorization: Bearer <the token you configured>
+```
+
+不设置 `upstream_token_header` 就保持默认行为，因此现有服务端不受影响。该值必须是合法的 HTTP 请求头名称；代理在遇到畸形值时拒绝启动，管理 API 会以 400 拒绝它。
+
+在 UI 中，相同的设置就是 MCP 服务端表单 OAuth 部分的 **Token Header** 字段，它同样适用于交互式流程和令牌交换模式，以及 M2M。
+
+### 工作原理
+
+1. 在第一次 MCP 请求时，OpenMCP 以 `grant_type=client_credentials` 向 `token_url` 发起 POST
+2. 访问令牌以 TTL = `expires_in - 60s` 被缓存在内存中
+3. 后续请求复用缓存的令牌
+4. 令牌过期时，OpenMCP 自动获取新的令牌
+
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant OpenMCP as OpenMCP Proxy
+    participant Auth as Authorization Server
+    participant MCP as MCP Server
+
+    Client->>OpenMCP: MCP request + OpenMCP API key
+    OpenMCP->>Auth: POST /oauth/token (client_credentials)
+    Auth->>OpenMCP: access_token (expires_in: 3600)
+    OpenMCP->>MCP: MCP request + Bearer token
+    MCP-->>OpenMCP: MCP response
+    OpenMCP-->>Client: MCP response
+
+    Note over OpenMCP: Token cached for subsequent requests
+    Client->>OpenMCP: Next MCP request
+    OpenMCP->>MCP: MCP request + cached Bearer token
+    MCP-->>OpenMCP: MCP response
+    OpenMCP-->>Client: MCP response
+```
+
+### 用 Mock 服务端测试
+
+使用 [BerriAI/mock-oauth2-mcp-server](https://github.com/BerriAI/mock-oauth2-mcp-server) 在本地进行测试：
+
+```bash title="Terminal 1 - Start mock server" showLineNumbers
+uv add fastapi uvicorn
+python mock_oauth2_mcp_server.py  # starts on :8765
+```
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  test_oauth2:
+    url: "http://localhost:8765/mcp"
+    auth_type: oauth2
+    oauth2_flow: client_credentials
+    client_id: "test-client"
+    client_secret: "test-secret"
+    token_url: "http://localhost:8765/oauth/token"
+```
+
+```bash title="Terminal 2 - Start proxy and test" showLineNumbers
+openmcp --config config.yaml --port 4000
+
+# See MCP REST API guide for full examples (server_id, tool naming, common errors)
+# https://www.openmcp.cn/docs/mcp_rest_api
+
+curl http://localhost:4000/mcp-rest/tools/list \
+  -H "Authorization: Bearer sk-1234"
+
+curl http://localhost:4000/mcp-rest/tools/call \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "server_id": "test_oauth2",
+    "name": "echo",
+    "arguments": {"message": "hello"}
+  }'
+```
+
+### 配置参考
+
+| 字段 | 是否必填 | 说明 |
+|-------|----------|-------------|
+| `auth_type` | 是 | 必须为 `oauth2`。对于 RFC 8693 On-Behalf-Of，请改用 `oauth2_token_exchange` —— 参见 [MCP OBO Auth](/docs/mcp-gateway/obo-auth)。 |
+| `oauth2_flow` | 是 | 流程选择器。取值为 `"client_credentials"`（M2M）或 `"authorization_code"`（交互式 PKCE，包括 `delegate_auth_to_upstream`）。`config.yaml` 中每个 `auth_type: oauth2` 的服务端都必须设置；缺失或无效时代理拒绝启动。通过 UI 创建的服务端会从 OAuth 流程类型选择器中取得该值。只有此字段出现之前创建的遗留数据库行会在请求时按字段形态回退到推断；配置条目从不被推断。 |
+| `client_id` | M2M 必填，交互式可选 | OAuth2 客户端 ID。`client_credentials` 必须。对于交互式流程，如果上游支持动态客户端注册（RFC 7591），可在 `POST /{server_name}/register` 处获得。支持 `os.environ/VAR_NAME`。 |
+| `client_secret` | M2M 必填，交互式可选 | OAuth2 客户端密钥。适用性与 `client_id` 相同。支持 `os.environ/VAR_NAME`。 |
+| `token_url` | M2M 必填，交互式可选 | 令牌端点 URL。OpenMCP 对 `client_credentials` 和 authorization-code 交换都向此地址发起 POST。 |
+| `authorization_url` | 仅交互式 | 上游授权端点。存在时，OpenMCP 将该服务端视为交互式 PKCE，并将 `GET /{server_name}/authorize` 代理到此 URL。 |
+| `registration_url` | 可选 | 上游动态客户端注册端点（RFC 7591）。存在时，`POST /{server_name}/register` 会代理转发到此 URL。 |
+| `scopes` | 否 | 要申请的 scope 列表。用于 M2M 时，会拼合进令牌请求的 `scope` 参数。用于交互式时，会在 authorize 请求上转发。 |
+| `token_validation` | 否 | 在 `/token` 交换后针对 OAuth 令牌响应校验的键值规则字典。任何规则不匹配都会以 `token_validation_failed` 使交换失败。可用于断言类似 `{"team.enterprise_id": "T12345"}` 的租户声明。 |
+| `token_storage_ttl_seconds` | 否 | 覆盖每用户令牌缓存的 TTL（交互式流程）。未设置时，OpenMCP 使用令牌响应中的 `expires_in - buffer`。 |
+
+## 调试 OAuth
+
+当 OpenMCP 代理远程托管而你无法访问服务端日志时，可启用 **debug headers**，在 HTTP 响应中获得经过脱敏的认证诊断信息。
+
+### 启用调试模式
+
+在你的 MCP 客户端请求中添加 `x-openmcp-mcp-debug: true` 请求头。
+
+**Claude Code：**
+
+```bash
+claude mcp add --transport http openmcp_proxy http://proxy.example.com/atlassian_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer sk-..." \
+  --header "x-openmcp-mcp-debug: true"
+```
+
+**curl：**
+
+```bash
+curl -X POST http://localhost:4000/atlassian_mcp/mcp \
+  -H "Content-Type: application/json" \
+  -H "x-openmcp-api-key: Bearer sk-..." \
+  -H "x-openmcp-mcp-debug: true" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+### 阅读调试响应请求头
+
+响应中包含以下请求头（所有敏感值都会被脱敏）：
+
+| 请求头 | 说明 |
+|--------|-------------|
+| `x-mcp-debug-inbound-auth` | 存在哪些入站认证请求头。 |
+| `x-mcp-debug-oauth2-token` | OAuth2 令牌（已脱敏）。若 OpenMCP 密钥泄漏，显示 `SAME_AS_OPENMCP_KEY`。 |
+| `x-mcp-debug-auth-resolution` | 使用哪种认证方法：`oauth2-passthrough`、`m2m-client-credentials`、`per-request-header`、`static-token` 或 `no-auth`。 |
+| `x-mcp-debug-outbound-url` | 上游 MCP 服务端 URL。 |
+| `x-mcp-debug-server-auth-type` | 服务端上配置的 `auth_type`。 |
+
+**示例，健康的 OAuth2 透传：**
+
+```
+x-mcp-debug-inbound-auth: x-openmcp-api-key=Bearer****1234; authorization=Bearer****ef01
+x-mcp-debug-oauth2-token: Bearer****ef01
+x-mcp-debug-auth-resolution: oauth2-passthrough
+x-mcp-debug-outbound-url: https://mcp.atlassian.com/v1/mcp
+x-mcp-debug-server-auth-type: oauth2
+```
+
+**示例，OpenMCP 密钥泄漏（配置错误）：**
+
+```
+x-mcp-debug-inbound-auth: authorization=Bearer****1234
+x-mcp-debug-oauth2-token: Bearer****1234 (SAME_AS_OPENMCP_KEY - likely misconfigured)
+x-mcp-debug-auth-resolution: oauth2-passthrough
+x-mcp-debug-outbound-url: https://mcp.atlassian.com/v1/mcp
+x-mcp-debug-server-auth-type: oauth2
+```
+
+### 常见问题
+
+#### OpenMCP API key 泄漏到 MCP 服务端
+
+**症状：** `x-mcp-debug-oauth2-token` 显示 `SAME_AS_OPENMCP_KEY`。
+
+`Authorization` 请求头携带的是 OpenMCP API key，而不是 OAuth2 令牌。OAuth2 流程从未运行，因为客户端已经设置了 `Authorization` 请求头。
+
+**修复：** 将 OpenMCP 密钥移到 `x-openmcp-api-key`：
+
+```bash
+# WRONG — blocks OAuth2 discovery
+claude mcp add --transport http my_server http://proxy/server/mcp \
+    --header "Authorization: Bearer sk-..."
+
+# CORRECT — OpenMCP key in dedicated header, Authorization free for OAuth2
+claude mcp add --transport http my_server http://proxy/server/mcp \
+    --header "x-openmcp-api-key: Bearer sk-..."
+```
+
+#### 没有 OAuth2 令牌
+
+**症状：** `x-mcp-debug-oauth2-token` 显示 `(none)`，且 `x-mcp-debug-auth-resolution` 显示 `no-auth`。
+
+请检查：
+1. `Authorization` 请求头没有作为静态请求头设置在客户端配置中。
+2. OpenMCP 配置中的 MCP 服务端是 `auth_type: oauth2`。
+3. `.well-known/oauth-protected-resource` 端点返回了合法的元数据。
+
+#### 使用了 M2M 令牌而非用户令牌
+
+**症状：** `x-mcp-debug-auth-resolution` 显示 `m2m-client-credentials`。
+
+该服务端配置了 `client_id`/`client_secret`/`token_url`，因此 OpenMCP 获取的是机器到机器令牌，而不是每用户 OAuth2 令牌。要使用每用户令牌，请从服务端配置中移除客户端凭证。
+
+## 透传与委托上游 OAuth
+
+对于客户端直接针对上游自身 OAuth issuer 进行认证的服务端，OpenMCP 可以转发客户端的上游令牌，而不是自行管理令牌。透明的 `auth_type: true_passthrough` 模式、准入受控的 `auth_type: oauth_delegate` 模式以及遗留的 `delegate_auth_to_upstream` 标志都在 [MCP OAuth Passthrough](/docs/mcp-gateway/oauth-passthrough) 中有介绍。该页面还记录了面向 OpenCode、Claude Code、Cursor 和 Claude Desktop 等纯 OAuth 客户端的 `dcr_bridge` 标志，网关在此托管注册与登录，使客户端只需一次 OAuth 流程即可连接。

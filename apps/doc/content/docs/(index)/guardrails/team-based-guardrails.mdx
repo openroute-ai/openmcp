@@ -1,0 +1,134 @@
+---
+title: "团队自有护栏"
+description: "团队护栏让开发人员可以通过 API 为他们的团队注册护栏；然后管理员在 OpenMCP UI 中审核并批准或拒绝它。只..."
+---
+
+团队护栏让**开发人员**可以通过 API 为他们的团队注册护栏；然后**管理员**在 OpenMCP UI 中审核并批准或拒绝它。只有 [Generic Guardrail API](/docs/adding_provider/generic_guardrail_api) 护栏可以通过这种方式注册。
+
+## 概览
+
+- **开发人员流程：**使用**团队范围的 API 密钥**配合你的护栏配置调用 `POST /guardrails/register`。提交的内容以 `pending_review` 状态存储。
+- **管理员流程：**在代理 UI 中打开 **Guardrails → Team Guardrails**，审核待处理的提交，并**批准**或**拒绝**。已批准的护栏变为活动状态并在内存中初始化。
+
+---
+
+## 开发人员流程：注册护栏
+
+### 前置条件
+
+- 一个**团队范围的** API 密钥（该密钥必须与团队关联）。没有团队的密钥无法注册护栏。
+- 你的护栏必须遵循 [Generic Guardrail API](/docs/adding_provider/generic_guardrail_api) 的约定和配置。
+
+### 请求
+
+**端点：**`POST /guardrails/register`
+
+**请求头：**`Authorization: Bearer <team_scoped_api_key>`
+
+**请求体：**与 Generic Guardrail API 配置匹配的 JSON。
+
+| 字段 | 类型 | 必填 | 描述 |
+|-------|------|----------|-------------|
+| `guardrail_name` | string | 是 | 护栏的唯一名称。 |
+| `openmcp_params` | object | 是 | 必须包含 `guardrail: "generic_guardrail_api"`、`mode`（例如 `pre_call`、`post_call`）和 `api_base`。请参阅 [Generic Guardrail API](/docs/adding_provider/generic_guardrail_api#openmcp-configuration)。 |
+| `guardrail_info` | object | 否 | 可选的元数据（例如 `description`）。 |
+
+### `openmcp_params` 的要求
+
+- `guardrail` 必须恰好是 `"generic_guardrail_api"`。
+- `api_base` 是必需的（你的护栏 API 基础 URL）。
+- `mode` 是必需的（例如 `pre_call`、`post_call`、`during_call`）。
+
+### 示例
+
+```bash
+curl -X POST "http://localhost:4000/guardrails/register" \
+  -H "Authorization: Bearer <your_team_scoped_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "guardrail_name": "my-team-guard",
+    "openmcp_params": {
+      "guardrail": "generic_guardrail_api",
+      "mode": "pre_call",
+      "api_base": "https://your-guardrail-api.com",
+      "api_key": "optional-api-key",
+      "unreachable_fallback": "fail_closed",
+      "forward_api_key": true
+    },
+    "guardrail_info": {
+      "description": "Team content moderation guardrail"
+    }
+  }'
+```
+
+### 示例响应
+
+```json
+{
+  "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
+  "guardrail_name": "my-team-guard",
+  "status": "pending_review",
+  "submitted_at": "2025-02-28T12:00:00.000Z"
+}
+```
+
+### 错误
+
+- **400** – 请求体缺失或无效（例如 `guardrail` 不是 `generic_guardrail_api`、缺少 `api_base` 或 `mode`），或者已存在同名 `guardrail_name` 的护栏。
+- **400** – "Registration requires an API key associated with a team. Use a team-scoped key." → 使用与团队关联的 API 密钥。
+- **500** – 服务端/数据库错误。
+
+注册成功后，护栏会保持 `pending_review` 状态，直到管理员批准或拒绝它。
+
+---
+
+## 管理员流程：在 UI 中批准或拒绝
+
+管理员在 OpenMCP 代理 UI 中审核并批准或拒绝团队护栏提交。
+
+### 1. 打开 Guardrails 页面
+
+在代理仪表盘中，前往 **Guardrails**（侧边栏或导航）。
+
+### 2. 打开 Team Guardrails 标签页
+
+切换到 **Team Guardrails** 标签页。该标签页列出所有团队提交的护栏及其状态。
+
+<img src="/images/docs/guardrails/admin_team_guardrails.png" alt="Team Guardrails admin view: status summary (Total, Pending Review, Active, Rejected), guardrail list with Pending Review tag, and detail panel with Approve/Reject buttons and configuration options." style={{ width: '100%', maxWidth: '900px', height: 'auto' }} />
+
+### 3. 审核提交
+
+表格显示：
+
+- **Name**、**Team**、**Endpoint**（api_base）、**Status**（Pending Review / Active / Rejected）、**Submitted** 日期、**Submitted by**（用户/邮箱）以及其他配置详情。
+
+摘要卡片显示 **Total**、**Pending Review**、**Active** 和 **Rejected** 的计数。
+
+### 4. 批准或拒绝
+
+- **Pending Review：**使用 **Approve** 激活护栏。代理将其状态设置为 `active` 并在内存中初始化，以便在请求中使用。
+- 使用 **Reject** 拒绝该提交（状态变为 `rejected`）。
+
+批准会触发与通过配置或管理员护栏 API 添加护栏相同的初始化；拒绝仅更新状态，不会加载护栏。
+
+### 等效 API（仅限管理员）
+
+管理员也可以使用 REST API：
+
+- **列出提交：**`GET /guardrails/submissions`（可选查询：`status`、`team_id`、`search`）
+- **获取单个：**`GET /guardrails/submissions/{guardrail_id}`
+- **批准：**`POST /guardrails/submissions/{guardrail_id}/approve`
+- **拒绝：**`POST /guardrails/submissions/{guardrail_id}/reject`
+
+这些端点要求**管理员**（例如 `PROXY_ADMIN`）身份验证。
+
+---
+
+## 摘要
+
+| 角色 | 动作 |
+|------|--------|
+| **开发人员** | 使用团队范围的密钥和 `generic_guardrail_api` 配置调用 `POST /guardrails/register`。提交进入 `pending_review`。 |
+| **管理员** | 在 UI 中打开 **Guardrails → Team Guardrails**（或使用提交 API），然后**批准**或**拒绝**每个提交。已批准的护栏变为活动状态。 |
+
+只有 `openmcp_params.guardrail: "generic_guardrail_api"` 的护栏才被接受注册。有关完整的约定和配置选项，请参阅 [Generic Guardrail API](/docs/adding_provider/generic_guardrail_api)。

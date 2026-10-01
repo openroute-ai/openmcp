@@ -1,0 +1,327 @@
+---
+title: '4. 协议数据模型'
+---
+
+## 4. 协议数据模型
+
+A2A 协议使用 Protocol Buffers 定义了规范的数据模型。所有协议绑定**必须**提供这些数据结构的、功能等价的表示形式。
+
+### 4.1. 核心对象
+
+<a id="Task"></a>
+
+#### 4.1.1. Task
+
+> 类型表：`Task`（由 Protobuf 定义自动生成）
+
+<a id="TaskStatus"></a>
+
+#### 4.1.2. TaskStatus
+
+> 类型表：`TaskStatus`（由 Protobuf 定义自动生成）
+
+<a id="TaskState"></a>
+
+#### 4.1.3. TaskState
+
+> 类型表：`TaskState`（由 Protobuf 定义自动生成）
+
+<a id="Message"></a>
+
+#### 4.1.4. Message
+
+> 类型表：`Message`（由 Protobuf 定义自动生成）
+
+<a id="Role"></a>
+
+#### 4.1.5. Role
+
+> 类型表：`Role`（由 Protobuf 定义自动生成）
+
+<a id="Part"></a>
+
+#### 4.1.6. Part
+
+> 类型表：`Part`（由 Protobuf 定义自动生成）
+
+<a id="Artifact"></a>
+
+#### 4.1.7. Artifact
+
+> 类型表：`Artifact`（由 Protobuf 定义自动生成）
+
+### 4.2. 流式事件
+
+<a id="TaskStatusUpdateEvent"></a>
+
+#### 4.2.1. TaskStatusUpdateEvent
+
+> 类型表：`TaskStatusUpdateEvent`（由 Protobuf 定义自动生成）
+
+<a id="TaskArtifactUpdateEvent"></a>
+
+#### 4.2.2. TaskArtifactUpdateEvent
+
+> 类型表：`TaskArtifactUpdateEvent`（由 Protobuf 定义自动生成）
+
+### 4.3. 推送通知对象
+
+<a id="TaskPushNotificationConfig"></a>
+
+#### 4.3.1. TaskPushNotificationConfig
+
+> 类型表：`TaskPushNotificationConfig`（由 Protobuf 定义自动生成）
+
+<a id="PushNotificationAuthenticationInfo"></a>
+
+#### 4.3.2. AuthenticationInfo
+
+> 类型表：`AuthenticationInfo`（由 Protobuf 定义自动生成）
+
+#### 4.3.3. 推送通知负载
+
+当任务更新发生时，智能体会向配置的 webhook URL 发送 HTTP POST 请求。负载使用与流式操作相同的 [`StreamResponse`](#323-stream-response) 格式，从而使推送通知能够投递与实时流相同的事件类型。
+
+**请求格式：**
+
+```http
+POST
+Authorization: {authentication_scheme}
+Content-Type: application/a2a+json
+
+{
+  /* StreamResponse object - one of: */
+  "task": { /* Task object */ },
+  "message": { /* Message object */ },
+  "statusUpdate": { /* TaskStatusUpdateEvent object */ },
+  "artifactUpdate":
+}
+```
+
+**负载结构：**
+
+webhook 负载是一个 [`StreamResponse`](#323-stream-response) 对象，恰好包含以下内容之一：
+
+- **task**：包含当前任务状态的 [`Task`](#411-task) 对象
+- **message**：包含消息响应的 [`Message`](#414-message) 对象
+- **statusUpdate**：指示状态变更的 [`TaskStatusUpdateEvent`](#421-taskstatusupdateevent)
+- **artifactUpdate**：指示产物更新的 [`TaskArtifactUpdateEvent`](#422-taskartifactupdateevent)
+
+**认证：**
+
+智能体必须按照 [`TaskPushNotificationConfig.authentication`](#432-authenticationinfo) 字段中的规范，在请求头中包含认证凭据。该格式遵循标准的 HTTP 认证模式（Bearer 令牌、Basic 认证等）。
+
+**客户端职责：**
+
+- 客户端必须使用 HTTP 2xx 状态码进行响应，以确认成功接收
+- 客户端应当以幂等方式处理通知，因为可能发生重复投递
+- 客户端必须验证任务 ID 与预期任务匹配
+- 客户端应当实施适当的安全措施以验证通知来源
+
+**服务端保证：**
+
+- 智能体必须为每个配置的 webhook 至少尝试一次投递
+- 智能体可以为失败的投递实现带指数退避的重试逻辑
+- 智能体应当为 webhook 请求设置合理的超时时间（建议：10-30 秒）
+- 智能体可以在连续失败达到配置的次数后停止尝试投递
+
+有关推送通知的详细安全指引，请参阅[第 13.2 节 推送通知安全](#132-push-notification-security)。
+
+### 4.4. Agent 发现对象
+
+<a id="AgentCard"></a>
+
+#### 4.4.1. AgentCard
+
+> 类型表：`AgentCard`（由 Protobuf 定义自动生成）
+
+<a id="AgentProvider"></a>
+
+#### 4.4.2. AgentProvider
+
+> 类型表：`AgentProvider`（由 Protobuf 定义自动生成）
+
+<a id="AgentCapabilities"></a>
+
+#### 4.4.3. AgentCapabilities
+
+> 类型表：`AgentCapabilities`（由 Protobuf 定义自动生成）
+
+<a id="AgentExtension"></a>
+
+#### 4.4.4. AgentExtension
+
+> 类型表：`AgentExtension`（由 Protobuf 定义自动生成）
+
+<a id="AgentSkill"></a>
+
+#### 4.4.5. AgentSkill
+
+> 类型表：`AgentSkill`（由 Protobuf 定义自动生成）
+
+<a id="AgentInterface"></a>
+
+#### 4.4.6. AgentInterface
+
+> 类型表：`AgentInterface`（由 Protobuf 定义自动生成）
+
+<a id="AgentCardSignature"></a>
+
+#### 4.4.7. AgentCardSignature
+
+> 类型表：`AgentCardSignature`（由 Protobuf 定义自动生成）
+
+### 4.5. 安全对象
+
+<a id="Security"></a>
+<a id="SecurityScheme"></a>
+
+#### 4.5.1. SecurityScheme
+
+> 类型表：`SecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="APIKeySecurityScheme"></a>
+
+#### 4.5.2. APIKeySecurityScheme
+
+> 类型表：`APIKeySecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="HTTPAuthSecurityScheme"></a>
+
+#### 4.5.3. HTTPAuthSecurityScheme
+
+> 类型表：`HTTPAuthSecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="OAuth2SecurityScheme"></a>
+
+#### 4.5.4. OAuth2SecurityScheme
+
+> 类型表：`OAuth2SecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="OpenIdConnectSecurityScheme"></a>
+
+#### 4.5.5. OpenIdConnectSecurityScheme
+
+> 类型表：`OpenIdConnectSecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="MutualTlsSecurityScheme"></a>
+
+#### 4.5.6. MutualTlsSecurityScheme
+
+> 类型表：`MutualTlsSecurityScheme`（由 Protobuf 定义自动生成）
+
+<a id="OAuthFlows"></a>
+
+#### 4.5.7. OAuthFlows
+
+> 类型表：`OAuthFlows`（由 Protobuf 定义自动生成）
+
+<a id="AuthorizationCodeOAuthFlow"></a>
+
+#### 4.5.8. AuthorizationCodeOAuthFlow
+
+> 类型表：`AuthorizationCodeOAuthFlow`（由 Protobuf 定义自动生成）
+
+<a id="ClientCredentialsOAuthFlow"></a>
+
+#### 4.5.9. ClientCredentialsOAuthFlow
+
+> 类型表：`ClientCredentialsOAuthFlow`（由 Protobuf 定义自动生成）
+
+<a id="DeviceCodeOAuthFlow"></a>
+
+#### 4.5.10. DeviceCodeOAuthFlow
+
+> 类型表：`DeviceCodeOAuthFlow`（由 Protobuf 定义自动生成）
+
+### 4.6. 扩展
+
+A2A 协议支持扩展，以便在保持向后兼容和互操作性的同时，提供超出核心规范的功能或数据。扩展使智能体能够声明额外的能力（例如协议增强或特定于供应商的功能），与不支持特定扩展的客户端保持兼容，在不修改核心协议的情况下通过实验性或特定领域的特性促进创新，并为社区开发的功能进入核心规范提供途径，从而促进标准化。
+
+#### 4.6.1. 扩展声明
+
+智能体通过 [`AgentCard`](#441-agentcard) 中的 `extensions` 字段声明其支持的扩展，该字段包含一个 [`AgentExtension`](#444-agentextension) 对象数组。
+
+*示例：智能体在 AgentCard 中声明扩展支持：*
+
+```json
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extensions": [
+      {
+        "uri": "https://standards.org/extensions/citations/v1",
+        "description": "Provides citation formatting and source verification",
+        "required": false
+      },
+    ]
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+  ]
+}
+```
+
+客户端通过绑定特定的机制（如 HTTP 头、gRPC 元数据或 JSON-RPC 请求参数）表明其选择使用特定扩展的意愿，这些机制标识了客户端希望在交互过程中使用的扩展标识符。
+
+*示例：HTTP 客户端使用头选择启用扩展：*
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Find restaurants near me"}],
+    "extensions": ["https://example.com/extensions/geolocation/v1"],
+    "metadata":
+    }
+  }
+}
+```
+
+#### 4.6.2. 扩展点
+
+扩展可以集成到 A2A 协议中，存在几个定义明确的扩展点：
+
+**消息扩展：**
+
+消息可以被扩展，以允许客户端提供与所发送消息相关的额外强类型上下文或参数，也可以扩展 TaskStatus 消息以包含关于任务进度的额外信息。
+
+*示例：使用 extensions 和 metadata 数组的位置扩展：*
+
+```json
+  ],
+  "extensions": ["https://example.com/extensions/geolocation/v1"],
+  "metadata":
+  }
+}
+```
+
+**产物扩展：**
+
+产物可以包含扩展数据，以提供关于所生成内容的强类型上下文或元数据。
+
+*示例：带有用于研究来源的引用扩展的产物：*
+
+```json
+  ],
+  "extensions": ["https://standards.org/extensions/citations/v1"],
+  "metadata":
+      ]
+    }
+  }
+}
+```
+
+#### 4.6.3. 扩展版本控制与兼容性
+
+扩展**应当**在其 URI 标识符中包含版本信息。这使得客户端和智能体能够在交互过程中协商兼容的扩展版本。对扩展的破坏性变更**必须**创建新的 URI。
+
+如果客户端请求了智能体不支持的扩展版本，除非该扩展在 AgentCard 中被标记为 `required`，否则智能体**应当**忽略该扩展并继续处理该次交互；当扩展被标记为 `required` 时，智能体**必须**返回表示不支持扩展的错误。智能体**不得**自动回退到扩展的先前版本。

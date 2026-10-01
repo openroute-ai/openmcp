@@ -1,0 +1,15 @@
+{
+  "title": "A2A Gateway",
+  "description": "Add A2A agents to the AI Gateway, invoke them and control which teams and keys can access them.",
+  "icon": "Network",
+  "collapsible": false,
+  "pages": [
+    "index",
+    "invoking-agents",
+    "agent-card",
+    "agent-headers",
+    "agent-permissions",
+    "cost-tracking",
+    "iteration-budgets"
+  ]
+}

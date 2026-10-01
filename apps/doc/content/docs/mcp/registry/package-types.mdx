@@ -1,0 +1,256 @@
+---
+title: MCP Registry 支持的软件包类型
+---
+
+
+<Callout>
+  MCP Registry 目前处于预览阶段。在正式发布（general availability）之前可能出现破坏性变更或数据重置。如果您遇到任何问题，请在 [GitHub](https://github.com/modelcontextprotocol/registry/issues) 上报告。
+</Callout>
+
+# 软件包类型
+
+MCP Registry 支持几种不同的软件包类型，每种软件包类型都有其自己的验证方法。
+
+## npm 软件包
+
+对于 npm 软件包，MCP Registry 目前仅支持 npm 公共注册中心（`https://registry.npmjs.org`）。
+
+npm 软件包在 `server.json` 中使用 `"registryType": "npm"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/email-integration-mcp",
+  "title": "Email Integration",
+  "description": "Send emails and manage email accounts",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@username/email-integration-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+### 所有权验证
+
+MCP Registry 通过检查 `package.json` 中的 `mcpName` 来验证 npm 软件包的所有权。`mcpName` 属性**必须**与 `server.json` 中的服务器名称一致。例如：
+
+```json package.json
+{
+  "name": "@username/email-integration-mcp",
+  "version": "1.0.0",
+  "mcpName": "io.github.username/email-integration-mcp"
+}
+```
+
+## PyPI 软件包
+
+对于 PyPI 软件包，MCP Registry 目前仅支持官方 PyPI 注册中心（`https://pypi.org`）。
+
+PyPI 软件包在 `server.json` 中使用 `"registryType": "pypi"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/database-query-mcp",
+  "title": "Database Query",
+  "description": "Execute SQL queries and manage database connections",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "database-query-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+### 所有权验证
+
+MCP Registry 通过检查软件包 README（在 PyPI 上会成为软件包描述）中是否存在 `mcp-name: $SERVER_NAME` 字符串来验证 PyPI 软件包的所有权。该字符串可以隐藏在注释中，但 `$SERVER_NAME` 部分**必须**与 `server.json` 中的服务器名称一致。例如：
+
+```markdown README.md highlight={5}
+# Database Query MCP Server
+
+This MCP server executes SQL queries and manages database connections.
+
+<!-- mcp-name: io.github.username/database-query-mcp -->
+```
+
+## NuGet 软件包
+
+对于 NuGet 软件包，MCP Registry 目前仅支持官方 NuGet 注册中心（`https://api.nuget.org/v3/index.json`）。
+
+NuGet 软件包在 `server.json` 中使用 `"registryType": "nuget"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/azure-devops-mcp",
+  "title": "Azure DevOps",
+  "description": "Manage Azure DevOps work items and pipelines",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "Username.AzureDevOpsMcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+### 所有权验证
+
+MCP Registry 通过检查软件包 README 中是否存在 `mcp-name: $SERVER_NAME` 字符串来验证 NuGet 软件包的所有权。该字符串可以隐藏在注释中，但 `$SERVER_NAME` 部分**必须**与 `server.json` 中的服务器名称一致。例如：
+
+```markdown README.md highlight={5}
+# Azure DevOps MCP Server
+
+This MCP server manages Azure DevOps work items and pipelines.
+
+<!-- mcp-name: io.github.username/azure-devops-mcp -->
+```
+
+## Cargo（Rust）软件包
+
+对于 Cargo 软件包，MCP Registry 目前仅支持官方 crates.io 注册中心（`https://crates.io`）。
+
+Cargo 软件包在 `server.json` 中使用 `"registryType": "cargo"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/widget-mcp",
+  "title": "Widget",
+  "description": "Rust-native MCP server",
+  "version": "0.3.0",
+  "packages": [
+    {
+      "registryType": "cargo",
+      "identifier": "widget-mcp",
+      "version": "0.3.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+### 运行时模型
+
+Cargo 的运行时模型与 npm/PyPI/NuGet 不同。`cargo install <crate>` 会将编译后的二进制文件放到 PATH 的 `~/.cargo/bin` 目录下，随后 MCP 客户端直接按名称调用它。没有与 `npx`（npm）、`uvx`（PyPI）或 `dnx`（NuGet，.NET 10 SDK 预览版 6+）对应的按次调用运行器——安装是一次性的，执行则按二进制名称进行。上面的 Cargo 示例因此有意省略了 `runtimeHint`。
+
+Rust MCP 作者有两条一流的发布路径：
+
+- **Cargo（`registryType: cargo`）** — 通过 crates.io 进行源代码分发。终端用户需要 Rust 工具链（`rustup`）来运行 `cargo install`。符合 Rust 生态的习惯，也与 Rust CLI 通常的发布方式一致。
+- **MCPB（`registryType: mcpb`）** — 通过 GitHub 或 GitLab Releases 进行预编译二进制分发。终端用户无需任何工具链。如果您的优先目标是"无需 Rust 工具链"，这是正确的选择。
+
+两条路径都受支持；选择权在作者手中。提供 Cargo 原生支持是为了让偏好源代码分发的 Rust 作者不必被迫采用 MCPB 二进制打包的变通方案。
+
+### 所有权验证
+
+MCP Registry 通过检查软件包 README（会被渲染为 HTML 并由 crates.io 的静态 CDN 提供）中是否存在 `mcp-name: $SERVER_NAME` 字符串来验证 Cargo 软件包的所有权。`$SERVER_NAME` 部分**必须**与 `server.json` 中的服务器名称一致。例如：
+
+```markdown README.md highlight={5}
+# Widget MCP Server
+
+A Rust-native MCP server for widget operations.
+
+- MCP Registry name: `mcp-name: io.github.username/widget-mcp`
+```
+
+**Cargo 特有的陷阱：**与 PyPI 和 NuGet（它们在 README 渲染中会保留 HTML 注释）不同，**crates.io 在 markdown→HTML 转换过程中会剥离 HTML 注释**。适用于 PyPI/NuGet 的 `<!-- mcp-name: ... -->` 隐藏注释形式**在 cargo 中不起作用**——该标记不会出现在验证器所检查的渲染后 HTML 中。Cargo 作者必须将 `mcp-name:` 标记作为可见的 markdown 文本包含进来。建议的做法是在 Links 部分加一个简单的列表项。
+
+## Docker/OCI 镜像
+
+对于 Docker/OCI 镜像，MCP Registry 目前支持：
+
+- Docker Hub（`docker.io`）
+- GitHub Container Registry（`ghcr.io`）
+- Google Artifact Registry（任何 `*.pkg.dev` 域）
+- Azure Container Registry（`*.azurecr.io`）
+- Microsoft Container Registry（`mcr.microsoft.com`）
+
+Docker/OCI 镜像在 `server.json` 中使用 `"registryType": "oci"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/kubernetes-manager-mcp",
+  "title": "Kubernetes Manager",
+  "description": "Deploy and manage Kubernetes resources",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "docker.io/yourusername/kubernetes-manager-mcp:1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+`identifier` 的格式为 `registry/namespace/repository:tag`。例如，`docker.io/user/app:1.0.0` 或 `ghcr.io/user/app:1.0.0`。标签也可以指定为摘要（digest）。
+
+### 所有权验证
+
+MCP Registry 通过检查 `io.modelcontextprotocol.server.name` 注解来验证 Docker/OCI 镜像的所有权。`io.modelcontextprotocol.server.name` 注解的值**必须**与 `server.json` 中的服务器名称一致。例如：
+
+```dockerfile Dockerfile
+LABEL io.modelcontextprotocol.server.name="io.github.username/kubernetes-manager-mcp"
+```
+
+## MCPB 软件包
+
+对于 MCPB 软件包，MCP Registry 目前支持通过 GitHub 或 GitLab Releases 托管的 MCPB 制品。
+
+MCPB 软件包在 `server.json` 中使用 `"registryType": "mcpb"`。例如：
+
+```json server.json highlight={9}
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.username/image-processor-mcp",
+  "title": "Image Processor",
+  "description": "Process and transform images with various filters",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/username/image-processor-mcp/releases/download/v1.0.0/image-processor.mcpb",
+      "fileSha256": "fe333e598595000ae021bd27117db32ec69af6987f507ba7a63c90638ff633ce",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+```
+
+### 验证
+
+MCPB 软件包 URL（`server.json` 中的 `identifier`）**必须**包含字符串 "mcp"。它可以作为 `.mcpb` 文件扩展名的一部分，也可以出现在仓库名称中。
+
+`server.json` 中的软件包元数据**必须**包含一个 `fileSha256` 属性，其值为 MCPB 制品的 SHA-256 哈希，可以使用 `openssl` 命令计算：
+
+```bash
+openssl dgst -sha256 image-processor.mcpb
+```
+
+MCP Registry 不会验证此哈希；但是，MCP 客户端**会**在安装前验证哈希以确保文件完整性。下游注册中心也可以实现自己的验证。

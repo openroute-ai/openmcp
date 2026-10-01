@@ -1,0 +1,20 @@
+{
+  "title": "MCP Protocol",
+  "description": "Model Context Protocol documentation",
+  "icon": "Plug",
+  "root": true,
+  "pages": [
+    "architecture",
+    "client-best-practices",
+    "client-concepts",
+    "overview",
+    "sdk",
+    "server-concepts",
+    "versioning",
+    "extensions",
+    "inspector",
+    "registry",
+    "security",
+    "specification"
+  ]
+}

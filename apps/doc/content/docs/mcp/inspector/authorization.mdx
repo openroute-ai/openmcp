@@ -1,0 +1,182 @@
+---
+title: 授权
+description: MCP Inspector 如何执行 OAuth、在会话中途重新授权，并在各客户端之间共享令牌
+---
+
+远程 MCP 服务端通常需要授权。Inspector 在全部三个客户端中实现了完整的[授权](/docs/mcp/specification/latest/basic/authorization)流程，并将结果令牌保存到磁盘，因此一次登录即可在所有地方复用。
+
+## 完整流程
+
+<Steps>
+  <Step>
+
+### 连接，然后被拒绝
+
+Inspector 连接到服务端 URL。服务端返回 `401`。当响应带有
+    `WWW-Authenticate` 头时，它会指向受保护资源的元数据 URL（`resource_metadata`），
+    并可选地给出请求所需的 scopes。
+
+</Step>
+
+<Step>
+
+### 发现授权服务器
+
+Inspector 获取服务端的[受保护资源和授权服务器
+    元数据](/docs/mcp/specification/latest/basic/authorization/authorization-server-discovery)，
+    以了解端点和支持的授权方式。
+
+</Step>
+
+<Step>
+
+### 注册或标识客户端
+
+Inspector 通过所配置的任一机制向授权服务器标识自身：[动态客户端
+    注册](/docs/mcp/specification/latest/basic/authorization/client-registration#dynamic-client-registration)、
+    预注册的静态客户端（`--client-id` / `--client-secret`）、
+    [Client ID Metadata
+    文档](/docs/mcp/specification/latest/basic/authorization/client-registration#client-id-metadata-documents)
+    （`--client-metadata-url`），或[企业托管的
+    IdP](/docs/mcp/extensions/auth/enterprise-managed-authorization)。
+
+</Step>
+
+<Step>
+
+### 在浏览器中完成授权
+
+Inspector 打开授权 URL。你登录并同意。
+
+</Step>
+
+<Step>
+
+### 接收回调
+
+授权服务器重定向到 Inspector 的回调 URL，并携带
+    授权码。
+
+</Step>
+
+<Step>
+
+### 换取令牌并重试
+
+授权码被换为令牌，令牌被持久化保存，然后原始
+    连接（或对于[会话中途挑战](#mid-session-re-authorization)，
+    被拒绝的那个请求）会自动重试。
+
+</Step>
+
+</Steps>
+
+<img src="/images/docs/mcp/inspector/auth-connection-info.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">OAuth 流程完成后的 Connection Info：授权状态、动态注册的客户端以及已授予的 scopes。</p>
+
+## 回调 URL
+
+Web 应用在自己的 URL 上监听 OAuth 回调，而 CLI 与 TUI 则有意识地共用第二个回调地址：
+
+| 界面 | 默认回调                           | 原因                                                                                     |
+| ------- | -------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Web** | `http://localhost:6274/oauth/callback` | 主应用服务器已经有 HTTP 监听器。                                                        |
+| **CLI** | `http://127.0.0.1:6276/oauth/callback` | 专用 loopback 监听器，因此不会与正在运行的 web Inspector 冲突。                         |
+| **TUI** | `http://127.0.0.1:6276/oauth/callback` | 与 CLI 使用同一个监听器。                                                                |
+
+**在需要预注册重定向 URI 的任何 IdP 上，注册 `http://127.0.0.1:6276/oauth/callback`**，然后再使用 CLI 或 TUI。可预测的默认值正是重点：你注册一次，即可反复复用。
+
+可用 `--callback-url` 或 `MCP_OAUTH_CALLBACK_URL` 覆盖。
+
+<Callout type="warn">
+  回调 URL **必须绑定 loopback 主机**：`localhost`、`127.0.0.0/8` 或
+  `[::1]`。监听器通过明文 `http` 接收授权码，
+  因此非 loopback 主机会被报错拒绝，且没有任何 flag 可以
+  覆盖这一点。如果你的浏览器在另一台机器上运行，请把
+  回调端口转发过去；`--print-handoff`（见下文）会打印一份现成的
+  `portForwardCmd`。
+</Callout>
+
+<Callout>
+重定向 URI 必须与你注册的内容**完全匹配**。对授权服务器而言，`http://localhost:6276/...` 和 `http://127.0.0.1:6276/...` 是两个不同的 URI，尽管它们到达的是同一个监听器。
+
+同一时刻只能有一个进程占用默认端口；第二个并发流程会以 `EADDRINUSE` 失败。当你的授权服务器支持动态重定向 URI 注册时，可为每个实例使用不同的固定端口，或使用 `http://127.0.0.1:0/oauth/callback` 让操作系统分配临时端口。
+
+</Callout>
+
+## 凭据保存在哪里
+
+| 文件                                                                                                                 | 内容                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `~/.mcp-inspector/storage/oauth.json`                                                                                | 令牌与客户端信息，以规范化后的服务端 URL 作为键。仅属主可写。                                                                                                |
+| `~/.mcp-inspector/storage/client.json`                                                                               | 安装级客户端设置（客户端元数据 URL、企业 IdP）。与 web 客户端的 **Client Settings** 对话框写入的是同一个文件。 |
+| 服务端在[目录文件](/docs/mcp/tools/inspector/configuration#catalog-file-format)中的 `oauth` 块 | 每个服务端的 client id/secret、scopes、企业托管标记，以及[升级（step-up）](#mid-session-re-authorization)策略。             |
+
+`oauth.json` 的路径按以下顺序解析：`MCP_INSPECTOR_OAUTH_STATE_PATH`，然后是 `<MCP_STORAGE_DIR>/oauth.json`（参见[环境变量](/docs/mcp/tools/inspector/configuration#environment-variables)），最后是上面的默认路径。三个客户端都以相同方式解析该路径。命令行 `--client-id` / `--client-secret` / `--client-metadata-url` 会覆盖 `client.json`。
+
+## 会话中途重新授权
+
+服务端可以在会话中途以 `401` 或 `403 insufficient_scope` 拒绝_单个_请求，Inspector 能处理这两种情况而不中断连接：
+
+- **重新授权**：令牌已过期或被吊销。Inspector 解析 `WWW-Authenticate` 挑战并重新运行流程，然后重试失败的请求。
+- **升级（Step-up）**：请求需要当前令牌不携带的 scopes。Inspector 会以“已持有 scopes + 所需 scopes”的并集重新授权，因此新令牌覆盖旧令牌的全部能力，外加新要求的 scopes。
+
+在 **web** 客户端中，这表现为一条重新授权横幅。在 **CLI** 中，它会在 stderr 上提示：
+
+```
+Proceed with step-up authorization? [y/N]
+```
+
+回答 **y** 以继续。管道输入也可用（`echo y | ...`），只要以换行结尾或 stdin 被关闭即可。**N**（或 EOF 时没有回答）表示拒绝。非 TTY 的 stdin 在 5 秒内未发送任何内容时，会以 `auth_required` 失败，这与显式拒绝是不同的。企业托管的逐步升级会静默地重新铸造令牌，不弹出提示。
+
+## 非交互运行与 CI
+
+交互式 OAuth 需要 stdin 或 stderr 上是 TTY，或设置 [`MCP_AUTO_OPEN_ENABLED=true`](/docs/mcp/tools/inspector/configuration#environment-variables)。如图将 stderr 重定向到管道（例如 `2>&1 | tee`）仍然有效，因为 stdin 仍是 TTY。当两者都不满足（通常正是 CI 的形态）时，CLI 会快速失败并返回 `auth_required`，而不是等待长达十五分钟的、永远不会被完成的回调。
+
+对于 CI，要显式指定：
+
+```bash
+mcp-inspector --cli "$URL" --transport http --stored-auth-only --method tools/list
+```
+
+`--stored-auth-only` 永远不会启动交互式 OAuth 或 step-up，不会打开浏览器；如果共享存储中有令牌就使用它，否则立即失败。
+
+## 从 web 客户端交接给 CLI
+
+常见场景：某人在本机的 web Inspector 中完成了 OAuth，现在一个脚本想使用那个令牌。
+
+| Flag                    | 行为                                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--use-stored-auth`     | 读取 `--server-url` 对应的已存授权，并注入 `Authorization: Bearer`。当存有 refresh token 时，先运行 refresh grant 再注入**全新**的令牌，并持久化轮换结果。没有匹配项时以退出码 `3` 退出（与此同时列出已存的服务端 URL）。 |
+| `--wait-for-auth <sec>` | 轮询状态文件，直到 `--server-url` 对应的令牌出现，然后注入它。在 `<sec>` 秒后超时并以退出码 `3` 退出。适合在把登录交接给人之后使用。                                                                      |
+| `--list-stored-auth`    | 打印 `{ oauthStatePath, storedServerUrls }` 后退出，不连接任何东西。                                                                                                                                                                        |
+| `--print-handoff`       | 打印 `--server-url` 对应的 JSON 块（`deepLink`、`portForwardCmd`、`oauthStatePath`、`apiToken`）后退出；远程脚本驱动浏览器侧所需的一切都在其中。                                                                                       |
+| `--relogin`             | 连接前删除该服务端 URL 对应的已存 OAuth。仅限 HTTP/SSE。                                                                                                                                                                                    |
+
+一个典型的远程 VM 流程：
+
+```bash
+# On the VM: print what the human needs in order to complete OAuth in their browser
+mcp-inspector --cli --server-url https://api.example/mcp --print-handoff
+
+# Then block until the token lands, and run the call with it
+mcp-inspector --cli --transport http --server-url https://api.example/mcp \
+  --wait-for-auth 120 --method tools/list
+```
+
+交接块中的 `deepLink` 可将浏览器直接导航到一个_已连接_的 Inspector；参见[深度链接](/docs/mcp/tools/inspector/web#deep-links)。
+
+<Callout>
+  因为已存条目不记录过期时间，所以每次 `--use-stored-auth`
+  运行都会消耗存储的 refresh token。配合轮换式（一次性）
+  refresh token，这会打开两个窄失败窗口：针对同一状态文件的两次并发
+  调用可能竞争该令牌；而刷新成功与回写之间发生崩溃会把轮换后的令牌
+  留成未保存状态。两者都不太可能发生；在 web 客户端中重新授权即可恢复。
+</Callout>
+
+## 检查授权状态
+
+- **Web**：Connection Info 面板显示发现结果、已注册的客户端、已授予的 scopes 和令牌状态，并为活动服务端提供 **Clear OAuth state**。
+- **TUI**：**Auth** 选项卡（`a`）显示同样的字段，并以同样方式清除状态。
+- **CLI**：`--list-stored-auth` 显示磁盘上的内容，`--relogin` 丢弃它们并重新开始。

@@ -1,0 +1,340 @@
+---
+title: "调用 A2A 智能体"
+description: "了解如何通过 OpenMCP 使用不同方法调用 A2A 智能体。"
+---
+
+了解如何通过 OpenMCP 使用不同方法调用 A2A 智能体。
+
+<Callout type="info" title="部署你自己的 A2A 智能体">
+
+想用自己的智能体测试吗？部署这个由 Google Gemini 驱动的模板 A2A 智能体：
+
+[**shin-bot-openmcp/a2a-gemini-agent**](https://github.com/shin-bot-openmcp/a2a-gemini-agent) - 支持流式的简单可部署 A2A 智能体
+
+</Callout>
+
+## A2A SDK
+
+使用 [A2A Python SDK](https://pypi.org/project/a2a-sdk)（**>= 1.1.0**）通过 OpenMCP 以 A2A 协议调用智能体。
+
+```bash
+pip install "a2a-sdk>=1.1.0,<2.0" httpx
+```
+
+在智能体上固定 `protocolVersion: "1.0"`（推荐），以便响应与 1.x SDK 匹配。对于旧版 `0.3` 线上格式，则固定 `"0.3"`。请参阅 [协议版本控制](./a2a#protocol-versioning)。
+
+<Callout type="info" title="从 a2a-sdk 0.3.x 迁移">
+
+a2a-sdk 1.x 用 `ClientFactory`、protobuf `Message` / `Part` 类型以及作为流事件异步生成器的 `send_message` 取代了 `A2AClient` + dict `MessageSendParams`。请参阅下面的示例。
+
+</Callout>
+
+### 非流式
+
+本示例展示了如何：
+1. **列出可用智能体** - 查询 `/v1/agents` 查看你的密钥可以访问哪些智能体
+2. **选择智能体** - 从列表中选一个智能体
+3. **通过 A2A 调用** - 使用 A2A 协议向智能体发送消息
+
+```python showLineNumbers title="invoke_a2a_agent.py"
+import asyncio
+from uuid import uuid4
+
+import httpx
+from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
+from a2a.types import Message, Part, Role, SendMessageRequest
+from a2a.utils.constants import TransportProtocol
+
+# === CONFIGURE THESE ===
+OPENMCP_BASE_URL = "http://localhost:4000"  # Your OpenMCP proxy URL
+OPENMCP_VIRTUAL_KEY = "sk-1234"             # Your OpenMCP Virtual Key
+# =======================
+
+def extract_text(parts) -> str:
+    return "".join(getattr(p, "text", "") or "" for p in (parts or []))
+
+def handle_event(event) -> None:
+    populated = event.ListFields()
+    if not populated:
+        return
+    field, value = populated[0]
+    if field.name in ("message", "msg"):
+        print(f"[message] {extract_text(value.parts)}")
+    elif field.name == "task":
+        print(f"[task {value.id}] {value.status.state}")
+
+async def main():
+    headers = {"Authorization": f"Bearer {OPENMCP_VIRTUAL_KEY}"}
+
+    async with httpx.AsyncClient(headers=headers, timeout=60.0) as http_client:
+        # Step 1: List available agents
+        response = await http_client.get(f"{OPENMCP_BASE_URL}/v1/agents")
+        agents = response.json()
+
+        print("Available agents:")
+        for agent in agents:
+            print(f"  - {agent['agent_name']} (ID: {agent['agent_id']})")
+
+        if not agents:
+            print("No agents available for this key")
+            return
+
+        # Step 2: Select an agent and invoke it
+        selected_agent = agents[0]
+        agent_id = selected_agent["agent_id"]
+        print(f"\nInvoking: {selected_agent['agent_name']}")
+
+        # Step 3: Discover agent card and create a2a-sdk 1.x client
+        base_url = f"{OPENMCP_BASE_URL}/a2a/{agent_id}"
+        resolver = A2ACardResolver(httpx_client=http_client, base_url=base_url)
+        agent_card = await resolver.get_agent_card()
+
+        config = ClientConfig(
+            httpx_client=http_client,
+            streaming=False,
+            supported_protocol_bindings=[
+                TransportProtocol.JSONRPC,
+                TransportProtocol.HTTP_JSON,
+            ],
+        )
+        client = ClientFactory(config).create(agent_card)
+
+        msg = Message(
+            message_id=uuid4().hex,
+            role=Role.ROLE_USER,
+            parts=[Part(text="Hello, what can you do?")],
+        )
+        request = SendMessageRequest(message=msg)
+
+        async for event in client.send_message(request):
+            handle_event(event)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 流式
+
+在 a2a-sdk 1.x 中，在 `ClientConfig` 上设置 `streaming=True` 并迭代 `send_message`。同一个 API 处理流式和非流式情况：
+
+```python showLineNumbers title="invoke_a2a_agent_streaming.py"
+import asyncio
+from uuid import uuid4
+
+import httpx
+from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
+from a2a.types import Message, Part, Role, SendMessageRequest
+from a2a.utils.constants import TransportProtocol
+
+# === CONFIGURE THESE ===
+OPENMCP_BASE_URL = "http://localhost:4000"  # Your OpenMCP proxy URL
+OPENMCP_VIRTUAL_KEY = "sk-1234"             # Your OpenMCP Virtual Key
+OPENMCP_AGENT_NAME = "ij-local"             # Agent name registered in OpenMCP
+# =======================
+
+async def main():
+    base_url = f"{OPENMCP_BASE_URL}/a2a/{OPENMCP_AGENT_NAME}"
+    headers = {"Authorization": f"Bearer {OPENMCP_VIRTUAL_KEY}"}
+
+    async with httpx.AsyncClient(headers=headers, timeout=60.0) as http_client:
+        resolver = A2ACardResolver(httpx_client=http_client, base_url=base_url)
+        agent_card = await resolver.get_agent_card()
+
+        config = ClientConfig(
+            httpx_client=http_client,
+            streaming=True,
+            supported_protocol_bindings=[
+                TransportProtocol.JSONRPC,
+                TransportProtocol.HTTP_JSON,
+            ],
+        )
+        client = ClientFactory(config).create(agent_card)
+
+        msg = Message(
+            message_id=uuid4().hex,
+            role=Role.ROLE_USER,
+            parts=[Part(text="Tell me a long story")],
+        )
+        request = SendMessageRequest(message=msg)
+
+        async for event in client.send_message(request):
+            populated = event.ListFields()
+            if populated:
+                field, value = populated[0]
+                if field.name in ("message", "msg"):
+                    text = "".join(getattr(p, "text", "") or "" for p in value.parts)
+                    print(text, end="", flush=True)
+        print()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## /chat/completions API（OpenAI SDK）
+
+你还可以使用熟悉的 OpenAI SDK，通过 `a2a/` 模型前缀调用 A2A 智能体。
+
+### 非流式
+
+<Tabs items={["Python","TypeScript","cURL"]}>
+<Tab>
+
+```python showLineNumbers title="openai_non_streaming.py"
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234",  # Your OpenMCP Virtual Key
+    base_url="http://localhost:4000"  # Your OpenMCP proxy URL
+)
+
+response = client.chat.completions.create(
+    model="a2a/my-agent",  # Use a2a/ prefix with your agent name
+    messages=[
+        {"role": "user", "content": "Hello, what can you do?"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+</Tab>
+<Tab>
+
+```typescript showLineNumbers title="openai_non_streaming.ts"
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'sk-1234',  // Your OpenMCP Virtual Key
+  baseURL: 'http://localhost:4000'  // Your OpenMCP proxy URL
+});
+
+const response = await client.chat.completions.create({
+  model: 'a2a/my-agent',  // Use a2a/ prefix with your agent name
+  messages: [
+    { role: 'user', content: 'Hello, what can you do?' }
+  ]
+});
+
+console.log(response.choices[0].message.content);
+```
+
+</Tab>
+<Tab>
+
+```bash showLineNumbers title="curl_non_streaming.sh"
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "a2a/my-agent",
+    "messages": [
+      {"role": "user", "content": "Hello, what can you do?"}
+    ]
+  }'
+```
+
+</Tab>
+</Tabs>
+
+### 流式
+
+<Tabs items={["Python","TypeScript","cURL"]}>
+<Tab>
+
+```python showLineNumbers title="openai_streaming.py"
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234",  # Your OpenMCP Virtual Key
+    base_url="http://localhost:4000"  # Your OpenMCP proxy URL
+)
+
+stream = client.chat.completions.create(
+    model="a2a/my-agent",  # Use a2a/ prefix with your agent name
+    messages=[
+        {"role": "user", "content": "Tell me a long story"}
+    ],
+    stream=True
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+</Tab>
+<Tab>
+
+```typescript showLineNumbers title="openai_streaming.ts"
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: 'sk-1234',  // Your OpenMCP Virtual Key
+  baseURL: 'http://localhost:4000'  // Your OpenMCP proxy URL
+});
+
+const stream = await client.chat.completions.create({
+  model: 'a2a/my-agent',  // Use a2a/ prefix with your agent name
+  messages: [
+    { role: 'user', content: 'Tell me a long story' }
+  ],
+  stream: true
+});
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content;
+  if (content) {
+    process.stdout.write(content);
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```bash showLineNumbers title="curl_streaming.sh"
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "a2a/my-agent",
+    "messages": [
+      {"role": "user", "content": "Tell me a long story"}
+    ],
+    "stream": true
+  }'
+```
+
+</Tab>
+</Tabs>
+
+## 任务 API（`tasks/get`、`tasks/list` 等）
+
+从 `message/send` 返回 `submitted` 任务的智能体，期望客户端使用 `tasks/get` 进行轮询。使用 JSON-RPC 调用相同的 OpenMCP 基础 URL：
+
+```bash showLineNumbers title="tasks_get.sh"
+curl -X POST "http://localhost:4000/a2a/${AGENT_ID}" \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "req-2",
+    "method": "tasks/get",
+    "params": {"id": "TASK_ID_FROM_SEND_RESPONSE"}
+  }'
+```
+
+OpenMCP 会将 `tasks/get`、`tasks/list`、`tasks/cancel`、推送通知方法以及 `agent/getAuthenticatedExtendedCard` 转发到上游智能体 URL。完整的可用方法列表请参阅 [支持的 A2A 方法](./a2a_agent_card#supported-a2a-methods)。
+
+## 主要区别
+
+| 方法 | 用例 | 优势 |
+|--------|----------|------------|
+| **A2A SDK** | 原生 A2A 协议集成 | • 完整的 A2A 协议支持<br/>• 可访问任务状态和产物<br/>• 上下文管理 |
+| **OpenAI SDK** | 熟悉的 OpenAI 风格接口 | • 可无缝替代 OpenAI 调用<br/>• 从 LLM 到智能体工作流迁移更简单<br/>• 兼容现有的 OpenAI 工具链 |
+
+<Callout type="info" title="模型前缀">
+
+使用 OpenAI SDK 时，请务必将你的智能体名称加上 `a2a/` 前缀（例如 `a2a/my-agent`），以便将请求路由到 A2A 智能体而不是 LLM 供应商。
+
+</Callout>

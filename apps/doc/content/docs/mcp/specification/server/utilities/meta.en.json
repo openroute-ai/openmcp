@@ -1,0 +1,8 @@
+{
+  "pages": [
+    "caching",
+    "completion",
+    "logging",
+    "pagination"
+  ]
+}

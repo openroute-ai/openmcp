@@ -1,0 +1,82 @@
+---
+title: 发现
+---
+
+
+<div id="enable-section-numbers" />
+
+`server/discover` 允许客户端在发送任何其他请求之前查询服务端支持的协议版本、能力和身份信息。服务端**必须**实现该操作。
+
+## 请求
+
+除标准 `_meta` 外，该请求不携带任何其他请求体参数：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "ExampleClient",
+        "version": "1.0.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}
+```
+
+## 响应
+
+服务端会回复其支持的协议版本、能力和身份信息。该操作支持[缓存](/docs/mcp/specification/2026-07-28/server/utilities/caching)。
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "result": {
+    "resultType": "complete",
+    "supportedVersions": ["2026-07-28"],
+    "capabilities": {
+      "tools": {},
+      "resources": {}
+    },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "ExampleServer",
+        "version": "1.0.0"
+      }
+    },
+    "instructions": "This server provides weather and resource utilities.",
+    "ttlMs": 3600000,
+    "cacheScope": "public"
+  }
+}
+```
+
+## 何时调用
+
+对客户端而言，调用 `server/discover` 是可选的——客户端可以直接发起任何 RPC 调用，并在服务端不支持所请求的版本时处理 [`UnsupportedProtocolVersionError`](/docs/mcp/specification/2026-07-28/schema#unsupportedprotocolversionerror)。不过，`server/discover` 在两种场景下很有用：
+
+- **展示服务端信息。** 虽然客户端使用服务端并不需要调用 `server/discover`，但通过一次请求即可获取服务端的身份、能力和支持的版本，十分便捷。例如，客户端可以从单个 `server/discover` 响应中展示服务端支持的能力，而不必分别发送 `tools/list`、`prompts/list` 和 `resources/list` 请求去探测。
+- **stdio 向后兼容探测。** 在 stdio 上，没有可用于驱动回退机制的逐请求 HTTP 状态码。同时支持现代（逐请求 `_meta`）和旧版（`initialize` 握手）服务端的客户端**应当**首先发送 `server/discover`；回退规则参见 [stdio：向后兼容](/docs/mcp/specification/2026-07-28/basic/transports/stdio#backward-compatibility)。
+
+完整的版本选择流程参见[协议版本协商](/docs/mcp/specification/2026-07-28/basic/versioning#protocol-version-negotiation)。针对未知方法返回的 HTTP 特定状态码，请参阅传输部分中的[协议版本请求头](/docs/mcp/specification/2026-07-28/basic/transports/streamable-http#protocol-version-header)章节。
+
+## 数据类型
+
+### DiscoverResult
+
+发现结果包含：
+
+- `supportedVersions`：服务端支持的协议版本。客户端应为后续请求选择其中一个版本。
+- `capabilities`：服务端支持的能力（工具、资源、提示词等）
+- `_meta['io.modelcontextprotocol/serverInfo']`：服务端软件的名称和版本。服务端**应当**包含该字段。
+- `instructions`：可选的面向 LLM 的自然语言指导，说明如何高效使用此服务端
+
+<Callout>
+  `serverInfo` 由服务端自行报告，协议不会对其进行验证。它仅供展示、日志记录和调试之用。客户端**不得**用它来改变自身行为，也**不得**依据它做出安全决策。
+</Callout>

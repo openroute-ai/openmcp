@@ -1,0 +1,166 @@
+---
+title: "Atlassian MCP 服务端"
+description: "Atlassian 托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。"
+---
+
+> 通过 OpenMCP MCP 网关连接 Atlassian 托管的远程 MCP 服务端，用于 Jira 事项、Confluence 页面和 Compass 组件。
+
+Atlassian 托管并维护该服务端，因此您无需自行部署或运行任何东西。OpenMCP 增加集中式认证、按 key 和团队进行访问控制、每次工具调用的成本跟踪，以及覆盖您暴露的每个 MCP 服务端的单一审计轨迹。
+
+## 何时使用此服务端
+
+- 让智能体在不离开对话的情况下对待办事项进行分类、提交或更新 Jira 事项
+- 将 Confluence 页面作为上下文引入，或将结论作为新页面写回
+- 通过 Compass 组件追溯所有权和依赖关系
+
+## 主要特性
+
+- 一个服务端同时覆盖 Jira、Jira Service Management、Confluence、Bitbucket 和 Compass，因此一次注册即可触达所有产品
+- 由 Atlassian 通过 Streamable HTTP 托管；仅限 Cloud，不支持 Server 或 Data Center
+- 动态客户端注册，因此 OpenMCP 会协商 OAuth 客户端，无需管理客户端 ID 或密钥
+
+Atlassian 将其发布为 **Rovo MCP Server**，这是在其文档中搜索时应使用的名称。
+
+## 认证
+
+- **方法：** 使用用户令牌的 OAuth 2.1，尊重每个调用方已有的 Atlassian 权限。智能体无法打开其用户本无法打开的 Jira 项目或 Confluence 空间。
+- **Atlassian 应用：** 无需创建。Atlassian 支持[动态客户端注册](https://datatracker.ietf.org/doc/html/rfc7591)，该服务端对所有 Atlassian Cloud 客户开放，无需单独注册。
+- **替代方案：** Atlassian 还提供 API 令牌认证，管理员必须先在某位置启用它。两种方法覆盖的工具有所不同，因此如果您发现预期中的产品缺失，请查看 Atlassian 的受支持工具页面。
+
+## 端点
+
+**远程 MCP 服务端：**
+
+```
+https://mcp.atlassian.com/v1/mcp/authv2
+```
+
+Atlassian 为手动配置的客户端记录的是 `authv2`，OpenMCP 正是这种客户端。较旧的 `https://mcp.atlassian.com/v1/mcp` 形式仍然可用，Atlassian 的一键安装程序也仍在分发它，因此您可能会在现有配置中看到它；新配置请优先使用 `authv2`。
+
+***
+
+## 通过 OpenMCP MCP 网关连接
+
+<Callout type="warn" title="Leave the client credentials out">
+
+不要在此服务端上设置 `client_id`、`client_secret` 或 `token_url`。这些设置会把它切换为所有调用方共享的机器到机器身份，导致 Jira 的更改被归因于一个服务账户，而不是提出请求的人。Atlassian 的动态注册使它们变得没有必要。
+
+</Callout>
+
+### 第 1 步：在 OpenMCP 中注册服务端
+
+<Tabs items={["OpenMCP UI","config.yaml"]}>
+<Tab>
+
+导航到 **MCP Servers**，点击 **+ Add New MCP Server**，然后设置：
+
+| 字段 | 值 |
+|---|---|
+| **服务端名称** | `atlassian_mcp` |
+| **传输方式** | HTTP |
+| **服务端 URL** | `https://mcp.atlassian.com/v1/mcp/authv2` |
+| **认证** | OAuth |
+| **OAuth 流程类型** | 交互式（PKCE） |
+| **客户端 ID / 客户端密钥** | 留空 |
+
+点击 **Create MCP Server**，然后打开服务端的 **MCP Tools** 标签页以确认连接。首次列出工具会引导您完成 Atlassian 登录和站点选择。
+
+</Tab>
+<Tab>
+
+```yaml title="config.yaml" showLineNumbers
+mcp_servers:
+  atlassian_mcp:
+    url: "https://mcp.atlassian.com/v1/mcp/authv2"
+    transport: "http"
+    description: "Jira, Confluence, and Compass"
+    auth_type: oauth2
+    oauth2_flow: authorization_code
+```
+
+`oauth2_flow: authorization_code` 选择交互式按用户流程，并且是必需的；代理会拒绝在省略了它的 `auth_type: oauth2` 服务端上启动。存储 MCP 服务端还需要 `store_model_in_db: true`，见[前提条件](/docs/mcp-gateway#prerequisites)。
+
+</Tab>
+</Tabs>
+
+### 第 2 步：设置代理的公共来源
+
+如果 OpenMCP 位于终止 TLS 的入口后面，请将 `PROXY_BASE_URL` 设置为用户在地址栏中看到的来源，以便 OAuth 回调通过验证：
+
+```bash
+PROXY_BASE_URL=https://llm.example.com
+```
+
+不一致会在您点击 **Connect** 时以 `400 Bad Request` + `{"detail":"invalid_request"}` 的形式显现。完整规则见[反向代理和入口配置](/docs/mcp-gateway/oauth#reverse-proxy-and-ingress-configuration)。
+
+### 第 3 步：从智能体连接
+
+网关在 `http://localhost:4000/{server_name}/mcp` 提供服务，因此 `atlassian_mcp` 可通过 `http://localhost:4000/atlassian_mcp/mcp` 访问。
+
+<Tabs items={["Claude Desktop / Cursor","Claude Code"]}>
+<Tab>
+
+```json title="Claude Desktop / Cursor" showLineNumbers
+{
+  "mcpServers": {
+    "atlassian": {
+      "url": "http://localhost:4000/atlassian_mcp/mcp",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+</Tab>
+<Tab>
+
+```bash showLineNumbers
+claude mcp add --transport http atlassian http://localhost:4000/atlassian_mcp/mcp \
+  --header "x-openmcp-api-key: Bearer $OPENMCP_API_KEY"
+```
+
+</Tab>
+</Tabs>
+
+首次调用会打开浏览器进行授权并选择一个站点。OpenMCP 之后会存储该用户的令牌并刷新它，因此后续会话无需提示即可连接。
+
+***
+
+## 提供的工具
+
+<Callout type="info">
+
+Atlassian 会在运行时通过 `tools/list` 发布其工具定义，因此名称和字段可能会随时更改而无需通知。OpenMCP UI 中的 **MCP Tools** 标签页是了解您的站点暴露了哪些工具的权威来源；它列出实时工具，并允许您使用测试参数调用其中一个。上游详情请参阅 Atlassian 的 [MCP 服务端文档](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/)。
+
+</Callout>
+
+| 产品 | 能力 |
+|---|---|
+| Jira | 事项搜索、事项创建和更新、批量事项创建 |
+| Confluence | 页面读取和摘要、页面创建、空间导航 |
+| Compass | 组件创建、从 CSV 或 JSON 批量导入组件和自定义字段、依赖关系查询 |
+| Jira Service Management | 请求和队列访问 |
+| Bitbucket | 仓库和拉取请求访问 |
+| 跨产品 | 跨产品链接项，例如将工单附加到页面，或查找与 Compass 组件关联的文档 |
+
+OpenMCP 会为工具名称加上服务端名称前缀，因此名为 `getJiraIssue` 的工具会以 `atlassian_mcp-getJiraIssue` 的形式暴露给模型；见[工具命名](/docs/mcp-gateway/rest-api#tool-naming)。此服务端的工具面很大，因此值得启用 [MCP 工具搜索](/docs/mcp-gateway/tool-search) 和[语义过滤](/docs/mcp-gateway/semantic-filter)，以保持模型的工具列表足够小且有用。
+
+### 已知限制
+
+该服务端处于测试阶段，Atlassian 会按其每小时的请求配额进行限制，配额因套餐而异。批量操作带有速率和格式限制，自定义 Jira 字段可能需要手动配置，某些客户端的支持也不完整。一个会话绑定到一个站点，因此针对错误站点授权的用户必须断开并重新连接服务端，而不是就地切换。
+
+***
+
+<Callout type="info" title="Restrict who can use it">
+
+使用 `object_permission` 按 key 或按团队授予服务端权限，并用 `mcp_rpm_limit` 限制每个服务端的调用量，两者均见 [MCP 权限管理](/docs/mcp-gateway/control)。在此处，按 key 的限制比在大多数服务端上更重要，因为 Atlassian 的测试配额在整个站点范围内共享，一个失控的智能体就可能导致配额耗尽。
+
+</Callout>
+
+<Callout type="warn" title="Put the OpenMCP key in x-openmcp-api-key">
+
+交互式 OAuth 需要 `Authorization` 头为空闲状态，以供上游令牌使用。如果客户端将 OpenMCP API key 作为 `Authorization: Bearer sk-...` 发送，OAuth 流程永远不会运行，OpenMCP 会把您的 OpenMCP key 转发给 Atlassian，而后者会拒绝它。要诊断，请添加 `x-openmcp-mcp-debug: true` 并读取响应头；健康的调用会针对 `https://mcp.atlassian.com/v1/mcp/authv2` 报告 `x-mcp-debug-auth-resolution: oauth2-passthrough`，而 `SAME_AS_OPENMCP_KEY` 可确认本情况，`m2m-client-credentials` 则意味着设置了客户端凭据，所有调用方共享同一身份。见[调试 OAuth](/docs/mcp-gateway/oauth#debugging-oauth) 和 [MCP 故障排查指南](/docs/mcp-gateway/troubleshoot)。
+
+</Callout>

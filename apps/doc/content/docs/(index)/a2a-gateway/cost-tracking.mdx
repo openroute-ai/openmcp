@@ -1,0 +1,148 @@
+---
+title: "A2A 智能体成本追踪"
+description: "OpenMCP 支持为 A2A 智能体添加自定义成本追踪。你可以配置："
+---
+
+OpenMCP 支持为 A2A 智能体添加自定义成本追踪。你可以配置：
+
+- **每次查询的固定费用** - 每个智能体请求收取的固定费用
+- **按输入/输出令牌计费** - 基于令牌使用量的可变费用
+
+这让你能够在组织范围内追踪和归属智能体使用成本，方便查看每个团队或项目在智能体调用上花费了多少。
+
+## 快速开始
+
+### 1. 导航到智能体
+
+在侧边栏中点击 "Agents" 打开智能体管理页面。
+
+![Navigate to Agents](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/f9ac0752-6936-4dda-b7ed-f536fefcc79a/ascreenshot.jpeg?tl_px=208,326&br_px=2409,1557&force_format=jpeg&q=100&width=1120.0)
+
+### 2. 创建新智能体
+
+点击 "+ Add New Agent" 打开创建表单。你需要提供一些基本信息：
+
+- **Agent Name** - 智能体的唯一标识符（用于 API 调用）
+- **Display Name** - 在 UI 中显示的可读名称
+
+![Enter Agent Name](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/f5bacfeb-67a0-4644-a400-b3d50b6b9ce5/ascreenshot.jpeg?tl_px=0,0&br_px=2617,1463&force_format=jpeg&q=100&width=1120.0)
+
+![Enter Display Name](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/6db6422b-fe85-4a8b-aa5c-39319f0d4621/ascreenshot.jpeg?tl_px=0,27&br_px=2617,1490&force_format=jpeg&q=100&width=1120.0)
+
+### 3. 配置成本设置
+
+向下滚动并点击 "Cost Configuration" 展开成本设置面板。在这里你可以定义智能体使用的收费方式。
+
+![Click Cost Configuration](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/a3019ae8-629c-431b-b2d8-2743cc517be7/ascreenshot.jpeg?tl_px=0,653&br_px=2201,1883&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=388,416)
+
+### 4. 设置每次查询的费用
+
+输入每次查询的费用金额（以美元计）。例如，输入 `0.05` 表示每次请求该智能体将收取 $0.05。
+
+![Set Cost Per Query](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/91159f8a-1f66-4555-a166-600e4bdecc68/ascreenshot.jpeg?tl_px=0,653&br_px=2201,1883&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=372,281)
+
+![Enter Cost Amount](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/2add2f69-fd72-462e-9335-1e228c7150da/ascreenshot.jpeg?tl_px=0,420&br_px=2617,1884&force_format=jpeg&q=100&width=1120.0)
+
+### 5. 创建智能体
+
+配置完成后，点击 "Create Agent" 保存。你的智能体现在已可以使用，并启用了成本追踪。
+
+![Create Agent](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/1876cf29-b8a7-4662-b944-2b86a8b7cd2e/ascreenshot.jpeg?tl_px=416,653&br_px=2618,1883&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=706,523)
+
+## 测试成本追踪
+
+让我们通过 Playground 发送一个测试请求来验证成本追踪是否正常工作。
+
+### 1. 前往 Playground
+
+在侧边栏中点击 "Playground" 打开交互式测试界面。
+
+![Go to Playground](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/7d5d8338-6393-49a5-b255-86aef5bf5dfa/ascreenshot.jpeg?tl_px=0,0&br_px=2201,1230&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=41,98)
+
+### 2. 选择 A2A 端点
+
+默认情况下，Playground 使用 chat completions 端点。要测试你的智能体，点击 "Endpoint Type" 并从下拉列表中选择 `/v1/a2a/message/send`。
+
+![Select Endpoint Type](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/4d066510-0878-4e0b-8abf-0b074fe2a560/ascreenshot.jpeg?tl_px=0,0&br_px=2201,1230&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=325,238)
+
+![Select A2A Endpoint](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/fe2f8957-4e8a-4331-b177-d5093480cf60/ascreenshot.jpeg?tl_px=0,0&br_px=2201,1230&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=333,261)
+
+### 3. 选择你的智能体
+
+现在从智能体下拉列表中选择你刚创建的智能体。你应该能看到它按显示名称列出。
+
+![Select Agent](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/8c7add70-fe72-48cb-ba33-9f53b989fcad/ascreenshot.jpeg?tl_px=0,150&br_px=2201,1381&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=287,277)
+
+### 4. 发送测试消息
+
+输入一条消息并点击发送。你可以使用建议的提示词或编写自己的。
+
+![Send Message](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/2c16acb1-4016-447e-88e9-c4522e408ea2/ascreenshot.jpeg?tl_px=15,653&br_px=2216,1883&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=524,443)
+
+智能体响应后，请求将以你配置的成本被记录。
+
+![Agent Response](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/2dcf7109-0be4-4d03-8333-ef45759c70c9/ascreenshot.jpeg?tl_px=0,0&br_px=2201,1230&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=494,273)
+
+## 在日志中查看成本
+
+现在让我们确认成本确实被追踪了。
+
+### 1. 导航到日志
+
+在侧边栏中点击 "Logs" 查看所有最近的请求。
+
+![Go to Logs](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/c96abf3c-f06a-4401-ada6-04b6e8040453/ascreenshot.jpeg?tl_px=0,118&br_px=2201,1349&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=41,277)
+
+### 2. 查看成本归属
+
+在列表中找到你的智能体请求。你会看到成本列显示你配置的金额。该成本现在已归属到发出请求的 API 密钥，因此你可以按团队或项目追踪支出。
+
+![View Cost in Logs](https://ajeuwbhvhr.cloudimg.io/https://colony-recorder.s3.amazonaws.com/files/2025-12-13/1ae167ec-1a43-48a3-9251-43d4cb3e57f5/ascreenshot.jpeg?tl_px=335,11&br_px=2536,1242&force_format=jpeg&q=100&width=1120.0&wat=1&wat_opacity=0.7&wat_gravity=northwest&wat_url=https://colony-recorder.s3.us-west-1.amazonaws.com/images/watermarks/FB923C_standard.png&wat_pad=524,277)
+
+## 在使用量页面查看支出
+
+导航到管理界面中的 Agent Usage 标签页查看智能体级别的支出分析：
+
+### 1. 访问智能体使用量
+
+前往管理界面的 Usage 页面（`PROXY_BASE_URL/ui/?login=success&page=new_usage`）并点击 **Agent Usage** 标签页。
+
+<img src="/images/docs/a2a-gateway/agent_usage_ui_navigation.png" />
+
+### 2. 查看智能体分析
+
+Agent Usage 控制台提供：
+
+- **每个智能体的总支出**：查看所有智能体的汇总支出
+- **每日支出趋势**：查看智能体支出随时间的变化
+- **模型使用量分布**：了解每个智能体使用了哪些模型
+- **活动指标**：追踪每个智能体的请求量、令牌数和成功率
+
+<img src="/images/docs/a2a-gateway/agent_usage_analytics.png" />
+
+### 3. 按智能体筛选
+
+使用智能体筛选下拉菜单查看特定智能体的支出：
+
+- 从下拉列表中选择一个或多个智能体 ID
+- 查看筛选后的分析、支出日志和活动指标
+- 比较不同智能体的支出
+
+<img src="/images/docs/a2a-gateway/agent_usage_filter.png" />
+
+## 成本配置选项
+
+你可以根据定价模型组合使用这些选项：
+
+| 字段                         | 描述                               |
+| ----------------------------- | ----------------------------------------- |
+| **每次查询费用（$）**        | 每个智能体请求收取的固定费用 |
+| **输入令牌单价（$）**  | 每处理一个输入令牌的费用            |
+| **输出令牌单价（$）** | 每生成一个输出令牌的费用           |
+
+对于大多数用例，每次查询的固定费用是最简单的。如果你的智能体成本因输入/输出长度而有显著差异，请使用基于令牌的定价。
+
+## 相关内容
+
+- [A2A 智能体网关](/docs/a2a-gateway)
+- 支出追踪

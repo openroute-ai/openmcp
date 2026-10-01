@@ -1,0 +1,208 @@
+---
+title: "使用您的 MCP"
+description: "本文档介绍如何将 OpenMCP 用作 MCP 网关。您可以了解如何将其与 Responses API、Cursor IDE 和 OpenAI SDK 一起使用。"
+---
+
+本文档介绍如何将 OpenMCP 用作 MCP 网关。您可以了解如何将其与 Responses API、Cursor IDE 和 OpenAI SDK 一起使用。
+
+### 在 OpenMCP UI 上使用
+
+按照下面的操作演示在 OpenMCP UI 上使用您的 MCP
+
+<iframe width="840" height="500" src="https://www.loom.com/embed/57e0763267254bc79dbe6658d0b8758c" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true}></iframe>
+
+### 与 Responses API 一起使用
+
+将 `http://localhost:4000` 替换为您的 OpenMCP Proxy 基础 URL。
+
+使用 OpenMCP Proxy + Responses API 的演示视频：[视频演示](https://www.loom.com/share/34587e618c5c47c0b0d67b4e4d02718f?sid=2caf3d45-ead4-4490-bcc1-8d6dd6041c02)
+
+<Tabs items={["cURL","Python SDK"]}>
+<Tab>
+
+```bash title="cURL Example" showLineNumbers
+curl --location 'http://localhost:4000/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer sk-1234" \
+--data '{
+    "model": "{{openai_large}}",
+    "input": [
+    {
+      "role": "user",
+      "content": "give me TLDR of what BerriAI/openmcp repo is about",
+      "type": "message"
+    }
+  ],
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never"
+        }
+    ],
+    "stream": true,
+    "tool_choice": "required"
+}'
+```
+
+</Tab>
+<Tab>
+
+```python title="Python SDK Example" showLineNumbers
+"""
+Use OpenMCP Proxy MCP Gateway to call MCP tools.
+
+When using OpenMCP Proxy, you can use the same MCP tools across all your LLM providers.
+"""
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234", # paste your openmcp proxy api key here
+    base_url="http://localhost:4000" # paste your openmcp proxy base url here
+)
+print("Making API request to Responses API with MCP tools")
+
+response = client.responses.create(
+    model="{{openai_large}}",
+    input=[
+        {
+            "role": "user",
+            "content": "give me TLDR of what BerriAI/openmcp repo is about",
+            "type": "message"
+        }
+    ],
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy",
+            "require_approval": "never"
+        }
+    ],
+    stream=True,
+    tool_choice="required"
+)
+
+for chunk in response:
+    print("response chunk: ", chunk)
+```
+
+</Tab>
+</Tabs>
+
+#### 指定 MCP 工具
+
+您可以通过 `allowed_tools` 参数指定哪些 MCP 工具可用。这允许您限制对某个 MCP 服务端内特定工具的访问权限。
+
+要获取使用 OpenMCP MCP 网关时允许的工具列表，您可以导航到 OpenMCP UI 的 MCP Servers > MCP Tools > 点击该工具 > 复制工具名称。
+
+<Tabs items={["cURL","Python SDK"]}>
+<Tab>
+
+```bash title="cURL Example with allowed_tools" showLineNumbers
+curl --location 'http://localhost:4000/v1/responses' \
+--header 'Content-Type: application/json' \
+--header "Authorization: Bearer sk-1234" \
+--data '{
+    "model": "{{openai_large}}",
+    "input": [
+    {
+      "role": "user",
+      "content": "give me TLDR of what BerriAI/openmcp repo is about",
+      "type": "message"
+    }
+  ],
+    "tools": [
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy/mcp",
+            "require_approval": "never",
+            "allowed_tools": ["GitMCP-fetch_openmcp_documentation"]
+        }
+    ],
+    "stream": true,
+    "tool_choice": "required"
+}'
+```
+
+</Tab>
+<Tab>
+
+```python title="Python SDK Example with allowed_tools" showLineNumbers
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234",
+    base_url="http://localhost:4000"
+)
+
+response = client.responses.create(
+    model="{{openai_large}}",
+    input=[
+        {
+            "role": "user",
+            "content": "give me TLDR of what BerriAI/openmcp repo is about",
+            "type": "message"
+        }
+    ],
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "openmcp",
+            "server_url": "openmcp_proxy/mcp",
+            "require_approval": "never",
+            "allowed_tools": ["GitMCP-fetch_openmcp_documentation"]
+        }
+    ],
+    stream=True,
+    tool_choice="required"
+)
+
+print(response)
+```
+
+</Tab>
+</Tabs>
+
+### 与 Cursor IDE 一起使用
+
+直接使用 OpenMCP MCP 从 Cursor IDE 调用工具：
+
+**设置步骤：**
+
+1. **打开 Cursor 设置**：使用 `⇧+⌘+J`（Mac）或 `Ctrl+Shift+J`（Windows/Linux）
+2. **导航到 MCP 工具**：转到 "MCP Tools" 标签页并点击 "New MCP Server"
+3. **添加配置**：复制并粘贴下面的 JSON 配置，然后使用 `Cmd+S` 或 `Ctrl+S` 保存
+
+```json title="Basic Cursor MCP Configuration" showLineNumbers
+{
+  "mcpServers": {
+    "OpenMCP": {
+      "url": "openmcp_proxy",
+      "headers": {
+        "x-openmcp-api-key": "Bearer $OPENMCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+#### 当 server_url="openmcp_proxy" 时的工作原理
+
+当 server_url="openmcp_proxy" 时，OpenMCP 会将非 MCP 提供商桥接到您的 MCP 工具。
+
+- 工具发现：OpenMCP 获取 MCP 工具并将其转换为 OpenAI 兼容的定义
+- LLM 调用：工具会随您的输入一起发送给 LLM；LLM 选择要调用哪些工具
+- 工具执行：OpenMCP 自动解析参数、将调用路由到 MCP 服务端、执行工具并获取结果
+- 响应整合：工具结果会发送回 LLM 以生成最终响应
+- 输出：结合 LLM 推理与工具执行结果的完整响应
+
+这使得任何 OpenMCP 支持的提供商都能使用 MCP 工具，无论其是否原生支持 MCP。
+
+如果响应中缺少工具调用或工具调用失败，请参阅故障排查手册中的[Responses 和 Chat Completions 失败](/docs/mcp-gateway/troubleshoot#responsescompletions-with-embedded-mcp-calls)。
+
+#### require_approval: "never" 的自动执行
+
+设置 require_approval: "never" 会触发自动工具执行，在单次 API 调用中返回最终响应，无需额外的用户交互。

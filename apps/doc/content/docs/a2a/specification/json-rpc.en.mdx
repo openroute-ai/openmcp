@@ -1,0 +1,1212 @@
+---
+title: '9. JSON-RPC Protocol Binding'
+---
+
+## 9. JSON-RPC Protocol Binding
+
+The JSON-RPC protocol binding provides a simple, HTTP-based interface using JSON-RPC 2.0 for method calls and Server-Sent Events for streaming.
+
+### 9.1. Protocol Requirements
+
+- **Protocol:** JSON-RPC 2.0 over HTTP(S)
+- **Content-Type:** `application/json` for requests and responses
+- **Method Naming:** PascalCase method names matching gRPC conventions (e.g., `SendMessage`, `GetTask`)
+- **Streaming:** Server-Sent Events (`text/event-stream`)
+
+### 9.2. Service Parameter Transmission
+
+A2A service parameters defined in [Section 3.2.6](#326-service-parameters) **MUST** be transmitted using standard HTTP request headers, as JSON-RPC 2.0 operates over HTTP(S).
+
+**Service Parameter Requirements:**
+
+- Service parameter names **MUST** be transmitted as HTTP header fields
+- Service parameter keys are case-insensitive per HTTP specification (RFC 7230)
+- Multiple values for the same service parameter (e.g., `A2A-Extensions`) **SHOULD** be comma-separated in a single header field
+
+**Example Request with A2A Service Parameters:**
+
+```http
+POST /rpc HTTP/1.1
+Host: agent.example.com
+Content-Type: application/json
+Authorization: Bearer token
+A2A-Version: 0.3
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+}
+```
+
+### 9.3. Base Request Structure
+
+All JSON-RPC requests **MUST** follow the standard JSON-RPC 2.0 format:
+
+```json
+}
+```
+
+### 9.4. Core Methods
+
+#### 9.4.1. `SendMessage`
+
+Sends a message to initiate or continue a task.
+
+**Request:**
+
+```json
+}
+```
+
+**Referenced Objects:** [`SendMessageRequest`](#321-sendmessagerequest), [`Message`](#414-message)
+
+**Response:**
+
+```json
+     * "message":
+    */
+  }
+```
+
+**Referenced Objects:** [`Task`](#411-task), [`Message`](#414-message)
+
+#### 9.4.2. `SendStreamingMessage`
+
+Sends a message and subscribes to real-time updates via Server-Sent Events.
+
+**Request:** Same as `SendMessage`
+
+**Response:** HTTP 200 with `Content-Type: text/event-stream`
+
+```text
+data: {"jsonrpc": "2.0", "id": 1, "result": { /* StreamResponse object */ }}
+
+data: {"jsonrpc": "2.0", "id": 1, "result": { /* StreamResponse object */ }}
+```
+
+**Referenced Objects:** [`StreamResponse`](#323-stream-response)
+
+#### 9.4.3. `GetTask`
+
+Retrieves the current state of a task.
+
+**Request:**
+
+```json
+}
+```
+
+#### 9.4.4. `ListTasks`
+
+Lists tasks with optional filtering and pagination.
+
+**Request:**
+
+```json
+}
+```
+
+#### 9.4.5. `CancelTask`
+
+Cancels an ongoing task.
+
+**Request:**
+
+```json
+}
+```
+
+#### 9.4.6. `SubscribeToTask`
+
+<span id="936-taskssubscribe"></span>
+
+Subscribes to a task stream for receiving updates on a task that is not in a terminal state.
+
+**Request:**
+
+```json
+}
+```
+
+**Response:** SSE stream (same format as `SendStreamingMessage`)
+
+**Error:** Returns `UnsupportedOperationError` if the task is in a terminal state (`TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`, or `TASK_STATE_REJECTED`).
+
+#### 9.4.7. Push Notification Configuration Methods
+
+- `CreateTaskPushNotificationConfig` - Create push notification configuration
+- `GetTaskPushNotificationConfig` - Get push notification configuration
+- `ListTaskPushNotificationConfigs` - List push notification configurations
+- `DeleteTaskPushNotificationConfig` - Delete push notification configuration
+
+#### 9.4.8. `GetExtendedAgentCard`
+
+Retrieves an extended Agent Card.
+
+**Request:**
+
+```json
+```
+
+### 9.5. Error Handling
+
+JSON-RPC error responses use the standard [JSON-RPC 2.0 error object](https://www.jsonrpc.org/specification#error_object) structure, which maps to the generic A2A error model defined in [Section 3.3.2](#332-error-handling) as follows:
+
+- **Error Code**: Mapped to `error.code` (numeric JSON-RPC error code)
+- **Error Message**: Mapped to `error.message` (human-readable string)
+- **Error Details**: Mapped to `error.data` (array of objects, each containing a `@type` key, using ProtoJSON `Any` representation)
+
+**Standard JSON-RPC Error Codes:**
+
+| JSON-RPC Error Code | Error Name            | Standard Message                   | Description                                             |
+| :------------------ | :-------------------- | :--------------------------------- | :------------------------------------------------------ |
+| `-32700`            | `JSONParseError`      | "Invalid JSON payload"             | The server received invalid JSON                        |
+| `-32600`            | `InvalidRequestError` | "Request payload validation error" | The JSON sent is not a valid Request object             |
+| `-32601`            | `MethodNotFoundError` | "Method not found"                 | The requested method does not exist or is not available |
+| `-32602`            | `InvalidParamsError`  | "Invalid parameters"               | The method parameters are invalid                       |
+| `-32603`            | `InternalError`       | "Internal error"                   | An internal error occurred on the server                |
+
+**A2A-Specific Error Codes:**
+
+A2A-specific errors use codes in the range `-32001` to `-32099`. For the complete mapping of A2A error types to JSON-RPC error codes, see [Section 5.4 (Error Code Mappings)](#54-error-code-mappings).
+
+**Error Detail Objects:**
+
+Each object in the `data` array **MUST** include a `@type` key that identifies the object's type. Implementations **SHOULD** use well-known types such as `google.rpc.ErrorInfo` to refine error reporting, or `google.rpc.BadRequest` to attach structured data to validation errors. Additional error context **MAY** be included as further objects in the `data` array.
+
+**Error Response Structure:**
+
+```json
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Example A2A-Specific Error Response:**
+
+```json
+      }
+    ]
+  }
+}
+```
+
+## 10. gRPC Protocol Binding
+
+The gRPC Protocol Binding provides a high-performance, strongly-typed interface using Protocol Buffers over HTTP/2. The gRPC Protocol Binding leverages the [API guidelines](https://google.aip.dev/general) to simplify gRPC to HTTP mapping.
+
+### 10.1. Protocol Requirements
+
+- **Protocol:** gRPC over HTTP/2 with TLS
+- **Definition:** Use the normative Protocol Buffers definition in `specification/a2a.proto`
+- **Serialization:** Protocol Buffers version 3
+- **Service:** Implement the `A2AService` gRPC service
+
+### 10.2. Service Parameter Transmission
+
+A2A service parameters defined in [Section 3.2.6](#326-service-parameters) **MUST** be transmitted using gRPC metadata (headers).
+
+**Service Parameter Requirements:**
+
+- Service parameter names **MUST** be transmitted as gRPC metadata keys
+- Metadata keys are case-insensitive and automatically converted to lowercase by gRPC
+- Multiple values for the same service parameter (e.g., `A2A-Extensions`) **SHOULD** be comma-separated in a single metadata entry
+
+**Example gRPC Request with A2A Service Parameters:**
+
+```go
+// Go example using gRPC metadata
+md := metadata.Pairs(
+    "authorization", "Bearer token",
+    "a2a-version", "0.3",
+    "a2a-extensions", "https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1",
+)
+ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+// Make the RPC call with the context containing metadata
+response, err := client.SendMessage(ctx, request)
+```
+
+**Metadata Handling:**
+
+- Implementations **MUST** extract A2A service parameters from gRPC metadata for processing
+- Servers **SHOULD** validate required service parameters (e.g., `A2A-Version`) from metadata
+- Service parameter keys in metadata are normalized to lowercase per gRPC conventions
+
+### 10.3. Service Definition
+
+> **Protocol methods table**（由 `A2AService` service 定义生成，此处已由转换器保留引用）
+
+### 10.4. Core Methods
+
+#### 10.4.1. SendMessage
+
+Sends a message to an agent.
+
+**Request:**
+
+> 类型表：`SendMessageRequest`（由 Protobuf 定义自动生成）
+
+**Response:**
+
+> 类型表：`SendMessageResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.2. SendStreamingMessage
+
+Sends a message with streaming updates.
+
+**Request:**
+
+> 类型表：`SendMessageRequest`（由 Protobuf 定义自动生成）
+
+**Response:** Server streaming [`StreamResponse`](#323-stream-response) objects.
+
+#### 10.4.3. GetTask
+
+Retrieves task status.
+
+**Request:**
+
+> 类型表：`GetTaskRequest`（由 Protobuf 定义自动生成）
+
+**Response:** See [`Task`](#411-task) object definition.
+
+#### 10.4.4. ListTasks
+
+Lists tasks with filtering.
+
+**Request:**
+
+> 类型表：`ListTasksRequest`（由 Protobuf 定义自动生成）
+
+**Response:**
+
+> 类型表：`ListTasksResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.5. CancelTask
+
+Cancels a running task.
+
+**Request:**
+
+> 类型表：`CancelTaskRequest`（由 Protobuf 定义自动生成）
+
+**Response:** See [`Task`](#411-task) object definition.
+
+#### 10.4.6. SubscribeToTask
+
+Subscribe to task updates via streaming. Returns `UnsupportedOperationError` if the task is in a terminal state.
+
+**Request:**
+
+> 类型表：`SubscribeToTaskRequest`（由 Protobuf 定义自动生成）
+
+**Response:** Server streaming [`StreamResponse`](#323-stream-response) objects.
+
+#### 10.4.7. CreateTaskPushNotificationConfig
+
+Creates a push notification configuration for a task.
+
+**Request:** See [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) object definition.
+
+**Response:** See [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) object definition.
+
+#### 10.4.8. GetTaskPushNotificationConfig
+
+Retrieves an existing push notification configuration for a task.
+
+**Request:**
+
+> 类型表：`GetTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**Response:** See [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) object definition.
+
+#### 10.4.9. ListTaskPushNotificationConfigs
+
+Lists all push notification configurations for a task.
+
+**Request:**
+
+> 类型表：`ListTaskPushNotificationConfigsRequest`（由 Protobuf 定义自动生成）
+
+**Response:**
+
+> 类型表：`ListTaskPushNotificationConfigsResponse`（由 Protobuf 定义自动生成）
+
+#### 10.4.10. DeleteTaskPushNotificationConfig
+
+Removes a push notification configuration for a task.
+
+**Request:**
+
+> 类型表：`DeleteTaskPushNotificationConfigRequest`（由 Protobuf 定义自动生成）
+
+**Response:** `google.protobuf.Empty`
+
+#### 10.4.11. GetExtendedAgentCard
+
+Retrieves the agent's extended capability card after authentication.
+
+**Request:**
+
+> 类型表：`GetExtendedAgentCardRequest`（由 Protobuf 定义自动生成）
+
+**Response:** See [`AgentCard`](#441-agentcard) object definition.
+
+### 10.5. gRPC-Specific Data Types
+
+#### 10.5.1. TaskPushNotificationConfig
+
+Resource wrapper for push notification configurations. This is a gRPC-specific type used in resource-oriented operations to provide the full resource name along with the configuration data.
+
+> 类型表：`TaskPushNotificationConfig`（由 Protobuf 定义自动生成）
+
+### 10.6. Error Handling
+
+gRPC error responses use the standard [gRPC status](https://grpc.io/docs/guides/error/) structure with [google.rpc.Status](https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto), which maps to the generic A2A error model defined in [Section 3.3.2](#332-error-handling) as follows:
+
+- **Error Code**: Mapped to `status.code` (gRPC status code enum)
+- **Error Message**: Mapped to `status.message` (human-readable string)
+- **Error Details**: Mapped to `status.details` (repeated google.protobuf.Any messages)
+
+**A2A Error Representation:**
+
+For A2A-specific errors, implementations **MUST** include a `google.rpc.ErrorInfo` message in the `status.details` array with:
+
+- `reason`: The A2A error type in UPPER_SNAKE_CASE without the "Error" suffix (e.g., `TASK_NOT_FOUND`)
+- `domain`: Set to `"a2a-protocol.org"`
+- `metadata`: Optional map of additional error context
+
+For the complete mapping of A2A error types to gRPC status codes, see [Section 5.4 (Error Code Mappings)](#54-error-code-mappings).
+
+**Error Response Example:**
+
+```proto
+// Standard gRPC invalid argument error
+status
+      ]
+    }
+  ]
+}
+```
+
+**Example A2A-Specific Error Response:**
+
+```proto
+// A2A-specific task not found error
+status
+    }
+  ]
+}
+```
+
+### 10.7. Streaming
+
+gRPC streaming uses server streaming RPCs for real-time updates. The `StreamResponse` message provides a union of possible streaming events:
+
+> 类型表：`StreamResponse`（由 Protobuf 定义自动生成）
+
+## 11. HTTP+JSON/REST Protocol Binding
+
+The HTTP+JSON protocol binding provides a RESTful interface using standard HTTP methods and JSON payloads.
+
+### 11.1. Protocol Requirements
+
+- **Protocol:** HTTP(S) with JSON payloads
+- **Content-Type:** application/a2a+json **SHOULD** be used for requests and responses
+- **Methods:** Standard HTTP verbs (GET, POST, PUT, DELETE)
+- **URL Patterns:** RESTful resource-based URLs
+- **Streaming:** Server-Sent Events for real-time updates
+
+### 11.2. Service Parameter Transmission
+
+A2A service parameters defined in [Section 3.2.6](#326-service-parameters) **MUST** be transmitted using standard HTTP request headers.
+
+**Service Parameter Requirements:**
+
+- Service parameter names **MUST** be transmitted as HTTP header fields
+- Service parameter keys are case-insensitive per HTTP specification (RFC 9110)
+- Multiple values for the same service parameter (e.g., `A2A-Extensions`) **SHOULD** be comma-separated in a single header field
+
+**Example Request with A2A Service Parameters:**
+
+```http
+POST /message:send HTTP/1.1
+Host: agent.example.com
+Content-Type: application/a2a+json
+Authorization: Bearer token
+A2A-Version: 0.3
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+
+{
+  "message": {
+    "role": "ROLE_USER",
+    "parts": [{"text": "Find restaurants near me"}]
+  }
+}
+```
+
+### 11.3. URL Patterns and HTTP Methods
+
+#### 11.3.1. Message Operations
+
+- `POST /message:send` - Send message
+- `POST /message:stream` - Send message with streaming (SSE response)
+
+#### 11.3.2. Task Operations
+
+- `GET /tasks/{id}` - Get task status
+- `GET /tasks` - List tasks (with query parameters)
+- `POST /tasks/{id}:cancel` - Cancel task
+- `POST /tasks/{id}:subscribe` - Subscribe to task updates (SSE response, returns error for terminal tasks)
+
+#### 11.3.3. Push Notification Configuration
+
+- `POST /tasks/{id}/pushNotificationConfigs` - Create configuration
+- `GET /tasks/{id}/pushNotificationConfigs/{configId}` - Get configuration
+- `GET /tasks/{id}/pushNotificationConfigs` - List configurations
+- `DELETE /tasks/{id}/pushNotificationConfigs/{configId}` - Delete configuration
+
+#### 11.3.4. Agent Card
+
+- `GET /extendedAgentCard` - Get authenticated extended Agent Card
+
+### 11.4. Request/Response Format
+
+All requests and responses use JSON objects structurally equivalent to the Protocol Buffer definitions.
+
+**Example Send Message:**
+
+```http
+POST /message:send
+Content-Type: application/a2a+json
+
+{
+  "message": {
+    "messageId": "uuid",
+    "role": "ROLE_USER",
+    "parts": [{"text": "Hello"}]
+  },
+  "configuration":
+}
+```
+
+**Referenced Objects:** [`SendMessageRequest`](#321-sendmessagerequest), [`Message`](#414-message)
+
+**Response:**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/a2a+json
+  }
+}
+```
+
+**Referenced Objects:** [`Task`](#411-task)
+
+### 11.5. Query Parameter Naming for Request Parameters
+
+HTTP methods that do not support request bodies (GET, DELETE) **MUST** transmit operation request parameters as path parameters or query parameters. This section defines how to map Protocol Buffer field names to query parameter names.
+
+**Naming Convention:**
+
+Query parameter names **MUST** use `camelCase` to match the JSON serialization of Protocol Buffer field names. This ensures consistency with request bodies used in POST operations.
+
+**Example Mappings:**
+
+| Protocol Buffer Field | Query Parameter Name | Example Usage       |
+| --------------------- | -------------------- | ------------------- |
+| `context_id`          | `contextId`          | `?contextId=uuid`   |
+| `page_size`           | `pageSize`           | `?pageSize=50`      |
+| `page_token`          | `pageToken`          | `?pageToken=cursor` |
+| `task_id`             | `taskId`             | `?taskId=uuid`      |
+
+**Usage Examples:**
+
+List tasks with filtering:
+
+```http
+GET /tasks?contextId=uuid&status=TASK_STATE_WORKING&pageSize=50&pageToken=cursor
+```
+
+Get task with history:
+
+```http
+GET /tasks/{id}?historyLength=10
+```
+
+**Field Type Handling:**
+
+- **Strings**: Passed directly as query parameter values
+- **Booleans**: Represented as lowercase strings (`true`, `false`)
+- **Numbers**: Represented as decimal strings
+- **Enums**: Represented using their string values (e.g., `status=TASK_STATE_WORKING`)
+- **Repeated Fields**: Multiple values **MAY** be passed by repeating the parameter name (e.g., `?tag=value1&tag=value2`) or as comma-separated values (e.g., `?tag=value1,value2`)
+- **Nested Objects**: Not supported in query parameters; operations requiring nested objects **MUST** use POST with a request body
+- **Datetimes/Timestamps**: Represented as ISO 8601 strings (e.g., `2025-11-09T10:30:00Z`)
+
+**URL Encoding:**
+
+All query parameter values **MUST** be properly URL-encoded per [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html).
+
+### 11.6. Error Handling
+
+HTTP error responses use the [google.rpc.Status](https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto) JSON representation, which maps to the generic A2A error model defined in [Section 3.3.2](#332-error-handling) as follows:
+
+- **Error Code**: Mapped to the HTTP status code and the `error.code` field
+- **Error Message**: Mapped to the `error.message` field (human-readable string)
+- **Error Details**: Mapped to the `error.details` array (array of objects, each containing a `@type` key, using ProtoJSON `Any` representation)
+
+**Error Detail Objects:**
+
+Each object in the `details` array **MUST** include a `@type` key that identifies the object's type. Implementations **SHOULD** use well-known types such as `google.rpc.BadRequest` to attach structured data to validation errors. Additional error context **MAY** be included as further objects in the `details` array.
+
+**A2A Error Representation:**
+
+Since multiple A2A error types may map to the same HTTP status code (e.g., `TaskNotCancelableError` and `PushNotificationNotSupportedError` both map to `400 Bad Request`), implementations **MUST** include a `google.rpc.ErrorInfo` object in the `details` array for A2A-specific errors with:
+
+- `@type`: Set to `"type.googleapis.com/google.rpc.ErrorInfo"`
+- `reason`: The A2A error type in UPPER_SNAKE_CASE without the "Error" suffix (e.g., `TASK_NOT_FOUND`, `TASK_NOT_CANCELABLE`)
+- `domain`: Set to `"a2a-protocol.org"`
+
+For the complete mapping of A2A error types to HTTP status codes, see [Section 5.4 (Error Code Mappings)](#54-error-code-mappings).
+
+**Error Response Example:**
+
+```http
+HTTP/1.1 404 Not Found
+Content-Type: application/a2a+json
+      }
+    ]
+  }
+}
+```
+
+Extension fields like `taskId` and `timestamp` provide additional context to help diagnose the error.
+
+### 11.7. Streaming
+
+<span id="stream-response"></span>
+
+REST streaming uses Server-Sent Events with the `data` field containing JSON serializations of the protocol data objects:
+
+```http
+POST /message:stream
+Content-Type: application/a2a+json
+```
+
+**Referenced Objects:** [`SendMessageRequest`](#321-sendmessagerequest)
+
+**Response:**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+
+data:
+data:
+```
+
+**Referenced Objects:** [`StreamResponse`](#323-stream-response)
+Streaming responses are simple, linearly ordered sequences: first a `Task` (or single `Message`), then zero or more status or artifact update events until the task reaches a terminal or interrupted state, at which point the stream closes. Implementations SHOULD avoid re-ordering events and MAY optionally resend a final `Task` snapshot before closing.
+
+## 12. Custom Binding Guidelines
+
+While the A2A protocol provides three standard bindings (JSON-RPC, gRPC, and HTTP+JSON/REST), implementers **MAY** create custom protocol bindings to support additional transport mechanisms or communication patterns. Custom bindings **MUST** comply with all requirements defined in [Section 5 (Protocol Binding Requirements and Interoperability)](#5-protocol-binding-requirements-and-interoperability). This section provides additional guidelines specific to developing custom bindings.
+
+### 12.1. Binding Requirements
+
+Custom protocol bindings **MUST**:
+
+1. **Implement All Core Operations**: Support all operations defined in [Section 3 (A2A Protocol Operations)](#3-a2a-protocol-operations)
+2. **Preserve Data Model**: Use data structures functionally equivalent to those defined in [Section 4 (Protocol Data Model)](#4-protocol-data-model)
+3. **Maintain Semantics**: Ensure operations behave consistently with the abstract operation definitions
+4. **Document Completely**: Provide comprehensive documentation of the binding specification
+
+### 12.2. Data Type Mappings
+
+Custom bindings **MUST** provide clear mappings for:
+
+- **Protocol Buffer Types**: Define how each Protocol Buffer message type is represented
+- **Timestamps**: Follow the conventions in [Section 5.6.1 (Timestamps)](#561-timestamps)
+- **Binary Data**: Specify encoding for binary content (e.g., base64 for text-based protocols)
+- **Enumerations**: Define representation of enum values (e.g., strings, integers)
+
+### 12.3. Service Parameter Transmission
+
+As specified in [Section 3.2.6 (Service Parameters)](#326-service-parameters), custom protocol bindings **MUST** document how service parameters are transmitted. The binding specification **MUST** address:
+
+1. **Transmission Mechanism**: The protocol-specific method for transmitting service parameter key-value pairs
+2. **Value Constraints**: Any limitations on service parameter values (e.g., character encoding, size limits)
+3. **Reserved Names**: Any service parameter names reserved by the binding itself
+4. **Fallback Strategy**: What happens when the protocol lacks native header support (e.g., passing service parameters in metadata)
+
+**Example Documentation Requirements:**
+
+- **For native header support**: "Service parameters are transmitted using HTTP request headers. Service parameter keys are case-insensitive and must conform to RFC 7230. Service parameter values must be UTF-8 strings."
+- **For protocols without headers**: "Service parameters are serialized as a JSON object and transmitted in the request metadata field `a2a-service-parameters`."
+
+### 12.4. Error Mapping
+
+Custom bindings **MUST**:
+
+1. **Map Standard Errors**: Provide mappings for all A2A-specific error types defined in [Section 3.2.2 (Error Handling)](#332-error-handling)
+2. **Preserve Error Information**: Ensure error details are accessible to clients
+3. **Use Appropriate Codes**: Map to protocol-native error codes where applicable
+4. **Document Error Format**: Specify the structure of error responses
+
+### 12.5. Streaming Support
+
+If the binding supports streaming operations:
+
+1. **Define Stream Mechanism**: Document how streaming is implemented (e.g., WebSockets, long-polling, chunked encoding)
+2. **Event Ordering**: Specify ordering guarantees for streaming events
+3. **Reconnection**: Define behavior for connection interruption and resumption
+4. **Stream Termination**: Specify how stream completion is signaled
+
+If streaming is not supported, the binding **MUST** clearly document this limitation in the Agent Card.
+
+### 12.6. Authentication and Authorization
+
+Custom bindings **MUST**:
+
+1. **Support Standard Schemes**: Implement authentication schemes declared in the Agent Card
+2. **Document Integration**: Specify how credentials are transmitted in the protocol
+3. **Handle Challenges**: Define how authentication challenges are communicated
+4. **Maintain Security**: Follow security best practices for the transport protocol
+
+### 12.7. Agent Card Declaration
+
+Custom bindings **MUST** be declared in the Agent Card:
+
+1. **Transport Identifier**: Use a URI to identify the binding (see [Section 5.8](#58-custom-binding-identification))
+2. **Endpoint URL**: Provide the full URL where the binding is available
+
+**Example:**
+
+```json
+  ]
+}
+```
+
+### 12.8. Interoperability Testing
+
+Custom binding implementers **SHOULD**:
+
+1. **Test Against Reference**: Verify behavior matches standard bindings
+2. **Document Differences**: Clearly note any deviations from standard binding behavior
+3. **Provide Examples**: Include sample requests and responses
+4. **Test Edge Cases**: Verify handling of error conditions, large payloads, and long-running tasks
+
+## 13. Security Considerations
+
+This section consolidates security guidance and best practices for implementing and operating A2A agents. For additional enterprise security considerations, see [Enterprise-Ready Features](/docs/a2a/enterprise-ready).
+
+### 13.1. Data Access and Authorization Scoping
+
+Implementations **MUST** ensure appropriate scope limitation based on the authenticated caller's authorization boundaries. This applies to all operations that access or list tasks and other resources.
+
+**Authorization Principles:**
+
+- Servers **MUST** implement authorization checks on every [A2A Protocol Operations](#3-a2a-protocol-operations) request
+- Implementations **MUST** scope results to the caller's authorized access boundaries as defined by the agent's authorization model
+- Even when `contextId` or other filter parameters are not specified in requests, implementations **MUST** scope results to the caller's authorized access boundaries
+- Authorization models are agent-defined and **MAY** be based on:
+    - User identity (user-based authorization)
+    - Organizational roles or groups (role-based authorization)
+    - Project or workspace membership (project-based authorization)
+    - Organizational or tenant boundaries (multi-tenant authorization)
+    - Custom authorization logic specific to the agent's domain
+
+**Operations Requiring Scope Limitation:**
+
+- [`List Tasks`](#314-list-tasks): **MUST** only return tasks visible to the authenticated client according to the agent's authorization model
+- [`Get Task`](#313-get-task): **MUST** verify the authenticated client has access to the requested task according to the agent's authorization model
+- Task-related operations (Cancel, Subscribe, Push Notification Config): **MUST** verify the client has appropriate access rights according to the agent's authorization model
+
+**Implementation Requirements:**
+
+- Authorization boundaries are defined by each agent's authorization model, not prescribed by the protocol
+- Authorization checks **MUST** occur before any database queries or operations that could leak information about the existence of resources outside the caller's authorization scope
+- Agents **SHOULD** document their authorization model and access control policies
+
+See also: [Section 3.1.4 List Tasks (Security Note)](#314-list-tasks) for operation-specific requirements.
+
+### 13.2. Push Notification Security
+
+When implementing push notifications, both agents (as webhook callers) and clients (as webhook receivers) have security responsibilities.
+
+**Agent (Webhook Caller) Requirements:**
+
+- Agents **MUST** include authentication credentials in webhook requests as specified in [`PushNotificationConfig.authentication`](#432-authenticationinfo)
+- Agents **SHOULD** implement reasonable timeout values for webhook requests (recommended: 10-30 seconds)
+- Agents **SHOULD** implement retry logic with exponential backoff for failed deliveries
+- Agents **MAY** stop attempting delivery after a configured number of consecutive failures
+- Agents **SHOULD** validate webhook URLs to prevent SSRF (Server-Side Request Forgery) attacks:
+    - Reject private IP ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    - Reject localhost and link-local addresses
+    - Implement URL allowlists where appropriate
+
+**Client (Webhook Receiver) Requirements:**
+
+- Clients **MUST** validate webhook authenticity using the provided authentication credentials
+- Clients **SHOULD** verify the task ID in the payload matches an expected task they created
+- Clients **MUST** respond with HTTP 2xx status codes to acknowledge successful receipt
+- Clients **SHOULD** process notifications idempotently, as duplicate deliveries may occur
+- Clients **SHOULD** implement rate limiting to prevent webhook flooding
+- Clients **SHOULD** use HTTPS endpoints for webhook URLs to ensure confidentiality
+
+**Configuration Security:**
+
+- Webhook URLs **SHOULD** use HTTPS to protect payload confidentiality in transit
+- Authentication tokens in [`TaskPushNotificationConfig`](#431-taskpushnotificationconfig) **SHOULD** be treated as secrets and rotated periodically
+- Agents **SHOULD** securely store push notification configurations and credentials
+- Clients **SHOULD** use unique, single-purpose tokens for each push notification configuration
+
+See also: [Section 4.3 Push Notification Objects](#43-push-notification-objects) and [Section 4.3.3 Push Notification Payload](#433-push-notification-payload).
+
+### 13.3. Extended Agent Card Access Control
+
+The extended Agent Card feature allows agents to provide additional capabilities or information to authenticated clients beyond what is available in the public Agent Card.
+
+**Access Control Requirements:**
+
+- The [`Get Extended Agent Card`](#3111-get-extended-agent-card) operation **MUST** require authentication
+- Agents **MUST** authenticate requests using one of the schemes declared in the public `AgentCard.securitySchemes` and `AgentCard.security` fields
+- Agents **MAY** return different extended card content based on the authenticated client's identity or authorization level
+- Agents **SHOULD** implement appropriate caching headers to control client-side caching of extended cards
+
+**Capability-Based Access:**
+
+- Extended cards **MAY** include additional skills not present in the public card
+- Extended cards **MAY** expose more detailed capability information (e.g., rate limits, quotas)
+- Extended cards **MAY** include organization-specific or user-specific configuration
+- Agents **SHOULD** document which capabilities are available at different authentication levels
+
+**Security Considerations:**
+
+- Extended cards **SHOULD NOT** include sensitive information that could be exploited if leaked (e.g., internal service URLs, unmasked credentials)
+- Agents **MUST** validate that clients have appropriate permissions before returning privileged information in extended cards
+- Clients retrieving extended cards **SHOULD** replace their cached public Agent Card with the extended version for the duration of their authenticated session
+- Agents **SHOULD** version extended cards appropriately and honor client cache invalidation
+
+**Availability Declaration:**
+
+- Agents declare extended card support via `AgentCard.capabilities.extendedAgentCard`
+- When `capabilities.extendedAgentCard` is `false` or not present, the operation **MUST** return [`UnsupportedOperationError`](#332-error-handling)
+- When support is declared but no extended card is configured, the operation **MUST** return [`ExtendedAgentCardNotConfiguredError`](#332-error-handling)
+
+See also: [Section 3.1.11 Get Extended Agent Card](#3111-get-extended-agent-card) and [Section 3.3.4 Capability Validation](#334-capability-validation).
+
+### 13.4. General Security Best Practices
+
+**Transport Security:**
+
+- Production deployments **MUST** use encrypted communication (HTTPS for HTTP-based bindings, TLS for gRPC)
+- Implementations **SHOULD** use modern TLS configurations (TLS 1.3+ recommended) with strong cipher suites
+- Agents **SHOULD** enforce HSTS (HTTP Strict Transport Security) headers when using HTTP-based bindings
+- Implementations **SHOULD** disable support for deprecated SSL/TLS versions (SSLv3, TLS 1.0, TLS 1.1)
+
+**Input Validation:**
+
+- Agents **MUST** validate all input parameters before processing
+- Agents **SHOULD** implement appropriate limits on message sizes, file sizes, and request complexity
+- Agents **SHOULD** sanitize or validate file content types and reject unexpected media types
+
+**Credential Management:**
+
+- API keys, tokens, and other credentials **MUST** be treated as secrets
+- Credentials **SHOULD** be rotated periodically
+- Credentials **SHOULD** be transmitted only over encrypted connections
+- Agents **SHOULD** implement credential revocation mechanisms
+- Agents **SHOULD** log authentication failures and implement rate limiting to prevent brute-force attacks
+
+**Audit and Monitoring:**
+
+- Agents **SHOULD** log security-relevant events (authentication failures, authorization denials, suspicious requests)
+- Agents **SHOULD** implement monitoring for unusual patterns (rapid task creation, excessive cancellations)
+- Agents **SHOULD** provide audit trails for sensitive operations
+- Logs **MUST NOT** include sensitive information (credentials, personal data) unless required and properly protected
+
+**Rate Limiting and Abuse Prevention:**
+
+- Agents **SHOULD** implement rate limiting on all operations
+- Agents **SHOULD** return appropriate error responses when rate limits are exceeded
+- Agents **MAY** implement different rate limits for different operations or user tiers
+
+**Data Privacy:**
+
+- Agents **MUST** comply with applicable data protection regulations
+- Agents **SHOULD** provide mechanisms for users to request deletion of their data
+- Agents **SHOULD** implement appropriate data retention policies
+- Agents **SHOULD** minimize logging of sensitive or personal information
+
+**Custom Binding Security:**
+
+- Custom protocol bindings **MUST** address security considerations in their specification
+- Custom bindings **SHOULD** follow the same security principles as standard bindings
+- Custom bindings **MUST** document authentication integration and credential transmission
+
+See also: [Section 12.6 Authentication and Authorization (Custom Bindings)](#126-authentication-and-authorization).
+
+## 14. IANA Considerations
+
+This section provides registration templates for the A2A protocol's media type, HTTP headers, and well-known URI, intended for submission to the Internet Assigned Numbers Authority (IANA).
+
+### 14.1. Media Type Registration
+
+#### 14.1.1. application/a2a+json
+
+**Type name:** `application`
+
+**Subtype name:** `a2a+json`
+
+**Required parameters:** None
+
+**Optional parameters:**
+
+- None
+
+**Encoding considerations:** Binary (UTF-8 encoding MUST be used for JSON text)
+
+**Security considerations:**
+This media type shares security considerations common to all JSON-based formats as described in RFC 8259, Section 12. Additionally:
+
+- Content MUST be validated against the A2A protocol schema before processing
+- Implementations MUST sanitize user-provided content to prevent injection attacks
+- File references within A2A messages MUST be validated to prevent server-side request forgery (SSRF)
+- Authentication and authorization MUST be enforced as specified in Section 7 of the A2A specification
+- Sensitive information in task history and artifacts MUST be protected according to applicable data protection regulations
+
+**Interoperability considerations:**
+The A2A protocol supports multiple protocol bindings. This media type is intended for the HTTP+JSON/REST binding.
+
+**Published specification:**
+Agent2Agent (A2A) Protocol Specification, available at: [A2A Protocol Specification](https://a2a-protocol.org/latest/specification)
+
+**Applications that use this media type:**
+AI agent platforms, agentic workflow systems, multi-agent collaboration tools, and enterprise automation systems that implement the A2A protocol for agent-to-agent communication.
+
+**Fragment identifier considerations:** None
+
+**Additional information:**
+
+- **Deprecated alias names for this type:** None
+- **Magic number(s):** None
+- **File extension(s):** .a2a.json
+- **Macintosh file type code(s):** TEXT
+
+**Person & email address to contact for further information:**
+A2A Protocol Working Group, [a2a-protocol@example.org](mailto:a2a-protocol@example.org)
+
+**Intended usage:** COMMON
+
+**Restrictions on usage:** None
+
+**Author:** A2A Protocol Working Group
+
+**Change controller:** A2A Protocol Working Group
+
+**Provisional registration:** No
+
+### 14.2. HTTP Header Field Registrations
+
+**Note:** The following HTTP headers represent the HTTP-based protocol binding implementation of the abstract A2A service parameters defined in [Section 3.2.6](#326-service-parameters). These registrations are specific to HTTP/HTTPS transports.
+
+#### 14.2.1. A2A-Version Header
+
+**Header field name:** A2A-Version
+
+**Applicable protocol:** HTTP
+
+**Status:** Standard
+
+**Author/Change controller:** A2A Protocol Working Group
+
+**Specification document:** Section 3.2.5 of the A2A Protocol Specification
+
+**Related information:**
+The A2A-Version header field indicates the A2A protocol version that the client is using. The value MUST be in the format `Major.Minor` (e.g., "0.3"). If the version is not supported by the agent, the agent returns a `VersionNotSupportedError`.
+
+**Example:**
+
+```text
+A2A-Version: 0.3
+```
+
+#### 14.2.2. A2A-Extensions Header
+
+**Header field name:** A2A-Extensions
+
+**Applicable protocol:** HTTP
+
+**Status:** Standard
+
+**Author/Change controller:** A2A Protocol Working Group
+
+**Specification document:** Section 3.2.5 of the A2A Protocol Specification
+
+**Related information:**
+The A2A-Extensions header field contains a comma-separated list of extension URIs that the client wants to use for the request. Extensions allow agents to provide additional functionality beyond the core A2A specification while maintaining backward compatibility.
+
+**Example:**
+
+```text
+A2A-Extensions: https://example.com/extensions/geolocation/v1,https://standards.org/extensions/citations/v1
+```
+
+### 14.3. Well-Known URI Registration
+
+**URI suffix:** agent-card.json
+
+**Change controller:** A2A Protocol Working Group
+
+**Specification document:** Section 8.2 of the A2A Protocol Specification
+
+**Related information:**
+The `.well-known/agent-card.json` URI provides a standardized location for discovering an A2A agent's capabilities, supported protocols, authentication requirements, and available skills. The resource at this URI MUST return an AgentCard object as defined in Section 4.4.1 of the A2A specification.
+
+**Status:** Permanent
+
+**Security considerations:**
+
+- The Agent Card MAY contain public information about an agent's capabilities and SHOULD NOT include sensitive credentials or internal implementation details
+- Implementations SHOULD support HTTPS to ensure authenticity and integrity of the Agent Card
+- Agent Cards MAY be signed using JSON Web Signatures (JWS) as specified in the AgentCardSignature object (Section 4.4.7)
+- Clients SHOULD verify signatures when present to ensure the Agent Card has not been tampered with
+- Extended Agent Cards retrieved via authenticated endpoints (Section 3.1.11) MAY contain additional information and MUST enforce appropriate access controls
+
+**Example:**
+
+```text
+https://agent.example.com/.well-known/agent-card.json
+```
+
+---
+
+## Appendix A. Migration & Legacy Compatibility
+
+This appendix catalogs renamed protocol messages and objects, their legacy identifiers, and the planned deprecation/removal schedule. All legacy names and anchors MUST remain resolvable until the stated earliest removal version.
+
+| Legacy Name                                     | Current Name                              | Earliest Removal Version | Notes                                                  |
+| ----------------------------------------------- | ----------------------------------------- | ------------------------ | ------------------------------------------------------ |
+| `MessageSendParams`                             | `SendMessageRequest`                      | >= 0.5.0                 | Request payload rename for clarity (request vs params) |
+| `SendMessageSuccessResponse`                    | `SendMessageResponse`                     | >= 0.5.0                 | Unified success response naming                        |
+| `SendStreamingMessageSuccessResponse`           | `StreamResponse`                          | >= 0.5.0                 | Shorter, binding-agnostic streaming response           |
+| `SetTaskPushNotificationConfigRequest`          | `CreateTaskPushNotificationConfigRequest` | >= 0.5.0                 | Explicit creation intent                               |
+| `ListTaskPushNotificationConfigSuccessResponse` | `ListTaskPushNotificationConfigsResponse` | >= 0.5.0                 | Consistent response suffix removal                     |
+| `GetAuthenticatedExtendedCardRequest`           | `GetExtendedAgentCardRequest`             | >= 0.5.0                 | Removed "Authenticated" from naming                    |
+
+Planned Lifecycle (example timeline; adjust per release strategy):
+
+1. 0.3.x: New names introduced; legacy names documented; aliases added.
+2. 0.4.x: Legacy names marked "deprecated" in SDKs and schemas; warning notes added.
+3. ≥0.5.0: Legacy names eligible for removal after review; migration appendix updated.
+
+### A.1 Legacy Documentation Anchors
+
+Hidden anchor spans preserve old inbound links:
+
+{/* Legacy inbound link compatibility anchors (old spec numbering & names) */}
+<span id="32-supported-transport-protocols"></span>
+<span id="324-transport-extensions"></span>
+<span id="35-method-mapping-and-naming-conventions"></span>
+<span id="5-agent-discovery-the-agent-card"></span>
+<span id="53-recommended-location"></span>
+<span id="55-agentcard-object-structure"></span>
+<span id="56-transport-declaration-and-url-relationships"></span>
+<span id="563-client-transport-selection-rules"></span>
+<span id="57-sample-agent-card"></span>
+<span id="6-protocol-data-objects"></span>
+<span id="61-task-object"></span>
+<span id="610-taskpushnotificationconfig-object"></span>
+<span id="611-json-rpc-structures"></span>
+<span id="612-jsonrpcerror-object"></span>
+<span id="63-taskstate-enum"></span>
+<span id="69-pushnotificationauthenticationinfo-object"></span>
+<span id="711-messagesendparams-object"></span>
+<span id="72-messagestream"></span>
+<span id="721-sendstreamingmessageresponse-object"></span>
+<span id="731-taskqueryparams-object"></span>
+<span id="741-listtasksparams-object"></span>
+<span id="742-listtasksresult-object"></span>
+<span id="751-taskidparams-object-for-taskscancel-and-taskspushnotificationconfigget"></span>
+<span id="77-taskspushnotificationconfigget"></span>
+<span id="771-gettaskpushnotificationconfigparams-object-taskspushnotificationconfigget"></span>
+<span id="781-listtaskpushnotificationconfigparams-object-taskspushnotificationconfiglist"></span>
+<span id="791-deletetaskpushnotificationconfigparams-object-taskspushnotificationconfigdelete"></span>
+<span id="8-error-handling"></span>
+<span id="82-a2a-specific-errors"></span>
+{/* Legacy renamed message/object name anchors */}
+<span id="messagesendparams"></span>
+<span id="sendmessagesuccessresponse"></span>
+<span id="sendstreamingmessagesuccessresponse"></span>
+<span id="settaskpushnotificationconfigrequest"></span>
+<span id="listtaskpushnotificationconfigsuccessresponse"></span>
+<span id="getauthenticatedextendedcardrequest"></span>
+<span id="938-agentgetauthenticatedextendedcard"></span>
+
+Each legacy span SHOULD be placed adjacent to the current object's heading (to be inserted during detailed object section edits). If an exact numeric-prefixed anchor existed (e.g., `#414-message`), add an additional span matching that historical form if known.
+
+### A.2 Migration Guidance
+
+Client Implementations SHOULD:
+
+- Prefer new names immediately for all new integrations.
+- Implement dual-handling where schemas/types permit (e.g., union type or backward-compatible decoder).
+- Log a warning when receiving legacy-named objects after the first deprecation announcement release.
+
+Server Implementations MAY:
+
+- Accept both legacy and current request message forms during the overlap period.
+- Emit only current form in responses (recommended) while providing explicit upgrade notes.
+
+#### A.2.1 Breaking Change: Kind Discriminator Removed
+
+**Version 1.0 introduces a breaking change** in how polymorphic objects are represented in the protocol. This affects `Part` types and streaming event types.
+
+**Legacy Pattern (v0.3.x):**
+Objects used an inline `kind` field as a discriminator to identify the object type:
+
+**Example 1 - TextPart:**
+
+```json
+```
+
+**Example 2 - FilePart:**
+
+```json
+}
+```
+
+**Current Pattern (v1.0):**
+Objects now use the **JSON member name** itself to identify the type. The member name acts as the discriminator, and the value structure depends on the specific type:
+
+**Example 1 - TextPart:**
+
+```json
+```
+
+**Example 2 - FilePart:**
+
+```json
+```
+
+**Affected Types:**
+
+1. **Part Union Types**:
+   - **TextPart**:
+     - **Legacy:** `{ "kind": "text", "text": "..." }`
+     - **Current:** `{ "text": "..." }` (member presence acts as discriminator)
+   - **FilePart**:
+     - **Legacy:** `{ "kind": "file", "file": { "name": "...", "mimeType": "...", "fileWithBytes": "..." } }`
+     - **Current:** `{ "raw": "...", "filename": "...", "mediaType": "..." }` (or `url` instead of `raw`)
+   - **DataPart**:
+     - **Legacy:** `{ "kind": "data", "data": {...} }`
+     - **Current:** `{ "data": {...}, "mediaType": "application/json" }`
+
+2. **Streaming Event Types**:
+   - **TaskStatusUpdateEvent**:
+     - **Legacy:** `{ "kind": "status-update", "taskId": "...", "status": {...} }`
+     - **Current:** `{ "statusUpdate": { "taskId": "...", "status": {...} } }`
+   - **TaskArtifactUpdateEvent**:
+     - **Legacy:** `{ "kind": "artifact-update", "taskId": "...", "artifact": {...} }`
+     - **Current:** `{ "artifactUpdate": { "taskId": "...", "artifact": {...} } }`
+
+**Migration Strategy:**
+
+For **Clients** upgrading from pre-0.3.x:
+
+1. Update parsers to expect wrapper objects with member names as discriminators
+2. When constructing requests, use the new wrapper format
+3. Implement version detection based on `protocolVersion` in the agent's `supportedInterfaces` entries
+4. Consider maintaining backward compatibility by detecting and handling both formats during a transition period
+
+For **Servers** upgrading from pre-0.3.x:
+
+1. Update serialization logic to emit wrapper objects
+2. **Breaking:** The `kind` field is no longer part of the protocol and should not be emitted
+3. Update deserialization to expect wrapper objects with member names
+4. Ensure each `AgentInterface` in the `AgentCard` declares the correct `protocolVersion` (e.g., "1.0" or later)
+
+**Rationale:**
+
+This change aligns with modern API design practices and Protocol Buffers' `oneof` semantics, where the field name itself serves as the type discriminator. This approach:
+
+- Reduces redundancy (no need for both a field name and a `kind` value)
+- Aligns JSON-RPC and gRPC representations more closely
+- Simplifies code generation from schema definitions
+- Eliminates the need for representing inheritance structures in schema languages
+- Improves type safety in strongly-typed languages
+
+#### A.2.2 Breaking Change: Extended Agent Card Field Relocated
+
+**Version 1.0 relocates the extended agent card capability** from a top-level field to the capabilities object for architectural consistency.
+
+**Legacy Structure (pre-1.0):**
+
+```json
+}
+```
+
+**Current Structure (1.0+):**
+
+```json
+}
+```
+
+**Proto Changes:**
+
+- Removed: `AgentCard.supports_extended_agent_card` (field 13)
+- Added: `AgentCapabilities.extended_agent_card` (field 5)
+
+**Migration Steps:**
+
+For **Agent Implementations**:
+
+1. Remove `supportsExtendedAgentCard` from top-level AgentCard
+2. Add `extendedAgentCard` to `capabilities` object
+3. Update validation: `agentCard.capabilities?.extendedAgentCard`
+
+For **Client Implementations**:
+
+1. Update capability checks: `agentCard.capabilities?.extendedAgentCard`
+2. Temporary fallback (transition period):
+
+   ```javascript
+   const supported = agentCard.capabilities?.extendedAgentCard ||
+                     agentCard.supportsExtendedAgentCard;
+   ```
+
+3. Remove fallback after agent ecosystem migrates
+
+For **SDK Developers**:
+
+1. Regenerate code from updated proto
+2. Update type definitions
+3. Document breaking change in release notes
+
+**Rationale:**
+
+All optional features enabling specific operations (`streaming`, `pushNotifications`) reside in `AgentCapabilities`. Moving `extendedAgentCard` achieves:
+
+- Architectural consistency
+- Improved discoverability
+- Semantic correctness (it is a capability)
+
+### A.3 Future Automation
+
+Once the proto→schema generation pipeline lands, this appendix will be partially auto-generated (legacy mapping table sourced from a maintained manifest). Until then, edits MUST be manual and reviewed in PRs affecting `a2a.proto`.
+
+## Appendix B. Relationship to MCP (Model Context Protocol)
+
+A2A and MCP are complementary protocols designed for different aspects of agentic systems:
+
+- **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/):** Focuses on standardizing how AI models and agents connect to and interact with **tools, APIs, data sources, and other external resources.** It defines structured ways to describe tool capabilities (like function calling in LLMs), pass inputs, and receive structured outputs. Think of MCP as the "how-to" for an agent to *use* a specific capability or access a resource.
+- **Agent2Agent Protocol (A2A):** Focuses on standardizing how independent, often opaque, **AI agents communicate and collaborate with each other as peers.** A2A provides an application-level protocol for agents to discover each other, negotiate interaction modalities, manage shared tasks, and exchange conversational context or complex results. It's about how agents *partner* or *delegate* work.
+
+**How they work together:**
+An A2A Client agent might request an A2A Server agent to perform a complex task. The Server agent, in turn, might use MCP to interact with several underlying tools, APIs, or data sources to gather information or perform actions necessary to fulfill the A2A task.
+
+For a more detailed comparison, see the [A2A and MCP guide](/docs/a2a/a2a-and-mcp).
+
+---

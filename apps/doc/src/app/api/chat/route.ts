@@ -1,137 +1,205 @@
-import { createMistral } from "@ai-sdk/mistral"
+import { createOpenAI } from "@ai-sdk/openai"
 import {
   convertToModelMessages,
-  isStepCount,
+  stepCountIs,
   streamText,
   tool,
-  type Tool,
   type UIMessage,
 } from "ai"
-import {
-  Document,
-  type DocumentData,
-  type MergedDocumentSearchResults,
-} from "flexsearch"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 import { z } from "zod"
-import { source } from "@/lib/source"
+import { chatConfig, isChatConfigured } from "@/lib/chat/config"
+import { buildSystemPrompt } from "@/lib/chat/prompt"
+import { checkRateLimit } from "@/lib/chat/rate-limit"
+import { appendMessage, ensureSession } from "@/lib/chat/store"
+import {
+  grepContent,
+  listPages,
+  normalizeLocale,
+  readPage,
+} from "@/lib/chat/tools"
+import { siteUrl } from "@/lib/shared"
 
-interface CustomDocument extends DocumentData {
-  url: string
-  title: string
-  description: string
-  content: string
-}
+export const maxDuration = 60
 
-export type ChatUIMessage = UIMessage<
-  never,
-  {
-    client: {
-      location: string
+const VISITOR_COOKIE = "chat_visitor_id"
+
+const requestSchema = z.object({
+  sessionId: z.string().max(64).optional(),
+  locale: z.enum(["zh", "en"]).default("zh"),
+  messages: z.array(z.custom<UIMessage>()).min(1).max(20),
+})
+
+/**
+ * 长度校验只统计文本 parts；assistant 历史在发给模型前剔除工具输出
+ * （read_page 全文等体积大且无需回传），客户端展示仍保留完整 parts。
+ */
+function lightenMessages(messages: UIMessage[]): UIMessage[] | null {
+  const result: UIMessage[] = []
+  for (const message of messages) {
+    const textParts = (message.parts ?? []).filter((part) => part.type === "text")
+    if (JSON.stringify(textParts).length > 8000) return null
+    if (message.role === "assistant") {
+      const kept = (message.parts ?? []).filter(
+        (part) => part.type === "text" || part.type === "reasoning"
+      )
+      result.push({ ...message, parts: kept })
+    } else {
+      result.push(message)
     }
   }
->
+  return result
+}
 
-const searchServer = createSearchServer()
+async function resolveVisitorId(): Promise<string> {
+  const store = await cookies()
+  const existing = store.get(VISITOR_COOKIE)?.value
+  if (existing && /^[a-zA-Z0-9-]{8,64}$/.test(existing)) return existing
+  return crypto.randomUUID()
+}
 
-async function createSearchServer() {
-  const search = new Document<CustomDocument>({
-    document: {
-      id: "url",
-      index: ["title", "description", "content"],
-      store: true,
-    },
-  })
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for")
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim()
+    if (first) return first
+  }
+  return request.headers.get("x-real-ip")?.trim() || "unknown"
+}
 
-  const docs = await chunkedAll(
-    source.getPages().map(async (page) => {
-      if (!("getText" in page.data)) return null
+function errorMessage(locale: "zh" | "en"): string {
+  return locale === "en"
+    ? "Sorry, the assistant is temporarily unavailable. Please try again later."
+    : "抱歉，助手暂时不可用，请稍后重试。"
+}
 
-      return {
-        title: page.data.title,
-        description: page.data.description,
-        url: page.url,
-        content: await page.data.getText("raw"),
-      } as CustomDocument
-    })
-  )
-
-  for (const doc of docs) {
-    if (doc) search.add(doc)
+export async function POST(request: Request) {
+  if (!isChatConfigured()) {
+    return NextResponse.json({ error: "AI Chat 未配置" }, { status: 503 })
   }
 
-  return search
-}
-
-async function chunkedAll<O>(promises: Promise<O>[]): Promise<O[]> {
-  const SIZE = 50
-  const out: O[] = []
-  for (let i = 0; i < promises.length; i += SIZE) {
-    out.push(...(await Promise.all(promises.slice(i, i + SIZE))))
+  const ip = getClientIp(request)
+  const limit = checkRateLimit(ip)
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "请求过于频繁，请稍后再试" },
+      { status: 429, headers: { "retry-after": String(limit.retryAfterSec) } }
+    )
   }
-  return out
-}
 
-const mistral = createMistral({
-  apiKey: process.env.MISTRAL_API_KEY,
-})
+  let body: z.infer<typeof requestSchema>
+  try {
+    body = requestSchema.parse(await request.json())
+  } catch {
+    return NextResponse.json({ error: "无效请求" }, { status: 400 })
+  }
 
-/** System prompt, you can update it to provide more specific information */
-const systemPrompt = [
-  "You are an AI assistant for a documentation site.",
-  "Use the `search` tool to retrieve relevant docs context before answering when needed.",
-  "The `search` tool returns raw JSON results from documentation. Use those results to ground your answer and cite sources as markdown links using the document `url` field when available.",
-  "If you cannot find the answer in search results, say you do not know and suggest a better search query.",
-].join("\n")
+  const messages = lightenMessages(body.messages)
+  if (!messages) {
+    return NextResponse.json({ error: "消息过长" }, { status: 413 })
+  }
 
-export async function POST(req: Request) {
-  const reqJson = await req.json()
-
-  const result = streamText({
-    model: mistral("mistral-large-latest"),
-    instructions: systemPrompt,
-    stopWhen: isStepCount(5),
-    tools: {
-      search: searchTool,
-    },
-    messages: await convertToModelMessages<ChatUIMessage>(
-      reqJson.messages ?? [],
-      {
-        convertDataPart(part) {
-          if (part.type === "data-client")
-            return {
-              type: "text",
-              text: `[Client Context: ${JSON.stringify(part.data)}]`,
-            }
-        },
-      }
-    ),
-    toolChoice: "auto",
+  const locale = normalizeLocale(body.locale)
+  const visitorId = await resolveVisitorId()
+  const sessionId = ensureSession({
+    sessionId: body.sessionId,
+    visitorId,
+    locale,
   })
 
-  return result.toUIMessageStreamResponse()
-}
-
-type SearchToolInput = {
-  query: string
-  limit: number
-}
-
-type SearchToolOutput = MergedDocumentSearchResults<CustomDocument>
-
-const searchTool: Tool<SearchToolInput, SearchToolOutput> = tool({
-  description: "Search the docs content and return raw JSON results.",
-  inputSchema: z.object({
-    query: z.string(),
-    limit: z.number().int().min(1).max(100).default(10),
-  }),
-  async execute({ query, limit }): Promise<SearchToolOutput> {
-    const search = await searchServer
-    return await search.searchAsync(query, {
-      limit,
-      merge: true,
-      enrich: true,
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")
+  if (lastUser) {
+    appendMessage({
+      sessionId,
+      visitorId,
+      role: "user",
+      parts: lastUser.parts ?? [],
+      firstQuestion:
+        lastUser.parts
+          ?.filter(
+            (p): p is { type: "text"; text: string } => p.type === "text"
+          )
+          .map((p) => p.text)
+          .join(" ") || "",
     })
-  },
-})
+  }
 
-export type SearchTool = typeof searchTool
+  try {
+    const openai = createOpenAI({
+      apiKey: chatConfig.apiKey(),
+      baseURL: chatConfig.baseURL(),
+    })
+
+    const result = streamText({
+      model: openai.chat(chatConfig.model()),
+      system: buildSystemPrompt(locale, siteUrl),
+      messages: await convertToModelMessages(messages),
+      tools: {
+        list_pages: tool({
+          description:
+            locale === "en"
+              ? "List all searchable documentation pages with title, href and excerpt. Call this first when you need to know what content is available."
+              : "列出本站全部可检索文档页面（标题/href/摘要）。需要了解有哪些内容时先调用。",
+          inputSchema: z.object({}),
+          execute: async () => {
+            const pages = await listPages(locale)
+            return pages.slice(0, 80)
+          },
+        }),
+        grep: tool({
+          description:
+            locale === "en"
+              ? "Search documentation page bodies by keyword; returns matching lines with page title and href."
+              : "按关键词检索文档正文，返回命中行、标题与该页 href。",
+          inputSchema: z.object({
+            pattern: z.string().min(1).max(200),
+          }),
+          execute: async ({ pattern }) => grepContent({ pattern, locale }),
+        }),
+        read_page: tool({
+          description:
+            locale === "en"
+              ? 'Read the full markdown of a page by slug or href, e.g. "mcp/overview" or "/docs/mcp/overview" (long pages are truncated).'
+              : '按 slug 或 href 读取页面全文 markdown，例如 "mcp/overview" 或 "/docs/mcp/overview"（超长会截断）。',
+          inputSchema: z.object({
+            slug: z.string().min(1).max(300),
+          }),
+          execute: async ({ slug }) => readPage(slug, locale),
+        }),
+      },
+      stopWhen: stepCountIs(chatConfig.maxSteps()),
+      maxOutputTokens: 1024,
+    })
+
+    const response = result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      generateMessageId: () => crypto.randomUUID(),
+      onFinish: async ({ messages: updated }) => {
+        const assistant = [...updated].reverse().find((m) => m.role === "assistant")
+        if (!assistant) return
+        appendMessage({
+          sessionId,
+          visitorId,
+          role: "assistant",
+          parts: assistant.parts ?? [],
+        })
+      },
+    })
+
+    response.headers.set("x-chat-session-id", sessionId)
+    if (!request.headers.get("cookie")?.includes(VISITOR_COOKIE)) {
+      response.headers.append(
+        "set-cookie",
+        `${VISITOR_COOKIE}=${visitorId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`
+      )
+    }
+    return response
+  } catch (error) {
+    console.error(
+      "[chat] stream failed:",
+      error instanceof Error ? error.message : String(error)
+    )
+    return NextResponse.json({ error: errorMessage(locale) }, { status: 500 })
+  }
+}

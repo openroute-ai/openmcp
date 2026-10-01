@@ -1,0 +1,191 @@
+---
+title: "Microsoft Purview 护栏"
+description: "OpenMCP 通过 Microsoft Graph processContent API 支持 Microsoft Purview DLP 策略。"
+---
+
+OpenMCP 支持 [Microsoft Purview](https://learn.microsoft.com/en-us/purview/purview) DLP 策略，通过 [Microsoft Graph `processContent` API](https://learn.microsoft.com/en-us/graph/api/dataSecurityAndGovernance-processContent) 实现。
+
+## 支持的模式
+
+| 模式 | 作用 |
+|------|-------------|
+| `pre_call` | 在 LLM 调用之前根据 DLP 策略评估用户提示词。如果触发 `restrictAccess/block` 策略操作则拦截。 |
+| `post_call` | 根据 DLP 策略评估 LLM 响应。如果触发 `restrictAccess/block` 策略操作则拦截。 |
+| `logging_only` | 将提示词和响应都发送到 Purview 进行审计。从不拦截请求。 |
+
+## 前置条件
+
+1. **一个 Entra 应用注册**，具有以下 Microsoft Graph 应用程序权限：
+   - `InformationProtectionPolicy.Read.All`
+   - `ProtectionScopes.Compute.User`
+   - `Content.Process.User`
+
+2. **Microsoft Purview 中的 DLP 策略**，将你的应用注册的 `client_id` 作为受保护应用。如果没有活动策略，API 响应中的 `policyActions` 将始终为空。
+
+3. **Entra 用户对象 ID** — 每个请求必须携带最终用户的 Entra 对象 ID（而不是用户名或电子邮件）。当无法解析用户 ID 时，护栏会跳过 DLP 检查并记录警告。
+
+## 快速开始
+
+### 1. 在 Entra 中注册你的应用
+
+```bash
+# Create app registration and note the appId (client_id) and tenantId
+az ad app create --display-name "OpenMCP-Purview"
+az ad sp create --id <appId>
+
+# Create a client secret
+az ad app credential reset --id <appId> --append
+```
+
+在 Azure 门户的 **App registrations → API permissions** 下授予上面列出的权限，然后 **Grant admin consent**。
+
+### 2. 在 `config.yaml` 中定义护栏
+
+<Tabs items={["pre_call","post_call","logging_only (audit)"]}>
+<Tab>
+
+```yaml
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: purview-prompt-dlp
+    openmcp_params:
+      guardrail: microsoft_purview
+      mode: pre_call
+      api_key: os.environ/AZURE_CLIENT_SECRET   # client_secret
+      tenant_id: os.environ/AZURE_TENANT_ID
+      client_id: os.environ/AZURE_CLIENT_ID
+      default_on: true
+```
+
+</Tab>
+<Tab>
+
+```yaml
+guardrails:
+  - guardrail_name: purview-response-dlp
+    openmcp_params:
+      guardrail: microsoft_purview
+      mode: post_call
+      api_key: os.environ/AZURE_CLIENT_SECRET
+      tenant_id: os.environ/AZURE_TENANT_ID
+      client_id: os.environ/AZURE_CLIENT_ID
+      default_on: true
+```
+
+</Tab>
+<Tab>
+
+```yaml
+guardrails:
+  - guardrail_name: purview-audit
+    openmcp_params:
+      guardrail: microsoft_purview
+      mode: logging_only
+      api_key: os.environ/AZURE_CLIENT_SECRET
+      tenant_id: os.environ/AZURE_TENANT_ID
+      client_id: os.environ/AZURE_CLIENT_ID
+      default_on: true
+```
+
+</Tab>
+</Tabs>
+
+### 3. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 4. 测试请求
+
+在 `metadata` 中传递最终用户的 Entra 对象 ID：
+
+```shell
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "Hello, what is the capital of France?"}],
+    "metadata": {"user_id": "<entra-user-object-id>"}
+  }'
+```
+
+**当 DLP 策略拦截请求时**，OpenMCP 返回：
+
+```json
+{
+  "error": {
+    "status_code": 400,
+    "message": {
+      "error": "Microsoft Purview DLP: Content blocked by policy",
+      "activity": "uploadText"
+    }
+  }
+}
+```
+
+## 支持的参数
+
+| 参数 | 类型 | 是否必需 | 描述 |
+|-------|------|----------|-------------|
+| `guardrail` | `str` | 是 | 必须为 `"microsoft_purview"` |
+| `mode` | `str` | 是 | `pre_call`、`post_call` 或 `logging_only` |
+| `api_key` | `str` | 是 | Entra 应用客户端密钥（可使用 `os.environ/VAR`） |
+| `tenant_id` | `str` | 是 | Entra 租户 ID |
+| `client_id` | `str` | 是 | Entra 应用注册客户端 ID（在 Purview 中也用作受保护应用标识符） |
+| `default_on` | `bool` | 否 | 对每个请求运行此护栏。默认：`false` |
+| `purview_app_name` | `str` | 否 | 在 `processContent` 中向 Purview 报告的应用名称。默认：`"OpenMCP"` |
+| `user_id_field` | `str` | 否 | **仅当**不存在更强身份时使用的元数据字段（参见用户 ID 解析）。默认：`"user_id"` |
+
+## 用户 ID 解析
+
+用于 Purview `protectionScopes` / `processContent` 的 Entra 对象 ID 按**信任顺序**（最强优先）解析，因此客户端无法通过设置 `metadata[user_id_field]` 来覆盖已认证的 OpenMCP 用户：
+
+1. `user_api_key_dict.user_id` — 与 OpenMCP API 密钥绑定的用户
+2. `user_api_key_dict.end_user_id` — 密钥上的最终用户
+3. `metadata["user_api_key_user_id"]` — 代理从密钥注入的值（存在时）
+4. `metadata[user_id_field]` — 调用方提供（例如默认的 `metadata["user_id"]`）；仅当以上都未设置时使用
+
+如果这些都无法解析为值，则**跳过** DLP 检查并记录警告。
+
+**仅记录**钩子通过代理元数据（`openmcp_params.metadata`）使用相同的顺序。
+
+## 按请求启用
+
+当 `default_on: false` 时，你可以选择让单个请求启用或禁用：
+
+```shell
+curl -X POST http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "guardrails": ["purview-prompt-dlp"],
+    "metadata": {"user_id": "<entra-user-object-id>"}
+  }'
+```
+
+## 工作原理
+
+1. **令牌获取** — 护栏使用 OAuth2 客户端凭据授予来获取 Microsoft Graph 持有者令牌。令牌会缓存到过期前 60 秒。
+
+2. **保护范围计算** — 在每次 DLP 检查之前，护栏会为该用户调用 `protectionScopes/compute`，以获取表示当前策略状态的 ETag。结果按用户缓存 1 小时（根据 Microsoft 的建议）。如果 `processContent` 响应指示策略已更改（`protectionScopeState: modified`），则缓存失效。
+
+3. **内容评估** — 护栏使用文本以及 `uploadText`（提示词）或 `downloadText`（响应）的 `activityMetadata.activity` 调用 `processContent`。**Chat**（`/v1/chat/completions`）：调用前会拼接**每条**消息（所有角色）中的字符串内容；当 `n > 1` 时，调用后使用**每个** chat choice 中助手的 `message.content`。**旧版文本补全**（`/v1/completions`）：调用前使用 `prompt` 字段（字符串或字符串列表；仅含 token-id 的提示词会被跳过）；调用后使用**每个** `TextChoices` 条目中的 `text`。
+
+4. **拦截决策** — 如果任何 `policyActions` 条目的 `@odata.type` 包含 `restrictAccessAction` 且 `restrictionAction: "block"`，护栏会抛出 HTTP 400。
+
+5. **审计日志** — 在所有模式下，护栏结果都会记录在 `metadata.standard_logging_guardrail_information` 中，并流向已配置的可观测性后端（Langfuse、Datadog、OTEL 等）。
+
+## 延伸阅读
+
+- [Microsoft Graph processContent API](https://learn.microsoft.com/en-us/graph/api/dataSecurityAndGovernance-processContent)
+- [Microsoft Purview DLP 概览](https://learn.microsoft.com/en-us/purview/dlp-learn-about-dlp)
+- [按 API Key 控制护栏](./quick_start#-control-guardrails-per-api-key)

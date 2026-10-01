@@ -1,0 +1,373 @@
+---
+title: "自定义代码护栏"
+description: "使用在沙箱环境中运行的类似 Python 的代码编写自定义护栏逻辑。"
+---
+
+使用在沙箱环境中运行的类似 Python 的代码编写自定义护栏逻辑。
+
+## 快速入门
+
+### 1. 在配置中定义护栏
+
+```yaml
+model_list:
+    - model_name: {{openai_large}}
+      openmcp_params:
+        model: {{openai_large}}
+        api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+    - guardrail_name: block-ssn
+      openmcp_params:
+        guardrail: custom_code
+        mode: pre_call
+        custom_code: |
+            def apply_guardrail(inputs, request_data, input_type):
+                for text in inputs["texts"]:
+                    if regex_match(text, r"\d{3}-\d{2}-\d{4}"):
+                        return block("SSN detected")
+                return allow()
+```
+
+### 2. 启动代理
+
+```bash
+openmcp --config config.yaml
+```
+
+### 3. 测试
+
+```bash
+curl -X POST http://localhost:4000/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "My SSN is 123-45-6789"}],
+    "guardrails": ["block-ssn"]
+  }'
+```
+
+## 配置
+
+| 参数 | 类型 | 必填 | 描述 |
+|-----------|------|----------|-------------|
+| `guardrail` | string | ✅ | 必须是 `custom_code` |
+| `mode` | string | ✅ | 运行时机：`pre_call`、`post_call`、`during_call` |
+| `custom_code` | string | ✅ | 带有 `apply_guardrail` 函数的类似 Python 的代码 |
+| `default_on` | bool | ❌ | 在所有请求上运行（默认值：`false`） |
+
+## 编写自定义代码
+
+### 函数签名
+
+你的代码必须定义一个 `apply_guardrail` 函数。它可以是同步的，也可以是异步的：
+
+```python
+# Sync version
+def apply_guardrail(inputs, request_data, input_type):
+    # inputs: see table below
+    # request_data: {"model": "...", "user_id": "...", "team_id": "...", "metadata": {...}}
+    # input_type: "request" or "response"
+    
+    return allow()  # or block(), flag() or modify()
+
+# Async version (recommended when using HTTP primitives)
+async def apply_guardrail(inputs, request_data, input_type):
+    response = await http_post("https://api.example.com/check", body={"text": inputs["texts"][0]})
+    if response["success"] and response["body"].get("flagged"):
+        return block("Content flagged")
+    return allow()
+```
+
+### `inputs` 参数
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `texts` | `List[str]` | 从请求/响应中提取的文本 |
+| `images` | `List[str]` | 提取的图像（用于图像护栏） |
+| `tools` | `List[dict]` | 发送给 LLM 的工具 |
+| `tool_calls` | `List[dict]` | LLM 返回的工具调用 |
+| `structured_messages` | `List[dict]` | 带有角色信息（system/user/assistant）的完整消息 |
+| `model` | `str` | 正在使用的模型 |
+
+### `request_data` 参数
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `model` | `str` | 模型名称 |
+| `user_id` | `str` | 来自 API 密钥的用户 ID |
+| `team_id` | `str` | 来自 API 密钥的团队 ID |
+| `end_user_id` | `str` | 最终用户 ID |
+| `metadata` | `dict` | 请求元数据 |
+
+### 返回值
+
+| 函数 | 描述 |
+|----------|-------------|
+| `allow()` | 放行请求/响应 |
+| `block(reason)` | 带消息拒绝 |
+| `flag(reason, metadata={})` | 原样放行请求/响应，但记录一次非阻塞违规 |
+| `modify(texts=[], images=[], tool_calls=[])` | 转换内容 |
+
+### 标记而不阻止
+
+`flag(reason, metadata={...})` 用于仅审计或监控模式的护栏。请求或响应与 `allow()` 时完全一样继续，护栏会在请求的护栏信息中记录一条 `guardrail_flagged` 条目，包含护栏名称、配置的 `mode`、其评估的 `input_type`（`request` 或 `response`）、`reason` 以及你的结构化 `metadata`。它对流式和非流式请求的工作方式相同。
+
+在护栏监控器中，被标记的请求计为已标记（flagged）而不是已通过（passed）或已阻止（blocked）；在请求日志中，护栏行会显示 `flagged`（当护栏同时运行 `pre_call` 和 `post_call` 时，该行显示两种结果中较严重的一种）。请求级别的 `guardrail_status` 变为 `guardrail_flagged`，除非同一请求上的其他护栏阻止或失败，此时该状态优先。
+
+```yaml
+guardrails:
+  - guardrail_name: audit-competitor-mentions
+    openmcp_params:
+      guardrail: custom_code
+      mode: [pre_call, post_call]
+      default_on: true
+      custom_code: |
+        def apply_guardrail(inputs, request_data, input_type):
+            for text in inputs["texts"]:
+                if contains_any(lower(text), ["acme", "globex"]):
+                    return flag(
+                        "competitor mentioned",
+                        metadata={"category": "competitor", "phase": input_type},
+                    )
+            return allow()
+```
+
+在 `standard_logging_guardrail_information` 中，记录的条目如下所示：
+
+```json
+{
+  "guardrail_name": "audit-competitor-mentions",
+  "guardrail_mode": ["pre_call", "post_call"],
+  "guardrail_status": "guardrail_flagged",
+  "guardrail_response": {
+    "action": "flag",
+    "reason": "competitor mentioned",
+    "input_type": "request",
+    "metadata": {"category": "competitor", "phase": "request"}
+  }
+}
+```
+
+## 内置原语
+
+### 正则
+
+| 函数 | 描述 |
+|----------|-------------|
+| `regex_match(text, pattern)` | 如果找到匹配的模式则返回 `True` |
+| `regex_replace(text, pattern, replacement)` | 替换所有匹配项 |
+| `regex_find_all(text, pattern)` | 返回匹配项列表 |
+
+### JSON
+
+| 函数 | 描述 |
+|----------|-------------|
+| `json_parse(text)` | 解析 JSON 字符串，出错时返回 `None` |
+| `json_stringify(obj)` | 转换为 JSON 字符串 |
+| `json_schema_valid(obj, schema)` | 根据 JSON 模式进行校验 |
+
+### URL
+
+| 函数 | 描述 |
+|----------|-------------|
+| `extract_urls(text)` | 从文本中提取所有 URL |
+| `is_valid_url(url)` | 检查 URL 是否有效 |
+| `all_urls_valid(text)` | 检查文本中的所有 URL 是否有效 |
+
+### 代码检测
+
+| 函数 | 描述 |
+|----------|-------------|
+| `detect_code(text)` | 如果检测到代码则返回 `True` |
+| `detect_code_languages(text)` | 返回检测到的语言列表 |
+| `contains_code_language(text, ["sql", "python"])` | 检查特定语言 |
+
+### 文本工具
+
+| 函数 | 描述 |
+|----------|-------------|
+| `contains(text, substring)` | 检查子字符串是否存在 |
+| `contains_any(text, [substr1, substr2])` | 检查是否存在任何子字符串 |
+| `word_count(text)` | 统计单词数量 |
+| `char_count(text)` | 统计字符数量 |
+| `lower(text)` / `upper(text)` / `trim(text)` | 字符串转换 |
+
+### HTTP 请求（异步）
+
+向外部 API 发起异步 HTTP 请求，用于额外的校验或内容审核。
+
+| 函数 | 描述 |
+|----------|-------------|
+| `await http_request(url, method, headers, body, timeout)` | 通用的异步 HTTP 请求 |
+| `await http_get(url, headers, timeout)` | 异步 GET 请求 |
+| `await http_post(url, body, headers, timeout)` | 异步 POST 请求 |
+
+**响应格式：**
+```python
+{
+    "status_code": 200,        # HTTP status code
+    "body": {...},             # Response body (parsed JSON or string)
+    "headers": {...},          # Response headers
+    "success": True,           # True if status code is 2xx
+    "error": None              # Error message if request failed
+}
+```
+
+**注意：**使用 HTTP 原语时，请将你的函数定义为 `async def apply_guardrail(...)` 以实现非阻塞执行。
+
+## 示例
+
+### 阻止 PII（SSN）
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    for text in inputs["texts"]:
+        if regex_match(text, r"\d{3}-\d{2}-\d{4}"):
+            return block("SSN detected")
+    return allow()
+```
+
+### 脱敏电子邮件地址
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+    modified = []
+    for text in inputs["texts"]:
+        modified.append(regex_replace(text, pattern, "[EMAIL REDACTED]"))
+    return modify(texts=modified)
+```
+
+### 阻止 SQL 注入
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    if input_type != "request":
+        return allow()
+    for text in inputs["texts"]:
+        if contains_code_language(text, ["sql"]):
+            return block("SQL code not allowed")
+    return allow()
+```
+
+### 校验 JSON 响应
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    if input_type != "response":
+        return allow()
+    
+    schema = {
+        "type": "object",
+        "required": ["name", "value"]
+    }
+    
+    for text in inputs["texts"]:
+        obj = json_parse(text)
+        if obj is None:
+            return block("Invalid JSON response")
+        if not json_schema_valid(obj, schema):
+            return block("Response missing required fields")
+    return allow()
+```
+
+### 检查响应中的 URL
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    if input_type != "response":
+        return allow()
+    for text in inputs["texts"]:
+        if not all_urls_valid(text):
+            return block("Response contains invalid URLs")
+    return allow()
+```
+
+### 调用外部内容审核 API（异步）
+
+```python
+async def apply_guardrail(inputs, request_data, input_type):
+    # Call an external moderation API
+    for text in inputs["texts"]:
+        response = await http_post(
+            "https://api.example.com/moderate",
+            body={"text": text, "user_id": request_data["user_id"]},
+            headers={"Authorization": "Bearer YOUR_API_KEY"},
+            timeout=10
+        )
+        
+        if not response["success"]:
+            # API call failed - decide whether to allow or block
+            return allow()
+        
+        if response["body"].get("flagged"):
+            return block(response["body"].get("reason", "Content flagged"))
+    
+    return allow()
+```
+
+### 组合多种检查
+
+```python
+def apply_guardrail(inputs, request_data, input_type):
+    modified = []
+    
+    for text in inputs["texts"]:
+        # Redact SSN
+        text = regex_replace(text, r"\d{3}-\d{2}-\d{4}", "[SSN]")
+        # Redact credit cards
+        text = regex_replace(text, r"\d{16}", "[CARD]")
+        modified.append(text)
+    
+    # Block SQL in requests
+    if input_type == "request":
+        for text in inputs["texts"]:
+            if contains_code_language(text, ["sql"]):
+                return block("SQL injection blocked")
+    
+    return modify(texts=modified)
+```
+
+## 沙箱限制
+
+自定义代码在受限环境中运行：
+
+- ❌ 不允许 `import` 语句
+- ❌ 不允许文件 I/O
+- ❌ 不允许 `exec()` 或 `eval()`
+- ✅ 通过内置的 `http_request`、`http_get`、`http_post` 原语发起 HTTP 请求
+- ✅ 仅可使用 OpenMCP 提供的原语
+
+## 按请求使用
+
+按请求启用护栏：
+
+```bash
+curl -X POST http://localhost:4000/chat/completions \
+  -H "Authorization: Bearer sk-1234" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "guardrails": ["block-ssn"]
+  }'
+```
+
+## 默认开启
+
+在所有请求上运行护栏：
+
+```yaml
+openmcp_settings:
+  guardrails:
+    - guardrail_name: block-ssn
+      openmcp_params:
+        guardrail: custom_code
+        mode: pre_call
+        default_on: true
+        custom_code: |
+          def apply_guardrail(inputs, request_data, input_type):
+              ...
+```

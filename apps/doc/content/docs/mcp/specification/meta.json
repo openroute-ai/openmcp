@@ -1,0 +1,12 @@
+{
+  "pages": [
+    "index",
+    "changelog",
+    "deprecated",
+    "schema",
+    "architecture",
+    "basic",
+    "client",
+    "server"
+  ]
+}

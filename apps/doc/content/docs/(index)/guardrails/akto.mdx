@@ -1,0 +1,148 @@
+---
+title: "Akto"
+description: "使用 Akto 作为护栏提供商，为所有通过代理路由的 LLM 流量启用运行时安全防护。Akto 专为保护自主式和智能体 AI 系统而构建..."
+---
+
+使用 [Akto](https://www.akto.io/) 作为护栏提供商，为所有通过代理路由的 LLM 流量启用运行时安全防护。Akto 专为保护自主式和智能体（agentic）AI 系统而构建，它会内联检查每个请求和响应，对交互进行风险评分，并强制执行策略决策，从而在有害操作、数据泄露和不安全行为发生之前将其拦截。
+
+Akto 的关键能力包括：
+
+- **Agentic AI Discovery** - 自动发现云环境中的 AI 智能体、MCP 服务器和 GenAI 应用
+- **Continuous AI Red Teaming** - 运行 4,000+ 个 AI 专属探测项，以识别提示词注入、工具滥用、策略绕过以及在 CI/CD 中出现的全新攻击模式等风险
+- **Runtime Guardrails** - 强制执行可配置的策略，涵盖提示词注入、越狱（jailbreak）、敏感数据泄露、未授权的工具使用、模式违规等
+- **AI Security Posture Management** - 统一呈现风险评分、合规差距和安全指标，支持 10+ 项标准，包括 OWASP GenAI、NIST AI RMF 和 MITRE ATLAS
+
+与 akto 的集成使用**双条目护栏模式**：
+- `akto-validate`（`pre_call`）：在请求到达 LLM 之前，根据你的安全策略校验请求
+- `akto-ingest`（`post_call`）：将请求和响应摄取到 Akto 中，供监控和分析使用
+
+## 快速开始
+
+### 1. 获取你的 Akto 凭据
+
+设置好 Akto Guardrail API 服务并获取：
+- `AKTO_GUARDRAIL_API_BASE` —— 你的 Guardrail API 基础 URL
+- `AKTO_API_KEY` —— 你的 API 密钥
+
+### 2. 在 `config.yaml` 中配置
+
+#### 拦截 + 摄取（推荐）
+
+同时使用下面的两个条目。这样可以为你提供：
+- pre-call 拦截决策
+- 对允许通过的流量执行 post-call 摄取
+
+请将两者保持为两个独立的条目（`akto-validate` 和 `akto-ingest`）。
+
+```yaml
+guardrails:
+  - guardrail_name: "akto-validate"
+    openmcp_params:
+      guardrail: akto
+      mode: pre_call
+      akto_base_url: os.environ/AKTO_GUARDRAIL_API_BASE
+      akto_api_key: os.environ/AKTO_API_KEY
+      default_on: true
+      unreachable_fallback: fail_closed   # optional: fail_open | fail_closed (default: fail_closed)
+      guardrail_timeout: 5                # optional, default: 5
+      akto_account_id: "1000000"         # optional, env fallback: AKTO_ACCOUNT_ID
+      akto_vxlan_id: "0"                 # optional, env fallback: AKTO_VXLAN_ID
+
+  - guardrail_name: "akto-ingest"
+    openmcp_params:
+      guardrail: akto
+      mode: post_call
+      akto_base_url: os.environ/AKTO_GUARDRAIL_API_BASE
+      akto_api_key: os.environ/AKTO_API_KEY
+      default_on: true
+```
+
+#### 仅监控模式
+
+如果你只想要日志记录/摄取而不需要拦截，只需保留 `akto-ingest`。
+
+```yaml
+guardrails:
+  - guardrail_name: "akto-ingest"
+    openmcp_params:
+      guardrail: akto
+      mode: post_call
+      akto_base_url: os.environ/AKTO_GUARDRAIL_API_BASE
+      akto_api_key: os.environ/AKTO_API_KEY
+      default_on: true
+```
+
+### 3. 测试请求
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your openmcp key>" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Hello, how are you?"}
+    ]
+  }'
+```
+
+如果请求被拦截：
+
+```json
+{
+  "error": {
+    "message": "Prompt injection detected",
+    "type": "None",
+    "param": "None",
+    "code": "403"
+  }
+}
+```
+
+## 工作原理
+
+当 LLM 请求到达时，Akto 连接器会将负载交给 Akto Guardrail Engine，由引擎根据你的输入策略进行评估并返回裁决结果。已批准的请求会被转发给 LLM 提供商。响应在交付给调用方之前，会再次经过引擎进行输出护栏检查。每项决策都会流入 Akto 控制台，用于监控、威胁分析和修复。
+
+**拦截 + 摄取模式：**
+```
+Request → OpenMCP → Akto guardrail check
+  → Allowed  → forward to LLM → ingest response
+  → Blocked  → ingest blocked marker → 403 error
+```
+
+**仅监控模式：**
+```
+Request → OpenMCP → forward to LLM → get response
+  → Send to Akto (guardrails + ingest) → log only
+```
+
+## 事件行为
+
+| 条目 | OpenMCP 钩子 | Akto 调用行为 |
+|------|---|---|
+| `akto-validate` | `pre_call` | 带 `guardrails=true`、`ingest_data=false` 的等待调用 |
+| `akto-ingest` | `post_call` | 带 `guardrails=true`、`ingest_data=true` 的即发即弃调用 |
+
+在 `pre_call` 中被拦截时，OpenMCP 会发送一个带有拦截元数据的即发即弃摄取负载，并返回 `403`。
+
+## 支持的参数
+
+| 参数 | 环境变量 | 默认值 | 描述 |
+|-----------|-------------|---------|-------------|
+| `akto_base_url` | `AKTO_GUARDRAIL_API_BASE` | *必填* | Akto Guardrail API 基础 URL |
+| `akto_api_key` | `AKTO_API_KEY` | *必填* | API 密钥（作为 `Authorization` 请求头发送） |
+| `akto_account_id` | `AKTO_ACCOUNT_ID` | `1000000` | 包含在负载中的 Akto 账户 ID |
+| `akto_vxlan_id` | `AKTO_VXLAN_ID` | `0` | 包含在负载中的 Akto VXLAN ID |
+| `unreachable_fallback` | — | `fail_closed` | `fail_open` 或 `fail_closed` |
+| `guardrail_timeout` | — | `5` | 超时时间（秒） |
+| `default_on` | — | `true`（推荐） | 默认启用该护栏条目 |
+
+## 错误处理
+
+| 场景 | `fail_closed`（默认） | `fail_open` |
+|----------|------------------------|-------------|
+| Akto 不可达 | ❌ 拦截（503） | ✅ 放行 |
+| Akto 返回错误 | ❌ 拦截（503） | ✅ 放行 |
+| 护栏判定拒绝 | ❌ 拦截（403） | ❌ 拦截（403） |
+
+如需联系 Akto 团队，请通过 [support@akto.io](mailto:support@akto.io) 与他们联系。

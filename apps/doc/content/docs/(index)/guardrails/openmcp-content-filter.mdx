@@ -1,0 +1,887 @@
+---
+title: "OpenMCP 内容过滤器（内置护栏）"
+description: "点击'添加新护栏'并选择'OpenMCP Content Filter'作为你的护栏提供者。"
+---
+
+**内置护栏(guardrail)**，用于通过正则表达式模式和关键词匹配检测和过滤敏感信息。无需外部依赖。
+
+**何时使用？** 适用于不需要 ML 模型检测敏感信息的场景。
+
+## 概览
+
+| 属性 | 详情 |
+|----------|---------|
+| 描述 | 设备端护栏，使用正则表达式模式和关键词匹配检测和过滤敏感信息。内置于 OpenMCP，无需外部依赖。 |
+| 护栏名称 | `openmcp_content_filter` |
+| 检测方法 | 预构建正则表达式模式、自定义正则表达式、关键词匹配 |
+| 操作 | `BLOCK`（拒绝请求）、`MASK`（脱敏内容） |
+| 支持的模式 | `pre_call`、`post_call`、`during_call`（流式） |
+| 性能 | 快速 - 本地运行，无外部 API 调用 |
+
+## 快速开始
+
+## OpenMCP UI
+
+### 步骤 1：选择 OpenMCP 内容过滤器
+
+点击"添加新护栏"并选择"OpenMCP Content Filter"作为你的护栏提供者。
+
+<img src="/images/docs/guardrails/create_guard.gif" alt="选择 OpenMCP Content Filter" />
+
+### 步骤 2：配置模式检测
+
+选择你要阻止或脱敏的预构建实体。在此示例中，我们选择"Email"来检测和阻止电子邮件地址。
+
+如果你需要阻止自定义实体，可以通过点击"添加自定义正则表达式"来添加自定义正则表达式模式。
+
+<img src="/images/docs/guardrails/add_Guard2.gif" alt="选择预构建实体或添加自定义正则表达式" />
+
+### 步骤 3：添加阻止关键词
+
+输入你要阻止的特定关键词。如果你有阻止某些单词或短语的策略，这会很有用。
+
+<img src="/images/docs/guardrails/create_guard3.gif" alt="添加阻止关键词" />
+
+### 步骤 4：测试你的护栏
+
+创建护栏后，导航到"测试沙盒"进行测试。选择你刚刚创建的护栏。
+
+测试示例：
+- **阻止关键词测试**：输入"hi blue"将触发阻止，因为我们设置"blue"为阻止关键词
+- **模式检测测试**：输入"Hi ishaan@berri.ai"将触发电子邮件模式检测器
+
+<img src="/images/docs/guardrails/add_guard5.gif" alt="在沙盒中测试护栏" />
+
+## OpenMCP Config.yaml 设置
+
+### 步骤 1：在 config.yaml 中定义护栏
+
+<Tabs items={["有害内容检测","个人身份信息保护","组合"]}>
+<Tab>
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "harmful-content-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      
+      # Enable harmful content categories
+      categories:
+        - category: "harmful_self_harm"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+        
+        - category: "harmful_violence"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+        
+        - category: "harmful_illegal_weapons"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+```
+
+</Tab>
+
+<Tab>
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "content-filter-pre"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      
+      # Prebuilt patterns for common PII
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "us_ssn"
+          action: "BLOCK"
+        
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+      
+      # Custom blocked keywords
+      blocked_words:
+        - keyword: "confidential"
+          action: "BLOCK"
+          description: "Sensitive internal information"
+```
+
+</Tab>
+
+<Tab>
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{openai_small}}
+    openmcp_params:
+      model: openai/{{openai_small}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "comprehensive-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      
+      # Harmful content categories
+      categories:
+        - category: "harmful_violence"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "high"
+      
+      # PII patterns
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "us_ssn"
+          action: "BLOCK"
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+      
+      # Custom keywords
+      blocked_words:
+        - keyword: "confidential"
+          action: "BLOCK"
+```
+
+</Tab>
+</Tabs>
+
+### 步骤 2：启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml
+```
+
+### 步骤 3：测试请求
+
+<Tabs items={["SSN 被阻止","Email 被脱敏"]}>
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "My SSN is 123-45-6789"}
+    ],
+    "guardrails": ["content-filter-pre"]
+  }'
+```
+
+**响应：HTTP 400 错误**
+```json
+{
+  "error": {
+    "message": {
+      "error": "Content blocked: us_ssn pattern detected",
+      "pattern": "us_ssn"
+    },
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+
+<Tab>
+
+```shell
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_small}}",
+    "messages": [
+      {"role": "user", "content": "Contact me at john@example.com"}
+    ],
+    "guardrails": ["content-filter-pre"]
+  }'
+```
+
+请求发送到大语言模型(LLM)时，电子邮件已被脱敏：
+```
+Contact me at [EMAIL_REDACTED]
+```
+
+</Tab>
+</Tabs>
+
+## 配置
+
+### 支持的模式
+
+- **`pre_call`** - 在大语言模型(LLM)调用前运行，过滤输入消息
+- **`post_call`** - 在大语言模型(LLM)调用后运行，过滤输出响应
+- **`during_call`** - 在流式传输期间运行，实时过滤每个分块
+
+### 操作
+
+- **`BLOCK`** - 以 HTTP 400 错误拒绝请求
+- **`MASK`** - 用脱敏标签替换敏感内容（例如 `[EMAIL_REDACTED]`）
+
+## 预构建模式
+
+### 可用模式
+
+| 模式名称 | 描述 | 示例 |
+|-------------|-------------|---------|
+| `us_ssn` | 美国社会安全号码 | `123-45-6789` |
+| `email` | 电子邮件地址 | `user@example.com` |
+| `phone` | 电话号码 | `+1-555-123-4567` |
+| `visa` | Visa 信用卡 | `4532-1234-5678-9010` |
+| `mastercard` | Mastercard 信用卡 | `5425-2334-3010-9903` |
+| `amex` | American Express 卡 | `3782-822463-10005` |
+| `aws_access_key` | AWS 访问密钥 | `AKIAIOSFODNN7EXAMPLE` |
+| `aws_secret_key` | AWS 密钥 | `wJalrXUtnFEMI/K7MDENG/bPxRfi...` |
+| `github_token` | GitHub 令牌 | `example-github-token-123` |
+
+### 使用预构建模式
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "pii-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "us_ssn"
+          action: "BLOCK"
+        
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+        
+        - pattern_type: "prebuilt"
+          pattern_name: "aws_access_key"
+          action: "BLOCK"
+```
+
+## 自定义正则表达式模式
+
+为特定领域的敏感数据定义你自己的正则表达式模式：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "custom-patterns"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      patterns:
+        # Custom employee ID format
+        - pattern_type: "regex"
+          pattern: '\b[A-Z]{3}-\d{4}\b'
+          name: "employee_id"
+          action: "MASK"
+        
+        # Custom project code format
+        - pattern_type: "regex"
+          pattern: 'PROJECT-\d{6}'
+          name: "project_code"
+          action: "BLOCK"
+```
+
+## 关键词过滤
+
+阻止或脱敏特定关键词：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "keyword-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      blocked_words:
+        - keyword: "confidential"
+          action: "BLOCK"
+          description: "Internal confidential information"
+        
+        - keyword: "proprietary"
+          action: "MASK"
+          description: "Proprietary company data"
+        
+        - keyword: "secret_project"
+          action: "BLOCK"
+```
+
+### 从文件加载关键词
+
+对于大型关键词列表，使用 YAML 文件：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "keyword-file-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      blocked_words_file: "/path/to/sensitive_keywords.yaml"
+```
+
+```yaml showLineNumbers title="sensitive_keywords.yaml"
+blocked_words:
+  - keyword: "project_apollo"
+    action: "BLOCK"
+    description: "Confidential project codename"
+  
+  - keyword: "internal_api"
+    action: "MASK"
+    description: "Internal API references"
+  
+  - keyword: "customer_database"
+    action: "BLOCK"
+    description: "Protected database name"
+```
+
+## 流式支持
+
+内容过滤器通过检查每个分块来处理流式响应：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "streaming-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "during_call"  # Check each streaming chunk
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+```
+
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234",
+    base_url="http://localhost:4000"
+)
+
+response = client.chat.completions.create(
+    model="{{openai_small}}",
+    messages=[{"role": "user", "content": "Tell me about yourself"}],
+    stream=True,
+    extra_body={"guardrails": ["streaming-filter"]}
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content)
+    # Emails automatically masked in real-time
+```
+
+## 图片内容过滤
+
+内容过滤器可以通过生成描述并对文本描述应用过滤器来分析图片。
+
+<Callout type="warn">
+
+这会给请求带来显著的延迟 - 取决于视觉模型的速度。
+
+这是因为包含图片的每个请求都会被发送到视觉模型以生成描述。
+
+</Callout>
+
+### 配置
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: gpt-4-vision
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "image-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      image_model: "gpt-4-vision"  # value is `model_name` of the vision-capable model
+      
+      # Apply same filters to image descriptions
+      categories:
+        - category: "harmful_violence"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+      
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+```
+
+### 工作原理
+
+1. 将图片发送到视觉模型以生成文本描述
+2. 对描述应用内容过滤器
+3. 如果检测到有害内容，则阻止请求并附带图片上下文
+
+**示例：**
+
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-1234",
+    base_url="http://localhost:4000"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4-vision",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What's in this image?"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
+        ]
+    }],
+    extra_body={"guardrails": ["image-filter"]}
+)
+```
+
+如果图片描述包含被过滤的内容，你将收到：
+
+```json
+{
+  "error": "Content blocked: harmful_violence category keyword 'weapon' detected (severity: high) (Image description): The image shows..."
+}
+```
+
+## 自定义脱敏标签
+
+使用 `MASK` 操作时，敏感内容会被替换为脱敏标签。你可以自定义这些标签的显示方式。
+
+### 默认行为
+
+**模式：** 每种模式类型根据模式名称获得自己的标签
+```
+Input:  "My email is john@example.com and SSN is 123-45-6789"
+Output: "My email is [EMAIL_REDACTED] and SSN is [US_SSN_REDACTED]"
+```
+
+**关键词：** 所有关键词使用相同的通用标签
+```
+Input:  "This is confidential and proprietary information"
+Output: "This is [KEYWORD_REDACTED] and [KEYWORD_REDACTED] information"
+```
+
+### 自定义标签
+
+使用 `pattern_redaction_format` 和 `keyword_redaction_tag` 来更改脱敏格式：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "custom-redaction"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      pattern_redaction_format: "***{pattern_name}***"  # Use {pattern_name} placeholder
+      keyword_redaction_tag: "***REDACTED***"
+      patterns:
+        - pattern_type: "prebuilt"
+          pattern_name: "email"
+          action: "MASK"
+        - pattern_type: "prebuilt"
+          pattern_name: "us_ssn"
+          action: "MASK"
+      blocked_words:
+        - keyword: "confidential"
+          action: "MASK"
+```
+
+**输出：**
+```
+Input:  "Email john@example.com, SSN 123-45-6789, confidential data"
+Output: "Email ***EMAIL***, SSN ***US_SSN***, ***REDACTED*** data"
+```
+
+**要点：**
+- `pattern_redaction_format` 必须包含 `{pattern_name}` 占位符
+- 模式名称自动转为大写（例如 `email` → `EMAIL`）
+- `keyword_redaction_tag` 是固定字符串（无占位符）
+
+## 内容类别
+
+预构建类别使用**关键词匹配**来检测有害内容、偏见和不当建议。关键词匹配使用单词边界（单个单词）或子字符串（多词短语），不区分大小写。
+
+### 可用类别
+
+按名称引用以下任何类别；无需 `category_file:`
+
+| 类别 | 描述 |
+|----------|-------------|
+| **有害内容** | |
+| `harmful_self_harm` | 自残、自杀、饮食失调 |
+| `harmful_violence` | 暴力、犯罪策划、攻击 |
+| `harmful_illegal_weapons` | 非法武器、爆炸物、危险材料 |
+| `harmful_child_safety` | 涉及未成年人的不当内容 |
+| **偏见/就业歧视** | |
+| `bias_gender` | 基于性别的歧视、刻板印象 |
+| `bias_sexual_orientation` | LGBTQ+ 歧视、同性恋恐惧症、跨性别恐惧症 |
+| `bias_racial` | 种族/民族歧视、仇恨言论 |
+| `bias_religious` | 宗教歧视、刻板印象 |
+| `age_discrimination` | 基于年龄的就业歧视 |
+| `disability` | 对残疾人的就业歧视 |
+| `gender_sexual_orientation` | 基于性别、性取向的就业歧视 |
+| `military_status` | 对退伍军人/军事人员的就业歧视 |
+| `religion` | 基于宗教或宗教信仰的就业歧视 |
+| **拒绝建议** | |
+| `denied_financial_advice` | 个性化财务建议、投资推荐 |
+| `denied_medical_advice` | 医疗建议、诊断、治疗推荐 |
+| `denied_legal_advice` | 法律建议、代理、法律策略 |
+| `denied_insults` | 侮辱、谩骂、人身攻击 |
+| **提示词注入** | |
+| `prompt_injection_jailbreak` | 越狱尝试（DAN、角色扮演攻击、安全绕过） |
+| `prompt_injection_system_prompt` | 尝试提取、泄露或覆盖系统提示词 |
+| `prompt_injection_sql` | 提示词中嵌入的 SQL 注入 |
+| `prompt_injection_malicious_code` | 通过提示词注入恶意代码 |
+| `prompt_injection_data_exfiltration` | 尝试提取训练数据或内部信息 |
+| **理赔滥用** | |
+| `claims_fraud_coaching` | 指导欺诈性保险理赔 |
+| `claims_medical_advice` | 理赔场景下的医疗建议 |
+| `claims_phi_disclosure` | 未经授权的 PHI 披露 / HIPAA 违规 |
+| `claims_prior_auth_gaming` | 预授权博弈尝试 |
+| `claims_system_override` | 理赔系统覆盖 / 角色冒充尝试 |
+
+<Callout type="info" title="偏见检测注意事项">
+
+偏见检测**复杂且依赖上下文**。基于规则的系统可以捕获明确的歧视性语言，但可能对合法讨论产生误报。从**高严重性阈值**开始，并进行彻底测试。对于关键任务的偏见检测，考虑与基于 AI 的护栏（如 HiddenLayer、Lakera）结合使用。
+
+</Callout>
+
+### 配置
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "content-filter"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      
+      categories:
+        - category: "harmful_self_harm"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"  # Blocks medium+ severity
+        
+        - category: "bias_gender"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "high"  # Only explicit discrimination
+        
+        - category: "denied_financial_advice"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+```
+
+**严重性阈值：**
+- `"high"` - 仅阻止高严重性项目
+- `"medium"` - 阻止中等和高严重性（默认）
+- `"low"` - 阻止所有严重性级别
+
+### 自定义类别文件
+
+使用你自己的关键词列表覆盖内置类别或添加全新类别
+
+```yaml showLineNumbers title="config.yaml"
+categories:
+  - category: "<your-category-name>"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+    category_file: "<your-category-name>.yaml"
+```
+
+```yaml showLineNumbers title="<your-category-name>.yaml"
+category_name: "<your-category-name>"
+description: "Short description of what this category detects"
+default_action: "BLOCK"
+
+keywords:
+  - keyword: "example keyword"
+    severity: "high"
+
+exceptions:
+  - "example exception phrase"
+```
+
+#### 文件放置位置
+
+将你的 YAML 放在以下两个位置之一：
+
+**选项 A：放在内置 `categories/` 目录内（推荐）**
+
+将文件挂载到 `<site-packages>/openmcp/proxy/guardrails/guardrail_hooks/openmcp_content_filter/categories/<your-category-name>.yaml`，并删除 `category_file:` 字段。加载器会按类别名称自动识别
+
+```yaml title="values.yaml (Helm)"
+extraVolumeMounts:
+  - name: content-filter-categories
+    mountPath: /usr/local/lib/python{{python_version}}/site-packages/openmcp/proxy/guardrails/guardrail_hooks/openmcp_content_filter/categories/<your-category-name>.yaml
+    subPath: <your-category-name>.yaml
+    readOnly: true
+
+extraVolumes:
+  - name: content-filter-categories
+    configMap:
+      name: <your-configmap-name>
+```
+
+```yaml title="config.yaml"
+guardrails:
+  - guardrail_name: "<your-guardrail-name>"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: pre_call
+      default_on: true
+      categories:
+        - category: "<your-category-name>"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "high"
+```
+
+如果你升级到基于不同 Python 次要版本构建的 openmcp 镜像，请更新 `mountPath`
+
+**选项 B：任意其他路径，需要通过环境变量启用**
+
+设置
+
+```bash
+OPENMCP_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS=true
+```
+
+在代理 Pod 上，然后通过绝对路径引用文件
+
+```yaml title="config.yaml"
+categories:
+  - category: "<your-category-name>"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "high"
+    category_file: "/absolute/path/to/<your-category-name>.yaml"
+```
+
+仅在所有可以写入 `category_file`（代理配置、数据库、Admin UI、团队级配置）的人员都受信任时才使用此选项；启用该标志后，`category_file` 可以指向 Pod 上任何可解析的 YAML 文件
+
+#### 验证加载状态
+
+检查代理启动日志中是否有以下内容
+
+```
+content_filter.py: Loaded category <name>: N keywords, M always-block keywords ...
+```
+
+或
+
+```
+content_filter.py: Category <name>: invalid category_file path, skipping. ...
+```
+
+第二行表示文件被拒绝，该类别以零规则运行；使用上述两种选项之一进行修复
+
+## 用例
+
+### 1. 有害内容检测
+
+阻止或检测包含有害、非法或危险内容的请求：
+
+```yaml
+categories:
+  - category: "harmful_self_harm"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+  - category: "harmful_violence"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "high"
+  - category: "harmful_illegal_weapons"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+```
+
+### 2. 偏见和歧视检测
+
+跨多个维度检测和阻止有偏见、歧视性或仇恨的内容：
+
+```yaml
+categories:
+  # Gender-based discrimination
+  - category: "bias_gender"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+  
+  # LGBTQ+ discrimination
+  - category: "bias_sexual_orientation"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+  
+  # Racial/ethnic discrimination
+  - category: "bias_racial"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "high"  # Only explicit to reduce false positives
+  
+  # Religious discrimination
+  - category: "bias_religious"
+    enabled: true
+    action: "BLOCK"
+    severity_threshold: "medium"
+```
+
+**灵敏度调优：**
+
+对于偏见检测，严重性阈值对于平衡安全性和合法讨论至关重要：
+
+```yaml
+# Conservative (low false positives, may miss subtle bias)
+categories:
+  - category: "bias_racial"
+    severity_threshold: "high"  # Only blocks explicit discriminatory language
+
+# Balanced (recommended)
+categories:
+  - category: "bias_gender"
+    severity_threshold: "medium"  # Blocks stereotypes and explicit discrimination
+
+# Strict (high safety, may have more false positives)
+categories:
+  - category: "bias_sexual_orientation"
+    severity_threshold: "low"  # Blocks all potentially problematic content
+```
+
+### 3. 个人身份信息保护
+在发送到大语言模型(LLM)之前阻止或脱敏个人身份信息：
+
+```yaml
+patterns:
+  - pattern_type: "prebuilt"
+    pattern_name: "us_ssn"
+    action: "BLOCK"
+  - pattern_type: "prebuilt"
+    pattern_name: "email"
+    action: "MASK"
+```
+
+### 2. 凭据检测
+防止 API 密钥和密钥泄露：
+
+```yaml
+patterns:
+  - pattern_type: "prebuilt"
+    pattern_name: "aws_access_key"
+    action: "BLOCK"
+  - pattern_type: "prebuilt"
+    pattern_name: "github_token"
+    action: "BLOCK"
+```
+
+### 3. 敏感内部数据保护
+阻止或脱敏对机密内部项目、代号或专有信息的引用：
+
+```yaml
+blocked_words:
+  - keyword: "project_titan"
+    action: "BLOCK"
+    description: "Confidential project codename"
+  - keyword: "internal_api"
+    action: "MASK"
+    description: "Internal system references"
+```
+
+对于大量敏感词列表，使用文件：
+```yaml
+blocked_words_file: "/path/to/sensitive_terms.yaml"
+```
+
+### 4. 面向消费者的 AI 应用安全
+
+将有害内容和偏见检测结合用于面向消费者的 AI：
+
+```yaml
+guardrails:
+  - guardrail_name: "safe-consumer-ai"
+    openmcp_params:
+      guardrail: openmcp_content_filter
+      mode: "pre_call"
+      
+      categories:
+        # Harmful content - strict
+        - category: "harmful_self_harm"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+        
+        - category: "harmful_violence"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+        
+        # Bias detection - balanced
+        - category: "bias_gender"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "high"  # Avoid blocking legitimate gender discussions
+        
+        - category: "bias_sexual_orientation"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "medium"
+        
+        - category: "bias_racial"
+          enabled: true
+          action: "BLOCK"
+          severity_threshold: "high"  # Education and news may discuss race
+```
+
+**适用于：**
+- 聊天机器人和虚拟助手
+- 教育 AI 工具
+- 客服 AI
+- 内容生成平台
+- 面向公众的 AI 应用
+
+### 5. 合规性
+通过过滤敏感数据类型确保监管合规：
+
+```yaml
+# Categories checked first (high priority)
+# Category keywords are matched first
+categories:
+  - category: "harmful_self_harm"
+    severity_threshold: "high"
+
+# Then regex patterns
+patterns:
+  - pattern_type: "prebuilt"
+    pattern_name: "visa"
+    action: "BLOCK"
+  - pattern_type: "prebuilt"
+    pattern_name: "us_ssn"
+    action: "BLOCK"
+```

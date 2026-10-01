@@ -1,0 +1,246 @@
+---
+title: 协议时代
+description: Inspector 如何协商 legacy 与现代 MCP，以及每个功能在协议时代之间如何处理
+---
+
+
+2026-07-28 版 MCP 对协议做了重大改动。因此，Inspector 把**协议时代**（legacy 或 modern，即该修订版之前或自该修订版起）当作一个一级的、按服务端设置、与传输正交的属性：同一个 HTTP URL 可以按 legacy 服务端检查，也可以按 modern 服务端检查。根据生效的是哪个时代，几个选项卡会渲染出实质不同的 UI 和流量。
+
+## `Protocol Era` 设置
+
+每个服务端携带一个为 `legacy`、`auto` 或 `modern` 的 `protocolEra`。在 web 客户端中它位于 **Server Settings**；在 catalog 或 config 文件中它就是 `protocolEra` 字段；在 CLI 和 TUI 中它来自同一个文件。
+
+| 时代      | 连接时 Inspector 做什么                                                      |
+| -------- | --------------------------------------------------------------------------------------- |
+| `legacy` | **默认。** 普通 `initialize`，完全不探测。                                 |
+| `auto`   | 先探测 `server/discover`，任何非 modern 结果则回退到 `initialize`。 |
+| `modern` | 严格固定为 `2026-07-28`。无回退，因此非 modern 服务端会响铃式失败。             |
+
+<Callout>
+  **为什么默认是 `legacy`，而不是 `auto`。** 调试工具绝不能
+  自动探测。`server/discover` 探测会卡在静默的 legacy stdio
+  服务端上，而且会污染你跑来想读的转录记录。主动
+  选择 `auto` 或 `modern` 是一个深思熟虑的行为，因此你在 Protocol
+  选项卡中看到的，正是你的服务端从一个按你配置方式行事的客户端那里会看到的。
+</Callout>
+
+时代选择在三个客户端中工作方式相同。
+
+连接后，协商出的时代会显示在连接头部和 **Connection Info** 中。在 modern 连接上，`server/discover` 还会提供 `capabilities`（包括 `extensions`）、`instructions` 以及 `supportedVersions` 列表。服务端的名称和版本随结果 `_meta` 的 `io.modelcontextprotocol/serverInfo` 字段到达。
+
+<img src="/images/docs/mcp/inspector/settings-protocol-era.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Server Settings：Protocol Era 选择器，含全部三个选项。</p>
+
+## 在本地复现每个时代
+
+下面的每个小节都以指向某个 JSON 配置的 **Reproduce with ...（用 ... 复现）** 收尾，该配置对应 Inspector 仓库中随附的一个**可组合测试服务端**。克隆仓库、构建测试服务端，然后把 Inspector 指向该小节点名的配置。
+
+```bash
+git clone https://github.com/modelcontextprotocol/inspector
+cd inspector && npm install && npm run build
+cd clients/web && npm run test-servers:build
+```
+
+---
+
+## 日志
+
+<Tabs items={['Legacy', 'Modern']}>
+
+<Tab>
+
+日志是**会话作用域**的。客户端发送一次 `logging/setLevel`，服务端在会话剩余时间内以不低于该级别的方式发送 `notifications/message`。
+
+**Logs** 选项卡显示一个 **Set Active Level（设置活动级别）** 选择器和一个 **Set（设置）** 按钮。选一个级别，点击 Set，后续服务端日志就会流入面板。
+
+用 `test-servers/configs/logging-legacy-http.json` 复现。
+
+  </Tab>
+  <Tab>
+
+`logging/setLevel` **已经消失了**。取而代之的是客户端**按请求**选择加入：在每个出站请求上盖上 `_meta["io.modelcontextprotocol/logLevel"]` 标记。对于未选择加入的请求，服务端绝不能发送 `notifications/message`。
+
+因此 **Logs** 选项卡展示的是一个 **Log Level per Request（按请求的日志级别）** 控件。选一个级别，之后每个请求都会携带该标记，在 Network 选项卡的请求体里可见。处理请求期间产生的日志会顺带挂在该请求的 SSE 响应流上。
+
+把控件设为 **Off**，`logLevel` 键就被完全省略，因此同一个工具调用完全不会产生日志。这种静默是正确的行为，而不是 bug。
+
+每个服务端的默认值是 `debug`（以最冗长的级别选择加入，因为 Inspector 是调试工具）；给服务端设置 `modernLogLevel: "off"` 可默认退出。
+
+用 `test-servers/configs/logging-modern-http.json` 复现。
+
+  </Tab>
+
+</Tabs>
+
+<img src="/images/docs/mcp/inspector/logs-legacy.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Legacy：Logs 选项卡提供会话级 Set Active Level 控件，在调用 send_notification 后收到一条日志。</p>
+
+<img src="/images/docs/mcp/inspector/logs-modern.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Modern：同一个选项卡改为提供 Log Level per Request。级别被盖在每个出站请求上，而日志搭该请求的流传输。</p>
+
+---
+
+## 资源订阅
+
+<Tabs items={['Legacy', 'Modern']}>
+
+<Tab>
+
+点击资源上的 **Subscribe（订阅）** 会发送 `resources/subscribe`。Subscriptions 部分列出 URI，不带流装饰。当资源变化时，服务端发送 `notifications/resources/updated`，被订阅的磁贴的最后更新时间会被盖上。
+
+用 `test-servers/configs/subscriptions-legacy-http.json` 复现，它还提供 `update_resource` 工具，因此你可以自己驱动通知的往返。
+
+  </Tab>
+  <Tab>
+
+同一个 **Subscribe** 按钮改为发送 **`subscriptions/listen`**，filter 携带 `resourceSubscriptions` 以及 `resourcesListChanged` 选择加入项。当服务端发送 `notifications/subscriptions/acknowledged` 时，订阅被确认。
+
+因为订阅现在是一个长期存在的流而不是会话 flag，Subscriptions 部分的头部会多一个**流状态徽标**，它会从 `Connecting...` 变为 `Listening`。如果流断开，Inspector 会通过重新发送 `subscriptions/listen` 重连。
+
+用 `test-servers/configs/subscriptions-modern-http.json` 复现。
+
+  </Tab>
+
+</Tabs>
+
+<img src="/images/docs/mcp/inspector/resources-subscriptions-modern.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一个 modern 订阅：Subscriptions 部分带有一个 legacy 订阅不需要的 LISTENING 流状态徽标。</p>
+
+---
+
+## 任务
+
+任务是协议时代之间变化最大的功能，包括 _Inspector UI 选项卡如何出现_。
+
+<Tabs items={['Legacy', 'Modern']}>
+
+<Tab>
+
+当服务端公告 `capabilities.tasks` 时出现 **Tasks** 选项卡。以启用 **Run as task（作为任务运行）** 的方式运行一个工具，该选项卡就会列出它，由 `tasks/list` 填充、以 `tasks/get` 轮询。完成的 payload 用一次**阻塞式 `tasks/result`** 获取，而 **Cancel（取消）** 发送 `tasks/cancel`。
+
+用 `test-servers/configs/tasks-legacy-http.json` 复现。
+
+  </Tab>
+  <Tab>
+
+任务是**扩展**（`io.modelcontextprotocol/tasks`，[SEP-2663](#)），因此选项卡的开关取决于_协商出的扩展_，而不是 `capabilities.tasks`。
+
+把工具作为任务运行，`tools/call` 返回一个 `CreateTaskResult`（`resultType: "task"`，在 Protocol 和 Network 选项卡中可见）。Inspector 只轮询 **`tasks/get`**；没有 `tasks/list`，因此 **Refresh（刷新）** 会重新轮询客户端已经知道的 handle。完成的任务**内联其结果**，不需要阻塞式 `tasks/result` 调用。
+
+需要更多信息的任务会移入 `input_required`，并在 pending-request 弹窗（web 客户端在某个请求等你响应时打开的对话框）中呈现一个嵌入的 [elicitation](/docs/mcp/specification/draft/client/elicitation)。回答它会发送携带 `inputResponses` 的 **`tasks/update`**，下一次轮询即完成。
+
+用 `test-servers/configs/tasks-modern-http.json` 复现（工具 `modern_task` 和 `modern_input_task`）。
+
+  </Tab>
+
+</Tabs>
+
+<img src="/images/docs/mcp/inspector/tasks-legacy.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Legacy：Tasks 选项卡由 tasks/list 填充，payload 用阻塞式 tasks/result 获取。</p>
+
+<img src="/images/docs/mcp/inspector/tasks-modern.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Modern：客户端轮询它自己已持有的 handle 上的 tasks/get，完成的任务内联其结果；注意完整任务对象中的 resultType: complete。</p>
+
+---
+
+## 多轮工具结果（MRTR）
+
+在现代时代，工具可以返回 `input_required` 而不是最终结果，其中嵌入一个 [elicitation](/docs/mcp/specification/draft/client/elicitation)、一个 [sampling](/docs/mcp/specification/draft/client/sampling) 请求或一个 [`roots/list`](/docs/mcp/specification/draft/client/roots) 请求。客户端回答该嵌入请求，并以全新的 JSON-RPC id 重试 `tools/call`，直到调用达到 `complete`。
+
+Inspector **手动**驱动 MRTR，因此每一轮都会暂停在标注为 `input_required` 的 **pending-request 弹窗**处，等你回答。Protocol 视图把整次交换归组为一次 MRTR 会话，而不是无关的调用。
+
+`test-servers/configs/mrtr-showcase-http.json` 把一个 modern 服务端里所有形态打包在一起：
+
+| 工具            | 它演练什么                                                             |
+| --------------- | ----------------------------------------------------------------------------- |
+| `mrtr_confirm`  | 单轮 elicitation。                                                   |
+| `mrtr_two_step` | 两轮 elicitation，通过 `requestState` 串起来。                      |
+| `mrtr_sample`   | 一个嵌入的 sampling 请求，路由到 Sampling 面板。                   |
+| `mrtr_roots`    | 一个嵌入的 `roots/list`，用已配置的 roots 静默回答（无弹窗）。 |
+| `mrtr_edge`     | 先一轮 `inputRequests`-only，再一轮 `requestState`-only。              |
+| `mrtr_loop`     | 永不完成，因此客户端停在它的 `MRTR_MAX_ROUNDS` 上限。          |
+
+<Callout>
+  legacy 的 `collect_elicitation` 模式（服务端调用
+  `server.elicitInput`）在 2026-07-28 连接上会**报错**，因为
+  那种连接不允许服务端到客户端的请求。MRTR 是它的
+  modern 替代品。
+</Callout>
+
+<img src="/images/docs/mcp/inspector/mrtr-pending-request.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一次 MRTR 轮暂停在标注为 input_required 的 pending-request 弹窗处。回答它会重试原始请求。</p>
+
+---
+
+## 工具：镜像 headers 与被排除的工具
+
+[SEP-2243](#) 允许工具用 `x-mcp-header` 标注一个参数，要求 Streamable HTTP 客户端把该参数的值镜像进一个 `Mcp-Param-*` 请求 header。
+
+Inspector 在 **Tools** 选项卡中呈现该契约的两半：
+
+- 带**有效**标注的工具会在其详情面板中显示一个 **"Mirrored request headers (SEP-2243)"（镜像的请求 headers (SEP-2243)）** 小节，例如 `city -> Mcp-Param-City`。
+- 带**无效**标注的工具（比如说 header 名是 `"Bad Header"`，其中的空格使它成为无效的 RFC 9110 token）会以删除线形式出现在侧边栏的 **"Excluded (SEP-2243)"（已排除 (SEP-2243)）** 分隔线之下，原因在悬停时可见。合规的客户端必须把这样的工具从 `tools/list` 中剔除；Inspector 会向你展示它_为什么_被剔除，而不是默默隐藏。
+
+用 `test-servers/configs/xmcpheader-modern-http.json` 复现。
+
+<Callout type="warn">
+  **浏览器中的 SDK 会跳过 `Mcp-Param-*` 镜像。** 从 *web* 客户端
+  调用一个带镜像标注的工具会省略 header，因此严格的服务端
+  会回答 `-32020`（`HeaderMismatch`，见下面的[错误
+  分类](#network-and-protocol-headers-and-the-error-taxonomy)）。同一个
+  工具从 **CLI** 或 **TUI**（均运行在 Node 上）调用则会正确
+  镜像。header 由 SDK 内部的某个环境检查丢弃，
+  不在 Inspector 的控制范围内。
+</Callout>
+
+<img src="/images/docs/mcp/inspector/tools-sep2243.png" />
+
+### `-32602` 错误面板
+
+在现代时代，以 `-32602` 拒绝的 `tools/call` 会渲染成一个明确的 **error 面板**：
+
+- **Unknown Tool（未知工具）**：当消息点名了服务端未列出的工具时。通过调用服务端 `tools/list` 中不存在的任何名字来复现。
+- **Invalid Parameters（无效参数）**：其他任何 `-32602`。用上面配置中的 `trigger_invalid_params` 工具复现。
+
+两个时代都以 `-32602` 拒绝；只有 Inspector 的呈现方式变化。在 legacy 连接上你只会得到一个通用 JSON-RPC 失败，必须读消息才能分辨你命中哪种情况。
+
+---
+
+## Network 与 Protocol：headers 和错误分类
+
+现代时代标准化了一组 `Mcp-*` HTTP headers，并引入了一个更丰富的 JSON-RPC 错误分类（[SEP-2243](#) / [SEP-2575](#)）。两个监控选项卡分工：
+
+- **Network** 选项卡是 HTTP 视图：镜像的 `Mcp-*` headers 被高亮，哨兵值被解码。
+- **Protocol** 选项卡是 JSON-RPC 视图：每个规范错误都以明确方式渲染，而不是通用失败。
+
+`test-servers/configs/modern-network-http.json` 提供四个工具，每个产生一个真实的 HTTP 状态码外加一个 JSON-RPC 错误体，每个类别一个：
+
+| 工具                          | HTTP  | JSON-RPC 代码 | 含义                                                      |
+| ----------------------------- | ----- | ------------- | ------------------------------------------------------------ |
+| `trigger_header_mismatch`     | `400` | `-32020`      | 必需的镜像 header 缺失或错误。             |
+| `trigger_missing_capability`  | `400` | `-32021`      | 请求省略了服务端要求的客户端能力。 |
+| `trigger_unsupported_version` | `400` | `-32022`      | 不支持的版本；支持的版本在 `data.supported` 中。 |
+| `trigger_method_not_found`    | `404` | `-32601`      | 方法未找到。                                            |
+
+<img src="/images/docs/mcp/inspector/network-modern-headers.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Network 选项卡显示 HTTP 层；这里是严格服务端回答的 400 Bad Request。</p>
+
+<img src="/images/docs/mcp/inspector/protocol-modern-error.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Protocol 选项卡把同一失败渲染为具类型的规范错误：-32022 UnsupportedProtocolVersion，并列出服务端实际支持的版本。</p>
+
+---
+
+## 会话
+
+legacy Streamable HTTP 连接可能携带一个服务端分配的会话 id（`Mcp-Session-Id`），客户端用一个 HTTP `DELETE` 将其拆除。modern 连接是**无会话、按请求**的：由于没有会话 id，客户端 SDK 不会向服务端发送 `DELETE`，因此断开完全是本地的。
+
+这对你的测试服务端有一个实际影响。按请求构造的无状态 modern handler 无法在调用之间持有状态，这正是 `test-servers/configs/subscriptions-modern-http.json` 与其 legacy 对应物不同、省略了 `update_resource` 工具的原因：该变更会跑在一个一次性服务端实例上，下一次读取时不可见。

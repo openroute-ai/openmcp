@@ -2,6 +2,9 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "globalEnv": [
+    "AI_CHAT_API_KEY",
+    "AI_CHAT_BASE_URL",
+    "AI_CHAT_MODEL",
     "ALIPAY_APP_ID",
     "ALIPAY_PRIVATE_KEY",
     "ALIPAY_PUBLIC_KEY",
@@ -16,6 +19,8 @@
     "BANK_TRANSFER_ACCOUNT_NUMBER",
     "BANK_TRANSFER_BANK_NAME",
     "BANK_TRANSFER_BRANCH_NAME",
+    "CHAT_MAX_STEPS",
+    "CHAT_RATE_LIMIT_PER_MIN",
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_TRUSTED_ORIGINS",
     "BETTER_AUTH_URL",

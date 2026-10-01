@@ -1,0 +1,170 @@
+---
+title: Web 客户端
+description: 图形化 MCP Inspector 逐选项卡的讲解
+---
+
+
+web 客户端是 Inspector 最丰富的界面：由一个小型 Node 服务器支撑的单页应用，真正的 MCP 连接归属于该服务器。它是默认模式，因此不带模式 flag 运行 `npx @modelcontextprotocol/inspector` 就会落在它上面。
+
+```bash
+npx @modelcontextprotocol/inspector                       # empty, add servers in the UI
+npx @modelcontextprotocol/inspector node build/index.js   # with an ad-hoc stdio server
+npx @modelcontextprotocol/inspector --catalog ./mcp.json  # with a catalog file
+```
+
+## 会话令牌
+
+web 客户端后面的 Node 服务器用每次启动的令牌守护每个 `/api/*` 路由，因为它可以在你的机器上生成进程。启动器会打印一个包含该令牌的 URL：**打开那个 URL**，不要凭记忆输入 `localhost:6274`。
+
+浏览器从三个地方恢复令牌，按优先级：
+
+1. `window.__INSPECTOR_API_TOKEN__`，在每次页面加载时注入 `index.html`。这就是裸 URL 刷新或书签能继续工作的原因。
+2. 一个 `?MCP_INSPECTOR_API_TOKEN=...` 查询字符串，那个打印出的 URL 用的就是这种形式。
+3. `sessionStorage`，作为兜底。
+
+设置 `MCP_INSPECTOR_API_TOKEN` 环境变量可固定一个已知令牌（对脚本化启动有用），或设置 `DANGEROUSLY_OMIT_AUTH=true` 完全禁用检查——但只应在没有任何别的东西能触及该端口的机器上如此做。两者都在 [Web 后端环境变量](/docs/mcp/tools/inspector/configuration#web-backend-environment-variables)下说明。
+
+## 开发模式
+
+`--dev` 是一个**web 专属** flag。它运行 Vite dev server 而不是提供预构建的 bundle，这在你在改造 Inspector 本身时很重要：
+
+```bash
+mcp-inspector --web --dev
+```
+
+生产版 `--web` 提供构建好的 bundle。已发布包中该 bundle 始终随附；在全新源码检出中则没有，因此 runner 会在你首次启动时按需构建它。
+
+## 选项卡栏
+
+| 选项卡           | 显示时机                                                            | 作用                                                                             |
+| ------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Servers**   | 始终                                                                | 服务端列表：添加、编辑、导入、连接，以及打开每个服务端的设置。     |
+| **Apps**      | 服务端暴露了 MCP App 工具                                      | 在沙箱化 frame 中渲染工具的 UI。                                      |
+| **Tools**     | `tools` 能力                                                    | 浏览 schema、填写参数、调用、检查结果。                         |
+| **Prompts**   | `prompts` 能力                                                  | 列出提示词、提供参数、预览生成的消息。                    |
+| **Resources** | `resources` 能力                                                | 浏览、读取和订阅资源。                                      |
+| **Tasks**     | `capabilities.tasks`（legacy 时代）或 tasks 扩展（modern 时代） | 跟踪长时间运行的工具调用。                                                 |
+| **Logs**      | `logging` 能力                                                  | 服务端 `notifications/message` 输出，外加符合时代的级别控件。 |
+| **Protocol**  | 始终                                                                | JSON-RPC 转录：请求、响应、通知。                   |
+| **Network**   | HTTP / SSE 服务端                                                    | 原始 HTTP 视图：状态、headers、请求体。                                    |
+| **Console**   | stdio 服务端                                                         | 服务端进程的 `stderr`。                                                 |
+
+**Network** 和 **Console** 永远不会同时出现。legacy 与 modern 时代在[协议时代](/docs/mcp/tools/inspector/protocol-eras)中说明。
+
+<img src="/images/docs/mcp/inspector/web-tab-bar.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">已连接服务端的选项卡栏。出现哪些选项卡取决于服务端报告的能力。</p>
+
+### 监控侧边栏
+
+**Tasks**、**Logs**、**Protocol**、**Network** 和 **Console** 构成一个_监控组_。固定该组后，它们会离开选项卡栏，移入一个可调整宽度的右侧栏，这样你在 Tools 或 Resources 中工作时也能观察流量。列宽和所选监控选项卡会在重新加载后保留。
+
+<img src="/images/docs/mcp/inspector/web-monitor-sidebar.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">监控侧边栏固定在 Tools 屏幕旁。你在工作时 Protocol 流保持可见。</p>
+
+## Servers
+
+Servers 屏幕是入口点。每个服务端行携带它的传输、连接状态，以及一个打开它服务端设置的控件。
+
+该列表来自哪里、是否可编辑，取决于你如何启动：
+
+| 启动                                       | 服务端列表                                                             | 可编辑？ |
+| -------------------------------------------- | ----------------------------------------------------------------------- | --------- |
+| `mcp-inspector --web`                        | 默认 catalog `~/.mcp-inspector/mcp.json`，首次启动时播种 | 是       |
+| `--catalog <path>`                           | 那个文件，缺失时播种示例服务端                    | 是       |
+| `--config <path>`                            | 那个文件，只读（绝不写入或播种）                          | 否        |
+| `--server-url <url>` 或一个位置参数命令 | 一个临时服务端，仅存于内存                                       | 否        |
+
+首次启动时，web 客户端会播种两个示例服务端：一个限定于 `/tmp` 的文件系统服务端和一个经典的 "everything" 参考服务端。完整规则（包括 CLI 和 TUI 为何改为播种空 catalog）参见[配置与 flags](/docs/mcp/tools/inspector/configuration)。
+
+### Server Settings
+
+- **Protocol Era**：`legacy` / `auto` / `modern`。参见[协议时代](/docs/mcp/tools/inspector/protocol-eras)。
+- **Log level per request**：modern 时代连接默认盖在每个出站请求上的级别，或 `off` 以退出（参见[日志](/docs/mcp/tools/inspector/protocol-eras#logging)）。
+- **Advertised Extensions**：Inspector 在 `capabilities.extensions` 中声明哪些扩展。这是一个调试旋钮：服务端可能根据你公告的内容合理地更改它注册的东西。取消选中 Tasks 扩展，并对着 `test-servers/configs/advertised-extensions-http.json` fixture（配置见[在本地复现每个时代](/docs/mcp/tools/inspector/protocol-eras#reproducing-each-era-locally)）重连，即可观察某个工具消失。
+- **Roots**：通过 `roots` 客户端能力公告的 roots。例如 `@modelcontextprotocol/server-filesystem` 会调用 `roots/list` 来了解它被允许的目录。
+- **Headers**、**timeouts** 和 **OAuth** 字段。
+- **Fetch lists one page at a time**：关闭时，列表结果在连接时跨页自动聚合；打开时，每个列表只加载第 1 页，附带一个 **Load next page（加载下一页）** 控件和一个 _N pages loaded（已加载 N 页）_ 状态。用 `test-servers/configs/pagination-http.json` 复现，它把 12 个工具、资源和提示词分页为各三页。
+
+<img src="/images/docs/mcp/inspector/web-server-settings.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">展开 Advertised Extensions 后的 Server Settings。取消选中一个会改变 Inspector 在连接时声明的内容。</p>
+
+## Tools
+
+选择一个工具可看到它的描述、渲染为表单的输入 schema，以及它的注解。填写表单并调用它；结果渲染在下方，结构化内容、嵌入资源和图片都被原生处理。
+
+在现代时代服务端上，此屏幕还显示镜像的 `Mcp-Param-*` headers、被排除的工具和明确的 `-32602` 错误面板，全部在[协议时代](/docs/mcp/tools/inspector/protocol-eras#tools-mirrored-headers-and-excluded-tools)中说明。
+
+<img src="/images/docs/mcp/inspector/web-tools.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一次工具调用及其渲染出的结果。调用返回后，参数表单折叠进结果面板。</p>
+
+## Resources
+
+列出资源和资源模板及其 MIME 类型与描述，选择时读取内容，并在支持订阅的服务端上提供 **Subscribe（订阅）**。订阅机制因时代而异；参见[资源订阅](/docs/mcp/tools/inspector/protocol-eras#resource-subscriptions)。
+
+<img src="/images/docs/mcp/inspector/web-resources.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一次资源读取，资源列表下方列有一个活动订阅。</p>
+
+## Prompts
+
+列出提示词模板及其参数，并为你提供的参数渲染生成的消息，这是确认提示词产出符合预期的最快方式。
+
+<img src="/images/docs/mcp/inspector/web-prompts.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一个用所提供参数渲染的提示词。</p>
+
+## Apps
+
+[MCP Apps](/docs/mcp/extensions/apps/overview) 是携带 UI 的工具。Apps 选项卡在由一个**独立端口**提供的沙箱化 iframe 中渲染一个 App，演练 `ui/*` 桥接，并在侧面板中显示该视图的 `ui/message` 提交及其 `notifications/message` 日志。
+
+- 沙箱端口默认是动态的；需要暴露或转发时用 `MCP_SANDBOX_PORT` 固定它。
+- 沙箱由 `frame-ancestors` CSP 门控，而带括号的 IPv6 字面量不是有效的 CSP host-source，因此请在 `localhost`、`127.0.0.1`、某个主机名或局域网 IPv4 上浏览 Inspector，**不要**在裸 `http://[::1]:...` 上。
+- 沙箱 URL 始终是明文 `http`，因此 `https://` Inspector 页面会把该 frame 作为混合内容拦截。MCP Apps 目前需要一个明文 `http` origin。
+
+CLI 优先的自动化审核流程见[实用指南](/docs/mcp/tools/inspector/recipes#reviewing-an-mcp-app)。
+
+<img src="/images/docs/mcp/inspector/web-apps.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">一个在其沙箱化 frame 中渲染的 MCP App，下方是该 App 自己的日志。</p>
+
+## Protocol、Network 和 Console
+
+这三个选项卡以不同详细程度显示同一份流量：
+
+- **Protocol**：JSON-RPC 转录。请求与响应配对、通知内联、[MRTR](/docs/mcp/tools/inspector/protocol-eras#multi-round-tool-results-mrtr) 轮归组为一次会话，规范错误按类别渲染。
+- **Network**：HTTP 层，适用于 SSE 和 Streamable HTTP 服务端。状态码、请求和响应 headers 以及请求体。在 modern 连接上，标准化的 `Mcp-*` headers 会被高亮，哨兵值被解码。
+- **Console**：已连接 stdio 服务端进程的 `stderr`，这是大多数 stdio 服务端放自己诊断信息的地方。
+
+这些视图中的秘密会被遮盖，条目可被清除或导出。
+
+<img src="/images/docs/mcp/inspector/web-protocol.png" />
+
+<p className="text-center text-sm text-fd-muted-foreground my-2">Protocol 选项卡，一个条目已展开，显示完整的 JSON-RPC 交换。</p>
+
+## 深度链接
+
+一个驱动器（脚本、CI 框架，或 CLI 的 [`--print-handoff`](/docs/mcp/tools/inspector/authorization#handing-off-from-the-web-client-to-the-cli)）可以用一次导航到达一个_已连接_的 Inspector：
+
+```
+http://127.0.0.1:6274/?serverUrl=<url>&transport=http|sse&autoConnect=<token>
+```
+
+| 参数     | 含义                                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| `serverUrl`   | MCP 服务端 URL。限制为 `http:` / `https:`；构造的 `javascript:` 或 `file:` 值会被拒绝。    |
+| `transport`   | `http`（默认）或 `sse`。                                                                                     |
+| `autoConnect` | **必需的 CSRF 门禁。** 必须等于每次启动的会话令牌，而它只有启动服务端的人才知道。 |
+
+还有三个参数让你落在一个_已渲染的 App_ 上：`openApp=<toolName>` 指定工具，`appArgs=<base64url(JSON)>` 提供它的参数（合并到工具 schema 的默认值上），`autoOpen=<token>` 自动触发工具调用。因为 `autoOpen` 会触发一次调用，所以它与 `autoConnect` 携带同样强制的令牌门禁。
+
+## 主机绑定与 origin
+
+默认情况下，Inspector 绑定 `localhost`，并且只接受来自其端口 loopback origin 的请求。请把这两个默认值都视为安全边界，因为后端会在你的机器上生成进程。
+
+绑定所有接口（`HOST=0.0.0.0`）会被**拒绝**，除非你设置 `DANGEROUSLY_BIND_ALL_INTERFACES=true`。绑定_特定_非 loopback 地址无需选择加入即可允许，因为那是一次刻意的暴露而非一次性地暴露所有接口。
+
+完整的矩阵见[在网络中托管](/docs/mcp/tools/inspector/recipes#hosting-on-a-network)配方，变量见[配置](/docs/mcp/tools/inspector/configuration#web-backend-environment-variables)。

@@ -1,0 +1,213 @@
+---
+title: "DynamoAI Guardrails"
+description: "OpenMCP 支持 DynamoAI 护栏，用于对 LLM 输入和输出进行内容审核和策略强制。"
+---
+
+OpenMCP 支持 DynamoAI 护栏，用于对 LLM 输入和输出进行内容审核和策略强制。
+
+## 快速开始
+
+### 1. 在 OpenMCP config.yaml 中定义护栏
+
+在 `guardrails` 部分定义你的护栏：
+
+```yaml showLineNumbers title="config.yaml"
+model_list:
+  - model_name: {{openai_large}}
+    openmcp_params:
+      model: openai/{{openai_large}}
+      api_key: os.environ/OPENAI_API_KEY
+
+guardrails:
+  - guardrail_name: "dynamoai-guard"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "pre_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+```
+
+#### `mode` 支持的取值
+
+- `pre_call` - 在调用 **LLM 之前** 运行，作用于**输入**
+- `post_call` - 在调用 **LLM 之后** 运行，作用于**输出**
+- `during_call` - 在调用 **LLM 期间** 运行，作用于**输入**。与 `pre_call` 相同，但与 LLM 调用并行运行
+
+### 2. 设置环境变量
+
+```bash
+export DYNAMOAI_API_KEY="your-api-key"
+# Optional: Set policy IDs via environment variable (comma-separated)
+export DYNAMOAI_POLICY_IDS="policy-id-1,policy-id-2,policy-id-3"
+```
+
+### 3. 启动 OpenMCP 网关
+
+```shell
+openmcp --config config.yaml --detailed_debug
+```
+
+### 4. 测试请求
+
+**[Langchain、OpenAI SDK 使用示例](/docs/proxy/user_keys#request-format)**
+
+<Tabs items={["Successful Call","Blocked Call"]}>
+<Tab>
+
+```shell showLineNumbers title="Successful Request"
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "What is the capital of France?"}
+    ],
+    "guardrails": ["dynamoai-guard"]
+  }'
+```
+
+**响应：HTTP 200 成功**
+
+内容通过所有策略检查并被放行。
+
+</Tab>
+
+<Tab>
+
+```shell showLineNumbers title="Blocked Request"
+curl -i http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-1234" \
+  -d '{
+    "model": "{{openai_large}}",
+    "messages": [
+      {"role": "user", "content": "Content that violates policy"}
+    ],
+    "guardrails": ["dynamoai-guard"]
+  }'
+```
+
+**拦截时的预期响应：HTTP 400 错误**
+
+```json showLineNumbers
+{
+  "error": {
+    "message": "Guardrail failed: 1 violation(s) detected\n\n- POLICY NAME:\n  Action: BLOCK\n  Method: TOXICITY\n  Description: Policy description\n  Policy ID: policy-id-123",
+    "type": "None",
+    "param": "None",
+    "code": "400"
+  }
+}
+```
+
+</Tab>
+</Tabs>
+
+## 高级配置
+
+### 指定策略 ID
+
+配置要应用的特定 DynamoAI 策略：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "dynamoai-policies"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "pre_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+      policy_ids:
+        - "policy-id-1"
+        - "policy-id-2"
+        - "policy-id-3"
+```
+
+### 自定义 API Base
+
+指定自定义的 DynamoAI API 端点：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "dynamoai-custom"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "pre_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+      api_base: "https://custom.dynamo.ai"
+```
+
+### 用于跟踪的模型 ID
+
+添加一个模型 ID 用于跟踪和日志记录：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  - guardrail_name: "dynamoai-tracked"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "pre_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+      model_id: "gpt-4-production"
+```
+
+### 输入和输出护栏
+
+为输入和输出配置独立的护栏：
+
+```yaml showLineNumbers title="config.yaml"
+guardrails:
+  # Input guardrail
+  - guardrail_name: "dynamoai-input"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "pre_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+
+  # Output guardrail
+  - guardrail_name: "dynamoai-output"
+    openmcp_params:
+      guardrail: dynamoai
+      mode: "post_call"
+      api_key: os.environ/DYNAMOAI_API_KEY
+```
+
+## 配置选项
+
+| 参数 | 类型 | 描述 | 默认值 |
+|-----------|------|-------------|---------|
+| `api_key` | string | DynamoAI API 密钥（必填） | `DYNAMOAI_API_KEY` 环境变量 |
+| `api_base` | string | DynamoAI API 基础 URL | `https://api.dynamo.ai` |
+| `policy_ids` | array | 要应用的 DynamoAI 策略 ID 列表（可选） | `DYNAMOAI_POLICY_IDS` 环境变量（逗号分隔） |
+| `model_id` | string | 用于跟踪/日志记录的模型 ID | `DYNAMOAI_MODEL_ID` 环境变量 |
+| `mode` | string | 运行时机：`pre_call`、`post_call` 或 `during_call` | 必填 |
+
+## 可观测性
+
+DynamoAI 护栏日志包括：
+
+- **guardrail_status**: `success`、`guardrail_intervened` 或 `guardrail_failed_to_respond`
+- **guardrail_provider**: `dynamoai`
+- **guardrail_json_response**: 包含策略详情的完整 API 响应
+- **duration**: 护栏检查所花费的时间
+- **start_time** 和 **end_time**: 时间戳
+
+这些日志可以通过你配置的 OpenMCP 日志回调获取。
+
+## 错误处理
+
+该护栏会优雅地处理错误：
+
+- **API 失败**：记录错误并抛出带有 `guardrail_failed_to_respond` 状态的异常
+- **策略违规**：抛出带详细违规信息的 `ValueError`
+- **无效配置**：如果 API 密钥缺失，在初始化时抛出 `ValueError`
+
+## 当前限制
+
+- 目前只支持 `BLOCK` 动作
+- `WARN`、`REDACT` 和 `SANITIZE` 动作会被当作成功处理（直接放行）
+
+## 支持
+
+有关 DynamoAI 的更多信息：
+- 网站: [https://dynamo.ai](https://dynamo.ai)
+- 文档: 请联系 DynamoAI 获取 API 文档

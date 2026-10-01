@@ -1,0 +1,67 @@
+---
+title: "Documentation"
+description: "Guides for the OpenMCP AI Gateway: the MCP Gateway, the A2A Agent Gateway and Guardrails."
+---
+
+OpenMCP AI Gateway sits between your applications and the model, tool and agent providers. The guides below cover how to register MCP servers and A2A agents, control who can reach them, and apply Guardrails to every request.
+
+## MCP Gateway
+
+Route every MCP server through a single endpoint, then govern tools by key, team and organization.
+
+<Cards>
+  <Card title="MCP Overview" href="/docs/mcp-gateway">
+    Add HTTP, SSE and STDIO MCP servers and call their tools from any client
+  </Card>
+  <Card title="Authentication" href="/docs/mcp-gateway/authentication">
+    OAuth, AWS SigV4, OBO, ID-JAG and other ways to authenticate MCP servers
+  </Card>
+  <Card title="Access & Governance" href="/docs/mcp-gateway/control">
+    Control tools per key, team and organization, and track cost per tool call
+  </Card>
+  <Card title="MCP Servers" href="/docs/mcp-gateway/servers">
+    Step-by-step setup for popular third-party MCP servers
+  </Card>
+</Cards>
+
+## A2A Agent Gateway
+
+Onboard A2A agents on the gateway, invoke them through a single endpoint and track every request.
+
+<Cards>
+  <Card title="Agent Gateway Overview" href="/docs/a2a-gateway">
+    Add A2A agents, invoke them and read their logs in OpenMCP
+  </Card>
+  <Card title="Invoking Agents" href="/docs/a2a-gateway/invoking-agents">
+    Call agents with the A2A protocol, the SDK or the OpenMCP API
+  </Card>
+  <Card title="Agent Permissions" href="/docs/a2a-gateway/agent-permissions">
+    Scope which keys, teams and organizations can reach an agent
+  </Card>
+  <Card title="Cost Tracking" href="/docs/a2a-gateway/cost-tracking">
+    Attribute agent usage and spend to the caller
+  </Card>
+</Cards>
+
+## Guardrails
+
+Detect, mask and moderate content on the way in and on the way out.
+
+<Cards>
+  <Card title="Quick Start" href="/docs/guardrails">
+    Set up prompt injection detection and PII masking on the proxy
+  </Card>
+  <Card title="Custom Guardrails" href="/docs/guardrails/custom-guardrail">
+    Write your own guardrail class and register it with OpenMCP
+  </Card>
+  <Card title="Integrations" href="/docs/guardrails/aim-security">
+    Drop-in support for Bedrock, Presidio, Lakera, Azure and many more
+  </Card>
+  <Card title="Adding a Guardrail" href="/docs/guardrails/adding-guardrail-support">
+    Add guardrail support to a new endpoint
+  </Card>
+</Cards>
+
+## Protocol references
+
+Looking for the protocol specifications rather than the gateway setup? See the [MCP protocol docs](/docs/mcp) and the [A2A protocol docs](/docs/a2a) sections, or the [tutorials](/docs/tutorials).

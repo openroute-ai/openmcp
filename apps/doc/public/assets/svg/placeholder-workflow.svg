@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" fill="none" viewBox="0 0 1200 1200">
+  <!-- Background -->
+  <rect width="1200" height="1200" fill="#EAEAEA" rx="3"/>
+  
+  <!-- Workflow nodes and connections -->
+  <g opacity=".5">
+    <!-- Connection lines with gradient -->
+    <path stroke="url(#lineGradient1)" stroke-width="2.418" d="M300 400h200"/>
+    <path stroke="url(#lineGradient2)" stroke-width="2.418" d="M700 400h200"/>
+    <path stroke="url(#lineGradient3)" stroke-width="2.418" d="M500 400v200"/>
+    <path stroke="url(#lineGradient4)" stroke-width="2.418" d="M500 700v100"/>
+    <path stroke="url(#lineGradient5)" stroke-width="2.418" d="M300 600h200"/>
+    <path stroke="url(#lineGradient6)" stroke-width="2.418" d="M700 600h200"/>
+    
+    <!-- Arrow markers -->
+    <path stroke="url(#lineGradient1)" stroke-width="2.418" d="M490 395l10 5-10 5" fill="none"/>
+    <path stroke="url(#lineGradient2)" stroke-width="2.418" d="M710 395l10 5-10 5" fill="none"/>
+    <path stroke="url(#lineGradient3)" stroke-width="2.418" d="M495 590l5 10-5-10" fill="none"/>
+    <path stroke="url(#lineGradient4)" stroke-width="2.418" d="M495 790l5 10-5-10" fill="none"/>
+    
+    <!-- Workflow nodes -->
+    <!-- Start node -->
+    <circle cx="300" cy="400" r="40" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <circle cx="300" cy="400" r="25" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <path d="M295 395l8 8-8 8" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round"/>
+    
+    <!-- Process node 1 -->
+    <rect x="450" y="360" width="100" height="80" rx="8" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <rect x="465" y="375" width="70" height="50" rx="4" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <path d="M475 390h50M475 400h50M475 410h35" stroke="#666" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Process node 2 -->
+    <rect x="650" y="360" width="100" height="80" rx="8" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <rect x="665" y="375" width="70" height="50" rx="4" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <circle cx="680" cy="390" r="3" fill="#666"/>
+    <circle cx="695" cy="390" r="3" fill="#666"/>
+    <circle cx="710" cy="390" r="3" fill="#666"/>
+    <path d="M675 405h30M675 415h25" stroke="#666" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Decision node -->
+    <polygon points="500,560 560,600 500,640 440,600" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <polygon points="500,580 540,600 500,620 460,600" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <path d="M490 595h20M495 600h10M490 605h20" stroke="#666" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Process node 3 -->
+    <rect x="450" y="760" width="100" height="80" rx="8" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <rect x="465" y="775" width="70" height="50" rx="4" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <rect x="475" y="785" width="15" height="15" rx="2" fill="#666"/>
+    <rect x="495" y="785" width="15" height="15" rx="2" fill="#666"/>
+    <rect x="515" y="785" width="15" height="15" rx="2" fill="#666"/>
+    <path d="M475 805h40" stroke="#666" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- End node -->
+    <circle cx="300" cy="600" r="40" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <circle cx="300" cy="600" r="25" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <circle cx="300" cy="600" r="8" fill="#666"/>
+    
+    <!-- Alternative end node -->
+    <circle cx="700" cy="600" r="40" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <circle cx="700" cy="600" r="25" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    <path d="M695 595l10 10-10 10" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Center icon area -->
+  <g opacity=".6">
+    <circle cx="600" cy="600" r="80" fill="#FAFAFA" stroke="#C9C9C9" stroke-width="2.418"/>
+    <circle cx="600" cy="600" r="60" fill="#fff" stroke="#C9C9C9" stroke-width="1.5"/>
+    
+    <!-- Workflow icon - simplified flow diagram -->
+    <g transform="translate(600, 600)">
+      <!-- Small nodes -->
+      <circle cx="-30" cy="-20" r="8" fill="#666" opacity=".6"/>
+      <circle cx="0" cy="-20" r="8" fill="#666" opacity=".6"/>
+      <circle cx="30" cy="-20" r="8" fill="#666" opacity=".6"/>
+      
+      <!-- Connection lines -->
+      <path d="M-22 -20h14M-8 -20h14" stroke="#666" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+      
+      <!-- Center process -->
+      <rect x="-15" y="-5" width="30" height="20" rx="4" fill="#666" opacity=".6"/>
+      
+      <!-- Output nodes -->
+      <circle cx="-20" cy="25" r="6" fill="#666" opacity=".6"/>
+      <circle cx="0" cy="25" r="6" fill="#666" opacity=".6"/>
+      <circle cx="20" cy="25" r="6" fill="#666" opacity=".6"/>
+      
+      <!-- Output connections -->
+      <path d="M-10 15l-10 10M0 15l0 10M10 15l10 10" stroke="#666" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
+    </g>
+  </g>
+  
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="lineGradient1" x1="300" x2="500" y1="400" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineGradient2" x1="700" x2="900" y1="400" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineGradient3" x1="500" x2="500" y1="400" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineGradient4" x1="500" x2="500" y1="700" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineGradient5" x1="300" x2="500" y1="600" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineGradient6" x1="700" x2="900" y1="600" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C9C9C9" stop-opacity="0"/>
+      <stop offset=".208" stop-color="#C9C9C9"/>
+      <stop offset=".792" stop-color="#C9C9C9"/>
+      <stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
