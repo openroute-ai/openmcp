@@ -49,3 +49,22 @@
         transition: none !important;
     }
 }
+
+/*
+ * 落地页不画页面滚动条。
+ *
+ * 落地页是整屏叙事，右侧那条滚动条紧挨着半透明的玻璃导航，是一道常驻的高对比
+ * 竖线，会在导航最需要干净的时候和它抢注意力。收掉它不影响滚动本身——滚轮、
+ * 触控板、键盘、锚点跳转都照常，只是不再绘制滑块。
+ *
+ * 用 `:has()` 限定在落地页：`landing.css` 一旦加载就会留在客户端样式表里，
+ * 直接写 `html` 会在跳到 /console、/dashboard 之后继续生效。
+ */
+html:has(.landing-shell) {
+    scrollbar-width: none;
+}
+
+html:has(.landing-shell)::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}

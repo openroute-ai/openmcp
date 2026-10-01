@@ -1,7 +1,11 @@
 "use client"
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { IconChevronDown, IconDownload, IconMenu, IconX } from "@tabler/icons-react";
+
+import { LocaleLink } from "@/i18n/navigation";
+import type { RoutePath } from "@/lib/routes";
+
 import { ThemeToggle } from "./theme";
 
 const ANNOUNCE_KEY = "vcx-announce-hidden-at";
@@ -56,13 +60,19 @@ function subscribeToAnnounce(listener: () => void) {
   };
 }
 
+/**
+ * The three destinations a visitor actually has: back here, the rankings, and
+ * the category index. They are routes rather than `#anchors` because all three
+ * are real pages that stand on their own — the rankings and the categories are
+ * public and readable without an account, and are linked from shared articles
+ * and by agents. Anchoring the header into this page's own sections would have
+ * left the header dead everywhere else.
+ */
 const NAV_LINKS = [
-  { label: "产品", href: "#product" },
-  { label: "解决方案", href: "#solutions" },
-  { label: "定价", href: "#pricing" },
-  { label: "资源", href: "#download" },
-  { label: "评分方法", href: "#method" },
-];
+  { label: "首页", href: "/" },
+  { label: "榜单", href: "/rankings" },
+  { label: "分类", href: "/categories" },
+] as const;
 
 function AnnounceBar() {
   const hidden = useSyncExternalStore(
@@ -83,29 +93,29 @@ function AnnounceBar() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-4">
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-2.5 text-sm backdrop-blur-md">
-        <p className="flex min-w-0 items-center gap-2.5 text-muted-foreground">
-          <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">NEW</span>
+    <div className="mx-auto max-w-6xl px-4 pt-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-md">
+        <p className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 rounded-full bg-secondary/70 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-secondary-foreground">NEW</span>
           <span className="truncate">
             2026 AI Agent 框架选型报告已发布 — 对比 12 个项目，免费下载
           </span>
         </p>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <a
             href="#download"
-            className="hidden items-center gap-1.5 font-medium text-secondary-foreground transition-colors hover:text-foreground sm:inline-flex"
+            className="hidden items-center gap-1 font-medium text-secondary-foreground transition-colors hover:text-foreground sm:inline-flex"
           >
             立即下载
-            <IconDownload size={14} />
+            <IconDownload size={13} />
           </a>
           <button
             type="button"
             onClick={dismiss}
             aria-label="关闭公告"
-            className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+            className="grid size-5 place-items-center rounded text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
           >
-            <IconX size={14} />
+            <IconX size={13} />
           </button>
         </div>
       </div>
@@ -125,68 +135,61 @@ function Logo() {
   );
 }
 
-export function SiteHeader() {
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+interface SiteHeaderProps {
+  /**
+   * The account action in the header, already resolved on the server.
+   *
+   * It is a prop rather than something this component derives because the
+   * landing page serves signed-in and anonymous visitors alike, and the header
+   * is a client component that cannot read a session. The two answers differ in
+   * destination *and* label, so both arrive together: an anonymous visitor gets
+   * "登录" pointing at `/sign-in`, a signed-in one gets "进入控制台" pointing at
+   * their console. An expired cookie resolves to no user and therefore to the
+   * ordinary sign-in case, which is correct — there is nobody to enter as.
+   */
+  cta: { href: RoutePath; signedIn: boolean };
+}
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+export function SiteHeader({ cta }: SiteHeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const ctaLabel = cta.signedIn ? "进入控制台" : "登录";
 
   return (
     <>
       <AnnounceBar />
-      <header
-        className={`sticky top-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "border-b border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-xl dark:shadow-black/30"
-            : "border-b border-transparent bg-transparent"
-        }`}
-      >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
+      {/**
+       * Sticky rather than absolute, and frosted at every scroll position
+       * instead of only once the page has moved: the bar is the one piece of
+       * chrome that has to stay legible while the hero scrolls under it, and a
+       * header that only turns opaque after 12px spends that first screen at
+       * its least readable. `bg-background/70` over `backdrop-blur-xl` is the
+       * glass — the alpha is what lets the content behind show through blurred
+       * rather than simply being covered.
+       */}
+      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Logo />
 
           <nav className="hidden items-center gap-7 text-sm text-muted-foreground lg:flex">
             {NAV_LINKS.map((link) => (
-              <a key={link.href} href={link.href} className="transition-colors hover:text-foreground">
+              <LocaleLink key={link.href} href={link.href} className="transition-colors hover:text-foreground">
                 {link.label}
-              </a>
+              </LocaleLink>
             ))}
           </nav>
 
           <div className="hidden items-center gap-2.5 lg:flex">
             <ThemeToggle />
-            <a
-              href="#"
+            <LocaleLink
+              href={cta.href}
               className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
             >
-              登录
-            </a>
-            <a
-              href="#pricing"
-              className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
-            >
-              免费开始
-            </a>
-            <a
-              href="#download"
-              className="rounded-lg border border-border bg-card px-4 py-1.5 text-sm font-medium text-foreground backdrop-blur-md transition-colors hover:bg-card"
-            >
-              预约演示
-            </a>
+              {ctaLabel}
+            </LocaleLink>
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
             <ThemeToggle />
-            <a
-              href="#pricing"
-              className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground"
-            >
-              免费开始
-            </a>
             <button
               type="button"
               aria-label="打开菜单"
@@ -199,10 +202,10 @@ export function SiteHeader() {
         </div>
 
         {menuOpen && (
-          <div className="border-t border-border bg-background/95 backdrop-blur-xl lg:hidden">
+          <div className="border-t border-border bg-background/80 backdrop-blur-xl lg:hidden">
             <nav className="mx-auto grid max-w-6xl gap-1 px-4 py-4 text-sm">
               {NAV_LINKS.map((link) => (
-                <a
+                <LocaleLink
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
@@ -210,24 +213,15 @@ export function SiteHeader() {
                 >
                   {link.label}
                   <IconChevronDown size={14} className="-rotate-90 opacity-50" />
-                </a>
+                </LocaleLink>
               ))}
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <a
-                  href="#pricing"
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg bg-primary px-4 py-2.5 text-center font-semibold text-primary-foreground"
-                >
-                  免费开始
-                </a>
-                <a
-                  href="#download"
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 text-center font-medium text-foreground"
-                >
-                  预约演示
-                </a>
-              </div>
+              <LocaleLink
+                href={cta.href}
+                onClick={() => setMenuOpen(false)}
+                className="mt-2 rounded-lg border border-border px-4 py-2.5 text-center font-medium text-foreground transition-colors hover:bg-card"
+              >
+                {ctaLabel}
+              </LocaleLink>
             </nav>
           </div>
         )}

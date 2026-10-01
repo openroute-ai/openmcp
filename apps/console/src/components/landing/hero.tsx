@@ -6,36 +6,22 @@ import { useState } from "react"
 import { LocaleLink } from "@/i18n/navigation"
 
 /**
- * 首屏 = 产品入口 + 价值主张 + 给 agent 的指令（docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4）
+ * 首屏 = 价值主张 + 给 agent 的指令（docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4）
  *
- * 版式参考 novita.ai：顶部一排产品入口，居中 H1，副标题，主次双 CTA，
- * 紧跟一段面向开发者的可复制指令，最后一条信任标识带。全部居中单列。
+ * 版式参考 novita.ai：居中 H1，副标题，主次双 CTA，紧跟一段面向开发者的可复制
+ * 指令，最后一条信任标识带。全部居中单列。
  *
  * 这一版**移除了此前右侧的实时异动 feed**。它当时承担获客钩子的职责，但那份
  * 数据是写死的 ANOMALIES 样例：项目名是 acme/k8s-operator 这类虚构仓库，
  * 首屏拿假数据当真实信号卖，与「每条结论都能点开看原始时间轴」的核心承诺
- * 直接矛盾。真实异动改为从公开榜单进入，位置见 nav 的「公开榜单」。
+ * 直接矛盾。真实异动改为从公开榜单进入，位置见 nav 的「榜单」。
+ *
+ * 顶部那排入口 pill（公开榜单 / 新星榜 / 应用分类）也一并去掉了：导航栏已经
+ * 是「首页 / 榜单 / 分类」，首屏再摆一排同样的去处等于把导航说两遍，还把下面
+ * 的一句话主张压到了折线以下。H1 因此直接从容器顶部开始。
  *
  * 首屏用的是原生 shadcn 主题，没有任何自定义配色。
  */
-
-/** 产品入口 pill。 */
-const ENTRIES = [
-  { href: "/rankings", label: "公开榜单" },
-  { href: "/rankings?range=rising", label: "新星榜" },
-  { href: "/categories", label: "应用分类" },
-] as const
-
-function EntryPill({ href, label }: { href: string; label: string }) {
-  return (
-    <LocaleLink
-      href={href}
-      className="rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-    >
-      {label}
-    </LocaleLink>
-  )
-}
 
 /** 给 agent 的指令块。整块可复制，复制成功就换成对勾。 */
 function AgentCommand({ origin }: { origin: string }) {
@@ -84,13 +70,7 @@ export function Hero({ origin }: { origin: string }) {
   return (
     <section id="top" className="relative overflow-hidden">
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-14 text-center sm:pt-24">
-        <nav className="flex flex-wrap items-center justify-center gap-2">
-          {ENTRIES.map((e) => (
-            <EntryPill key={e.href} {...e} />
-          ))}
-        </nav>
-
-        <h1 className="mt-7 font-display text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
+        <h1 className="font-display text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
           别人告诉你它多受欢迎，
           <br />
           我们告诉你它正在<span className="text-primary">变坏</span>。

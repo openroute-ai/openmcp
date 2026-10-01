@@ -15,7 +15,7 @@
 
 import { LOCALES } from "@/i18n/routing"
 
-/** The root, which resolves the landing path from the session's role. */
+/** The public landing page at the root, served to everyone. */
 export const Routes = {
   root: "/",
   signIn: "/sign-in",
@@ -37,10 +37,18 @@ export type RoutePath = (typeof Routes)[keyof typeof Routes]
  * 307 to `/sign-in` — which for a fetch is an HTML login page where JSON was
  * promised, and for a crawler is an empty index.
  *
+ * The landing page is on the list because it is the acquisition surface the
+ * rest of this set is reached from: `docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md`
+ * §5.9.4 makes it the SEO hook. It is served to everyone, signed in or not —
+ * leaving it out meant the branch was unreachable and the header's own links
+ * resolved to a login form.
+ *
  * The public JSON API under `/api` needs no entry: the proxy's matcher already
  * excludes `api`, so those were always reachable.
  */
 export const PublicRoutes = {
+  /** The landing page itself. Anonymous by design — see the note below. */
+  landing: "/",
   /** The week / month / rising-stars rankings, with a `range` query. */
   rankings: "/rankings",
   /** Tag navigation, and one tag's projects. */

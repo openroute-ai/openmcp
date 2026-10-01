@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
-import { hasLocale } from "next-intl"
 
 import { DeepDives } from "@/components/landing/deep-dives"
 import { Comparison, Neutrality, Roles, Testimonials } from "@/components/landing/proof"
@@ -9,8 +8,6 @@ import { Hero } from "@/components/landing/hero"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { SiteHeader } from "@/components/landing/site-header"
 import { PainPoints, Solutions, TrustStrip, Workflow } from "@/components/landing/sections-top"
-import { localeRedirect } from "@/i18n/navigation"
-import { routing } from "@/i18n/routing"
 import { getSessionUser } from "@/lib/auth/session"
 import { landingPathFor } from "@/lib/auth/role"
 
@@ -21,29 +18,20 @@ export const dynamic = "force-dynamic"
 /**
  * Radar's public marketing surface, and the root path.
  *
- * Two audiences land here and they get different things:
+ * It renders for everyone, signed in or not: the page is not a redirect target
+ * any more, so a signed-in visitor can open it to read the copy, fetch the
+ * `curl`, or follow it to the public rankings exactly like anyone else. The
+ * session changes only the header's account action — "登录" into `/sign-in` when
+ * anonymous, "进入控制台" to the console the role owns (`landingPathFor`) when
+ * signed in. An expired cookie resolves to no user and therefore to the sign-in
+ * case, which is right: there is nobody to enter as.
  *
- *   - Someone signed in already has a place to be. `landingPathFor` sends an
- *     admin to `/dashboard` and anyone else to `/console`, and a session whose
- *     cookie has expired falls through to `/sign-in` — which is the one case the
- *     proxy's cookie check cannot tell apart from a live session.
- *   - Everyone else gets the landing page: a centred hero, a copyable `curl`
- *     for agents, and entry points into the public rankings, category and
- *     detail pages. Those three are anonymous and readable without an account
- *     (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4).
- *
- * The role branch is made once, here, so nothing downstream has to repeat it.
- *
- * `localeRedirect` rather than the Next.js one so the redirect keeps the
- * visitor's locale: a plain redirect to `/dashboard` would drop a `/zh` visitor
- * onto the default locale.
+ * The body is a centred hero, a copyable `curl` for agents, and entry points
+ * into the public rankings, category and detail pages. Those three are
+ * anonymous and readable without an account
+ * (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4).
  */
-export default async function Home({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}) {
-  const { locale } = await params
+export default async function Home() {
   const user = await getSessionUser()
 
   // The Hero's copyable `curl` has to name a host the visitor can actually
@@ -56,18 +44,8 @@ export default async function Home({
   const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
   const origin = host ? `${proto}://${host}` : "https://radar.openmcp.cn"
 
-  // The layout already sends an unsupported locale to `notFound`, so this only
-  // narrows the type: Next.js types the param as a string whatever the segment
-  // matched, and a redirect built from an unvalidated one could name a locale
-  // that has no messages.
-  const locale_ = hasLocale(routing.locales, locale) ? locale : routing.defaultLocale
-
-  if (user) {
-    localeRedirect({ href: landingPathFor(user), locale: locale_ })
-  }
-
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="landing-shell relative min-h-dvh overflow-x-clip">
       {/* Without this the page is mostly blank: the server renders every
           [data-reveal] block hidden so the first client render can match it
           (see use-reveal.tsx), which means the reveal animation is now what
@@ -76,7 +54,7 @@ export default async function Home({
       <noscript>
         <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
       </noscript>
-      <SiteHeader />
+      <SiteHeader cta={{ href: landingPathFor(user), signedIn: user !== null }} />
       <main>
         <Hero origin={origin} />
         <TrustStrip />
