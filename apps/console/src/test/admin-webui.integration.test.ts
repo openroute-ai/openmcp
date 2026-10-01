@@ -18,9 +18,9 @@ import {
   projects,
   projectSyncJobs,
   readmeSyncJobs,
-  repoWeeklyStars,
+  repoWeeklyStats,
   repos,
-  snapshots,
+  
   tags,
   projectsToTags,
   hallOfFame,
@@ -65,6 +65,7 @@ function info(): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: ["TypeScript"],
     forks: 3,
@@ -109,8 +110,8 @@ async function clean() {
   await db.delete(projectsToTags)
   await db.delete(hallOfFameToProjects)
   await db.delete(hallOfFame)
-  await db.delete(repoWeeklyStars)
-  await db.delete(snapshots)
+  await db.delete(repoWeeklyStats)
+
   await db.delete(tags)
   await db.delete(projects)
   await db.delete(repos)

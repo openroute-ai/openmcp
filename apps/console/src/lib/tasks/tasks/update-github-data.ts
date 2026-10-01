@@ -15,8 +15,15 @@
  * - Contributor counts come from REST instead of an HTML scrape of the
  *   repository page, which the source did with a CSS selector and which broke
  *   silently whenever GitHub changed its markup.
- * - Only repositories an administrator has curated are deep-refreshed. See
- *   {@link createUpdateGitHubDataTask}'s run for what that means in practice.
+ * - Only repositories an administrator has curated are deep-refreshed. The
+ *   expensive per-repository work — contributor counts, READMEs, mirrored
+ *   assets — is the majority of this sweep's GitHub calls and only a project
+ *   benefits from it. See {@link createUpdateGitHubDataTask}'s run for what
+ *   that means in practice.
+ * - Every repository is *sampled*, curated or not. The daily stats row is the
+ *   site's record of how each repository moved, and a repository nobody has
+ *   curated still earns stars; sampling only the curated set would leave the
+ *   registry's numbers frozen while the rest of the site moves.
  *
  * Translation is deliberately not part of this sweep. The source re-translated
  * every README on every run, which is a language-model call per repository per
@@ -39,6 +46,7 @@ import {
   upsertRepo,
   type Db,
 } from "@/lib/github/service/repo"
+import { recordCurrentPeriods } from "@/lib/github/service/stats"
 import { refreshRepoFromGitHub } from "@/lib/github/sync-project"
 import { processItems } from "@/lib/tasks/iterate"
 import type { Task, TaskLogger } from "@/lib/tasks/runner"
@@ -104,7 +112,10 @@ export function createUpdateGitHubDataTask(
           // and it is the majority of this sweep's GitHub calls.
           if (!curatedIds.has(repo.id)) {
             if (info) {
-              await upsertRepo(db, info)
+              // The returned row, not the pre-refresh one: the sweep may have
+              // renamed the repository, and the stats are keyed by id.
+              const row = await upsertRepo(db, info)
+              await recordCurrentPeriods(db, row)
               return { meta: { processed: 1, metadataOnly: 1 }, data: null }
             }
 

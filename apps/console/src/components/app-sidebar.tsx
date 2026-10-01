@@ -27,6 +27,8 @@ import {
   IconRepeat,
   IconInnerShadowTop,
   IconUsers,
+  IconUsersGroup,
+  IconDeviceDesktop,
 } from "@tabler/icons-react"
 
 // The label is a message key rather than text, so the sidebar translates with
@@ -43,6 +45,11 @@ const navMain: { key: NavKey; url: string; icon: React.ReactNode }[] = [
   { key: "repos", url: "/dashboard/repos", icon: <IconCode /> },
   { key: "skills", url: "/dashboard/skills", icon: <IconRobot /> },
   { key: "syncJobs", url: "/dashboard/sync", icon: <IconRepeat /> },
+  // Accounts and sessions come last: the entries above are about the catalog
+  // this deployment builds, while these two are about the people using it, so
+  // they stay out of the way until someone is looking for them.
+  { key: "users", url: "/dashboard/users", icon: <IconUsersGroup /> },
+  { key: "sessions", url: "/dashboard/sessions", icon: <IconDeviceDesktop /> },
 ]
 
 /**

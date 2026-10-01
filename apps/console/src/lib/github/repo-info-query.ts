@@ -67,6 +67,9 @@ const COUNTED_FIELDS = /* GraphQL */ `
   pullRequests {
     totalCount
   }
+  issues(states: OPEN) {
+    totalCount
+  }
   releases {
     totalCount
   }
@@ -241,6 +244,16 @@ export type RepoInfo = {
   watchersCount: number
   licenseSpdxId: string
   pullRequestsCount: number
+  /**
+   * Open issues, excluding pull requests.
+   *
+   * GitHub's REST repository payload calls this `open_issues_count`, but that
+   * number counts pull requests too, so it cannot be backfilled from there
+   * without silently redefining the counter as "open issues and open pull
+   * requests". A repository's issue tracker and its review queue are different
+   * numbers that happen to share a column, and the stats tables keep them apart.
+   */
+  openIssuesCount: number
   releasesCount: number
   languages: string[]
   forks: number
@@ -337,6 +350,11 @@ export function extractRepoInfo(response: unknown): RepoInfo {
     pullRequestsCount: safeGet<number>(
       repository,
       ["pullRequests", "totalCount"],
+      0
+    ),
+    openIssuesCount: safeGet<number>(
+      repository,
+      ["issues", "totalCount"],
       0
     ),
     releasesCount: safeGet<number>(repository, ["releases", "totalCount"], 0),

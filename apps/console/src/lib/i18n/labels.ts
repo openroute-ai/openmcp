@@ -1,7 +1,25 @@
 import { useTranslations } from "next-intl"
 
-/** The namespaces whose keys are database values rather than UI copy. */
-export type EnumNamespace = "Status" | "Trigger" | "Kind" | "Type" | "TaskType"
+/**
+ * The namespaces whose keys are database values rather than UI copy.
+ *
+ * A namespace qualifies because the column it labels holds a value the schema
+ * pins — an enum, a role, a source — rather than free text.
+ */
+export type EnumNamespace =
+  | "Status"
+  | "Trigger"
+  | "Kind"
+  | "Type"
+  | "TaskType"
+  /** The per-account disposition of a repository in `user_repos.status`. */
+  | "UserRepoStatus"
+  /** What the platform did with a repository, in `user_repos.platformStatus`. */
+  | "PlatformStatus"
+  /** Which surface created a `user_repos` row. */
+  | "Source"
+  /** The console role of an account, in `user.role`. */
+  | "Role"
 
 /**
  * Translates a stored enum value — a status, a trigger, a job kind.

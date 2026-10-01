@@ -1,7 +1,6 @@
 import { relations } from "drizzle-orm"
 import {
   boolean,
-  date,
   doublePrecision,
   index,
   integer,
@@ -156,6 +155,16 @@ export const repos = pgTable(
     mentionableUsersCount: integer("mentionable_users_count"),
     pullRequestsCount: integer("pull_requests_count"),
     releasesCount: integer("releases_count"),
+
+    /**
+     * Open issues excluding pull requests, read from GraphQL's `issues`
+     * connection.
+     *
+     * REST's `open_issues_count` counts open pull requests too, so it cannot
+     * back this column: a repository with 100 open PRs and no open issues
+     * reports 100 either way, and the two are different questions.
+     */
+    openIssuesCount: integer("open_issues_count"),
 
     openGraphImageUrl: text("open_graph_image_url"),
     usesCustomOpenGraphImage: boolean("uses_custom_open_graph_image"),
@@ -391,107 +400,174 @@ export const projectsToCapabilities = pgTable(
 )
 
 /**
- * Monthly star history, one row per (repo, year) with the twelve months
- * serialised as JSON. This shape is carried over unchanged: it keeps the
- * table small and the access pattern is always "read the whole year".
+ * The nine counters every stats table carries, and the two ways each is read.
+ *
+ * `total_*` is the level at the end of the period; `delta_*` is what changed
+ * during it. They are stored side by side rather than derived because the two
+ * answer different questions and neither is recoverable from the other alone: a
+ * repository that gained 40 stars while 6 were removed has `delta_stars` of 34
+ * and `delta_new_stars` of 40, and a reader asking "is this growing" wants the
+ * first while one asking "how much attention arrived" wants the second.
+ *
+ * A NULL is not zero. It means the counter was not measured for that period —
+ * a repository nobody curated has no contributor count, and writing 0 there
+ * would claim the repository lost every contributor it ever had.
  */
-export const snapshots = pgTable(
-  "snapshots",
-  {
-    repoId: text("repo_id")
-      .notNull()
-      .references(() => repos.id, { onDelete: "cascade" }),
-    year: integer("year").notNull(),
-    months: jsonb("months").$type<SnapshotMonth[]>(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at"),
-  },
-  (table) => [
-    primaryKey({ columns: [table.repoId, table.year] }),
-    index("snapshots_year_idx").on(table.year),
-  ]
-)
+const statsCounters = {
+  totalStars: integer("total_stars"),
+  deltaStars: integer("delta_stars"),
+  /** Stargazers who arrived during the period, before any were removed. */
+  deltaNewStars: integer("delta_new_stars"),
 
-export type SnapshotMonth = {
-  month: number
-  year: number
-  stars: number
-  totalDownloads?: number
-  totalContributors?: number
-  totalPullRequests?: number
-  totalReleases?: number
+  totalWatchers: integer("total_watchers"),
+  deltaWatchers: integer("delta_watchers"),
+  totalForks: integer("total_forks"),
+  deltaForks: integer("delta_forks"),
+  totalOpenIssues: integer("total_open_issues"),
+  deltaOpenIssues: integer("delta_open_issues"),
+  totalPullRequests: integer("total_pull_requests"),
+  deltaPullRequests: integer("delta_pull_requests"),
+  totalReleases: integer("total_releases"),
+  deltaReleases: integer("delta_releases"),
+  totalContributors: integer("total_contributors"),
+  deltaContributors: integer("delta_contributors"),
+  totalCommits: integer("total_commits"),
+  deltaCommits: integer("delta_commits"),
+  totalDownloads: integer("total_downloads"),
+  deltaDownloads: integer("delta_downloads"),
+}
+
+/** The two timestamps every table this module owns carries. */
+const statsTimestamps = {
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
 }
 
 /**
- * Stargazers gained per ISO week, written by the stargazer sweep.
+ * One row per repository per calendar month.
  *
- * The monthly rows above cannot answer a weekly question. A month is a
- * calendar bucket, so a week that straddles the 1st is split across two rows
- * and no combination of them recovers the week's real gain. The sweep already
- * reads every stargazer timestamp, so it records the weekly split at the same
- * time; storing the aggregate rather than the raw stamps keeps the table at
- * roughly one row per repository per week of history.
+ * The period is keyed by an instant rather than a (year, month) pair because
+ * that is what a calendar month actually is: Asia/Shanghai's October begins at
+ * an instant eight hours before UTC's does, and the rankings and the detail
+ * chart both mean the team's month, not the server's. Storing the moment keeps
+ * that boundary in one place — `periodInstant` in `lib/time.ts` — instead of
+ * leaving each reader to re-derive which midnight was meant.
  *
- * `stars` is the number of stargazers *during* that week, not a running total.
- * The weekly ranking compares consecutive weeks, and a running total would
- * make every project look like it was losing momentum.
+ * Every period from the first recorded one through the current one gets a row.
+ * A gap would otherwise have to mean two different things: "nothing was
+ * measured" and "nothing happened", which a reader cannot tell apart and would
+ * have to guess at. Dense rows make the second case an explicit 0.
  */
-export const repoWeeklyStars = pgTable(
-  "repo_weekly_stars",
+export const repoMonthlyStats = pgTable(
+  "repo_monthly_stats",
   {
     repoId: text("repo_id")
       .notNull()
       .references(() => repos.id, { onDelete: "cascade" }),
-    year: integer("year").notNull(),
-    week: integer("week").notNull(),
-    stars: integer("stars").notNull(),
+    period: timestamp("period", { withTimezone: true }).notNull(),
+    ...statsCounters,
+    ...statsTimestamps,
   },
   (table) => [
-    primaryKey({ columns: [table.repoId, table.year, table.week] }),
-    // The ranking task reads one week across every repository.
-    index("repo_weekly_stars_week_idx").on(table.year, table.week),
+    primaryKey({ columns: [table.repoId, table.period] }),
+    // The ranking task reads one month across every repository.
+    index("repo_monthly_stats_period_idx").on(table.period),
   ]
 )
 
 /**
- * New stargazers per UTC day, for the public project detail chart.
+ * The same shape at ISO-week granularity.
  *
- * Same derivation as `repoWeeklyStars` — bucketed from the raw timestamps the
- * sweep already holds — but kept only for a rolling window (see
- * `DAILY_STARS_WINDOW_DAYS` in `lib/github/service/snapshot.ts`).
- *
- * The window is the whole reason this table is not a mirror of the weekly one.
- * A sweep reads a repository's entire stargazer history, and the weekly table
- * pays for that at 52 rows per year. Daily would be seven times that, almost
- * all of it zero: a decade-old repository is 3650 consecutive days for perhaps a
- * few hundred of them non-empty. Nothing reads that far back — the detail chart
- * shows a trailing window — so the sweep writes the recent slice and the reader
- * fills the gaps. Storage stays proportional to recent activity instead of to
- * repository age.
- *
- * Only days with at least one stargazer get a row. A missing day means zero, and
- * the read path says so explicitly, which is also why a re-sweep can delete and
- * rewrite the window without leaving a stale zero behind for a day that stopped
- * being zero when stars were removed.
- *
- * `day` is a plain `date` rather than the weekly table's (year, week) pair: a
- * day is already a calendar value, so splitting it would only make the range
- * predicate a comparison on two columns.
+ * A month cannot answer a weekly question: a week that straddles the 1st is
+ * split across two rows, and no combination of them recovers the week's real
+ * change. `period` is the Monday the week opened on.
  */
-export const repoDailyStars = pgTable(
-  "repo_daily_stars",
+export const repoWeeklyStats = pgTable(
+  "repo_weekly_stats",
   {
     repoId: text("repo_id")
       .notNull()
       .references(() => repos.id, { onDelete: "cascade" }),
-    day: date("day").notNull(),
-    /** Stargazers gained on this UTC day. */
-    stars: integer("stars").notNull(),
+    period: timestamp("period", { withTimezone: true }).notNull(),
+    ...statsCounters,
+    ...statsTimestamps,
   },
   (table) => [
-    primaryKey({ columns: [table.repoId, table.day] }),
+    primaryKey({ columns: [table.repoId, table.period] }),
+    index("repo_weekly_stats_period_idx").on(table.period),
+  ]
+)
+
+/**
+ * The same shape at daily granularity, for the public project detail chart.
+ *
+ * The two coarser tables are not a substitute: a month is the finest a ranking
+ * can compare, and a chart that shows weekly bars hides the day a repository
+ * actually jumped.
+ *
+ * Every day is kept. The sweep used to write only a trailing 90-day window,
+ * because it read one row per stargazer and a decade-old repository would have
+ * cost 3650 mostly-empty rows. Reading the counts from GitHub's aggregate star
+ * history costs one request per 30 weeks instead, so the reason for the window
+ * is gone and the history is worth keeping whole.
+ */
+export const repoDailyStats = pgTable(
+  "repo_daily_stats",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+    period: timestamp("period", { withTimezone: true }).notNull(),
+    ...statsCounters,
+    ...statsTimestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.repoId, table.period] }),
     // The chart reads a window across every repository it is comparing.
-    index("repo_daily_stars_day_idx").on(table.day),
+    index("repo_daily_stats_period_idx").on(table.period),
+  ]
+)
+
+/**
+ * Every stargazer this system has ever seen, with the moment they starred.
+ *
+ * Nothing reads this table yet, and that is the point: GitHub restricts the
+ * per-stargazer endpoint to repository administrators and collaborators, so it
+ * answers 403 for most of the public repositories here and will answer 403 for
+ * all of them if the policy tightens further. What is in this table cannot be
+ * reconstructed from the counts in the stats tables above, so it is worth
+ * keeping: a row read once while access lasted is a row that is still there
+ * afterwards.
+ *
+ * `starredAt` is GitHub's own timestamp and is therefore a property of the
+ * stargazer, not of this system. `createdAt` records when this system learned
+ * of it, which is a different fact and the only one that says anything about
+ * the coverage of the table: a gap between the two is the window in which
+ * stargazers arrived while nothing was sweeping.
+ */
+export const repoStargazers = pgTable(
+  "repo_stargazers",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+    /** The GitHub login that starred. Renamed upstream, so the same person spans rows. */
+    login: text("login").notNull(),
+    starredAt: timestamp("starred_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.repoId, table.login] }),
+    // An incremental sweep asks for everyone who starred after the latest
+    // timestamp already stored, which is an index seek rather than a scan.
+    index("repo_stargazers_starred_at_idx").on(
+      table.repoId,
+      table.starredAt
+    ),
   ]
 )
 
@@ -802,9 +878,10 @@ export const risingStarProjects = pgTable(
 
 export const reposRelations = relations(repos, ({ many }) => ({
   projects: many(projects),
-  snapshots: many(snapshots),
-  weeklyStars: many(repoWeeklyStars),
-  dailyStars: many(repoDailyStars),
+  monthlyStats: many(repoMonthlyStats),
+  weeklyStats: many(repoWeeklyStats),
+  dailyStats: many(repoDailyStats),
+  stargazers: many(repoStargazers),
 }))
 
 export const projectsRelations = relations(projects, ({ many, one }) => ({
@@ -845,15 +922,41 @@ export const projectsToCapabilitiesRelations = relations(
   })
 )
 
-export const snapshotsRelations = relations(snapshots, ({ one }) => ({
-  repo: one(repos, { fields: [snapshots.repoId], references: [repos.id] }),
-}))
-
-export const repoWeeklyStarsRelations = relations(
-  repoWeeklyStars,
+export const repoMonthlyStatsRelations = relations(
+  repoMonthlyStats,
   ({ one }) => ({
     repo: one(repos, {
-      fields: [repoWeeklyStars.repoId],
+      fields: [repoMonthlyStats.repoId],
+      references: [repos.id],
+    }),
+  })
+)
+
+export const repoWeeklyStatsRelations = relations(
+  repoWeeklyStats,
+  ({ one }) => ({
+    repo: one(repos, {
+      fields: [repoWeeklyStats.repoId],
+      references: [repos.id],
+    }),
+  })
+)
+
+export const repoDailyStatsRelations = relations(
+  repoDailyStats,
+  ({ one }) => ({
+    repo: one(repos, {
+      fields: [repoDailyStats.repoId],
+      references: [repos.id],
+    }),
+  })
+)
+
+export const repoStargazersRelations = relations(
+  repoStargazers,
+  ({ one }) => ({
+    repo: one(repos, {
+      fields: [repoStargazers.repoId],
       references: [repos.id],
     }),
   })

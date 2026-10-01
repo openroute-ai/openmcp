@@ -7,7 +7,7 @@
  * public endpoints and what the scheduled task would have just published.
  */
 
-import { asc, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import {
@@ -25,17 +25,14 @@ import {
   getRisingStarCategories,
   listDefaultRisingStarCategories,
 } from "@/lib/github/service/rising-stars"
-import {
-  risingStarCategories,
-  risingStarProjects,
-  snapshots,
-} from "@/db/schema"
+import { risingStarCategories, risingStarProjects } from "@/db/schema"
 import {
   resolveMonthInput,
   resolveWeekInput,
   resolveYearInput,
 } from "@/lib/rankings-web"
 import { zonedYear } from "@/lib/time"
+import { listMonthlyHistoryYears } from "@/lib/github/service/stats"
 import { createTRPCRouter, adminProcedure } from "../init"
 
 const yearSchema = z.number().int().min(2000).max(9999)
@@ -152,11 +149,8 @@ export const rankingsRouter = createTRPCRouter({
    * operator is most likely setting up first.
    */
   risingStarYears: adminProcedure.query(async ({ ctx }) => {
-    const [withHistory, configured, built] = await Promise.all([
-      ctx.db
-        .selectDistinct({ year: snapshots.year })
-        .from(snapshots)
-        .orderBy(asc(snapshots.year)),
+    const [historyYears, configured, built] = await Promise.all([
+      listMonthlyHistoryYears(ctx.db),
       ctx.db
         .select({ year: risingStarCategories.year })
         .from(risingStarCategories),
@@ -169,7 +163,7 @@ export const rankingsRouter = createTRPCRouter({
     // that has just started rather than the one that ended a second ago.
     const years = new Set<number>([
       zonedYear(),
-      ...withHistory.map((row) => row.year),
+      ...historyYears,
       ...configured.map((row) => row.year),
       ...built.map((row) => row.year),
     ])
@@ -178,7 +172,7 @@ export const rankingsRouter = createTRPCRouter({
       .sort((a, b) => b - a)
       .map((year) => ({
         year,
-        hasHistory: withHistory.some((row) => row.year === year),
+        hasHistory: historyYears.includes(year),
         configured: configured.some((row) => row.year === year),
         built: built.some((row) => row.year === year),
       }))

@@ -10,61 +10,59 @@
  * Only periods that actually hold rows are returned. A week present in the
  * calendar but absent from the table would produce an empty ranking, and
  * offering it would look like data loss rather than a period never swept.
+ *
+ * The tables store the instant a period opened, so the year, week or month a
+ * caller asks for is recovered by reading that instant back through the calendar
+ * it was written in. Reading it through UTC would report every period one earlier
+ * than it was filed, because a Shanghai week opens on Sunday evening UTC.
  */
 
-import { desc, sql } from "drizzle-orm"
-import { repoWeeklyStars, snapshots } from "@/db/schema"
+import {
+  monthOfPeriod,
+  periodFromMonth,
+  periodFromWeek,
+  weekOfPeriod,
+  type YearMonth,
+  type YearWeek,
+} from "@/lib/github/snapshot-dates"
+import {
+  listMonthlyPeriodStarts,
+  listWeeklyPeriodStarts,
+} from "@/lib/github/service/stats"
 import type { Db } from "@/lib/github/service/repo"
-import type { YearMonth, YearWeek } from "@/lib/github/snapshot-dates"
 
 export type { YearMonth, YearWeek }
 
 /** Enough history to scroll back a few years without a heavy query. */
 const DEFAULT_LIMIT = 120
 
-/**
- * Weeks with stargazer data, most recent first.
- *
- * Ordered by the two keys rather than a single computed date so the result
- * matches how the ranking task walks the weeks it has written.
- */
+/** Weeks with stats data, most recent first. */
 export async function listWeeklyPeriods(
   db: Db,
   limit = DEFAULT_LIMIT
 ): Promise<YearWeek[]> {
-  const rows = await db
-    .selectDistinct({ year: repoWeeklyStars.year, week: repoWeeklyStars.week })
-    .from(repoWeeklyStars)
-    .orderBy(desc(repoWeeklyStars.year), desc(repoWeeklyStars.week))
-    .limit(limit)
-
-  return rows.map((row) => ({ year: row.year, week: row.week }))
+  return (await listWeeklyPeriodStarts(db, limit)).map((period) =>
+    weekOfPeriod(period)
+  )
 }
 
-/**
- * Months with snapshot data, most recent first.
- *
- * Months live inside a jsonb array on a per-repository, per-year row, so
- * there is no month column to select from: the array is expanded here. That
- * expansion runs across every repository, so the distinct projection matters
- * as much as the limit.
- */
+/** Months with stats data, most recent first. */
 export async function listMonthlyPeriods(
   db: Db,
   limit = DEFAULT_LIMIT
 ): Promise<YearMonth[]> {
-  const result = await db.execute<{ year: number; month: number }>(sql`
-    select distinct
-      (entry->>'year')::int as year,
-      (entry->>'month')::int as month
-    from ${snapshots},
-      lateral jsonb_array_elements(
-        coalesce(${snapshots.months}, '[]'::jsonb)
-      ) as entry
-    where entry->>'year' is not null and entry->>'month' is not null
-    order by year desc, month desc
-    limit ${limit}
-  `)
-
-  return result.rows.map((row) => ({ year: row.year, month: row.month }))
+  return (await listMonthlyPeriodStarts(db, limit)).map((period) =>
+    monthOfPeriod(period)
+  )
 }
+
+/**
+ * The instant a named period opens, for a caller that already holds a year and a
+ * week or a month.
+ *
+ * Exposed next to the readers above because the two directions have to agree:
+ * a dashboard that lists week 10 and then asks the ranking builder about week 10
+ * gets the same row whichever way the name is converted, or the list offers a
+ * period the ranking cannot find.
+ */
+export { periodFromMonth, periodFromWeek }

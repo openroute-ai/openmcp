@@ -29,6 +29,20 @@
       "when": 1790813311007,
       "tag": "0011_low_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790815100000,
+      "tag": "0012_repo_stats",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790820000000,
+      "tag": "0013_user_repos",
+      "breakpoints": true
     }
   ]
 }

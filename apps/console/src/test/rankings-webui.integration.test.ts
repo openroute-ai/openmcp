@@ -16,16 +16,21 @@ import { db, pool } from "@/db/client"
 import {
   projects,
   projectsToTags,
-  repoWeeklyStars,
+  repoMonthlyStats,
+  repoWeeklyStats,
   repos,
   risingStarCategories,
   risingStarProjects,
-  snapshots,
   tags,
 } from "@/db/schema"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import {
+  periodFromMonth,
+  periodFromWeek,
+  previousIsoWeek,
+} from "@/lib/github/snapshot-dates"
+import { upsertStatsRow } from "@/lib/github/service/stats"
 import {
   resolveMonthInput,
   resolveWeekInput,
@@ -61,6 +66,7 @@ function info(overrides: Partial<RepoInfo>): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: ["TypeScript"],
     forks: 1,
@@ -94,36 +100,50 @@ async function seed(overrides: Record<string, unknown> = {}) {
   return { repo, project, fullName: `${repo.owner}/${repo.name}` }
 }
 
-/** Three weekly rows, so the running total has to span more than one delta. */
-async function seedWeeks(
-  repoId: string,
-  oldest: number,
-  middle: number,
-  latest: number
-) {
-  await db
-    .insert(repoWeeklyStars)
-    .values([
-      { repoId, year: 2026, week: 8, stars: oldest },
-      { repoId, year: 2026, week: 9, stars: middle },
-      { repoId, year: 2026, week: 10, stars: latest },
-    ])
-    .onConflictDoNothing()
+/** The week the weekly cases rank. */
+const WEEK = { year: 2026, week: 10 }
+
+/**
+ * A repository's week: what it had before, and what it gained during it.
+ *
+ * Two rows, because the ranking needs both halves and refuses to publish
+ * without them: the previous period proves the repository was already being
+ * measured, and the current period carries the change next to the level.
+ */
+async function seedWeeks(repoId: string, before: number, delta: number) {
+  await weekRow(repoId, previousIsoWeek(WEEK), { totalStars: before })
+  await weekRow(repoId, WEEK, { totalStars: before + delta, deltaStars: delta })
 }
 
-/** A record for one month in the running-total history. */
+/** A weekly row on the instant Shanghai's ISO week opened. */
+async function weekRow(
+  repoId: string,
+  yearWeek: { year: number; week: number },
+  columns: { totalStars: number; deltaStars?: number }
+) {
+  await upsertStatsRow(db, "week", repoId, periodFromWeek(yearWeek), {
+    levels: { stars: columns.totalStars },
+    ...(columns.deltaStars === undefined ? {} : { changes: { stars: columns.deltaStars } }),
+  })
+}
+
+/** One monthly row, carrying the level and, when it has one, the change. */
 async function record(
   repoId: string,
   year: number,
   month: number,
-  stars: number
+  stars: number,
+  delta?: number
 ) {
-  await recordMonth(db, repoId, { year, month }, { stars })
+  await upsertStatsRow(db, "month", repoId, periodFromMonth({ year, month }), {
+    levels: { stars },
+    ...(delta === undefined ? {} : { changes: { stars: delta } }),
+  })
 }
 
 /**
  * Records the closing month of the year before plus every month of `year`,
- * so each month has a predecessor and a measurable delta.
+ * so each month has a predecessor and a measurable change.
  */
 async function recordYear(
   repoId: string,
@@ -133,9 +153,9 @@ async function recordYear(
 ) {
   await record(repoId, year - 1, 12, first)
   for (let month = 1; month <= 12; month++) {
-    await record(repoId, year, month, first + growth * month)
+    await record(repoId, year, month, first + growth * month, growth)
   }
-  await record(repoId, year + 1, 1, first + growth * 13)
+  await record(repoId, year + 1, 1, first + growth * 13, growth)
 }
 
 describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
@@ -147,8 +167,8 @@ describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
     await db.delete(risingStarProjects)
     await db.delete(risingStarCategories)
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(tags)
     await db.delete(projects)
     await db.delete(repos)
@@ -158,8 +178,8 @@ describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
     await db.delete(risingStarProjects)
     await db.delete(risingStarCategories)
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(projects)
     await db.delete(repos)
   })
@@ -207,8 +227,8 @@ describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
     it("serves a weekly ranking from the database", async () => {
       const fast = await seed()
       const slow = await seed()
-      await seedWeeks(fast.repo.id, 100, 0, 50)
-      await seedWeeks(slow.repo.id, 1000, 0, 10)
+      await seedWeeks(fast.repo.id, 100, 50)
+      await seedWeeks(slow.repo.id, 1000, 10)
 
       const result = await caller.rankings.weekly({ year: 2026, week: 10 })
 
@@ -274,7 +294,7 @@ describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
 
     it("serves week.json with an explicit period", async () => {
       const repo = await seed()
-      await seedWeeks(repo.repo.id, 100, 0, 50)
+      await seedWeeks(repo.repo.id, 100, 50)
 
       const response = await call(weekRoute, "week.json?year=2026&week=10")
 

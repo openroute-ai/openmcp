@@ -17,10 +17,11 @@ import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm"
 import { projects, projectsToTags, repos, tags } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 import {
-  getDailyStars,
-  listWeeklyStars,
-  type DailyStar,
-} from "@/lib/github/service/snapshot"
+  listDailyArrivals,
+  listWeeklyArrivals,
+  type DailyArrivals,
+  type WeeklyArrivals,
+} from "@/lib/github/service/stats"
 
 /**
  * Statuses that stay off the public pages.
@@ -186,10 +187,10 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   forks: number
   contributors: number | null
   releases: number
-  /** Per-day stargazers, ascending, gaps already filled as zero. */
-  days: DailyStar[]
-  /** Per-ISO-week stargazers, ascending. */
-  weeks: { yearWeek: { year: number; week: number }; stars: number }[]
+  /** Per-day arrivals, ascending, quiet days already filled as zero. */
+  days: DailyArrivals[]
+  /** Per-ISO-week arrivals, ascending. */
+  weeks: WeeklyArrivals[]
 }
 
 /**
@@ -244,8 +245,8 @@ export async function getPublicProjectDetail(
 
   const [byProject, days, weeks] = await Promise.all([
     tagsByProject(db, [row.id]),
-    getDailyStars(db, row.repoId),
-    listWeeklyStars(db, row.repoId),
+    listDailyArrivals(db, row.repoId),
+    listWeeklyArrivals(db, row.repoId),
   ])
 
   return {

@@ -11,18 +11,20 @@ import {
   projectsToTags,
   projectSyncJobs,
   readmeSyncJobs,
-  repoDailyStars,
-  repoWeeklyStars,
+  repoDailyStats,
+  repoMonthlyStats,
+  repoStargazers,
+  repoWeeklyStats,
   repos,
   risingStarCategories,
   risingStarProjects,
   session,
-  snapshots,
   tags,
   taskDefinitions,
   taskExecutions,
   taskStatus,
   user,
+  userRepos,
   verification,
 } from "./schema"
 
@@ -47,6 +49,15 @@ import {
 /** better-auth core + the `phoneNumber` plugin's identity columns. */
 export { account, session, user, verification }
 
+/**
+ * 谁提交了哪个仓库。
+ *
+ * 在 auth 这一组而不是 GitHub 那一组，因为它同时引用 `user` 和 `repos`——这张
+ * 表属于两边，放在哪一组都只是位置，但它讲的是"提交"这件事，而这正是
+ * `/console` 的全部内容。
+ */
+export { userRepos }
+
 /** console's own GitHub tables; see `src/db/schema/github.ts`. */
 export {
   bundles,
@@ -60,12 +71,13 @@ export {
   projectsToTags,
   projectSyncJobs,
   readmeSyncJobs,
-  repoDailyStars,
-  repoWeeklyStars,
+  repoDailyStats,
+  repoMonthlyStats,
+  repoStargazers,
+  repoWeeklyStats,
   repos,
   risingStarCategories,
   risingStarProjects,
-  snapshots,
   tags,
   taskDefinitions,
   taskExecutions,

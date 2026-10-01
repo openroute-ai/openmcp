@@ -8,13 +8,17 @@
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import { db, pool } from "@/db/client"
-import { repoWeeklyStars, repos, snapshots } from "@/db/schema"
+import { repoMonthlyStats, repoWeeklyStats, repos } from "@/db/schema"
 import {
   listMonthlyPeriods,
   listWeeklyPeriods,
 } from "@/lib/github/service/available-periods"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import {
+  periodFromMonth,
+  periodFromWeek,
+} from "@/lib/github/snapshot-dates"
+import { upsertStatsRow } from "@/lib/github/service/stats"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
@@ -45,6 +49,7 @@ function info(overrides: Partial<RepoInfo> = {}): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: [],
     forks: 1,
@@ -66,8 +71,8 @@ async function seedRepo(): Promise<string> {
 
 describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
   beforeEach(async () => {
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(repos)
   })
 
@@ -82,11 +87,9 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
 
     it("lists the weeks that have rows, newest first", async () => {
       const repoId = await seedRepo()
-      await db.insert(repoWeeklyStars).values([
-        { repoId, year: 2026, week: 8, stars: 1 },
-        { repoId, year: 2026, week: 10, stars: 3 },
-        { repoId, year: 2025, week: 52, stars: 2 },
-      ])
+      await weekRow(repoId, 2026, 8, 1)
+      await weekRow(repoId, 2026, 10, 3)
+      await weekRow(repoId, 2025, 52, 2)
 
       expect(await listWeeklyPeriods(db)).toEqual([
         { year: 2026, week: 10 },
@@ -98,19 +101,15 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
     it("collapses a period several repositories share into one entry", async () => {
       const a = await seedRepo()
       const b = await seedRepo()
-      await db.insert(repoWeeklyStars).values([
-        { repoId: a, year: 2026, week: 10, stars: 1 },
-        { repoId: b, year: 2026, week: 10, stars: 5 },
-      ])
+      await weekRow(a, 2026, 10, 1)
+      await weekRow(b, 2026, 10, 5)
 
       expect(await listWeeklyPeriods(db)).toEqual([{ year: 2026, week: 10 }])
     })
 
     it("omits a week that was never swept", async () => {
       const repoId = await seedRepo()
-      await db
-        .insert(repoWeeklyStars)
-        .values({ repoId, year: 2026, week: 10, stars: 1 })
+      await weekRow(repoId, 2026, 10, 1)
 
       const weeks = await listWeeklyPeriods(db)
 
@@ -121,11 +120,9 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
 
     it("honours the limit", async () => {
       const repoId = await seedRepo()
-      await db.insert(repoWeeklyStars).values([
-        { repoId, year: 2026, week: 8, stars: 1 },
-        { repoId, year: 2026, week: 9, stars: 1 },
-        { repoId, year: 2026, week: 10, stars: 1 },
-      ])
+      await weekRow(repoId, 2026, 8, 1)
+      await weekRow(repoId, 2026, 9, 1)
+      await weekRow(repoId, 2026, 10, 1)
 
       expect(await listWeeklyPeriods(db, 2)).toEqual([
         { year: 2026, week: 10 },
@@ -139,14 +136,14 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
       expect(await listMonthlyPeriods(db)).toEqual([])
     })
 
-    it("reads the months out of the snapshot jsonb, newest first", async () => {
+    it("reads the months out of the stats rows, newest first", async () => {
       const repoId = await seedRepo()
       for (const [year, month, stars] of [
         [2025, 11, 1],
         [2026, 2, 4],
         [2026, 1, 3],
       ] as const) {
-        await recordMonth(db, repoId, { year, month }, { stars })
+        await monthRow(repoId, year, month, stars)
       }
 
       expect(await listMonthlyPeriods(db)).toEqual([
@@ -159,18 +156,18 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
     it("collapses a month several repositories share into one entry", async () => {
       const a = await seedRepo()
       const b = await seedRepo()
-      await recordMonth(db, a, { year: 2026, month: 1 }, { stars: 1 })
-      await recordMonth(db, b, { year: 2026, month: 1 }, { stars: 9 })
+      await monthRow(a, 2026, 1, 1)
+      await monthRow(b, 2026, 1, 9)
 
       expect(await listMonthlyPeriods(db)).toEqual([{ year: 2026, month: 1 }])
     })
 
     it("spans the year boundary, which is the case a naive lookup misses", async () => {
-      // January's predecessor is the previous December, which lives on a
-      // different snapshot row, so the expansion has to see both.
+      // Each month is its own row now, so this no longer crosses a year in a
+      // single query — it is here because the *ordering* still has to.
       const repoId = await seedRepo()
-      await recordMonth(db, repoId, { year: 2025, month: 12 }, { stars: 2 })
-      await recordMonth(db, repoId, { year: 2026, month: 1 }, { stars: 5 })
+      await monthRow(repoId, 2025, 12, 2)
+      await monthRow(repoId, 2026, 1, 5)
 
       expect(await listMonthlyPeriods(db)).toEqual([
         { year: 2026, month: 1 },
@@ -183,9 +180,44 @@ describe.skipIf(!hasDatabase)("available ranking periods (integration)", () => {
       // expansion has to skip the empty one rather than emitting a null month.
       const withMonths = await seedRepo()
       await seedRepo()
-      await recordMonth(db, withMonths, { year: 2026, month: 1 }, { stars: 1 })
+      await monthRow(withMonths, 2026, 1, 1)
 
       expect(await listMonthlyPeriods(db)).toEqual([{ year: 2026, month: 1 }])
     })
   })
 })
+
+/**
+ * One weekly row, filed on the instant Shanghai's ISO week opened.
+ *
+ * Written through the service rather than inserted directly so the fixture
+ * cannot drift from the period definition the app writes with — a test that
+ * hard-codes the instant would keep passing after the zone or the weekday rule
+ * changed.
+ */
+async function weekRow(
+  repoId: string,
+  year: number,
+  weekNumber: number,
+  stars: number
+) {
+  await upsertStatsRow(db, "week", repoId, periodFromWeek({ year, week: weekNumber }), {
+    levels: { stars },
+  })
+}
+
+/** One monthly row, filed the same way. */
+async function monthRow(
+  repoId: string,
+  year: number,
+  monthNumber: number,
+  stars: number
+) {
+  await upsertStatsRow(
+    db,
+    "month",
+    repoId,
+    periodFromMonth({ year, month: monthNumber }),
+    { levels: { stars } }
+  )
+}

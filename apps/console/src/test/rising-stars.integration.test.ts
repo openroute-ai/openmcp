@@ -14,8 +14,8 @@ import {
   projectsToTags,
   repos,
   risingStarCategories,
+  repoMonthlyStats,
   risingStarProjects,
-  snapshots,
   tags,
 } from "@/db/schema"
 import {
@@ -25,7 +25,8 @@ import {
 } from "@/lib/github/service/rising-stars"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import { periodFromMonth } from "@/lib/github/snapshot-dates"
+import { upsertStatsRow } from "@/lib/github/service/stats"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
@@ -56,6 +57,7 @@ function info(overrides: Partial<RepoInfo>): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: ["TypeScript"],
     forks: 1,
@@ -89,14 +91,24 @@ async function seed(overrides: Record<string, unknown> = {}) {
   return { repo, project, fullName: `${repo.owner}/${repo.name}` }
 }
 
-/** A record for one month in the running-total history. */
+/** One month of the history: the level it closed at, and its change. */
 async function record(
   repoId: string,
   year: number,
   month: number,
-  stars: number
+  stars: number,
+  delta?: number
 ) {
-  await recordMonth(db, repoId, { year, month }, { stars })
+  await upsertStatsRow(
+    db,
+    "month",
+    repoId,
+    periodFromMonth({ year, month }),
+    {
+      levels: { stars },
+      ...(delta === undefined ? {} : { changes: { stars: delta } }),
+    }
+  )
 }
 
 /**
@@ -115,9 +127,9 @@ async function recordYear(
 ) {
   await record(repoId, year - 1, 12, first)
   for (let month = 1; month <= 12; month++) {
-    await record(repoId, year, month, first + growth * month)
+    await record(repoId, year, month, first + growth * month, growth)
   }
-  await record(repoId, year + 1, 1, first + growth * 13)
+  await record(repoId, year + 1, 1, first + growth * 13, growth)
 }
 
 async function tag(code: string, excludeFromRankings = false) {
@@ -146,7 +158,7 @@ describe.skipIf(!hasDatabase)("rising stars (integration)", () => {
     await db.delete(projectsToTags)
     await db.delete(risingStarProjects)
     await db.delete(risingStarCategories)
-    await db.delete(snapshots)
+    await db.delete(repoMonthlyStats)
     await db.delete(tags)
     await db.delete(projects)
     await db.delete(repos)
@@ -156,7 +168,7 @@ describe.skipIf(!hasDatabase)("rising stars (integration)", () => {
     await db.delete(projectsToTags)
     await db.delete(risingStarProjects)
     await db.delete(risingStarCategories)
-    await db.delete(snapshots)
+    await db.delete(repoMonthlyStats)
     await db.delete(projects)
   })
 

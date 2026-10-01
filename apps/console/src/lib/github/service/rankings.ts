@@ -6,32 +6,31 @@
  * the output file. This is that computation once, parameterised by period, so
  * the two cannot drift apart.
  *
- * Where the numbers come from is not a detail, though, and it differs by
- * period:
- *
- * - A monthly delta is the difference of two monthly running totals, both of
- *   which are stored, so any month can be ranked on demand.
- * - A weekly delta needs a per-week split the monthly rows do not contain: a
- *   week straddling the 1st is split across two months and no combination of
- *   them recovers the week's real gain. The stargazer sweep writes that split
- *   to `repo_weekly_stars` while it still holds the raw timestamps, which is
- *   the only moment it is knowable.
+ * Where the numbers come from is not a detail, though. Both periods now read the
+ * same way, because both are stored: the weekly table carries the per-week split
+ * that a week straddling the 1st makes unrecoverable from monthly rows, and both
+ * tables carry the change next to the level instead of leaving each reader to
+ * subtract two rows and guess what a missing row meant.
  *
  * A period with no data yields empty lists rather than zeros, so a missing week
- * cannot publish a ranking claiming nothing moved.
+ * cannot publish a ranking claiming nothing moved. A repository whose previous
+ * period has no stored level is left out for the same reason: relative growth
+ * divides by the count before the period, and with no count to divide by every
+ * newly-tracked repository would rank as infinitely fast.
  */
 
 import { and, eq, inArray, ne, sql } from "drizzle-orm"
 import {
   projects,
   projectsToTags,
+  repoMonthlyStats,
   repos,
-  repoWeeklyStars,
-  snapshots,
+  repoWeeklyStats,
   tags,
-  type SnapshotMonth,
 } from "@/db/schema"
 import {
+  periodFromMonth,
+  periodFromWeek,
   previousIsoWeek,
   type YearMonth,
   type YearWeek,
@@ -91,25 +90,17 @@ export async function buildRankingsForWeek(
   yearWeek: YearWeek,
   options: BuildOptions = {}
 ): Promise<Rankings> {
-  const previous = previousIsoWeek(yearWeek)
+  const measured = await measurePeriod(
+    db,
+    repoWeeklyStats,
+    periodFromWeek(yearWeek),
+    periodFromWeek(previousIsoWeek(yearWeek))
+  )
 
-  const current = await db
-    .select({
-      repoId: repoWeeklyStars.repoId,
-      stars: repoWeeklyStars.stars,
-    })
-    .from(repoWeeklyStars)
-    .where(
-      and(
-        eq(repoWeeklyStars.year, yearWeek.year),
-        eq(repoWeeklyStars.week, yearWeek.week)
-      )
-    )
-
-  if (current.length === 0) {
-    // Nothing was recorded for the week, so publishing would overwrite a good
-    // ranking with one claiming the world stood still. The build task keys its
-    // "keep the previous file" decision off an empty result.
+  // Nothing was recorded for the week, so publishing would overwrite a good
+  // ranking with one claiming the world stood still. The build task keys its
+  // "keep the previous file" decision off an empty result.
+  if (measured.length === 0) {
     return {
       period: "week",
       year: yearWeek.year,
@@ -117,66 +108,6 @@ export async function buildRankingsForWeek(
       trending: [],
       byRelativeGrowth: [],
     }
-  }
-
-  const anchored = new Set(
-    (
-      await db
-        .select({ repoId: repoWeeklyStars.repoId })
-        .from(repoWeeklyStars)
-        .where(
-          and(
-            eq(repoWeeklyStars.year, previous.year),
-            eq(repoWeeklyStars.week, previous.week)
-          )
-        )
-    ).map((row) => row.repoId)
-  )
-
-  // Weekly rows count the stargazers gained *during* that week, so the listed
-  // star count is every row from the start through the target, not this week's
-  // row plus the one before it. Adding just the previous week's gain would
-  // start every repository's total from zero at week two and lose everything
-  // before that; summing the whole span keeps the running total honest while
-  // the relative-growth list still only sees the movement in question.
-  const history = await db
-    .select({
-      repoId: repoWeeklyStars.repoId,
-      year: repoWeeklyStars.year,
-      week: repoWeeklyStars.week,
-      stars: repoWeeklyStars.stars,
-    })
-    .from(repoWeeklyStars)
-    .where(
-      inArray(
-        repoWeeklyStars.repoId,
-        current.map((row) => row.repoId)
-      )
-    )
-
-  const targetKey = yearWeek.year * 100 + yearWeek.week
-  const totals = new Map<string, number>()
-  for (const row of history) {
-    if (row.year * 100 + row.week <= targetKey) {
-      totals.set(row.repoId, (totals.get(row.repoId) ?? 0) + row.stars)
-    }
-  }
-
-  const measured: Measured[] = []
-
-  for (const row of current) {
-    // No row for the previous week means the sweep did not cover it, so this
-    // week has nothing to be measured against. Reporting it with a `before` of
-    // zero would rank every newly-tracked repository as infinitely fast.
-    if (!anchored.has(row.repoId)) continue
-
-    const total = totals.get(row.repoId) ?? 0
-    measured.push({
-      repoId: row.repoId,
-      stars: total,
-      delta: row.stars,
-      before: total - row.stars,
-    })
   }
 
   return assemble(db, {
@@ -193,52 +124,12 @@ export async function buildRankingsForMonth(
   yearMonth: YearMonth,
   options: BuildOptions = {}
 ): Promise<Rankings> {
-  const rows = await db.select().from(snapshots)
-
-  // Grouped by repository before comparing, because a month is stored in the
-  // row for its own year and January's predecessor is the previous December,
-  // which lives in a different row entirely. Flattening row by row would never
-  // see it, and January would silently rank nothing.
-  const byRepo = new Map<string, SnapshotMonth[]>()
-  for (const row of rows) {
-    const existing = byRepo.get(row.repoId)
-    if (existing) {
-      existing.push(...(row.months ?? []))
-    } else {
-      byRepo.set(row.repoId, [...(row.months ?? [])])
-    }
-  }
-
-  const measured: Measured[] = []
-
-  for (const [repoId, months] of byRepo) {
-    // Sorted so "the month before" is the element before this one, rather than
-    // a filter that has to special-case every boundary.
-    const ordered = [...months].sort(
-      (a, b) => a.year - b.year || a.month - b.month
-    )
-    const index = ordered.findIndex(
-      (month) =>
-        month.year === yearMonth.year && month.month === yearMonth.month
-    )
-    if (index === -1) continue
-
-    const entry = ordered[index]!
-    const prior = ordered[index - 1]
-    if (!prior) continue
-
-    // A count that fell is not a declining riser, it is a correction or a
-    // transfer, and ranking it as a large negative delta would put it nowhere
-    // useful while making the "trending" list misleading.
-    if (entry.stars < prior.stars) continue
-
-    measured.push({
-      repoId,
-      stars: entry.stars,
-      delta: entry.stars - prior.stars,
-      before: prior.stars,
-    })
-  }
+  const measured = await measurePeriod(
+    db,
+    repoMonthlyStats,
+    periodFromMonth(yearMonth),
+    periodFromMonth(previousMonth(yearMonth))
+  )
 
   return assemble(db, {
     period: "month",
@@ -247,6 +138,72 @@ export async function buildRankingsForMonth(
     measured,
     limit: options.limit ?? DEFAULT_LIMIT,
   })
+}
+
+/** The month before a given one, across the year boundary. */
+function previousMonth({ year, month }: YearMonth): YearMonth {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+}
+
+/**
+ * A period's movement, for every repository that has both halves stored.
+ *
+ * `previous` is read only to establish that a comparable period exists. The
+ * movement itself comes from the row's own stored `delta_stars`, and the count
+ * before the period is recovered from the same row as `total_stars` minus that
+ * delta — which avoids a second subtraction against a row that may have been
+ * written by a different collector between the two reads.
+ *
+ * A row whose stored change is negative is skipped: a falling count is a
+ * correction or a transfer rather than a declining riser, and ranking it as a
+ * large negative delta would put it nowhere useful while making the "trending"
+ * list misleading.
+ */
+async function measurePeriod(
+  db: Db,
+  table: typeof repoWeeklyStats | typeof repoMonthlyStats,
+  period: Date,
+  previous: Date
+): Promise<Measured[]> {
+  const current = await db
+    .select({
+      repoId: table.repoId,
+      totalStars: table.totalStars,
+      deltaStars: table.deltaStars,
+    })
+    .from(table)
+    .where(eq(table.period, period))
+
+  if (current.length === 0) return []
+
+  const anchored = new Set(
+    (
+      await db
+        .select({ repoId: table.repoId })
+        .from(table)
+        .where(eq(table.period, previous))
+    ).map((row) => row.repoId)
+  )
+
+  const measured: Measured[] = []
+  for (const row of current) {
+    // No row for the previous period means the period before was never
+    // measured, so this one has nothing to be measured against. Reporting it
+    // with a `before` of zero would rank every newly-tracked repository as
+    // infinitely fast.
+    if (!anchored.has(row.repoId)) continue
+    if (row.totalStars === null || row.deltaStars === null) continue
+    if (row.deltaStars < 0) continue
+
+    measured.push({
+      repoId: row.repoId,
+      stars: row.totalStars,
+      delta: row.deltaStars,
+      before: row.totalStars - row.deltaStars,
+    })
+  }
+
+  return measured
 }
 
 /**

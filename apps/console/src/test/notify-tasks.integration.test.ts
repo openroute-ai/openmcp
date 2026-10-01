@@ -19,14 +19,16 @@ import { db, pool } from "@/db/client"
 import {
   projects,
   projectsToTags,
-  repoWeeklyStars,
+  repoMonthlyStats,
+  repoWeeklyStats,
   repos,
-  snapshots,
 } from "@/db/schema"
 import { fakeContext } from "@/test/helpers/fakes"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { recordMonth } from "@/lib/github/service/snapshot"
+import { periodFromMonth, periodFromWeek } from "@/lib/github/snapshot-dates"
+import { upsertStatsRow } from "@/lib/github/service/stats"
+
 import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import type { WebhookResult } from "@/lib/webhook/client"
@@ -59,6 +61,7 @@ function info(overrides: Partial<RepoInfo> = {}): RepoInfo {
     watchersCount: 1,
     licenseSpdxId: "MIT",
     pullRequestsCount: 1,
+    openIssuesCount: 1,
     releasesCount: 1,
     languages: ["TypeScript"],
     forks: 1,
@@ -115,31 +118,53 @@ function weekTarget() {
   return { now, target: lastCompletePeriod("week", now) }
 }
 
+/**
+ * One weekly row: the level the week closed at, and its change.
+ *
+ * The previous week's row carries a level with no change, which is what a
+ * repository that was already being measured looks like — the ranking needs it
+ * to know there is a count to divide by.
+ */
 async function seedWeek(
   repoId: string,
-  year: number,
-  week: number,
-  stars: number
+  yearWeek: { year: number; week: number },
+  columns: { totalStars: number; deltaStars?: number }
 ) {
-  await db
-    .insert(repoWeeklyStars)
-    .values({ repoId, year, week, stars })
-    .onConflictDoNothing()
+  await upsertStatsRow(db, "week", repoId, periodFromWeek(yearWeek), {
+    levels: { stars: columns.totalStars },
+    ...(columns.deltaStars === undefined
+      ? {}
+      : { changes: { stars: columns.deltaStars } }),
+  })
+}
+
+/** One monthly row, in the same shape. */
+async function seedMonth(
+  repoId: string,
+  yearMonth: { year: number; month: number },
+  columns: { totalStars: number; deltaStars?: number }
+) {
+  await upsertStatsRow(db, "month", repoId, periodFromMonth(yearMonth), {
+    levels: { stars: columns.totalStars },
+    ...(columns.deltaStars === undefined
+      ? {}
+      : { changes: { stars: columns.deltaStars } }),
+  })
 }
 
 describe.skipIf(!hasDatabase)("notification tasks (integration)", () => {
   beforeAll(async () => {
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(projects)
     await db.delete(repos)
   })
 
   beforeEach(async () => {
     await db.delete(projectsToTags)
-    await db.delete(repoWeeklyStars)
-    await db.delete(snapshots)
+    await db.delete(repoWeeklyStats)
+    await db.delete(repoMonthlyStats)
     await db.delete(projects)
     await db.delete(repos)
   })
@@ -232,8 +257,8 @@ describe.skipIf(!hasDatabase)("notification tasks (integration)", () => {
       const { target } = weekTarget()
       const previous = { year: target.year, week: target.week - 1 }
       const { repo } = await seed()
-      await seedWeek(repo.id, previous.year, previous.week, 100)
-      await seedWeek(repo.id, target.year, target.week, 30)
+      await seedWeek(repo.id, previous, { totalStars: 100 })
+      await seedWeek(repo.id, target, { totalStars: 130, deltaStars: 30 })
       return { repo, target }
     }
 
@@ -314,8 +339,8 @@ describe.skipIf(!hasDatabase)("notification tasks (integration)", () => {
       const { target } = weekTarget()
       const previous = { year: target.year, week: target.week - 1 }
       const { repo, project } = await seed()
-      await seedWeek(repo.id, previous.year, previous.week, 100)
-      await seedWeek(repo.id, target.year, target.week, 30)
+      await seedWeek(repo.id, previous, { totalStars: 100 })
+      await seedWeek(repo.id, target, { totalStars: 130, deltaStars: 30 })
 
       const result = await task.run(fakeContext(db))
 
@@ -380,8 +405,11 @@ describe.skipIf(!hasDatabase)("notification tasks (integration)", () => {
 
       const { repo } = await seed()
       // A Tuesday in March: the last complete month is February.
-      await recordMonth(db, repo.id, { year: 2026, month: 1 }, { stars: 100 })
-      await recordMonth(db, repo.id, { year: 2026, month: 2 }, { stars: 130 })
+      await seedMonth(repo.id, { year: 2026, month: 1 }, { totalStars: 100 })
+      await seedMonth(repo.id, { year: 2026, month: 2 }, {
+        totalStars: 130,
+        deltaStars: 30,
+      })
 
       const result = await task.run(fakeContext(db))
 

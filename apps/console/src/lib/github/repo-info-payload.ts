@@ -39,6 +39,7 @@ export const repoInfoSchema = z
     watchersCount: z.number().int().nonnegative().default(0),
     licenseSpdxId: z.string().default(""),
     pullRequestsCount: z.number().int().nonnegative().default(0),
+    openIssuesCount: z.number().int().nonnegative().default(0),
     releasesCount: z.number().int().nonnegative().default(0),
     languages: z.array(z.string()).default([]),
     forks: z.number().int().nonnegative().default(0),

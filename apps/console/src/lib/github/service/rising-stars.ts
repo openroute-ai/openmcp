@@ -19,24 +19,66 @@
  * pruned.
  */
 
-import { and, eq, inArray, ne, sql } from "drizzle-orm"
+import { and, asc, eq, gte, inArray, lt, ne, sql } from "drizzle-orm"
 import {
   projects,
   projectsToTags,
+  repoMonthlyStats,
   repos,
   risingStarCategories,
   risingStarProjects,
-  snapshots,
   tags,
-  type SnapshotMonth,
   type RisingStarCategory,
 } from "@/db/schema"
+import { monthOfPeriod, periodFromMonth } from "@/lib/github/snapshot-dates"
 import { NO_DESCRIPTION } from "@/lib/github/service/project"
 import type { Db } from "@/lib/github/service/repo"
-import {
-  computeMonthlyTrend,
-  flattenMonths,
-} from "@/lib/github/service/snapshot"
+import type { MonthlyStatsRow } from "@/lib/github/service/stats"
+import { APP_TIMEZONE } from "@/lib/time"
+
+/**
+ * One month of a repository's stored history, named by calendar rather than by
+ * the instant the table holds.
+ */
+interface MonthlyPoint {
+  year: number
+  month: number
+  /** The level the month closed at, or null when it was never measured. */
+  stars: number | null
+  /** Movement over the month, or null when there is no comparable prior. */
+  delta: number | null
+}
+
+/**
+ * Names each stored row by the calendar month it belongs to, oldest first.
+ *
+ * The table keys on the instant the month opened, so the year and month are read
+ * back through the application timezone. Reading the UTC fields instead would
+ * file every October under September, because the month opens on the 30th at
+ * 16:00 UTC.
+ *
+ * The repository id travels with each point so the caller can group a single
+ * ordered read by repository without a second pass.
+ */
+function monthlyPoints(
+  rows: Pick<MonthlyStatsRow, "repoId" | "period" | "totalStars" | "deltaStars">[]
+): { repoId: string; point: MonthlyPoint }[] {
+  return rows
+    .map((row) => ({
+      repoId: row.repoId,
+      point: {
+        ...monthOfPeriod(row.period, APP_TIMEZONE),
+        stars: row.totalStars,
+        delta: row.deltaStars,
+      },
+    }))
+    .sort(
+      (a, b) =>
+        a.repoId.localeCompare(b.repoId) ||
+        a.point.year - b.point.year ||
+        a.point.month - b.point.month
+    )
+}
 
 /** One project as it appears in the Rising Stars JSON artefact. */
 export interface RisingStarProject {
@@ -181,6 +223,30 @@ export async function computeRisingStarsForYear(
   year: number,
   date = new Date()
 ): Promise<ComputedRisingStars> {
+  const candidateIds = await repoIdsWithMonthlyHistory(db, year)
+
+  // No repository has history for the year, so there is nothing to rank. Handled
+  // before the join rather than by `inArray` on an empty list, which Drizzle
+  // renders as a predicate that matches nothing at all.
+  if (candidateIds.length === 0) {
+    const categories = await getRisingStarCategories(db, year)
+    const { projects: selected, categoryByFullName } = selectByCategory(
+      [],
+      categories,
+      new Set()
+    )
+    return {
+      report: {
+        date: date.toISOString(),
+        count: selected.length,
+        projects: selected,
+        tags: [],
+      },
+      categoryByFullName,
+      contributorsByFullName: new Map(),
+    }
+  }
+
   const rows = await db
     .select({
       repoId: repos.id,
@@ -209,13 +275,7 @@ export async function computeRisingStarsForYear(
     .leftJoin(tags, eq(projectsToTags.tagId, tags.id))
     .where(
       and(
-        inArray(
-          repos.id,
-          db
-            .select({ repoId: snapshots.repoId })
-            .from(snapshots)
-            .where(eq(snapshots.year, year))
-        ),
+        inArray(repos.id, candidateIds),
         ne(projects.status, "hidden"),
         ne(projects.status, "deprecated")
       )
@@ -259,33 +319,35 @@ export async function computeRisingStarsForYear(
   }
 
   const snapshotRows = await db
-    .select()
-    .from(snapshots)
+    .select({
+      repoId: repoMonthlyStats.repoId,
+      period: repoMonthlyStats.period,
+      totalStars: repoMonthlyStats.totalStars,
+      deltaStars: repoMonthlyStats.deltaStars,
+    })
+    .from(repoMonthlyStats)
     .where(
       inArray(
-        snapshots.repoId,
+        repoMonthlyStats.repoId,
         [...byProject.values()].map((candidate) => candidate.repoId)
       )
     )
+    .orderBy(asc(repoMonthlyStats.repoId), asc(repoMonthlyStats.period))
 
-  // A repository's history spans several year rows, so the rows are grouped
-  // and flattened per repository rather than one at a time.
-  const grouped: { [repoId: string]: (typeof snapshots.$inferSelect)[] } = {}
-  for (const row of snapshotRows) {
-    if (!grouped[row.repoId]) grouped[row.repoId] = []
-    grouped[row.repoId]!.push(row)
-  }
-
-  const byRepo: { [repoId: string]: SnapshotMonth[] } = {}
-  for (const [repoId, rows] of Object.entries(grouped)) {
-    byRepo[repoId] = flattenMonths(rows)
+  // A repository's history spans many rows, so they are grouped per repository
+  // and read in one query rather than one query per candidate.
+  const grouped = new Map<string, MonthlyPoint[]>()
+  for (const row of monthlyPoints(snapshotRows)) {
+    const entry = grouped.get(row.repoId)
+    if (entry) entry.push(row.point)
+    else grouped.set(row.repoId, [row.point])
   }
 
   const measured: RisingStarProject[] = []
   const contributors = new Map<string, number | null>()
 
   for (const candidate of byProject.values()) {
-    const history = byRepo[candidate.repoId] ?? []
+    const history = grouped.get(candidate.repoId) ?? []
     const project = projectData(candidate, year, history)
     if (!project) continue
     measured.push(project)
@@ -349,11 +411,39 @@ export async function buildRisingStarsForYear(
   return computed.report
 }
 
+/**
+ * Repository ids holding monthly history inside a calendar year.
+ *
+ * The window is taken on the stored instants rather than on an extracted year,
+ * because the table has no year column — a month is identified by when it
+ * opened. The upper bound is exclusive, which is what keeps December out of
+ * January's candidate list.
+ */
+async function repoIdsWithMonthlyHistory(
+  db: Db,
+  year: number
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ repoId: repoMonthlyStats.repoId })
+    .from(repoMonthlyStats)
+    .where(
+      and(
+        gte(repoMonthlyStats.period, periodFromMonth({ year, month: 1 })),
+        lt(
+          repoMonthlyStats.period,
+          periodFromMonth({ year: year + 1, month: 1 })
+        )
+      )
+    )
+
+  return rows.map((row) => row.repoId)
+}
+
 /** Builds one project's report entry, or null when it grew nothing. */
 function projectData(
   candidate: Candidate,
   year: number,
-  history: SnapshotMonth[]
+  history: MonthlyPoint[]
 ): RisingStarProject | undefined {
   const delta = yearlyDelta(candidate, year, history)
   if (delta <= 0) return undefined
@@ -364,13 +454,12 @@ function projectData(
       ? (candidate.currentStars ?? 0)
       : (firstStarsOfYear(history, year + 1) ?? 0)
 
-  const monthly: (number | null)[] = []
+  // December first, so a consumer charting the array gets the year backwards
+  // without reversing it.
   const monthlyDeltas = new Map(
-    computeMonthlyTrend(history, "stars").map((trend) => [
-      `${trend.yearMonth.year}-${trend.yearMonth.month}`,
-      trend.delta ?? null,
-    ])
+    history.map((point) => [`${point.year}-${point.month}`, point.delta])
   )
+  const monthly: (number | null)[] = []
   for (let month = 12; month >= 1; month--) {
     monthly.push(monthlyDeltas.get(`${year}-${month}`) ?? null)
   }
@@ -391,10 +480,23 @@ function projectData(
   }
 }
 
+/**
+ * The year's net star movement.
+ *
+ * Read from the end of the year to the start of it: the count at the moment the
+ * year closed is the first month of the next year's level, falling back to the
+ * last month of this year when the history has not reached into the next one.
+ * The opening count is likewise the first month of the year's own level, except
+ * for a repository created during the year, which starts at zero.
+ *
+ * Levels rather than the stored monthly deltas, because a month's delta is
+ * relative to the month before it and a year with a gap in it would then be
+ * undercounted by whatever happened during the gap.
+ */
 function yearlyDelta(
   candidate: Candidate,
   year: number,
-  history: SnapshotMonth[]
+  history: MonthlyPoint[]
 ): number {
   const finalValue =
     firstStarsOfYear(history, year + 1) ?? lastStarsInYear(history, year)
@@ -408,21 +510,23 @@ function yearlyDelta(
   return finalValue - initialValue
 }
 
-/** The running total of the earliest month in a year, if any. */
+/** The level the earliest recorded month of a year closed at, if any. */
 function firstStarsOfYear(
-  history: SnapshotMonth[],
+  history: MonthlyPoint[],
   year: number
 ): number | undefined {
-  return history.find((entry) => entry.year === year)?.stars
+  return history.find((entry) => entry.year === year)?.stars ?? undefined
 }
 
-/** The running total of the latest month in a year, if any. */
+/** The level the latest recorded month of a year closed at, if any. */
 function lastStarsInYear(
-  history: SnapshotMonth[],
+  history: MonthlyPoint[],
   year: number
 ): number | undefined {
   for (let index = history.length - 1; index >= 0; index--) {
-    if (history[index]!.year === year) return history[index]!.stars
+    if (history[index]!.year === year) {
+      return history[index]!.stars ?? undefined
+    }
   }
   return undefined
 }

@@ -16,7 +16,6 @@ import {
   PROJECT_STATUSES,
   PROJECT_TYPES,
   bundles,
-  repoWeeklyStars,
   hallOfFame,
   hallOfFameToProjects,
   packages,
@@ -25,7 +24,6 @@ import {
   projects,
   projectsToTags,
   repos,
-  snapshots,
   tags,
 } from "@/db/schema"
 import type { ProjectSort } from "@/db/schema"
@@ -42,10 +40,12 @@ import {
 } from "@/lib/github/service/project"
 import { listProjectTags, setProjectTags } from "@/lib/github/service/tag"
 import {
-  lastNWeeks,
+  listMonthlyStats,
+  listWeeklyArrivals,
   monthlyBars,
   periodTrends,
-} from "@/lib/github/service/snapshot"
+} from "@/lib/github/service/stats"
+import { lastNWeeks } from "@/lib/github/snapshot-dates"
 import type { Db } from "@/lib/github/service/repo"
 import {
   PackageOwnedError,
@@ -444,7 +444,7 @@ export const projectsRouter = createTRPCRouter({
         jobs,
         authors,
         projectTags,
-        snapshotRows,
+        monthlyRows,
         packageRows,
         weeklyRows,
       ] = await Promise.all([
@@ -519,11 +519,7 @@ export const projectsRouter = createTRPCRouter({
           .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
           .where(eq(projectsToTags.projectId, input.id))
           .orderBy(asc(tags.code)),
-        ctx.db
-          .select({ year: snapshots.year, months: snapshots.months })
-          .from(snapshots)
-          .where(eq(snapshots.repoId, project.repoId))
-          .orderBy(asc(snapshots.year)),
+        listMonthlyStats(ctx.db, project.repoId),
         ctx.db
           .select({
             name: packages.name,
@@ -545,32 +541,24 @@ export const projectsRouter = createTRPCRouter({
         // Only the weeks the chart can show. The table holds a row per week
         // since the first stargazer, which for an old repository is years of
         // rows, and the page needs a year of them at most.
-        ctx.db
-          .select({
-            year: repoWeeklyStars.year,
-            week: repoWeeklyStars.week,
-            stars: repoWeeklyStars.stars,
-          })
-          .from(repoWeeklyStars)
-          .where(eq(repoWeeklyStars.repoId, project.repoId))
-          .orderBy(desc(repoWeeklyStars.year), desc(repoWeeklyStars.week))
-          .limit(CHART_WEEKS),
+        listWeeklyArrivals(ctx.db, project.repoId, CHART_WEEKS),
       ])
 
       // Computed here rather than in the browser so the chart, the headline
       // numbers and the history table below them cannot disagree: they are one
       // read of one set of rows.
-      const months = snapshotRows.flatMap((row) => row.months ?? [])
       const trends = {
-        bars: monthlyBars(months, CHART_MONTHS, new Date()),
+        bars: monthlyBars(monthlyRows, CHART_MONTHS, new Date()),
         weeks: lastNWeeks(CHART_WEEKS, new Date()).map((yearWeek) => ({
           yearWeek,
           stars:
             weeklyRows.find(
-              (row) => row.year === yearWeek.year && row.week === yearWeek.week
+              (row) =>
+                row.yearWeek.year === yearWeek.year &&
+                row.yearWeek.week === yearWeek.week
             )?.stars ?? 0,
         })),
-        periods: periodTrends(months, weeklyRows),
+        periods: periodTrends(monthlyRows, weeklyRows),
       }
 
       return {
@@ -579,7 +567,7 @@ export const projectsRouter = createTRPCRouter({
         jobs,
         authors,
         tags: projectTags,
-        snapshots: snapshotRows,
+        monthlyStats: monthlyRows,
         packages: packageRows,
         ...(trends === undefined ? {} : { trends }),
       }

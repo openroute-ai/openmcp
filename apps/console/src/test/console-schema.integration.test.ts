@@ -38,10 +38,10 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the twenty-five tables console owns", () => {
-    // Four better-auth + twenty-one GitHub. If this list changes, the count
+  it("is the twenty-six tables console owns", () => {
+    // Four better-auth + twenty-two GitHub. If this list changes, the count
     // changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(25)
+    expect(managedTables).toHaveLength(26)
     expect(managedTables).toEqual(
       [
         "account",
@@ -56,13 +56,14 @@ describe("managed table set", () => {
         "projects_to_capabilities",
         "projects_to_tags",
         "readme_sync_jobs",
-        "repo_daily_stars",
-        "repo_weekly_stars",
+        "repo_daily_stats",
+        "repo_monthly_stats",
+        "repo_stargazers",
+        "repo_weekly_stats",
         "repos",
         "rising_star_categories",
         "rising_star_projects",
         "session",
-        "snapshots",
         "tags",
         "task_definitions",
         "task_executions",

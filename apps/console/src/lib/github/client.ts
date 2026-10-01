@@ -29,6 +29,68 @@ const GITHUB_GRAPHQL = "https://api.github.com/graphql"
 /** Warn below this many remaining requests, then again at these levels. */
 const RATE_LIMIT_WARN_THRESHOLDS = [1000, 500, 100, 10, 0]
 
+/**
+ * GitHub's own page size for star history, which it clamps to 30 whatever a
+ * larger `per_page` asks for. Asking for 100 and getting 30 would make the loop
+ * in `fetchStarHistory` stop early on a full page, so the constant is the value
+ * that actually comes back.
+ */
+const HISTORY_PAGE_SIZE = 30
+
+/**
+ * How many history pages to request by default.
+ *
+ * `page` is capped at 100, so 30 weeks per page reaches about seven years. Most
+ * repositories are younger than that and the request after the end returns
+ * nothing, which is what ends the loop.
+ */
+const HISTORY_MAX_PAGES = 100
+
+/** One week of star history, as GitHub reports it. */
+export interface StarHistoryEntry {
+  /** Unix seconds for the start of the week, which falls on a Sunday. */
+  week: number
+  /** Cumulative star count at the end of the week. */
+  total: number
+  /**
+   * Seven daily counts, Monday first.
+   *
+   * Indexed from the day *after* `week`, so a Sunday-based bucket's array begins
+   * on Monday and ends on the Sunday that opens the next bucket. Callers shift it
+   * rather than assuming the two align.
+   */
+  days: number[]
+}
+
+/**
+ * Normalises one history row.
+ *
+ * `total` and `days` are numbers on the wire and arrays of numbers respectively;
+ * everything is checked rather than cast, because a bucket that arrived
+ * malformed should drop that week instead of contributing a NaN that poisons a
+ * cumulative sum for every week after it.
+ */
+function parseStarHistoryEntry(raw: unknown): StarHistoryEntry | undefined {
+  if (!raw || typeof raw !== "object") return undefined
+  const entry = raw as { week?: unknown; total?: unknown; days?: unknown }
+
+  if (typeof entry.week !== "number" || !Number.isFinite(entry.week)) {
+    return undefined
+  }
+  if (typeof entry.total !== "number" || !Number.isFinite(entry.total)) {
+    return undefined
+  }
+  if (!Array.isArray(entry.days)) return undefined
+
+  return {
+    week: entry.week,
+    total: entry.total,
+    days: entry.days.map((day) =>
+      typeof day === "number" && Number.isFinite(day) ? day : 0
+    ),
+  }
+}
+
 type ReposBatchResult = {
   /** Keyed by the input `owner/name`, so callers need not track indices. */
   results: Map<string, RepoInfo>
@@ -221,6 +283,12 @@ export function createGitHubClient() {
       if (Number.isInteger(rest.forks_count)) {
         backfilled.forks = rest.forks_count as number
       }
+      // `open_issues_count` is deliberately not used here. GitHub counts pull
+      // requests inside it, so backfilling from it would turn a repository with
+      // three open issues and nine open pull requests into "twelve open issues",
+      // and the two are tracked as separate counters. It stays at whatever the
+      // reduced query produced, which is zero, and readers treat a zero as
+      // "not measured" for this one counter rather than as a finding.
     } catch (error) {
       // Topics are a separate endpoint, so a failure here must not discard
       // the counts already recovered above.
@@ -291,6 +359,7 @@ export function createGitHubClient() {
       watchersCount: 0,
       licenseSpdxId: "",
       pullRequestsCount: 0,
+      openIssuesCount: 0,
       releasesCount: 0,
       languages: [],
       forks: 0,
@@ -494,19 +563,41 @@ export function createGitHubClient() {
     },
 
     /**
-     * Total stargazers with timestamps, used to reconstruct historical star
-     * counts for the Rising Stars report.
+     * Stargazers with timestamps, by login.
+     *
+     * `star+json` returns `{ starred_at, user: { login } }`, which the plain
+     * media type does not: the default projection is a bare list of users, and
+     * the timestamp is the entire reason for asking here.
+     *
+     * Supplying `since` asks GitHub for stargazers at or after an instant. That
+     * is what makes a repeated sweep cheap — the stored high-water mark is passed
+     * back as the floor, so the second pass costs one page rather than the whole
+     * history — and it is also why this is a supplement rather than the primary
+     * source: GitHub silently ignores the parameter on endpoints it does not
+     * filter by it, so a sweep must never assume the response was narrowed.
+     *
+     * A 403 throws `GitHubForbiddenError`; a rate-limited 403 throws
+     * `GitHubRateLimitError`. The distinction matters because the two call sites
+     * want opposite behaviour: an unprivileged repository is an expected outcome
+     * to skip past, while a rate limit must stop the sweep rather than be
+     * recorded as "this repository has no readable stargazers".
      */
     async fetchStargazersWithTimestamps(
       fullName: string,
-      onPage: (stargazers: { starred_at: string }[]) => void
+      onPage: (stargazers: { login: string; starred_at: string }[]) => void,
+      options: { since?: Date } = {}
     ): Promise<void> {
       let page = 1
-      // 100 is GitHub's maximum per_page; a 400k-star repository is 4000
-      // pages, so this is bounded but intentionally unbounded overall.
+      const since = options.since
+        ? `&since=${encodeURIComponent(options.since.toISOString())}`
+        : ""
+
+      // 100 is GitHub's maximum per_page; a 400k-star repository is 4000 pages,
+      // so this is bounded but intentionally unbounded overall. Callers that do
+      // not pass `since` are the ones paying that.
       for (;;) {
         const response = await makeRestApiRequest(
-          `repos/${fullName}/stargazers?per_page=100&page=${page}`,
+          `repos/${fullName}/stargazers?per_page=100&page=${page}${since}`,
           "application/vnd.github.star+json"
         )
 
@@ -520,20 +611,89 @@ export function createGitHubClient() {
           )
         }
 
-        const stargazers = (await response.json()) as { starred_at?: string }[]
+        const stargazers = (await response.json()) as {
+          starred_at?: string
+          user?: { login?: string }
+        }[]
         if (stargazers.length === 0) return
-        onPage(
-          stargazers
-            .filter(
-              (entry): entry is { starred_at: string } =>
-                typeof entry.starred_at === "string"
-            )
-            .map((entry) => ({ starred_at: entry.starred_at }))
+
+        const usable = stargazers.filter(
+          (entry): entry is { starred_at: string; user: { login: string } } =>
+            typeof entry.starred_at === "string" &&
+            typeof entry.user?.login === "string"
         )
+        if (usable.length > 0) {
+          onPage(
+            usable.map((entry) => ({
+              login: entry.user.login,
+              starred_at: entry.starred_at,
+            }))
+          )
+        }
 
         if (stargazers.length < 100) return
         page += 1
       }
+    },
+
+    /**
+     * Star history, as GitHub's own weekly buckets.
+     *
+     * One request answers "how many stars did this repository gain in each of
+     * the last hundred weeks", which no other endpoint can: the stargazer list is
+     * one row per star, so a repository with 40k stars is 400 pages to answer the
+     * same question. That difference is why this is the primary source and the
+     * stargazer walk is kept as a supplement.
+     *
+     * Each entry is `{ week, total, days[7] }` where `week` is a Unix timestamp
+     * for the start of a Sunday-based week and `total` is the cumulative star
+     * count at its end. The `days` array is Monday-first — it starts at the day
+     * after `week`, which is a Sunday — so callers wanting calendar days index
+     * it accordingly rather than assuming it lines up with the bucket.
+     *
+     * `per_page` is capped at 30 by GitHub regardless of what is asked for, and
+     * `page` stops at 100, so a repository older than roughly 55 weeks needs
+     * something else for its deep history. That limit is the caller's to work
+     * around, and is why the sweep passes a page count and reports what it got.
+     */
+    async fetchStarHistory(
+      fullName: string,
+      options: { pages?: number } = {}
+    ): Promise<StarHistoryEntry[]> {
+      const pages = options.pages ?? HISTORY_MAX_PAGES
+      const entries: StarHistoryEntry[] = []
+
+      for (let page = 1; page <= pages; page++) {
+        const response = await makeRestApiRequest(
+          `repos/${fullName}/stargazers/history?per_page=${HISTORY_PAGE_SIZE}&page=${page}`
+        )
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new GitHubNotFoundError(fullName)
+          }
+          throw toGitHubError(
+            new Error(`star history lookup failed: ${response.statusText}`),
+            { status: response.status, headers: response.headers }
+          )
+        }
+
+        const batch = (await response.json()) as unknown
+        if (!Array.isArray(batch) || batch.length === 0) break
+
+        for (const raw of batch) {
+          const entry = parseStarHistoryEntry(raw)
+          if (entry) entries.push(entry)
+        }
+
+        // GitHub answers a page past the end with 200 and an empty array, so the
+        // loop above cannot tell "no more" from "rate limited into silence" —
+        // an empty body is the only signal, and it is checked here rather than by
+        // running to the page cap on every repository.
+        if (batch.length < HISTORY_PAGE_SIZE) break
+      }
+
+      return entries
     },
 
     async fetchUserInfo(login: string) {
