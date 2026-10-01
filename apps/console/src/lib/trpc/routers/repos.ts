@@ -9,6 +9,7 @@ import {
   curateRepo,
   getRepoByFullName,
   getRepoById,
+  setRepoCreatedBy,
   upsertRepo,
   type Db,
 } from "@/lib/github/service/repo"
@@ -19,6 +20,7 @@ import {
 } from "@/lib/github/service/snapshot"
 import { createConsoleLogger } from "@/lib/tasks/runner"
 import { projects, repoWeeklyStars, repos, snapshots } from "@/db/schema"
+import { isAdmin } from "@/lib/auth/role"
 import { createTRPCRouter, adminProcedure, protectedProcedure } from "../init"
 
 /** How many months of star history the chart shows. */
@@ -51,16 +53,25 @@ async function countProjectsForRepo(db: Db, id: string): Promise<number> {
  * description and homepage an editor owns, the refresh, the delete that cascades
  * into projects — is `adminProcedure`, because a repository row is an editorial
  * decision and an editorial decision is not something a signed-in account gets
- * to make. The two audiences see the same list, so the split is in the
- * procedures rather than in a second query that would drift from this one.
+ * to make. The two audiences do not, however, see the same rows: for a
+ * non-admin, `list` and `byId` narrow to the repositories that account added
+ * itself, because `/console` is titled "我的仓库" and the registry they would
+ * otherwise see is the operator's, not theirs. Both still go through this one
+ * query, so the two views cannot drift in columns, filters or ordering.
  */
 export const reposRouter = createTRPCRouter({
   /**
-   * Every recorded repository, filtered by whether anything points at it.
+   * The repositories the caller may see, filtered by whether anything points
+   * at one and by who added it.
    *
-   * The `curated` / `orphan` split is the reason this page exists rather than a
-   * link to each project, so it is part of the query instead of something the
-   * caller has to infer from a project count it was handed.
+   * An admin sees the whole registry; anyone else sees only the rows their own
+   * additions created. The scope is pushed as one more condition rather than
+   * branched into a second query, so the search, the `curated` / `orphan` split
+   * and the pagination stay identical for both audiences.
+   *
+   * That split is the reason the operator page exists rather than a link to
+   * each project, so it is part of the query instead of something the caller
+   * has to infer from a project count it was handed.
    */
   list: protectedProcedure
     .input(
@@ -79,6 +90,14 @@ export const reposRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const conditions: SQL[] = []
+
+      // Who added a repository, not who curates it: an admin sees the whole
+      // registry — the pool the discovery sweep fills and the dashboard
+      // curates — while anyone else sees only their own additions. Unowned rows
+      // match no non-admin, which is the point of the null.
+      if (!isAdmin(ctx.session.user)) {
+        conditions.push(eq(repos.createdBy, ctx.session.user.id))
+      }
 
       const term = input.search?.trim()
       if (term) {
@@ -189,6 +208,11 @@ export const reposRouter = createTRPCRouter({
    * the row it writes points at nothing, is not a project, and is not synced as
    * one until an admin links a project to it (see
    * `src/lib/tasks/tasks/update-github-data.ts`).
+   *
+   * The caller becomes the row's `created_by` when the row is new or has no
+   * owner yet, which is what puts it in that account's own `/console` list. A
+   * row already owned by another account is refreshed under its owner rather
+   * than reassigned.
    */
   /**
    * One repository, in full, for the detail page a reader opens from the list.
@@ -199,6 +223,11 @@ export const reposRouter = createTRPCRouter({
    * here writes, and the fields it returns are GitHub's own — no curation
    * decision, no `override` flag, no refresh control — so a signed-in account
    * reading it learns the same thing reading the row on GitHub.
+   *
+   * A non-admin may open only a row they added. The scope is part of the query
+   * rather than a check after it, so a caller guessing an id gets the same
+   * `NOT_FOUND` as one asking for a repository that does not exist: the list
+   * never showed them anything else, so there is no third answer to give.
    *
    * The child rows come back with the repository rather than behind their own
    * procedures, for the reason `projects.byId` gives: the page has no
@@ -256,7 +285,14 @@ export const reposRouter = createTRPCRouter({
           latestReleaseUrl: repos.latestReleaseUrl,
         })
         .from(repos)
-        .where(eq(repos.id, input.id))
+        .where(
+          isAdmin(ctx.session.user)
+            ? eq(repos.id, input.id)
+            : and(
+                eq(repos.id, input.id),
+                eq(repos.createdBy, ctx.session.user.id)
+              )
+        )
         .limit(1)
 
       if (!repo) {
@@ -355,6 +391,14 @@ export const reposRouter = createTRPCRouter({
 
       const row = await upsertRepo(ctx.db, info)
       logger.info(`${existing ? "refreshed" : "added"} ${parsed.fullName}`)
+
+      // An unowned row is claimed by its first console adder, so an "added"
+      // repository is always one the adder can then see in their own list. A
+      // row already owned by another account is refreshed but left with its
+      // owner: pasting the same URL must not hand ownership over.
+      if (!existing?.createdBy) {
+        await setRepoCreatedBy(ctx.db, row.id, ctx.session.user.id)
+      }
 
       return {
         id: row.id,

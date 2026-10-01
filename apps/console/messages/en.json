@@ -677,7 +677,7 @@
   },
   "Console": {
     "title": "My repositories",
-    "description": "The repositories collected for this console. Publishing one is an administrator's decision; adding one here is all you need to do.",
+    "description": "The repositories you have added. Publishing one is an administrator's decision; adding one here is all you need to do.",
     "detail": "Repository detail",
     "onGitHub": "On GitHub"
   },

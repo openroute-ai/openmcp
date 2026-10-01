@@ -167,6 +167,24 @@ export async function upsertRepo(db: Db, info: RepoInfo): Promise<RepoRow> {
   return row
 }
 
+/**
+ * Records which account added a repository through `/console`.
+ *
+ * Kept out of {@link upsertRepo} rather than threaded through it, because
+ * ownership is a property of the *click*, not of the GitHub data the upsert is
+ * about: a refresh must never move it, and the discovery sweep and project
+ * creation have no account to give. The one decision that does belong to the
+ * caller — whether an existing, unowned row may be claimed — stays in
+ * `repos.create`, so no other writer can set ownership by accident.
+ */
+export async function setRepoCreatedBy(
+  db: Db,
+  id: string,
+  createdBy: string
+): Promise<void> {
+  await db.update(repos).set({ createdBy }).where(eq(repos.id, id))
+}
+
 /** The repository fields an operator may edit by hand. */
 export interface RepoCuration {
   description?: string | null

@@ -36,12 +36,14 @@ const SEARCH_DEBOUNCE_MS = 300
  * The repository list, for an account that may do nothing but read it and add to
  * it.
  *
- * The same `repos.list` query the operator console reads, and the same rows — one
- * list, one source of truth. What is missing is the row actions: refresh, edit
- * and delete are `adminProcedure`, so buttons for them would fail on click, and
- * the edit is an editorial decision in any case. The filter tabs are gone for a
- * related reason: "curated" and "orphans" are the vocabulary of someone deciding
- * what to publish, and there is nothing to decide from here.
+ * The same `repos.list` query the operator console reads, but not the same rows:
+ * for a non-admin the query scopes to what this account added, so "我的仓库"
+ * means *mine* rather than the whole registry. What is missing besides the other
+ * accounts' rows is the row actions — refresh, edit and delete are
+ * `adminProcedure`, so buttons for them would fail on click, and the edit is an
+ * editorial decision in any case. The filter tabs are gone for a related reason:
+ * "curated" and "orphans" are the vocabulary of someone deciding what to
+ * publish, and there is nothing to decide from here.
  *
  * The project count stays, because it is the one column that answers the
  * question a reader of this list actually has — whether an admin has published

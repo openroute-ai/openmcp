@@ -124,6 +124,22 @@ export const repos = pgTable(
      */
     authorId: text("author_id"),
 
+    /**
+     * The account that added this repository through `/console`, or null when
+     * the system recorded it on its own — the discovery sweep and project
+     * creation both call `upsertRepo` with nobody to attribute.
+     *
+     * Null is meaningful rather than missing: a repository with no creator
+     * belongs to the registry, not to a person, so it is listed only for an
+     * admin. `/console` and `/console/repos/[id]` filter on this, which is what
+     * makes "我的仓库" mean *mine* instead of the whole registry.
+     *
+     * Plain text rather than a foreign key to `user`: `../schema` owns `user`
+     * and imports this file, so a reference here would close an import cycle.
+     * `authorId` above is unattached too, though for its own reasons.
+     */
+    createdBy: text("created_by"),
+
     pushedAt: timestamp("pushed_at").notNull(),
     createdAt: timestamp("created_at").notNull(),
     lastCommit: timestamp("last_commit"),
@@ -172,6 +188,7 @@ export const repos = pgTable(
   (table) => [
     uniqueIndex("repos_name_owner_index").on(table.owner, table.name),
     index("repos_pushed_at_idx").on(table.pushedAt),
+    index("repos_created_by_idx").on(table.createdBy),
   ]
 )
 

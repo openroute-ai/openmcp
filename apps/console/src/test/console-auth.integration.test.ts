@@ -14,8 +14,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { inArray } from "drizzle-orm"
 
 import { db, pool } from "@/db/client"
+import { repos } from "@/db/schema"
 import { createCaller } from "@/lib/trpc/root"
 import { isAdmin, landingPathFor } from "@/lib/auth/role"
 import { ADMIN_ROLE } from "@/lib/auth/role"
@@ -282,5 +284,101 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     // is written for, which is the one bug the gate cannot be allowed to have.
     await expect(caller.authors.list()).resolves.toBeDefined()
     await expect(caller.repos.list({ limit: 1, offset: 0 })).resolves.toBeDefined()
+  })
+
+  /**
+   * What the two audiences see in the repository list.
+   *
+   * `/console` filters `list` and `byId` by `created_by`, so "我的仓库" means
+   * the account's own additions rather than the whole registry; the operator's
+   * `/dashboard` still sees everything. The three fixtures carry a per-run
+   * suffix in their names and every query is scoped by that suffix, so the
+   * assertions name exactly these rows and cannot be satisfied by whatever else
+   * the database happens to hold.
+   */
+  describe("repository ownership", () => {
+    const suffix = `ownership-${Math.random().toString(36).slice(2, 10)}`
+    const ids = {
+      mine: `repo-mine-${suffix}`,
+      theirs: `repo-theirs-${suffix}`,
+      unowned: `repo-unowned-${suffix}`,
+    }
+
+    const columns = {
+      owner: "ownership-verify",
+      ownerId: 1,
+      pushedAt: new Date("2026-01-01T00:00:00Z"),
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    }
+
+    beforeAll(async () => {
+      await db.insert(repos).values([
+        {
+          ...columns,
+          id: ids.mine,
+          name: `mine-${suffix}`,
+          createdBy: "user-1",
+        },
+        {
+          ...columns,
+          id: ids.theirs,
+          name: `theirs-${suffix}`,
+          createdBy: "user-2",
+        },
+        {
+          ...columns,
+          id: ids.unowned,
+          name: `unowned-${suffix}`,
+          createdBy: null,
+        },
+      ])
+    })
+
+    afterAll(async () => {
+      await db.delete(repos).where(inArray(repos.id, Object.values(ids)))
+    })
+
+    it("shows a non-admin only the repositories that account added", async () => {
+      const caller = createCaller(fakeUserContext(db))
+
+      const { items, total } = await caller.repos.list({
+        search: suffix,
+        limit: 10,
+        offset: 0,
+      })
+
+      expect(total).toBe(1)
+      expect(items.map((repo) => repo.id)).toEqual([ids.mine])
+    })
+
+    it("shows an admin every repository, owned or not", async () => {
+      const caller = createCaller(fakeAdminContext(db))
+
+      const { items, total } = await caller.repos.list({
+        search: suffix,
+        limit: 10,
+        offset: 0,
+      })
+
+      expect(total).toBe(3)
+      expect(new Set(items.map((repo) => repo.id))).toEqual(
+        new Set([ids.mine, ids.theirs, ids.unowned])
+      )
+    })
+
+    it("lets a non-admin open their own repository but not another account's", async () => {
+      const caller = createCaller(fakeUserContext(db))
+
+      await expect(caller.repos.byId({ id: ids.mine })).resolves.toMatchObject({
+        id: ids.mine,
+      })
+      await expect(
+        caller.repos.byId({ id: ids.theirs })
+      ).rejects.toMatchObject({ code: "NOT_FOUND" })
+      // Unowned belongs to the operator's registry, not to anybody's list.
+      await expect(
+        caller.repos.byId({ id: ids.unowned })
+      ).rejects.toMatchObject({ code: "NOT_FOUND" })
+    })
   })
 })
