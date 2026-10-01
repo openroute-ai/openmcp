@@ -15,22 +15,27 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { IconCode, IconInnerShadowTop } from "@tabler/icons-react"
+import { IconCode, IconInnerShadowTop, IconScale } from "@tabler/icons-react"
 
 // No group: one entry under a heading of its own would be a heading that names
 // the page it sits above, which is noise rather than navigation.
 const navMain: NavMainItem[] = [
   { key: "repos", url: "/console", icon: <IconCode /> },
+  { key: "decisions", url: "/console/decisions", icon: <IconScale /> },
 ]
 
 /**
- * The user console's sidebar: the repository list, and nothing else.
+ * The user console's sidebar: the repositories you added, and your decision
+ * boards.
  *
- * One entry, because one page — `/console` is the whole of what a non-admin may
- * reach, so a longer menu would be links to gates that redirect straight back
- * here. It also has no `actions`, so the operator console's "quick create"
- * cannot leak into it: curating a project is an admin's job, and
- * `projects.create` would refuse the call anyway.
+ * Two entries because both are per-account data and nothing else is. The
+ * workbench is here rather than on the public site on purpose: a shortlist is a
+ * private working document, and `decisions.*` is `protectedProcedure` with the
+ * ownership filter in the query, so there is no public version of it to link to.
+ *
+ * It also has no `actions`, so the operator console's "quick create" cannot leak
+ * into it: curating a project is an admin's job, and `projects.create` would
+ * refuse the call anyway.
  */
 export function ConsoleSidebar({
   ...props

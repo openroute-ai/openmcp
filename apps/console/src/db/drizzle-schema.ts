@@ -3,6 +3,8 @@ import {
   apiKeys,
   bundles,
   capabilities,
+  decisionBoards,
+  decisionCandidates,
   hallOfFame,
   hallOfFameToProjects,
   packages,
@@ -15,6 +17,8 @@ import {
   repoDailyStats,
   repoMonthlyStats,
   repoStargazers,
+  repoAnomalies,
+  repoLicenseHistory,
   repoWeeklyStats,
   repos,
   risingStarCategories,
@@ -42,7 +46,7 @@ import {
  * drizzle-kit does not read the runtime `schema` object — it imports this
  * module and walks **every export** looking for table objects. `src/db/schema.ts`
  * re-exports `./schema/github` wholesale and adds the `relations` helpers, so
- * pointing drizzle-kit there hands it all twenty-five of console's tables
+ * pointing drizzle-kit there hands it all thirty-three of console's tables
  * anyway; the separation that matters is that this file lists them
  * *individually*, so adding a table anywhere else does not silently add it to
  * console's migrations.
@@ -68,6 +72,15 @@ export { apiKeys }
  */
 export { userRepos }
 
+/**
+ * 决策工作台的两张表。
+ *
+ * 它们同时引用 `user` 与 `repos`，所以既不属于下面那组 GitHub 表、也不属于上面
+ * 那组 auth 表——`userRepos` 有同样的处境，处置方式也一样：单独具名导出，而不是
+ * 混进任何一组里让"这一组是 GitHub 域的表"这句话不再成立。
+ */
+export { decisionBoards, decisionCandidates }
+
 /** console's own GitHub tables; see `src/db/schema/github.ts`. */
 export {
   bundles,
@@ -84,6 +97,8 @@ export {
   repoDailyStats,
   repoMonthlyStats,
   repoStargazers,
+  repoAnomalies,
+  repoLicenseHistory,
   repoWeeklyStats,
   repos,
   risingStarCategories,

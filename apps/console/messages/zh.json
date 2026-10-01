@@ -45,6 +45,7 @@
     "signedOut": "未登录",
     "repos": "仓库",
     "myRepos": "我的仓库",
+    "decisions": "决策工作台",
     "groupInsights": "数据洞察",
     "groupCatalog": "内容管理",
     "groupOperations": "任务运维",
@@ -688,7 +689,8 @@
     "title": "我的仓库",
     "description": "你添加过的仓库。是否发布由管理员决定，在这里你只需添加仓库。",
     "detail": "仓库详情",
-    "onGitHub": "在 GitHub 上"
+    "onGitHub": "在 GitHub 上",
+    "decisions": "决策工作台"
   },
   "RepoDetail": {
     "notFoundTitle": "未找到仓库",
@@ -1068,5 +1070,44 @@
   "Role": {
     "admin": "管理员",
     "user": "普通账号"
+  },
+  "Decisions": {
+    "title": "决策工作台",
+    "description": "把候选和当时的体征冻结下来，30/90 天后回来看这次选型对了没有。",
+    "empty": "还没有工作台。",
+    "create": "新建工作台",
+    "createTitle": "标题",
+    "createSummary": "背景（可选）",
+    "createSubmit": "创建",
+    "cancel": "取消",
+    "decide": "写下结论",
+    "outcome": "结论",
+    "outcomePlaceholder": "为什么选它 / 为什么都没选",
+    "decidedAt": "决策于",
+    "status": {
+      "collecting": "收集候选",
+      "reviewing": "对比中",
+      "decided": "已决策"
+    },
+    "addCandidate": "加入候选",
+    "addHint": "输入仓库名或选择器后加入。加入时会冻结它此刻的体征。",
+    "emptyBoard": "这个工作台还没有候选。",
+    "frozenAt": "冻结于 {date}",
+    "remove": "移出",
+    "note": "备注",
+    "notePlaceholder": "这个候选的问题在哪",
+    "full": "候选最多 {max} 个，先移出一个再加。",
+    "readings": {
+      "starsThisWeek": "本周新增",
+      "starFactor": "近 3 周倍数",
+      "daysSincePush": "距上次推送",
+      "daysSinceRelease": "距上次发布",
+      "license": "许可证"
+    },
+    "verdict": "处置",
+    "verdict_pending": "待评审",
+    "verdict_shortlisted": "入围",
+    "verdict_chosen": "已选",
+    "verdict_rejected": "排除"
   }
 }

@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from "./init"
 import { apiKeysRouter } from "./routers/api-keys"
 import { authorsRouter } from "./routers/authors"
+import { decisionsRouter } from "./routers/decisions"
 import { overviewRouter } from "./routers/overview"
 import { projectsRouter } from "./routers/projects"
 import { rankingsRouter } from "./routers/rankings"
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   // 的文件头。
   apiKeys: apiKeysRouter,
   authors: authorsRouter,
+  decisions: decisionsRouter,
   overview: overviewRouter,
   projects: projectsRouter,
   rankings: rankingsRouter,

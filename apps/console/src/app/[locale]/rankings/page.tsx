@@ -252,6 +252,7 @@ function toItem(project: RankedProject): PublicProjectItem {
     iconUrl: project.iconUrl,
     avatar: project.avatar,
     delta: project.delta,
+    anomaly: project.anomaly,
   }
 }
 

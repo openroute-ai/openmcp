@@ -18,7 +18,7 @@ export function Comparison() {
     <section className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             为什么只看 star 数会看错？
           </h2>
         </div>
@@ -120,7 +120,7 @@ export function Roles() {
     <section id="roles" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">谁在用雷达盯项目</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">谁在用雷达盯项目</h2>
         </div>
       </Reveal>
       <Reveal delay={80}>
@@ -141,7 +141,7 @@ export function Roles() {
           ))}
         </div>
         <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-border bg-card p-7 backdrop-blur-xl">
-          <h3 className="font-display text-xl font-semibold">{role.title}</h3>
+          <h3 className="font-display text-lg font-semibold">{role.title}</h3>
           <ul className="mt-4 space-y-3">
             {role.points.map((p) => (
               <li key={p} className="flex items-start gap-3 text-sm text-muted-foreground">
@@ -176,7 +176,7 @@ export function Neutrality() {
     <section id="method" className="border-y border-border bg-card/40 backdrop-blur-sm">
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-24 lg:grid-cols-[1fr_auto]">
         <Reveal>
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             商业推广不干预排名，也不用一个分数替你下结论
           </h2>
           <ul className="mt-7 space-y-4">
@@ -219,7 +219,7 @@ export function Testimonials() {
     <section className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">技术团队怎么说</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">技术团队怎么说</h2>
           <p className="mt-3 text-sm text-muted-foreground">首批客户证言整理中，正式上线后填充。</p>
         </div>
       </Reveal>

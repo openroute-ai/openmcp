@@ -3,40 +3,6 @@
 import { IconBell, IconColumns3, IconGauge, IconPuzzle, IconScale, IconAlertTriangle, IconSkull, IconRadio } from "@tabler/icons-react";
 import { Reveal } from "@/hooks/use-reveal";
 
-const DATA_SOURCES = ["GitHub", "GitLab", "Gitee", "npm", "PyPI", "Maven", "OSV", "NVD"];
-
-export function TrustStrip() {
-  return (
-    <section className="border-y border-border bg-card/40 backdrop-blur-sm">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
-          <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-            数据覆盖
-          </span>
-          {DATA_SOURCES.map((s) => (
-            <span key={s} className="text-sm font-medium text-foreground/70">
-              {s}
-            </span>
-          ))}
-        </div>
-        <div className="mt-6 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-border pt-6">
-          <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
-            被技术团队用于选型尽调
-          </span>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <span
-              key={i}
-              className="grid h-7 w-28 place-items-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground/60"
-            >
-              客户 Logo · 上线后填充
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 const PAINS = [
   {
     icon: IconScale,
@@ -69,7 +35,7 @@ export function PainPoints() {
     <section id="pain" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             开源选型，靠感觉太危险
           </h2>
           <p className="mt-3 text-muted-foreground">
@@ -84,7 +50,7 @@ export function PainPoints() {
               <div className={`grid size-10 place-items-center rounded-xl ${p.tint}`}>
                 <p.icon size={20} />
               </div>
-              <h3 className="mt-4 font-display text-lg font-semibold">{p.title}</h3>
+              <h3 className="mt-4 font-display text-base font-semibold">{p.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.desc}</p>
             </div>
           </Reveal>
@@ -143,7 +109,7 @@ export function Solutions() {
     <section id="solutions" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             从发现到决策，一个工作流
           </h2>
         </div>
@@ -158,7 +124,7 @@ export function Solutions() {
               <div className={`grid size-11 place-items-center rounded-xl bg-gradient-to-br text-primary-foreground ${s.tint}`}>
                 <s.icon size={20} />
               </div>
-              <h3 className="mt-4 font-display text-lg font-semibold">{s.title}</h3>
+              <h3 className="mt-4 font-display text-base font-semibold">{s.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-secondary-foreground">
                 查看详情 <ArrowGlyph />
@@ -194,7 +160,7 @@ export function Workflow() {
     <section id="workflow" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             3 步完成一次选型尽调
           </h2>
         </div>
@@ -204,7 +170,7 @@ export function Workflow() {
           <Reveal key={w.step} delay={i * 100}>
             <div className="relative h-full rounded-2xl border border-border bg-card p-6 backdrop-blur-md">
               <span className="font-display text-4xl font-bold text-foreground/10">{w.step}</span>
-              <h3 className="mt-3 font-display text-lg font-semibold">{w.title}</h3>
+              <h3 className="mt-3 font-display text-base font-semibold">{w.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{w.desc}</p>
             </div>
           </Reveal>

@@ -2,11 +2,14 @@
 
 import * as React from "react"
 import {
+  IconAlertTriangle,
   IconArrowDownRight,
   IconArrowUpRight,
+  IconInfoCircle,
   IconLayoutGrid,
   IconList,
   IconStar,
+  IconTrendingDown,
 } from "@tabler/icons-react"
 
 import { ProjectLogo } from "@/components/projects/project-logo"
@@ -45,6 +48,19 @@ export interface PublicProjectItem {
   avatar?: string | null
   /** Movement over the ranked period, absent where the list is not a ranking. */
   delta?: number
+  /**
+   * The project's most severe open anomaly, when it has one.
+   *
+   * Rendered on the row rather than behind a click (§5.9.3): the row is the
+   * cheapest place to say "this one is also going bad", and a badge a reader has
+   * to go looking for is a badge nobody sees. Absent on lists that are not
+   * rankings — a category listing has no period to relate an anomaly to.
+   */
+  anomaly?: {
+    kind: string
+    severity: string
+    title: string
+  } | null
 }
 
 export interface PublicProjectGroup {
@@ -57,6 +73,40 @@ export interface PublicProjectGroup {
   items: PublicProjectItem[]
   /** Shown when the period has no rows at all. */
   emptyLabel: string
+}
+
+/**
+ * The row's anomaly badge.
+ *
+ * Icon plus label plus border, never colour alone — §5.9.2. A reader who has
+ * learned "red means bad" everywhere else would read this site's red (which
+ * means growing) backwards, so the label is what carries the meaning and the
+ * colour only repeats it.
+ *
+ * `down` is green here for the same reason: a falling project is the good news
+ * on a site whose job is to tell you which projects to stop betting on.
+ */
+function AnomalyBadge({
+  anomaly,
+}: {
+  anomaly: NonNullable<PublicProjectItem["anomaly"]>
+}) {
+  const Icon =
+    anomaly.kind === "star_cliff"
+      ? IconTrendingDown
+      : anomaly.severity === "risk"
+        ? IconAlertTriangle
+        : IconInfoCircle
+
+  return (
+    <span
+      title={anomaly.title}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-l-2 border-radar-down px-1.5 py-0.5 text-xs font-medium text-radar-down"
+    >
+      <Icon size={12} aria-hidden />
+      异动
+    </span>
+  )
 }
 
 export function PublicProjectBoard({
@@ -185,6 +235,7 @@ function ProjectRows({ group }: { group: PublicProjectGroup }) {
                     已弃用
                   </span>
                 ) : null}
+                {item.anomaly ? <AnomalyBadge anomaly={item.anomaly} /> : null}
               </span>
               {item.description ? (
                 <span className="line-clamp-1 text-xs text-muted-foreground">
@@ -255,6 +306,7 @@ function ProjectCards({ group }: { group: PublicProjectGroup }) {
                     .join(" · ")}
                 </span>
               ) : null}
+              {item.anomaly ? <AnomalyBadge anomaly={item.anomaly} /> : null}
             </span>
           </span>
 

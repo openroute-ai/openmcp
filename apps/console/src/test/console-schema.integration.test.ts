@@ -39,16 +39,19 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the twenty-nine tables console owns", () => {
-    // Four better-auth + one submission + one API key + twenty-three GitHub. If
-    // this list changes, the count changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(29)
+  it("is the thirty-three tables console owns", () => {
+    // Four better-auth + one submission + one API key + two decision workbench +
+    // twenty-five GitHub. If this list changes, the count changes with it, and the
+    // diff is the review.
+    expect(managedTables).toHaveLength(33)
     expect(managedTables).toEqual(
       [
         "account",
         "api_keys",
         "bundles",
         "capabilities",
+        "decision_boards",
+        "decision_candidates",
         "hall_of_fame",
         "hall_of_fame_to_projects",
         "packages",
@@ -58,7 +61,9 @@ describe("managed table set", () => {
         "projects_to_capabilities",
         "projects_to_tags",
         "readme_sync_jobs",
+        "repo_anomalies",
         "repo_daily_stats",
+        "repo_license_history",
         "repo_monthly_stats",
         "repo_stargazers",
         "repo_weekly_stats",
@@ -160,7 +165,9 @@ describe("managed table set", () => {
     // it has to carry the columns better-auth's admin plugin and the role checks
     // read. A migration generated from the shared definition would lack them.
     expect(managedTables).toContain("user")
-    const columns = Object.values(getTableColumns(managed.user)).map((c) => c.name)
+    const columns = Object.values(getTableColumns(managed.user)).map(
+      (c) => c.name
+    )
     expect(columns).toEqual(
       expect.arrayContaining([
         "role",
@@ -175,7 +182,10 @@ describe("managed table set", () => {
 
   it("has migrations that between them create all of them", () => {
     const journal = JSON.parse(
-      readFileSync(join(process.cwd(), "src/db/drizzle/meta/_journal.json"), "utf8")
+      readFileSync(
+        join(process.cwd(), "src/db/drizzle/meta/_journal.json"),
+        "utf8"
+      )
     ) as { entries: { tag: string }[] }
     // `0000`–`0008` were squashed into one baseline; see README "Migrations are
     // a single squashed baseline" for why the incremental history was
@@ -221,98 +231,123 @@ describe.runIf(hasDatabase)("live database", () => {
     await pool.end()
   })
 
-  it("has every table it manages", async () => {
-    // The database may legitimately hold more — the local dev instance shares
-    // one with apps/web — so this asserts the direction that matters: nothing
-    // console manages is missing, which is the failure a stale migration
-    // produces.
-    const { rows } = await db.execute<{ table_name: string }>(
-      sql`select table_name from information_schema.tables
+  it(
+    "has every table it manages",
+    async () => {
+      // The database may legitimately hold more — the local dev instance shares
+      // one with apps/web — so this asserts the direction that matters: nothing
+      // console manages is missing, which is the failure a stale migration
+      // produces.
+      const { rows } = await db.execute<{ table_name: string }>(
+        sql`select table_name from information_schema.tables
           where table_schema = 'public' and table_type = 'BASE TABLE'`
-    )
-    const present = rows.map((r) => r.table_name)
-    for (const table of managedTables) {
-      expect(present, table).toContain(table)
-    }
-  }, NETWORK_BUDGET_MS)
+      )
+      const present = rows.map((r) => r.table_name)
+      for (const table of managedTables) {
+        expect(present, table).toContain(table)
+      }
+    },
+    NETWORK_BUDGET_MS
+  )
 
-  it("has the columns better-auth writes to `session`", async () => {
-    // The regression this exists for: better-auth 1.7.6's `createSession()`
-    // INSERT lists both columns unconditionally, and their absence surfaced as
-    // `column "active_organization_id" of relation "session" does not exist`
-    // on the first sign-up of a freshly migrated database.
-    const { rows } = await db.execute<{ column_name: string }>(
-      sql`select column_name from information_schema.columns
+  it(
+    "has the columns better-auth writes to `session`",
+    async () => {
+      // The regression this exists for: better-auth 1.7.6's `createSession()`
+      // INSERT lists both columns unconditionally, and their absence surfaced as
+      // `column "active_organization_id" of relation "session" does not exist`
+      // on the first sign-up of a freshly migrated database.
+      const { rows } = await db.execute<{ column_name: string }>(
+        sql`select column_name from information_schema.columns
           where table_schema = 'public' and table_name = 'session'`
-    )
-    const present = rows.map((r) => r.column_name)
-    for (const column of [
-      "id",
-      "expires_at",
-      "token",
-      "created_at",
-      "updated_at",
-      "ip_address",
-      "user_agent",
-      "user_id",
-      "active_organization_id",
-      "impersonated_by",
-    ]) {
-      expect(present, column).toContain(column)
-    }
-  }, NETWORK_BUDGET_MS)
+      )
+      const present = rows.map((r) => r.column_name)
+      for (const column of [
+        "id",
+        "expires_at",
+        "token",
+        "created_at",
+        "updated_at",
+        "ip_address",
+        "user_agent",
+        "user_id",
+        "active_organization_id",
+        "impersonated_by",
+      ]) {
+        expect(present, column).toContain(column)
+      }
+    },
+    NETWORK_BUDGET_MS
+  )
 
-  it("has the columns the console's `user` role checks read", async () => {
-    const { rows } = await db.execute<{ column_name: string }>(
-      sql`select column_name from information_schema.columns
+  it(
+    "has the columns the console's `user` role checks read",
+    async () => {
+      const { rows } = await db.execute<{ column_name: string }>(
+        sql`select column_name from information_schema.columns
           where table_schema = 'public' and table_name = 'user'`
-    )
-    const present = rows.map((r) => r.column_name)
-    for (const column of [
-      "email",
-      "role",
-      "phone_number",
-      "phone_number_verified",
-      "banned",
-      "ban_reason",
-      "ban_expires",
-      "customer_id",
-    ]) {
-      expect(present, column).toContain(column)
-    }
-  }, NETWORK_BUDGET_MS)
+      )
+      const present = rows.map((r) => r.column_name)
+      for (const column of [
+        "email",
+        "role",
+        "phone_number",
+        "phone_number_verified",
+        "banned",
+        "ban_reason",
+        "ban_expires",
+        "customer_id",
+      ]) {
+        expect(present, column).toContain(column)
+      }
+    },
+    NETWORK_BUDGET_MS
+  )
 
-  it("records no applied migration that no longer exists", async () => {
-    // Squashing the history left the ledger carrying rows for the eight
-    // deleted migrations, and `db:migrate` reads the ledger before it decides
-    // what to apply — so a stale row is how a database ends up claiming a
-    // schema it does not have. One row per journal entry is correct: more means
-    // stale, fewer means the database is behind the checked-in migrations.
-    //
-    // A missing ledger is legitimate: `drizzle-kit push` creates the tables
-    // without one, and the local dev database was built that way. Nothing can
-    // be stale in a database that never recorded a migration. The existence
-    // check is a separate statement because the planner resolves the table
-    // name when it parses the query, not when it evaluates the branch.
-    const { rows: found } = await db.execute<{ present: string | null }>(
-      sql`select to_regclass('drizzle.__drizzle_migrations')::text as present`
-    )
-    if (!found[0]?.present) return
+  it(
+    "records no applied migration that no longer exists",
+    async () => {
+      // Squashing the history left the ledger carrying rows for the eight
+      // deleted migrations, and `db:migrate` reads the ledger before it decides
+      // what to apply — so a stale row is how a database ends up claiming a
+      // schema it does not have. One row per journal entry is correct: more means
+      // stale, fewer means the database is behind the checked-in migrations.
+      //
+      // A missing ledger is legitimate: `drizzle-kit push` creates the tables
+      // without one, and the local dev database was built that way. Nothing can
+      // be stale in a database that never recorded a migration. The existence
+      // check is a separate statement because the planner resolves the table
+      // name when it parses the query, not when it evaluates the branch.
+      const { rows: found } = await db.execute<{ present: string | null }>(
+        sql`select to_regclass('drizzle.__drizzle_migrations')::text as present`
+      )
+      if (!found[0]?.present) return
 
-    const journal = JSON.parse(
-      readFileSync(join(process.cwd(), "src/db/drizzle/meta/_journal.json"), "utf8")
-    ) as { entries: unknown[] }
+      const journal = JSON.parse(
+        readFileSync(
+          join(process.cwd(), "src/db/drizzle/meta/_journal.json"),
+          "utf8"
+        )
+      ) as { entries: unknown[] }
 
-    const { rows } = await db.execute<{ n: number }>(
-      sql`select count(*)::int as n from drizzle.__drizzle_migrations`
-    )
-    expect(rows[0]?.n).toBe(journal.entries.length)
-  }, NETWORK_BUDGET_MS)
+      const { rows } = await db.execute<{ n: number }>(
+        sql`select count(*)::int as n from drizzle.__drizzle_migrations`
+      )
+      expect(rows[0]?.n).toBe(journal.entries.length)
+    },
+    NETWORK_BUDGET_MS
+  )
 
-  it("issues the session query every protected page issues", async () => {
-    // The check that actually catches a missing `session` table: the one that
-    // returned `relation "session" does not exist` before.
-    const result = await db.execute(sql`select count(*)::int as n from session`)
-    expect(result).toBeDefined()
-  }, NETWORK_BUDGET_MS)
+  it(
+    "issues the session query every protected page issues",
+    async () => {
+      // The check that actually catches a missing `session` table: the one that
+      // returned `relation "session" does not exist` before.
+      const result = await db.execute(
+        sql`select count(*)::int as n from session`
+      )
+      expect(result).toBeDefined()
+    },
+    NETWORK_BUDGET_MS
+  )
 })

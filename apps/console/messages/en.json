@@ -45,6 +45,7 @@
     "signedOut": "Signed out",
     "repos": "Repositories",
     "myRepos": "My repositories",
+    "decisions": "Decisions",
     "groupInsights": "Insights",
     "groupCatalog": "Catalog",
     "groupOperations": "Operations",
@@ -688,7 +689,8 @@
     "title": "My repositories",
     "description": "The repositories you have added. Publishing one is an administrator's decision; adding one here is all you need to do.",
     "detail": "Repository detail",
-    "onGitHub": "On GitHub"
+    "onGitHub": "On GitHub",
+    "decisions": "Decisions"
   },
   "RepoDetail": {
     "notFoundTitle": "Repository not found",
@@ -1068,5 +1070,44 @@
   "Role": {
     "admin": "Administrator",
     "user": "Ordinary account"
+  },
+  "Decisions": {
+    "title": "Decision workbench",
+    "description": "Freeze the candidates and their vitals, then come back in 30/90 days to see whether the call was right.",
+    "empty": "No boards yet.",
+    "create": "New board",
+    "createTitle": "Title",
+    "createSummary": "Context (optional)",
+    "createSubmit": "Create",
+    "cancel": "Cancel",
+    "decide": "Record the outcome",
+    "outcome": "Outcome",
+    "outcomePlaceholder": "Why this one, or why none of them",
+    "decidedAt": "Decided",
+    "status": {
+      "collecting": "Collecting",
+      "reviewing": "Comparing",
+      "decided": "Decided"
+    },
+    "addCandidate": "Add a candidate",
+    "addHint": "Search or pick a repository. Adding it freezes its vitals as they are now.",
+    "emptyBoard": "This board has no candidates yet.",
+    "frozenAt": "Frozen {date}",
+    "remove": "Remove",
+    "note": "Note",
+    "notePlaceholder": "What is wrong with this one",
+    "full": "A board holds at most {max}. Remove one before adding another.",
+    "readings": {
+      "starsThisWeek": "Stars this week",
+      "starFactor": "3-week factor",
+      "daysSincePush": "Since last push",
+      "daysSinceRelease": "Since last release",
+      "license": "Licence"
+    },
+    "verdict": "Verdict",
+    "verdict_pending": "Pending",
+    "verdict_shortlisted": "Shortlisted",
+    "verdict_chosen": "Chosen",
+    "verdict_rejected": "Rejected"
   }
 }

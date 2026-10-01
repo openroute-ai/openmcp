@@ -64,6 +64,27 @@
       "when": 1790845666072,
       "tag": "0016_restore_capabilities_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790858977832,
+      "tag": "0017_radar_anomalies",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790860245515,
+      "tag": "0018_decision_workbench",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790864559480,
+      "tag": "0019_anomaly_magnitude",
+      "breakpoints": true
     }
   ]
 }

@@ -19,10 +19,13 @@
  * newly-tracked repository would rank as infinitely fast.
  */
 
-import { and, eq, inArray, ne, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm"
 import {
+  type AnomalyKind,
+  type AnomalySeverity,
   projects,
   projectsToTags,
+  repoAnomalies,
   repoMonthlyStats,
   repos,
   repoWeeklyStats,
@@ -70,6 +73,23 @@ export interface RankedProject {
   iconUrl: string | null
   /** The owner's GitHub avatar, between the logo and the repository icon. */
   avatar: string | null
+  /**
+   * The open anomaly on this project, when it has one.
+   *
+   * A ranking that only counts gains is a ranking that cannot report a decline,
+   * and §5.9.3 wants the flag on the list rather than behind a click: the row is
+   * the cheapest place to say "this project is also doing badly". One flag per
+   * project rather than a list, because a row showing three badges is a row
+   * nobody reads the numbers on — the most severe wins.
+   */
+  anomaly: RankedAnomaly | null
+}
+
+/** The single most severe open anomaly on a ranked row. */
+export interface RankedAnomaly {
+  kind: AnomalyKind
+  severity: AnomalySeverity
+  title: string
 }
 
 export interface Rankings {
@@ -337,6 +357,11 @@ async function assemble(
     })
   }
 
+  // One read for every open anomaly touching this page's rows, rather than a
+  // lookup per project: a page of twelve rows would otherwise cost twelve extra
+  // round trips to answer a question whose answer is almost always "none".
+  const flags = await mostSevereAnomalies(db, [...counts.keys()])
+
   const ranked: RankedProject[] = []
 
   for (const project of byProject.values()) {
@@ -374,6 +399,7 @@ async function assemble(
       logo: project.logo,
       iconUrl: project.iconUrl,
       avatar: githubAvatarUrl(project.owner, { ownerId: project.ownerId }),
+      anomaly: flags.get(project.repoId) ?? null,
     })
   }
 
@@ -384,6 +410,73 @@ async function assemble(
       .sort((a, b) => (b.relativeGrowth ?? -1) - (a.relativeGrowth ?? -1))
       .slice(0, limit),
   }
+}
+
+/**
+ * The most severe open anomaly per repository, for the repositories given.
+ *
+ * "Most severe" rather than "most recent": a project that just changed its
+ * licence is worth less attention this week than one that has been falling for a
+ * month, and a row badge is read once — it has to carry the thing that matters
+ * most, not the thing that happened most recently. The `good` rows are excluded
+ * for the same reason the feed excludes them: an acceleration badge on a
+ * leaderboard would be read as a warning about the row.
+ */
+async function mostSevereAnomalies(
+  db: Db,
+  repoIds: string[]
+): Promise<Map<string, RankedAnomaly>> {
+  if (repoIds.length === 0) return new Map()
+
+  const rows = await db
+    .select({
+      repoId: repoAnomalies.repoId,
+      kind: repoAnomalies.kind,
+      severity: repoAnomalies.severity,
+      title: repoAnomalies.title,
+      detectedAt: repoAnomalies.detectedAt,
+    })
+    .from(repoAnomalies)
+    .where(
+      and(
+        inArray(repoAnomalies.repoId, repoIds),
+        eq(repoAnomalies.status, "open"),
+        ne(repoAnomalies.severity, "good")
+      )
+    )
+    .orderBy(desc(repoAnomalies.detectedAt))
+
+  const SEVERITY_ORDER: Record<string, number> = { down: 3, risk: 2, notice: 1 }
+  const best = new Map<
+    string,
+    { anomaly: RankedAnomaly; rank: number; at: Date }
+  >()
+
+  for (const row of rows) {
+    const rank = SEVERITY_ORDER[row.severity] ?? 0
+    const current = best.get(row.repoId)
+    // Ties broken by recency, so the badge on a project with two open rows is
+    // the newer of the two rather than an arbitrary one.
+    if (
+      !current ||
+      rank > current.rank ||
+      (rank === current.rank && row.detectedAt > current.at)
+    ) {
+      best.set(row.repoId, {
+        anomaly: {
+          kind: row.kind as AnomalyKind,
+          severity: row.severity as AnomalySeverity,
+          title: row.title,
+        },
+        rank,
+        at: row.detectedAt,
+      })
+    }
+  }
+
+  return new Map(
+    [...best.entries()].map(([repoId, entry]) => [repoId, entry.anomaly])
+  )
 }
 
 /** Shortens to `length`, cutting on a word boundary where there is one. */

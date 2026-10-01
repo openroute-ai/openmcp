@@ -2,6 +2,7 @@ import {
   IconArrowLeft,
   IconChartBar,
   IconHelpCircle,
+  IconRadar,
   IconTags,
 } from "@tabler/icons-react"
 
@@ -9,7 +10,8 @@ import { ThemeToggle } from "@/components/landing/theme"
 import { LocaleLink } from "@/i18n/navigation"
 
 /**
- * The chrome around the three public radar pages: rankings, categories, detail.
+ * The chrome around the public radar pages: anomalies, rankings, categories,
+ * detail.
  *
  * Separate from the landing's `SiteHeader` because that one's links are anchors
  * into the marketing page's own sections (`#pricing`, `#method`). Reusing it here
@@ -22,7 +24,16 @@ import { LocaleLink } from "@/i18n/navigation"
  * to one of two Chinese surfaces would make the split worse, not better.
  */
 
+/**
+ * Anomalies first.
+ *
+ * The order is the argument: this site reports declines, so the feed of things
+ * going wrong is the first thing in the nav. Putting it after the rankings would
+ * make the rankings the product's face, and a site whose front page is a
+ * leaderboard is a site that only reports growth.
+ */
 const NAV = [
+  { href: "/anomalies", label: "异动", icon: IconRadar },
   { href: "/rankings", label: "公开榜单", icon: IconChartBar },
   { href: "/categories", label: "应用分类", icon: IconTags },
   { href: "/faq", label: "常见问题", icon: IconHelpCircle },
@@ -104,7 +115,9 @@ export function PublicPageHeader({
   return (
     <div className="grid gap-3 border-b border-border pb-6">
       <div className="grid gap-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">{title}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">
+          {title}
+        </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           {description}
         </p>

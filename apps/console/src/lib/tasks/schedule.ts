@@ -437,8 +437,7 @@ export function nextDueInstant(
           ? firstMinutesAhead(cron, after, timeZone, options.inclusive === true)
           : earliestMinutesOfDay(cron)
 
-      if (minutes !== undefined)
-        return instantOfCivil(date, minutes, timeZone)
+      if (minutes !== undefined) return instantOfCivil(date, minutes, timeZone)
     }
     date = addDays(date, 1)
   }

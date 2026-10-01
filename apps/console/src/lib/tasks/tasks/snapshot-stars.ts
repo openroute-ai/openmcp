@@ -25,10 +25,7 @@
  * reads the repository's own star count and that is more recent than the last
  * complete bucket. See `recordStarHistory`.
  */
-import {
-  GitHubForbiddenError,
-  GitHubRateLimitError,
-} from "@/lib/github/errors"
+import { GitHubForbiddenError, GitHubRateLimitError } from "@/lib/github/errors"
 import { createGitHubClient } from "@/lib/github/client"
 import { listAllRepos, listCuratedRepos } from "@/lib/github/service/repo"
 import {
@@ -131,7 +128,9 @@ export function createSnapshotStarsTask(
           if (entries.length === 0) {
             // Writing nothing here would show as a cliff in the chart, so no
             // rows are recorded for a repository that reported no history.
-            logger.warn(`no star history returned for ${repo.owner}/${repo.name}`)
+            logger.warn(
+              `no star history returned for ${repo.owner}/${repo.name}`
+            )
             return { meta: { empty: 1 }, data: null }
           }
 
@@ -197,7 +196,12 @@ async function sweepStargazers(
   db: Parameters<typeof recordStargazers>[0],
   client: ReturnType<typeof createGitHubClient>,
   logger: TaskLogger
-): Promise<{ stored: number; forbidden: number; errors: number; repos: number }> {
+): Promise<{
+  stored: number
+  forbidden: number
+  errors: number
+  repos: number
+}> {
   const repos = await listCuratedRepos(db)
 
   const result = await processItems(
@@ -226,9 +230,7 @@ async function sweepStargazers(
         ) {
           // Expected for any repository the token cannot administer, so counted
           // and moved past rather than retried.
-          logger.info(
-            `stargazers not readable for ${repo.owner}/${repo.name}`
-          )
+          logger.info(`stargazers not readable for ${repo.owner}/${repo.name}`)
           return { meta: { forbidden: 1 }, data: null }
         }
         // A rate limit is deliberately rethrown: `processItems` records the

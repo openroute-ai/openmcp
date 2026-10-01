@@ -213,6 +213,17 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   license: string | null
   pushedAt: Date
   createdAt: Date
+  /** The repository row, not the project row. The radar reads `repos` tables. */
+  repoId: string
+  /**
+   * The latest release's publish time, or null when the project has never
+   * released.
+   *
+   * Separate from `releases` (a count) because "eight releases" and "the last
+   * one was 14 months ago" are different facts, and only the second one drives
+   * the release-stall rule.
+   */
+  latestReleasePublishedAt: Date | null
   forks: number
   contributors: number | null
   releases: number
@@ -292,6 +303,7 @@ export async function getPublicProjectDetail(
       readme: repos.readmeContent,
       readmeZh: repos.readmeContentZh,
       repoId: repos.id,
+      latestReleasePublishedAt: repos.latestReleasePublishedAt,
     })
     .from(projects)
     .innerJoin(repos, eq(projects.repoId, repos.id))
@@ -326,6 +338,8 @@ export async function getPublicProjectDetail(
     license: row.license,
     pushedAt: row.pushedAt,
     createdAt: row.createdAt,
+    repoId: row.repoId,
+    latestReleasePublishedAt: row.latestReleasePublishedAt,
     forks: row.forks ?? 0,
     contributors: row.contributors,
     releases: row.releases ?? 0,

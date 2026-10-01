@@ -22,8 +22,17 @@ export const Routes = {
   signUp: "/sign-up",
   /** The operator console: overview, tasks, projects, rankings, sync. */
   dashboard: "/dashboard",
-  /** The user console: the repository list, and nothing else. */
+  /** The user console: the repository list. */
   console: "/console",
+  /**
+   * The decision workbench.
+   *
+   * Listed separately from `console` rather than folded into it: `isPublicPath`
+   * prefix-matches these, and folding a gated path under the public console's
+   * string would make the check read as though `/console` covered everything
+   * underneath it.
+   */
+  decisions: "/console/decisions",
 } as const
 
 export type RoutePath = (typeof Routes)[keyof typeof Routes]
@@ -62,6 +71,13 @@ export const PublicRoutes = {
    * for the same reason the other three are.
    */
   faq: "/faq",
+  /**
+   * The anomaly feed. Its own route rather than a rankings tab because §5.9.4
+   * treats it as the product's front door: it is what makes the site legible as
+   * a radar instead of a leaderboard, and a leaderboard is a page you visit once
+   * while an anomaly feed is a page you come back to.
+   */
+  anomalies: "/anomalies",
 } as const
 
 /**

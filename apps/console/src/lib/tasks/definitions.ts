@@ -82,6 +82,17 @@ export const TASK_SEEDS: TaskSeed[] = [
     isDaily: true,
   },
   {
+    name: "detect-anomalies",
+    description: "Evaluate the radar rules and materialise the anomalies",
+    // 07:30, half an hour after `notify-daily`. It reads the repository info
+    // that `update-github-data` refreshed at 02:00 and the weekly star history
+    // that `snapshot-stars` closed at 05:00, and it needs both to be a day old
+    // rather than a week old before a "this week" verdict can be written.
+    cronExpression: "30 7 * * *",
+    taskType: "daily",
+    isDaily: true,
+  },
+  {
     name: "build-weekly-rankings",
     description: "Build the weekly ranking snapshot",
     cronExpression: "0 8 * * 1",

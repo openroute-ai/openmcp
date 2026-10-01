@@ -2,11 +2,13 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { ProjectLogo } from "@/components/projects/project-logo"
+import { EvidenceTimeline } from "@/components/public/evidence-timeline"
 import { PublicAuthorCard } from "@/components/public/public-author-card"
 import { PublicReadme } from "@/components/public/public-readme"
 import { PublicRelatedProjects } from "@/components/public/public-related-projects"
 import { PublicShell } from "@/components/public/public-shell"
 import { PublicStarTrend } from "@/components/public/public-star-trend"
+import { VitalsStrip } from "@/components/public/vitals-strip"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
 import {
@@ -14,6 +16,8 @@ import {
   getPublicProjectDetail,
   listRelatedPublicProjects,
 } from "@/lib/public/radar"
+import { readTimeline } from "@/lib/radar/timeline"
+import { readVitals } from "@/lib/radar/vitals"
 
 /**
  * One project's public detail: identity, the numbers, and the day/week chart.
@@ -69,13 +73,23 @@ export default async function PublicProjectPage({
 
   // The author is the repository's owner, and the related projects are whatever
   // else is tagged the same way. Both are independent of the detail read, so
-  // they are fetched alongside it rather than after it renders.
-  const [author, related] = await Promise.all([
+  // they are fetched alongside it rather than after it renders. The vitals and
+  // the timeline are in the same batch because they read the same repository and
+  // this page is already `force-dynamic` — a second waterfall would double the
+  // time to first paint of the numbers, which are the point of the page.
+  const [author, related, vital, timeline] = await Promise.all([
     getPublicAuthor(db, project.owner),
     listRelatedPublicProjects(db, {
       projectId: project.id,
       tagCodes: project.tags,
     }),
+    readVitals(db, {
+      id: project.repoId,
+      pushedAt: project.pushedAt,
+      latestReleasePublishedAt: project.latestReleasePublishedAt,
+      licenseSpdxId: project.license,
+    }),
+    readTimeline(db, project.repoId, { limit: 20 }),
   ])
 
   const daysGained = project.days.reduce((sum, day) => sum + day.stars, 0)
@@ -147,6 +161,12 @@ export default async function PublicProjectPage({
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="grid min-w-0 gap-8">
+            {/* The vitals strip, above the chart, because it answers "is this
+                project ok" in one line and the chart only answers it after you
+                have read a shape. Neither replaces the other: the strip is
+                current readings, the chart is the series behind them. */}
+            <VitalsStrip vital={vital} />
+
             <PublicStarTrend
               days={project.days}
               weeks={project.weeks}
@@ -159,6 +179,18 @@ export default async function PublicProjectPage({
                 the page indistinguishable from one where the reader simply forgot
                 to look. The card states the missing README instead of leaving a
                 gap where one should be. */}
+            {/* The timeline keeps dismissed rows (§5.4 red line 2 needs the
+                context, and `EvidenceTimeline` marks them). It sits below the
+                README because it is reference material: a reader looking for
+                how to use this project should not have to scroll past our
+                conclusions first. */}
+            <section className="grid gap-3">
+              <h2 className="font-display text-lg font-semibold tracking-tight">
+                证据时间轴
+              </h2>
+              <EvidenceTimeline events={timeline} />
+            </section>
+
             <PublicReadme
               readme={project.readme}
               readmeZh={project.readmeZh}

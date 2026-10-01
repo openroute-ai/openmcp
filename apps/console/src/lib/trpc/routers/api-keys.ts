@@ -130,7 +130,10 @@ export const apiKeysRouter = createTRPCRouter({
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(apiKeys.createdAt))
 
-      return rows.map((row) => ({ ...row, scopes: normalizeScopes(row.scopes) }))
+      return rows.map((row) => ({
+        ...row,
+        scopes: normalizeScopes(row.scopes),
+      }))
     }),
 
   /**
@@ -147,11 +150,7 @@ export const apiKeysRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const revoked = await revokeApiKey(
-        ctx.db,
-        input.id,
-        input.reason ?? null
-      )
+      const revoked = await revokeApiKey(ctx.db, input.id, input.reason ?? null)
       return { id: input.id, revoked }
     }),
 
@@ -166,12 +165,17 @@ export const apiKeysRouter = createTRPCRouter({
   rotate: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const result = await rotateApiKey(ctx.db, input.id).catch((error: unknown) => {
-        if (error instanceof Error && error.message.includes("already revoked")) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: error.message })
+      const result = await rotateApiKey(ctx.db, input.id).catch(
+        (error: unknown) => {
+          if (
+            error instanceof Error &&
+            error.message.includes("already revoked")
+          ) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error.message })
+          }
+          throw error
         }
-        throw error
-      })
+      )
 
       if (!result) {
         throw new TRPCError({ code: "NOT_FOUND", message: "No such API key" })

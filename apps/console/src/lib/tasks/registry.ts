@@ -9,6 +9,7 @@
 import { createBuildDailyDataTask } from "@/lib/tasks/tasks/build-daily-data"
 import { createBuildRankingsTask } from "@/lib/tasks/tasks/build-rankings"
 import { createBuildRisingStarsTask } from "@/lib/tasks/tasks/build-rising-stars"
+import { createDetectAnomaliesTask } from "@/lib/tasks/tasks/detect-anomalies"
 import { createDiscoverSkillReposTask } from "@/lib/tasks/tasks/discover-skill-repos"
 import { createNotifyDailyTask } from "@/lib/tasks/tasks/notify-daily"
 import { createPushSkillsTask } from "@/lib/tasks/tasks/push-skills"
@@ -49,6 +50,7 @@ export function installTaskRegistry(): Map<string, Task> {
     createUpdateBundleSizeTask(),
     createSnapshotStarsTask(),
     createBuildDailyDataTask(),
+    createDetectAnomaliesTask(),
     createBuildRankingsTask("week"),
     createBuildRankingsTask("month"),
     createNotifyDailyTask(),

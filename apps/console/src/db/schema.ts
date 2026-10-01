@@ -2,10 +2,13 @@ import { relations } from "drizzle-orm"
 import {
   boolean,
   index,
+  jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
+  unique,
   varchar,
 } from "drizzle-orm/pg-core"
 import * as githubSchema from "./schema/github"
@@ -116,6 +119,7 @@ export const session = pgTable(
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
+      .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     ipAddress: text("ip_address"),
@@ -149,6 +153,7 @@ export const account = pgTable(
     password: text("password"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
+      .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
@@ -205,7 +210,11 @@ export type UserRepoStatus = (typeof USER_REPO_STATUSES)[number]
  * 界面多写一个分支的字符串。"刚提交"与"跟踪了很久"的差别由
  * {@link userRepos.platformSyncedAt} 这个时间戳回答，而不是由一个词。
  */
-export const PLATFORM_REPO_STATUSES = ["tracked", "curated", "archived"] as const
+export const PLATFORM_REPO_STATUSES = [
+  "tracked",
+  "curated",
+  "archived",
+] as const
 
 export type PlatformRepoStatus = (typeof PLATFORM_REPO_STATUSES)[number]
 
@@ -370,13 +379,217 @@ export type User = typeof user.$inferSelect
 export type UserRepoRow = typeof userRepos.$inferSelect
 
 /**
+ * 一次选型 = 一个工作台。
+ *
+ * docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §10 的 v0 明确写了「砍掉：决策工作台
+ * 5 步流程」，而落地页在营销它。所以这里落的是**轻量版**：候选清单 + 并排对比 +
+ * 决策留痕，不做审批流、不做负责人分工、不做阶段进度条。理由不是工程量，而是那份
+ * 文档 §5.5 的原话——「生成报告不是终点，指标是决策对了没有」，而回答这个问题需要
+ * 的是**一份冻结下来的候选与当时的体征**，不是一个流程引擎。流程可以后补，冻结下来
+ * 的那一瞬间补不回来。
+ *
+ * 因此这张表没有 `stage` / `approver` / `due_at` 这类流程列：`status` 只描述这份
+ * 记录写到哪儿了（还在收集 / 已在评审 / 已下结论），它不驱动任何状态机，也不校验
+ * 合法跃迁——一份停在「评审中」半年的工作台是真实存在的情况，约束它反而是在删数据。
+ */
+export const DECISION_BOARD_STATUSES = [
+  "collecting",
+  "reviewing",
+  "decided",
+] as const
+
+export type DecisionBoardStatus = (typeof DECISION_BOARD_STATUSES)[number]
+
+export const decisionBoards = pgTable(
+  "decision_boards",
+  {
+    id: text("id").primaryKey(),
+
+    /**
+     * 这份工作台属于谁。
+     *
+     * 参照 `userRepos.userId` 的做法用外键而不是纯文本：工作台与候选之间要级联删除
+     * （删掉一个工作台不该留下一地孤儿候选），而级联删除要求这一列真的是外键。
+     * `repos.createdBy` 之所以是纯文本，是因为它没有级联的需求——一张仓库被删掉，
+     * 「谁第一个提交了它」这条公共记录应当留下。工作台没有这个对称的要求。
+     */
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    /** 「向量数据库选型」这样一句话的标题。 */
+    title: text("title").notNull(),
+
+    /**
+     * 决策背景：这次要解决什么问题、有什么约束。
+     *
+     * 单列而非一个结构化字段组，是因为它的读者是人（三个月后回看这份记录的人），
+     * 而且 §5.5 的回访要问的是「当时为什么这么选」，答案本来就是一段话而不是几个
+     * 可枚举的标签。
+     */
+    summary: text("summary"),
+
+    status: text("status", { enum: DECISION_BOARD_STATUSES })
+      .notNull()
+      .default("collecting"),
+
+    /**
+     * 结论：最终选了谁、为什么。
+     *
+     * 与 `decision_candidates.verdict = "chosen"` 刻意重复。前者是**当时的说法**
+     * （"选了 A，因为它已经进了我们的合规清单"），后者是候选行上的一个状态。
+     * 让它们各自独立，是因为改候选状态不应该改写已经写下的话——回访要读的正是那句
+     * 当时的话，而不是"现在那个被选中的项目"的自动投影。
+     */
+    outcome: text("outcome"),
+
+    /** 写下 `outcome` 的时间。也是回访计时的起点。 */
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("decision_boards_owner_updated_idx").on(
+      table.ownerId,
+      table.updatedAt
+    ),
+  ]
+)
+
+/**
+ * 候选在这个工作台里的位置。
+ *
+ * 与 {@link DECISION_VERDICTS} 的排序意图一致：短名单 / 已选 中间夹一个「复评中」，
+ * 所以**不按枚举顺序排，而是按人工排的 `position`**。枚举顺序是分类的顺序，不是
+ * 注意力的顺序——把「待评审」排在「已通过」前面会让一个工作台看起来比实际更不完整。
+ */
+export const DECISION_VERDICTS = [
+  "pending",
+  "shortlisted",
+  "rejected",
+  "chosen",
+] as const
+
+export type DecisionVerdict = (typeof DECISION_VERDICTS)[number]
+
+export const decisionCandidates = pgTable(
+  "decision_candidates",
+  {
+    id: text("id").primaryKey(),
+
+    boardId: text("board_id")
+      .notNull()
+      .references(() => decisionBoards.id, { onDelete: "cascade" }),
+
+    /**
+     * 候选是哪个仓库。
+     *
+     * 指向 `repos` 而不是 `projects`：工作台的候选来自雷达已收录的生态项目，
+     * 而雷达的覆盖范围刻意大于「已发布为商品的」（§7.6），所以这一列必须是仓库级
+     * 的。用外键而不是存 `owner/name` 字符串，是为了让候选在仓库被删时一起消失，
+     * 而不是留下一批点开是 404 的行。
+     */
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+
+    verdict: text("verdict", { enum: DECISION_VERDICTS })
+      .notNull()
+      .default("pending"),
+
+    /**
+     * 为什么留下 / 为什么否掉。
+     *
+     * 单个自由文本，而不是一张 comments 表：轻量版里「评估人」就是工作台的 owner，
+     * 一条候选只有一段需要留痕的话。为一个还不存在的多人场景建第三张表，会让它在
+     * 第一次真正需要 schema 变更时变成迁移而不是加列。
+     */
+    note: text("note"),
+
+    /** 人工排序。小的在前；同值按加入时间。 */
+    position: smallint("position").notNull().default(0),
+
+    /**
+     * 加入候选那一刻的体征快照——**决策留痕的本体**。
+     *
+     * 存一份拷贝而不是引用 `lib/radar/vitals` 的实时计算结果，理由只有一个，但它
+     * 是硬的：§5.5 的「30/90 天决策回访」要回答的问题是"当时它什么样"，而引用会
+     * 随时间线一起变。半年后回看一份引用式的记录，读到的是今天的体征，恰好把回访
+     * 唯一要问的东西抹掉了。
+     *
+     * 形状由 `lib/radar/vitals` 的 `VitalSnapshot` 定义，写入方只有 tRPC 的
+     * `candidates.add`，所以这里用 `unknown` 而不是重复一份类型——重复的类型会在
+     * 两边各改一次之后静默失配。
+     */
+    snapshot: jsonb("snapshot").$type<unknown>(),
+
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    // 同一个工作台里一个仓库只能出现一次：重复的行会让"哪一条是结论"变成一个
+    // 没有答案的问题。
+    unique("decision_candidates_board_repo_unique").on(
+      table.boardId,
+      table.repoId
+    ),
+    // 详情页的读取形状：按人工顺序取这个工作台的候选。
+    index("decision_candidates_board_position_idx").on(
+      table.boardId,
+      table.position
+    ),
+    // 「这个仓库被哪些工作台选为候选」——雷达详情页的「加入我的选型」入口要答这个问题。
+    index("decision_candidates_repo_idx").on(table.repoId),
+  ]
+)
+
+export const decisionBoardsRelations = relations(
+  decisionBoards,
+  ({ many, one }) => ({
+    owner: one(user, {
+      fields: [decisionBoards.ownerId],
+      references: [user.id],
+    }),
+    candidates: many(decisionCandidates),
+  })
+)
+
+export const decisionCandidatesRelations = relations(
+  decisionCandidates,
+  ({ one }) => ({
+    board: one(decisionBoards, {
+      fields: [decisionCandidates.boardId],
+      references: [decisionBoards.id],
+    }),
+    repo: one(repos, {
+      fields: [decisionCandidates.repoId],
+      references: [repos.id],
+    }),
+  })
+)
+
+export type DecisionBoardRow = typeof decisionBoards.$inferSelect
+
+export type DecisionCandidateRow = typeof decisionCandidates.$inferSelect
+
+/**
  * Better Auth 和 `drizzle-kit` 看到的全部内容：console 自己的四张 auth 表加上
  * GitHub schema。`src/lib/auth.ts` 把它作为 Better Auth 的 `schema` 传入，而
  * Better Auth 只读这四张——它此前拿到的是共享 schema 的全部 86 张表。
  *
- * `userRepos` 不在这个对象里：Better Auth 不认识这张表，把它递进去只会让这个
- * 对象与"库里有几张表"脱钩。它由 `drizzle-kit` 通过 `src/db/drizzle-schema.ts`
- * 管理。
+ * `userRepos` 与决策工作台的两张表不在这个对象里。两者的理由不同：`userRepos`
+ * 是 Better Auth 不认识它，递进去只会让这个对象与"库里有几张表"脱钩；工作台那两张
+ * 同样属于 Better Auth 的世界之外，而且它们的关系是「我的工作台里的候选仓库」，
+ * 那是 console 应用自己的读法，不是身份系统的。它们由 `drizzle-kit` 通过
+ * `src/db/drizzle-schema.ts` 管理，运行时用 query builder + 显式 join 读写，
+ * 不依赖 `db.query`。
  */
 export const schema = {
   user,

@@ -3,11 +3,32 @@
 import { useState, type FormEvent } from "react";
 import { IconDownload, IconMail } from "@tabler/icons-react";
 import { FaqAccordion } from "@/components/faq/faq-accordion";
+import { ContactDialog } from "@/components/landing/contact-dialog";
 import { Reveal } from "@/hooks/use-reveal";
 import { LocaleLink } from "@/i18n/navigation";
 import { FAQS } from "@/lib/faq";
 
-const TIERS = [
+interface Tier {
+  name: string;
+  price: string;
+  suffix: string;
+  desc: string;
+  features: string[];
+  cta: string;
+  href: string;
+  featured: boolean;
+  /**
+   * The button opens the WeChat dialog instead of following `href`.
+   *
+   * Enterprise is the one tier whose next step is a conversation rather than a
+   * checkout, and "预约演示" used to mean a form, a schedule and a wait — which
+   * is the slowest possible answer on a site that argues its data is free and
+   * readable now.
+   */
+  contact?: boolean;
+}
+
+const TIERS: Tier[] = [
   {
     name: "免费",
     price: "¥0",
@@ -39,9 +60,10 @@ const TIERS = [
     suffix: "/月起",
     desc: "组织级监控与协作",
     features: ["团队监控面板与共享告警", "选型评审工作台", "SSO / 审计日志", "私有化部署"],
-    cta: "预约演示",
+    cta: "联系团队",
     href: "#download",
     featured: false,
+    contact: true,
   },
   {
     name: "Enterprise",
@@ -52,6 +74,7 @@ const TIERS = [
     cta: "联系团队",
     href: "#download",
     featured: false,
+    contact: true,
   },
 ];
 
@@ -60,7 +83,7 @@ export function Pricing() {
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             信息全部免费，付费只为「持续监控」
           </h2>
         </div>
@@ -90,16 +113,27 @@ export function Pricing() {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
-              <a
-                href={t.href}
-                className={`mt-6 block rounded-xl py-2.5 text-center text-sm font-medium transition-opacity ${
-                  t.featured
-                    ? "bg-primary font-semibold text-primary-foreground hover:opacity-90"
-                    : "border border-border bg-card text-foreground hover:bg-card"
-                }`}
-              >
-                {t.cta}
-              </a>
+              {t.contact ? (
+                <ContactDialog
+                  label={t.cta}
+                  className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-medium transition-opacity ${
+                    t.featured
+                      ? "bg-primary font-semibold text-primary-foreground hover:opacity-90"
+                      : "border border-border bg-card text-foreground hover:bg-card"
+                  }`}
+                />
+              ) : (
+                <a
+                  href={t.href}
+                  className={`mt-6 block rounded-xl py-2.5 text-center text-sm font-medium transition-opacity ${
+                    t.featured
+                      ? "bg-primary font-semibold text-primary-foreground hover:opacity-90"
+                      : "border border-border bg-card text-foreground hover:bg-card"
+                  }`}
+                >
+                  {t.cta}
+                </a>
+              )}
             </div>
           </Reveal>
         ))}
@@ -132,7 +166,7 @@ export function ReportDownload() {
             <IconDownload size={13} className="text-secondary-foreground" />
             免费资源
           </span>
-          <h2 className="mt-5 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mt-5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
             免费下载：2026 AI Agent 框架异动观察
           </h2>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -200,7 +234,7 @@ export function Faq() {
     <section id="faq" className="mx-auto max-w-3xl px-4 py-24">
       <Reveal>
         <div className="text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">常见问题</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">常见问题</h2>
         </div>
       </Reveal>
       <Reveal delay={80}>
@@ -228,7 +262,7 @@ export function FinalCta() {
             {/* Foreground tokens, not `primary-foreground`: this panel sits on
                 `bg-card`, and `primary-foreground` is the near-white that belongs
                 on `bg-primary`, so on the light theme it rendered white on white. */}
-            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            <h2 className="font-display text-2xl font-bold tracking-tight text-foreground md:text-3xl">
               下一次技术选型，先来看它是不是在变坏。
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -241,12 +275,13 @@ export function FinalCta() {
               >
                 看看今天的异动 <span aria-hidden>→</span>
               </a>
-              <a
-                href="#download"
+              {/* Was "预约企业演示": a demo is a scheduled meeting, and the
+                  panel's own sentence is that the data is readable right now.
+                  The way to talk to us is now a WeChat id, not a booking form. */}
+              <ContactDialog
+                label="联系团队"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                预约企业演示
-              </a>
+              />
             </div>
           </div>
         </div>

@@ -83,7 +83,7 @@ export function DeepDives() {
           </Reveal>
           <Reveal delay={100}>
             <span className="text-sm font-medium text-secondary-foreground">生命体征</span>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               不给你一个分，给你看它是不是在变坏
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
@@ -116,7 +116,7 @@ export function DeepDives() {
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
             <span className="text-sm font-medium text-secondary-foreground">证据链</span>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               每条结论都能追到原始信号
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
@@ -215,7 +215,7 @@ export function DeepDives() {
           </Reveal>
           <Reveal delay={100}>
             <span className="text-sm font-medium text-secondary-foreground">团队决策工作台</span>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               让选型从个人判断变成团队决策
             </h2>
             <ul className="mt-6 space-y-3.5 text-sm">
@@ -232,12 +232,6 @@ export function DeepDives() {
                 </li>
               ))}
             </ul>
-            <a
-              href="#download"
-              className="mt-7 inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-foreground transition-colors hover:text-foreground"
-            >
-              预约团队演示 <span aria-hidden>→</span>
-            </a>
           </Reveal>
         </div>
       </section>
@@ -247,7 +241,7 @@ export function DeepDives() {
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <Reveal>
             <span className="text-sm font-medium text-secondary-foreground">风险监控</span>
-            <h2 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               引入不是终点，风险需要持续监控
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">

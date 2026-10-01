@@ -2,12 +2,28 @@ import type { Metadata } from "next"
 import { headers } from "next/headers"
 
 import { DeepDives } from "@/components/landing/deep-dives"
-import { Comparison, Neutrality, Roles, Testimonials } from "@/components/landing/proof"
-import { Faq, FinalCta, Pricing, ReportDownload } from "@/components/landing/pricing-downloads"
-import { Hero } from "@/components/landing/hero"
+import {
+  Comparison,
+  Neutrality,
+  Roles,
+  Testimonials,
+} from "@/components/landing/proof"
+import {
+  Faq,
+  FinalCta,
+  Pricing,
+  ReportDownload,
+} from "@/components/landing/pricing-downloads"
+import { Hero, AnomalyQuietNote } from "@/components/landing/hero"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { SiteHeader } from "@/components/landing/site-header"
-import { PainPoints, Solutions, TrustStrip, Workflow } from "@/components/landing/sections-top"
+import {
+  PainPoints,
+  Solutions,
+  Workflow,
+} from "@/components/landing/sections-top"
+import { db } from "@/db/client"
+import { listOpenAnomalies } from "@/lib/radar/anomalies"
 import { getSessionUser } from "@/lib/auth/session"
 import { landingPathFor } from "@/lib/auth/role"
 
@@ -44,6 +60,20 @@ export default async function Home() {
   const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
   const origin = host ? `${proto}://${host}` : "https://radar.openmcp.cn"
 
+  // The hero's live feed (§5.9.4). Fetched on the server so the rows are in the
+  // first paint rather than arriving after hydration — the feed's whole argument
+  // is "this is what we are seeing right now", and a feed that appears a second
+  // later reads as a demo that was populated on load rather than as a signal.
+  //
+  // Failing to read it must not fail the page. The feed is the first screen, but
+  // the rest of the landing page is copy that does not depend on it, and a
+  // database blip is not a reason to 500 the marketing site.
+  const anomalies = await listOpenAnomalies(db, { limit: 6 }).catch(() => [])
+
+  // An empty feed is a state, not a gap: `Hero` renders nothing in its place and
+  // `AnomalyQuietNote` states the reason one band lower ("these repos are
+  // healthy"), because an empty box inside the hero reads as a failed load.
+
   return (
     <div className="landing-shell relative min-h-dvh overflow-x-clip">
       {/* Without this the page is mostly blank: the server renders every
@@ -54,10 +84,12 @@ export default async function Home() {
       <noscript>
         <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
       </noscript>
-      <SiteHeader cta={{ href: landingPathFor(user), signedIn: user !== null }} />
+      <SiteHeader
+        cta={{ href: landingPathFor(user), signedIn: user !== null }}
+      />
       <main>
-        <Hero origin={origin} />
-        <TrustStrip />
+        <Hero origin={origin} anomalies={anomalies} />
+        {anomalies.length === 0 ? <AnomalyQuietNote /> : null}
         <PainPoints />
         <Solutions />
         <DeepDives />

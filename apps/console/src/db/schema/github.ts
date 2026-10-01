@@ -112,9 +112,7 @@ export const repos = pgTable(
      * of truth for a project's type — that is `projects.type`, and the two are
      * not kept in sync.
      */
-    type: varchar("type", { length: 20 })
-      .notNull()
-      .default("application"),
+    type: varchar("type", { length: 20 }).notNull().default("application"),
 
     /**
      * Unused, and nullable. Same reason as `type` above: kept declared so
@@ -629,9 +627,260 @@ export const repoStargazers = pgTable(
     primaryKey({ columns: [table.repoId, table.login] }),
     // An incremental sweep asks for everyone who starred after the latest
     // timestamp already stored, which is an index seek rather than a scan.
-    index("repo_stargazers_starred_at_idx").on(
+    index("repo_stargazers_starred_at_idx").on(table.repoId, table.starredAt),
+  ]
+)
+
+/**
+ * 异动的种类。
+ *
+ * 封闭枚举，而不是自由字符串：异动流要按类型筛选、按类型排序、按类型决定用哪套
+ * 措辞，而一个自由词的列这三件事都只能近似回答。每加一种都要改这一行、改
+ * `lib/radar/rules.ts` 里的判定、改组件上的标签——这是有意的成本，它让「多了一种
+ * 信号」必须是一次跨三处的显式决定，而不是一次往 jsonb 里塞字符串。
+ *
+ * 刻意**没有**的三种（docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md 附录 A）：
+ * `maintainer_churn` 需要贡献者的 commit 时间序列，`cve` 需要接 OSV，
+ * `rank_slip` 需要物化分类内分位历史。三者的数据源都不在库里，所以它们不能靠
+ * 一个枚举值假装可算——枚举里出现一个永远不会被写入的成员，就是给读者一个
+ * 「我们会告诉你维护者流失了」却永远不兑现的承诺。
+ */
+export const ANOMALY_KINDS = [
+  "star_cliff",
+  "star_acceleration",
+  "release_stall",
+  "commit_stall",
+  "license_change",
+] as const
+
+export type AnomalyKind = (typeof ANOMALY_KINDS)[number]
+
+/**
+ * 异动的严重度，以及它对项目是好事还是坏事。
+ *
+ * 与 `kind` 分开，因为两者的读者不同：`kind` 回答「测到了什么」，`severity` 回答
+ * 「这件事有多要紧」。`star_acceleration` 与 `star_cliff` 读的是同一段序列、方向
+ * 相反，而它们在异动流里必须被分开对待——加速要进「我们也会说」那一栏，用来证明
+ * 警报没有滥用（§5.4 红线 3），断崖要进默认视图。把方向编码进 kind 会让这两个
+ * 栏目无法只按 severity 筛选。
+ *
+ * `good` 只给 `star_acceleration` 用。它存在的原因不是好看，而是红线 3：一个只会
+ * 报忧的信号站无法证明自己没有过度报警，所以健康项必须和告警项存在同一张表里、
+ * 由同一套规则产出。
+ */
+export const ANOMALY_SEVERITIES = ["down", "risk", "notice", "good"] as const
+
+export type AnomalySeverity = (typeof ANOMALY_SEVERITIES)[number]
+
+/** 异动是否已被人工判定为误报。 */
+export const ANOMALY_STATUSES = ["open", "dismissed"] as const
+
+export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number]
+
+/**
+ * 一次异动判定，以及支撑它的原始量。
+ *
+ * **物化，而不是查询时算。** 三个理由，都不是性能：
+ *
+ * 1. §5.4 红线 1 是「误报率优先于召回率」。要衡量误报率，就必须能把当时判的那条
+ *    和后来人判的「这是误报」放在一起看——即这条记录必须活得比判定过程久。
+ * 2. 阈值会调。阈值一改，查询时算出来的历史结论会跟着变，于是「上周我们报了什么」
+ *    变成一个没有答案的问题，而这是异动站唯一必须能回答的问题。
+ * 3. 四个消费方（异动流、项目详情、落地页首屏、JSON 出口）必须给出同一个答案。
+ *    各自算一遍就意味着四份可能不一致的规则实现。
+ *
+ * 唯一键 `(repo_id, kind, period)` 让重跑幂等：同一个仓库、同一种异动、同一个周期
+ * 只留一行，第二次跑是 `ON CONFLICT` 而不是重复推送。
+ */
+export const repoAnomalies = pgTable(
+  "repo_anomalies",
+  {
+    id: text("id").primaryKey(),
+
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+
+    /** 测到了什么，见 {@link ANOMALY_KINDS}。 */
+    kind: text("kind", { enum: ANOMALY_KINDS }).notNull(),
+
+    /** 有多要紧 / 是好是坏，见 {@link ANOMALY_SEVERITIES}。 */
+    severity: text("severity", { enum: ANOMALY_SEVERITIES }).notNull(),
+
+    /**
+     * 判定所依据的周期起点，与 stats 表的 `period` 同一套取值（周一 0 点 / 当月
+     * 1 日 0 点，`lib/time.ts` 的 `periodInstant`）。
+     *
+     * 用周期而不是 `detected_at` 做唯一键的一部分：一次判定讲的是「这一周怎么样」，
+     * 不是「我们什么时候跑的」。同一种异动在同一周里被检出两次，是同一条结论。
+     */
+    period: timestamp("period", { withTimezone: true }).notNull(),
+
+    detectedAt: timestamp("detected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+
+    /**
+     * 结论本身，一句话，不含数字以外的主语。
+     *
+     * 写成人读的一句话而不是一个模板片段，是为了让「这条为什么会被判定」和
+     * 「这条说了什么」可以分开看：`metric` 回答前者，`title` 回答后者。两者合成
+     * 一个字段的话，改措辞就会改掉历史。
+     */
+    title: text("title").notNull(),
+
+    /**
+     * 触发判定的原始量，形状见 {@link MetricPayload}。
+     */
+    metric: jsonb("metric").$type<MetricPayload>(),
+
+    /**
+     * §5.4 红线 2 要求的原始时间轴 / 名单。
+     *
+     * 「每条异动必须附原始时间轴/名单/commit，不可只给结论」——所以证据与结论存在
+     * 同一行里，而不是靠一个能从结论反查出来的查询。证据气泡与证据时间轴渲染的
+     * 就是这一列，读它的人不必相信我们概述得对不对，可以自己看那几周的数。
+     */
+    evidence: jsonb("evidence").$type<EvidencePayload>(),
+
+    /**
+     * 这次变化的**绝对规模**，一个可排序的数字。
+     *
+     * §5.9.4 要求公开异动流按绝对幅度降序，而不是按增速百分比降序，理由写在那里：
+     * 一个从 4 星涨到 8 星的项目是 +100%，而它排第一会让整份榜单看起来像是一套排名
+     * 系统在排名小基数噪音。要落实这个排序，就必须有一个能跨规则比较的数字。
+     *
+     * **它只在同一种 `kind` 内部可比。** 断崖的量级是星标的绝对损失，停滞是天数，
+     * 两者相加或比较没有意义。所以公开流默认按 `kind` 分组排序，跨组的先后由
+     * `severity` 而不是由这个数字决定——否则一个停更 400 天的项目会永远压在一个
+     * 掉了 2 万星的项目前面，而读者看不出为什么。
+     *
+     * 存成列而不是查询时从 jsonb 里算：排序要在数据库里做（要在 limit 之前排），
+     * 而 jsonb 上的表达式既不可索引也会随阈值调整而改变历史顺序。
+     */
+    magnitude: doublePrecision("magnitude").notNull().default(0),
+
+    /**
+     * 人工复核结果，见 {@link ANOMALY_STATUSES}。
+     *
+     * `open` 是待复核而不是「未确认无误」：默认没有人的判断，只有规则的判断。
+     * 公开的异动流只读 `open`，所以一条误报被 dismiss 之后就不再出现在读者面前，
+     * 而这一行的历史仍然留着——误报率是 §9.2 里要盯的指标，删掉它就没有分母了。
+     */
+    status: text("status", { enum: ANOMALY_STATUSES })
+      .notNull()
+      .default("open"),
+
+    dismissedBy: text("dismissed_by"),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    /** 为什么判它是误报。没有理由的 dismiss 不给计数，因为那只是关掉一条通知。 */
+    dismissReason: text("dismiss_reason"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // 幂等写入的依据，见上方关于唯一键的说明。
+    uniqueIndex("repo_anomalies_repo_kind_period_idx").on(
       table.repoId,
-      table.starredAt
+      table.kind,
+      table.period
+    ),
+    // 异动流的默认查询就是这个形状：某个周期、尚未被 dismiss 的行，按检测时间倒序。
+    index("repo_anomalies_open_by_detected_idx").on(
+      table.status,
+      table.detectedAt
+    ),
+    // 公开异动流的排序键（§5.9.4）：同一种异动内按绝对幅度降序。`kind` 在前是因为
+    // 幅度只在同类内可比，把它放进索引前缀是让这个约束在查询形状里也成立。
+    index("repo_anomalies_open_by_kind_magnitude_idx").on(
+      table.status,
+      table.kind,
+      table.magnitude
+    ),
+    // 项目详情页的时间轴按仓库取全部异动（含已 dismiss 的，用于解释「当时报过什么」）。
+    index("repo_anomalies_repo_period_idx").on(table.repoId, table.period),
+  ]
+)
+
+/**
+ * 触发判定的原始量。
+ *
+ * 刻意存成 jsonb 而不是拉平成若干数值列：每种异动的「原始量」形状不同
+ * （断崖是三个周增量，停滞是「距上次发布天数 + 中位间隔」，许可证是两个
+ * SPDX 值），拉平要么给每种加一套列，要么把三种塞进同一组语义不同的列里。
+ * 这一列只被规则引擎写、被组件读，不参与任何 `WHERE`，所以它不需要索引。
+ *
+ * `boolean` 在类型里而不是被编码成 0/1，是因为它承载的是**我们对这份数字的
+ * 诚实度**：中位间隔是从按周聚合的发布数推出来的近似，把这件事记成
+ * `interval_is_approximate: 1` 会让下游把它当成一个参与计算的数字，而它是
+ * 一个会改变读法的事实。
+ */
+export type MetricPayload = Record<string, number | string | boolean | null>
+
+/**
+ * 证据时间轴与证据气泡读的那一份原始量。
+ *
+ * 类型跟 schema 放在一起，因为它是这一列的契约：写它的只有规则引擎，读它的只有
+ * 组件，两边共享同一个定义才不会各写各的形状。`series` 刻意是「已格式化好的一行」
+ * 而不是结构化计数——它的读者是人，组件要显示的是「第 3 周 +184」这一整句，
+ * 而拆成 `{ label, value }` 再拼字符串只会在每处重复一次格式化规则。
+ */
+export interface EvidencePayload {
+  /** 「近 3 周：+184 / +206 / +218」这样的逐期序列。 */
+  series?: { label: string; value: string }[]
+  /** 「距上次发布 214 天 / 中位间隔 34 天」这样的补充说明。 */
+  notes?: string[]
+}
+
+/**
+ * 一个仓库的许可证变更历史。
+ *
+ * 补的是 docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md 附录 A 里「许可证变更历史：
+ * 只存当前值」这个缺口。`repos.license_spdx_id` 只存**当前**值，所以「这个项目从
+ * Apache-2.0 换成了 AGPL-3.0」这件事在库里根本不存在——异动流里最容易被法务卡住的
+ * 一类信号，恰恰是唯一一条我们答不出来的。
+ *
+ * 写入不新增任何 GitHub 请求：`update-github-data` 已经在读 `licenseSpdxId`，
+ * 这里只是把「读到的值与上一条不同」这件事记下来。
+ */
+export const repoLicenseHistory = pgTable(
+  "repo_license_history",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repos.id, { onDelete: "cascade" }),
+
+    /** SPDX 标识，或 GitHub 给的 `NOASSERTION` / 空值。 */
+    license: text("license").notNull(),
+
+    /**
+     * 本系统第一次看到这个值的时间，也就是「变更发生在不早于此刻」的上界。
+     *
+     * 列名是 `observed_at` 而不是 `changed_at`，因为它记的不是变更本身发生的时刻。
+     * 仓库信息接口不返回许可证的历史，要拿到真实变更时间只能逐条回溯 commit，那
+     * 是一次真正的采集任务，不在「零新增请求」的范围内。所以这一列只能回答「雷达
+     * 什么时候发现的」，而组件与文案也必须这么说话——说成「项目于某日改成」就是把
+     * 一个上界当成事实，会在一次全量回填之后公开宣称某个三年前的变更是上周发生的。
+     *
+     * `created_at` 记的是这一行什么时候写进库的，与上一列通常相同但不是同一件事：
+     * 回填会重写 `observed_at` 之外的任何东西，而这一列不会。
+     */
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // 同一个仓库的同一个许可证只留一行：重复观测不是一次变更，而幂等重跑必须是
+    // no-op，否则每次全量回填都会凭空造出一串「变更」。
+    primaryKey({ columns: [table.repoId, table.license] }),
+    // 「这个仓库最近一次换许可证是什么时候」是唯一会问的读法。
+    index("repo_license_history_repo_observed_idx").on(
+      table.repoId,
+      table.observedAt
     ),
   ]
 )
@@ -948,6 +1197,8 @@ export const reposRelations = relations(repos, ({ many }) => ({
   dailyStats: many(repoDailyStats),
   stargazers: many(repoStargazers),
   snapshots: many(snapshots),
+  anomalies: many(repoAnomalies),
+  licenseHistory: many(repoLicenseHistory),
 }))
 
 export const snapshotsRelations = relations(snapshots, ({ one }) => ({
@@ -1012,25 +1263,36 @@ export const repoWeeklyStatsRelations = relations(
   })
 )
 
-export const repoDailyStatsRelations = relations(
-  repoDailyStats,
+export const repoDailyStatsRelations = relations(repoDailyStats, ({ one }) => ({
+  repo: one(repos, {
+    fields: [repoDailyStats.repoId],
+    references: [repos.id],
+  }),
+}))
+
+export const repoAnomaliesRelations = relations(repoAnomalies, ({ one }) => ({
+  repo: one(repos, {
+    fields: [repoAnomalies.repoId],
+    references: [repos.id],
+  }),
+}))
+
+export const repoLicenseHistoryRelations = relations(
+  repoLicenseHistory,
   ({ one }) => ({
     repo: one(repos, {
-      fields: [repoDailyStats.repoId],
+      fields: [repoLicenseHistory.repoId],
       references: [repos.id],
     }),
   })
 )
 
-export const repoStargazersRelations = relations(
-  repoStargazers,
-  ({ one }) => ({
-    repo: one(repos, {
-      fields: [repoStargazers.repoId],
-      references: [repos.id],
-    }),
-  })
-)
+export const repoStargazersRelations = relations(repoStargazers, ({ one }) => ({
+  repo: one(repos, {
+    fields: [repoStargazers.repoId],
+    references: [repos.id],
+  }),
+}))
 
 export const packagesRelations = relations(packages, ({ one }) => ({
   project: one(projects, {

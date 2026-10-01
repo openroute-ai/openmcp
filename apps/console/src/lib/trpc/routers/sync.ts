@@ -73,9 +73,7 @@ export const syncRouter = createTRPCRouter({
             .from(readmeSyncJobs)
             .innerJoin(repos, eq(readmeSyncJobs.repoId, repos.id))
             .where(
-              input.status
-                ? eq(readmeSyncJobs.status, input.status)
-                : undefined
+              input.status ? eq(readmeSyncJobs.status, input.status) : undefined
             )
             .orderBy(desc(readmeSyncJobs.createdAt))
             .limit(window),
@@ -93,9 +91,7 @@ export const syncRouter = createTRPCRouter({
             .from(readmeSyncJobs)
             .innerJoin(repos, eq(readmeSyncJobs.repoId, repos.id))
             .where(
-              input.status
-                ? eq(readmeSyncJobs.status, input.status)
-                : undefined
+              input.status ? eq(readmeSyncJobs.status, input.status) : undefined
             ),
         ])
 
@@ -106,7 +102,9 @@ export const syncRouter = createTRPCRouter({
 
       return {
         items: merged.slice(input.offset, input.offset + input.limit),
-        total: Number(projectCount[0]?.value ?? 0) + Number(readmeCount[0]?.value ?? 0),
+        total:
+          Number(projectCount[0]?.value ?? 0) +
+          Number(readmeCount[0]?.value ?? 0),
       }
     }),
 

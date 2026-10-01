@@ -91,10 +91,7 @@ export const authorsRouter = createTRPCRouter({
           stars: repos.stars,
         })
         .from(hallOfFameToProjects)
-        .innerJoin(
-          projects,
-          eq(projects.id, hallOfFameToProjects.projectId)
-        )
+        .innerJoin(projects, eq(projects.id, hallOfFameToProjects.projectId))
         .innerJoin(repos, eq(repos.id, projects.repoId))
         .where(eq(hallOfFameToProjects.username, input.username))
         .orderBy(asc(projects.name))

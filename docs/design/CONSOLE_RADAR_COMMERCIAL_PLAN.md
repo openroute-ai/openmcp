@@ -749,14 +749,22 @@ console → web 的数据流分两类，**方向必须单向**：
 | 周/月榜（按增量） | ✅ 已实现 | `src/lib/github/service/rankings.ts` |
 | Rising Stars + 分类配置 | ✅ 已实现 | `src/lib/github/service/rising-stars.ts` |
 | 分类法与人工打标 | ✅ 已实现（全人工） | `src/db/schema/github.ts` + `service/tag.ts` |
-| 公开 JSON 出口 | ✅ 已实现 | `/api/rankings/*.json` |
+| 公开 JSON 出口 | ✅ 已实现 | `/api/rankings/*.json`、`/api/anomalies.json` |
+| 生命体征（无综合分） | ✅ 已实现 | `src/lib/radar/vitals.ts` + `components/public/vitals-strip.tsx` |
+| 证据时间轴 | ✅ 已实现 | `src/lib/radar/timeline.ts` + `components/public/evidence-timeline.tsx` |
+| 公开异动页（§5.9.4） | ✅ 已实现 | `/anomalies`，与 JSON 出口同源同序 |
+| 落地页首屏实时 feed（§5.9.4） | ✅ 已实现 | `components/landing/hero.tsx`，服务端取数 |
+| 榜单行异动旗标（§5.9.3） | ✅ 已实现 | `components/public/public-project-list.tsx` |
+| 误报率统计（§9.2） | ✅ 已实现 | `falsePositiveRate()` + `dismissAnomaly()` |
+| 决策工作台（§5.5 轻量版） | ✅ 已实现 | `src/lib/radar/decisions.ts` + `routers/decisions.ts` + `/console/decisions`；体征**冻结**进候选行 |
+| 决策工作台 5 步流程 | ❌ 按 §10 砍掉，只落轻量版 | — |
 | 中译英 pipeline | ✅ 已实现 | `src/lib/ai/translator.ts` |
 | admin 角色门控 | ✅ 已实现 | `src/lib/auth/role.ts` |
 | web 侧 `/api/webhook/daily` | ❌ 设计有、未实现 | `design-github-repos-skills-webhook-sync.md` |
 | AI 自动分类 | ❌ 未实现 | 参照 `apps/web/src/lib/skills/enrich-skill-by-ai.ts` |
-| 异动检测 | ❌ 未实现 | 需新建任务 |
+| 异动检测 | ✅ 已实现（五类规则） | `src/lib/radar/rules.ts` + `tasks/detect-anomalies.ts`（迁移 `0017_radar_anomalies`、`0019_anomaly_magnitude`） |
 | 贡献者时间序列 | ❌ 未采集 | 需扩展 `update-github-data.ts` |
-| 许可证变更历史 | ❌ 只存当前值 | 需改快照 |
+| 许可证变更历史 | ✅ 已实现（快照式历史表） | `repo_license_history`（迁移 `0017`），由 `detect-anomalies` 幂等写入，不新增 GitHub 请求 |
 | CVE / OSV 采集 | ❌ 未接 | 需新建采集任务 |
 | 向量 / 语义检索 | ❌ 未实现（web 侧亦无，只有 `ILIKE` + `tags @>`） | 建议 pgvector |
 | **项目趋势面板** | ✅ 已实现 | `src/components/projects/project-trends.tsx` |

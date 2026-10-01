@@ -65,9 +65,7 @@ export const usersRouter = createTRPCRouter({
       if (input.role === "admin") {
         conditions.push(eq(user.role, "admin"))
       } else if (input.role === "user") {
-        conditions.push(
-          or(eq(user.role, "user"), sql`${user.role} is null`)!
-        )
+        conditions.push(or(eq(user.role, "user"), sql`${user.role} is null`)!)
       }
 
       if (input.banned === "banned") {
