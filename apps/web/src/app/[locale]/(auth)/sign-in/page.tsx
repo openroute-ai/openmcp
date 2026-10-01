@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { UnifiedLoginForm } from '@/components/auth/unified-login-form'
 import { requireUnauth } from '@/lib/server/auth-utils'
+import { getEnabledSocialProviders } from '@/lib/auth/social-providers'
 import { LocaleLink } from '@/i18n/navigation'
 import { Routes } from '@/lib/routes'
 
@@ -20,7 +21,10 @@ export default async function SignInPage() {
     // out of static rendering unless it is wrapped in a Suspense boundary.
     <Suspense fallback={null}>
       <main className="flex w-full max-w-md flex-col gap-6 px-4 py-6 sm:px-6">
-        <UnifiedLoginForm className="w-full shadow-sm" />
+        <UnifiedLoginForm
+          className="w-full shadow-sm"
+          socialProviders={getEnabledSocialProviders()}
+        />
 
         <p className="text-balance text-center text-xs leading-relaxed text-muted-foreground">
           {t('byClickingContinue')}

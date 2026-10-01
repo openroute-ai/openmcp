@@ -73,6 +73,41 @@ export type CreateAuthOptions = {
    * shared user table (e.g. phone number columns) can pass their own table.
    */
   schema?: AuthSchema
+  /**
+   * Requires a verified email before sign-in, and sends the reset link.
+   *
+   * The send callback is app-level because only the app owns a mail transport,
+   * so this package cannot send anything by itself.
+   *
+   * https://www.better-auth.com/docs/authentication/email-password
+   */
+  emailAndPassword?: BetterAuthOptions["emailAndPassword"]
+  /**
+   * Verification mail plus the post-verification hook.
+   *
+   * https://www.better-auth.com/docs/concepts/email
+   */
+  emailVerification?: BetterAuthOptions["emailVerification"]
+  /**
+   * Provider cross-linking policy, e.g. trusting GitHub so its verified email
+   * satisfies a separate email/password account.
+   *
+   * https://www.better-auth.com/docs/concepts/users-accounts#account-linking
+   */
+  account?: BetterAuthOptions["account"]
+  /**
+   * Hooks run around Better Auth's own writes — used here to give every new
+   * user a personal organization, which the billing and gateway tables key on.
+   *
+   * https://www.better-auth.com/docs/concepts/database#database-hooks
+   */
+  databaseHooks?: BetterAuthOptions["databaseHooks"]
+  /**
+   * Where the browser lands when an endpoint throws, and how to log it.
+   *
+   * https://www.better-auth.com/docs/reference/options#onapierror
+   */
+  onAPIError?: BetterAuthOptions["onAPIError"]
 }
 
 /**
@@ -136,12 +171,21 @@ export function createAuth(
       }
     : undefined
 
+  // The app's `emailAndPassword` is merged over the shared one rather than
+  // replacing it: the shared object only carries `enabled: true`, and dropping
+  // that key would silently turn off password sign-in for every app that
+  // passes a config for the reset link.
+  const emailAndPassword = options.emailAndPassword
+    ? { ...sharedAuthOptions.emailAndPassword, ...options.emailAndPassword }
+    : sharedAuthOptions.emailAndPassword
+
   return betterAuth({
     ...sharedAuthOptions,
     basePath: AUTH_PATH,
     baseURL: options.baseURL,
     secret: options.secret,
     trustedOrigins: options.trustedOrigins ?? [],
+    emailAndPassword,
     database: drizzleAdapter(database, {
       provider: "pg",
       schema: options.schema ?? schema,
@@ -151,6 +195,12 @@ export function createAuth(
     ...(options.socialProviders
       ? { socialProviders: options.socialProviders }
       : {}),
+    ...(options.emailVerification
+      ? { emailVerification: options.emailVerification }
+      : {}),
+    ...(options.account ? { account: options.account } : {}),
+    ...(options.databaseHooks ? { databaseHooks: options.databaseHooks } : {}),
+    ...(options.onAPIError ? { onAPIError: options.onAPIError } : {}),
     ...(rateLimit ? { rateLimit } : {}),
   })
 }

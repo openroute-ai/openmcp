@@ -1,4 +1,5 @@
 export * from "./constants"
 export * from "./options"
+export * from "./permissions"
 export * from "./rate-limit"
 export * from "./server"

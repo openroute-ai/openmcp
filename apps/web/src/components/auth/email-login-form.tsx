@@ -1,6 +1,8 @@
 'use client'
 
 import { AuthCard } from '@/components/auth/auth-card'
+import { GitHubIcon } from '@/components/icons/github'
+import { GoogleIcon } from '@/components/icons/google'
 import { FormError } from '@/components/auth/form-error'
 import { Button } from '@workspace/ui/components/button'
 import { Input } from '@workspace/ui/components/input'
@@ -11,6 +13,7 @@ import {
   FieldLabel,
 } from '@workspace/ui/components/field'
 import { authClient } from '@/lib/auth-client'
+import type { SocialProviderId } from '@/lib/auth/social-providers'
 import { Routes } from '@/lib/routes'
 import { safeCallbackUrl } from '@/lib/auth/redirect'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -27,10 +30,19 @@ import * as z from 'zod'
 
 export interface EmailLoginFormProps {
   className?: string
+  /**
+   * Providers the server actually registered. Passed in from the page because
+   * the enablement flags and credentials are server-side env, and a button for
+   * an unregistered provider would fail the OAuth exchange.
+   */
+  socialProviders?: SocialProviderId[]
 }
 
 /** Email + password sign-in, the alternative to the phone flow. */
-export function EmailLoginForm({ className }: EmailLoginFormProps) {
+export function EmailLoginForm({
+  className,
+  socialProviders = [],
+}: EmailLoginFormProps) {
   const t = useTranslations('AuthPage.login')
   const router = useLocaleRouter()
   const searchParams = useSearchParams()
@@ -39,6 +51,8 @@ export function EmailLoginForm({ className }: EmailLoginFormProps) {
   const [error, setError] = useState<string | undefined>('')
   const [isPending, setIsPending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  const [isSocialPending, setIsSocialPending] = useState<SocialProviderId | null>(null)
 
   const schema = useMemo(
     () =>
@@ -72,6 +86,26 @@ export function EmailLoginForm({ className }: EmailLoginFormProps) {
     toast.success(t('signIn'))
     router.push(callbackUrl)
     router.refresh()
+  }
+
+  /**
+   * OAuth round trip: the provider redirects back to Better Auth, which sets the
+   * session cookie, then the callback URL re-enters this app already
+   * authenticated. The pending flag is cleared only on the paths that come back
+   * through a reload, so it never sticks on a redirect.
+   */
+  const signInWithProvider = async (provider: SocialProviderId) => {
+    setIsSocialPending(provider)
+
+    const { error: socialError } = await authClient.signIn.social({
+      provider,
+      callbackURL: callbackUrl,
+    })
+
+    if (socialError) {
+      setError(socialError.message ?? '')
+      setIsSocialPending(null)
+    }
   }
 
   return (
@@ -136,6 +170,42 @@ export function EmailLoginForm({ className }: EmailLoginFormProps) {
             )}
           />
         </FieldGroup>
+
+        {socialProviders.length > 0 && (
+          <>
+            <div className="relative text-center text-xs uppercase">
+              <span className="relative z-10 bg-background px-2 text-muted-foreground">
+                {t('or')}
+              </span>
+              <span className="absolute inset-x-0 top-1/2 border-t" />
+            </div>
+
+            <div className="grid gap-3">
+              {socialProviders.map((provider) => (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  disabled={isPending || isSocialPending !== null}
+                  onClick={() => signInWithProvider(provider)}
+                  className="flex w-full cursor-pointer items-center justify-center gap-2"
+                >
+                  {isSocialPending === provider ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : provider === 'google' ? (
+                    <GoogleIcon className="size-4" />
+                  ) : (
+                    <GitHubIcon className="size-4" />
+                  )}
+                  <span>
+                    {provider === 'google' ? t('signInWithGoogle') : t('signInWithGitHub')}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </>
+        )}
 
         <FormError message={error} />
 

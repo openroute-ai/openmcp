@@ -15,7 +15,7 @@ import type { ComponentProps, ComponentType, FC } from 'react'
 import AllPostsButton from '@/components/blog/all-posts-button'
 import BlogGrid from '@/components/blog/blog-grid'
 import { BlogInlineTOC } from '@/components/blog/blog-inline-toc'
-import { NewsletterSignupForm } from '@/components/layout/newsletter-signup-form'
+import { NewsletterCard } from '@/components/newsletter/newsletter-card'
 import { LocaleLink } from '@/i18n/navigation'
 import { getBlogPostsDetail, getPageByHref, getRelatedPosts, preloadPagesCache } from '@/lib/blog/source'
 import type { ExtendedPost } from '@/lib/blog/types'
@@ -255,13 +255,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
 
       {/* newsletter */}
       <div className='my-6 flex items-center justify-start'>
-        {/* 源项目渲染 NewsletterCard（`Newsletter` 命名空间）；目标项目无该组件，
-            改用已有的 @/components/layout/newsletter-signup-form。 */}
-        <div className='w-full rounded-lg bg-muted/50 p-16'>
-          <div className='flex flex-col items-center justify-center gap-8'>
-            <NewsletterSignupForm />
-          </div>
-        </div>
+        <NewsletterCard />
       </div>
     </div>
   )

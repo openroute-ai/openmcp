@@ -1,9 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import { getLocale } from 'next-intl/server'
 import { z } from 'zod'
-import { createId, newsletterSubscription } from '@workspace/db'
+import { newsletterSubscription } from '@workspace/db'
 import { db } from '@/lib/db'
-import { sendEmail } from '@/mail'
+import { subscribeToNewsletter } from '@/lib/newsletter'
 import { createTRPCRouter, protectedProcedure, publicProcedure } from '@/server/routers/trpc'
 
 /**
@@ -52,71 +52,38 @@ export const newslettersRouter = createTRPCRouter({
     .input(publicSubscribeSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const userId = ctx.user?.id ?? null
-        const now = new Date()
+        const subscribed = await subscribeToNewsletter(input.email, {
+          userId: ctx.user?.id ?? null,
+          source: input.source,
+          // The public form is the only caller that names a source, and its
+          // attribution is the newer record, so it wins over the stored one.
+          updateSource: input.source !== undefined,
+          locale: (await getLocale()) as 'zh' | 'en',
+        })
 
-        const [existing] = await db
-          .select({ id: newsletterSubscription.id })
-          .from(newsletterSubscription)
-          .where(eq(newsletterSubscription.email, input.email))
-          .limit(1)
-
-        if (existing) {
-          await db
-            .update(newsletterSubscription)
-            .set({
-              subscribed: true,
-              subscribedAt: now,
-              unsubscribedAt: null,
-              // Every optional field below is applied only when the caller
-              // actually supplied it. Two reasons not to blanket-overwrite:
-              // a re-subscribe from the settings toggle carries no attribution
-              // and would otherwise wipe the original campaign data, and a
-              // signed-out visitor must not erase the `userId` link that an
-              // earlier account-bound signup established.
-              ...(userId ? { userId } : {}),
-              ...(input.source ? { source: input.source } : {}),
-              ...(input.utmSource ? { utmSource: input.utmSource } : {}),
-              ...(input.utmMedium ? { utmMedium: input.utmMedium } : {}),
-              ...(input.utmCampaign ? { utmCampaign: input.utmCampaign } : {}),
-              ...(input.utmTerm ? { utmTerm: input.utmTerm } : {}),
-              ...(input.utmContent ? { utmContent: input.utmContent } : {}),
-              ...(input.referrer ? { referrer: input.referrer } : {}),
-              updatedAt: now,
-            })
-            .where(eq(newsletterSubscription.id, existing.id))
-        } else {
-          // This table has no column default for `id`, so the key is minted
-          // here rather than by the schema.
-          await db.insert(newsletterSubscription).values({
-            id: createId(),
-            email: input.email,
-            userId,
-            subscribed: true,
-            source: input.source ?? 'website',
-            utmSource: input.utmSource ?? null,
-            utmMedium: input.utmMedium ?? null,
-            utmCampaign: input.utmCampaign ?? null,
-            utmTerm: input.utmTerm ?? null,
-            utmContent: input.utmContent ?? null,
-            referrer: input.referrer ?? null,
-            subscribedAt: now,
-          })
+        if (!subscribed) {
+          return {
+            success: false as const,
+            error: 'Failed to subscribe to the newsletter',
+          }
         }
 
-        // A confirmation mail is a courtesy, not part of the transaction: the
-        // subscription is already durable, so a transport failure must not be
-        // reported as a failed subscribe.
-        try {
-          await sendEmail({
-            to: input.email,
-            template: 'subscribeNewsletter',
-            context: { email: input.email },
-            locale: (await getLocale()) as 'zh' | 'en',
+        // Attribution is recorded after the subscribe so the shared helper can
+        // stay the single writer of the subscription state, and so a campaign
+        // field never affects whether the address ends up on the list.
+        await db
+          .update(newsletterSubscription)
+          .set({
+            ...(ctx.user?.id ? { userId: ctx.user.id } : {}),
+            ...(input.utmSource ? { utmSource: input.utmSource } : {}),
+            ...(input.utmMedium ? { utmMedium: input.utmMedium } : {}),
+            ...(input.utmCampaign ? { utmCampaign: input.utmCampaign } : {}),
+            ...(input.utmTerm ? { utmTerm: input.utmTerm } : {}),
+            ...(input.utmContent ? { utmContent: input.utmContent } : {}),
+            ...(input.referrer ? { referrer: input.referrer } : {}),
+            updatedAt: new Date(),
           })
-        } catch (error) {
-          console.error('send newsletter confirmation failed:', error)
-        }
+          .where(eq(newsletterSubscription.email, input.email.trim().toLowerCase()))
 
         return { success: true as const }
       } catch (error) {

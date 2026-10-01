@@ -46,6 +46,12 @@ export function getUserSidebarLinks(): NestedMenuItem[] {
           href: Routes.Dashboard,
           external: false,
         },
+        {
+          title: t('sidebar.userGuide'),
+          icon: <BookOpenIcon className='size-4 shrink-0' />,
+          href: Routes.UserGuide,
+          external: false,
+        },
       ],
     },
     // —— Usage (every user) ——

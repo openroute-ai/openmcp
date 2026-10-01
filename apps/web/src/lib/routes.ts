@@ -45,7 +45,6 @@ export enum Routes {
   AuthError = '/auth/error',
   ForgotPassword = '/forgot-password',
   ResetPassword = '/reset-password',
-  Welcome = '/auth/welcome',
 
   // dashboard routes
   Dashboard = '/dashboard',
@@ -53,7 +52,6 @@ export enum Routes {
   AdminRechargeOrders = '/admin/recharge-orders',
   AdminBankTransfers = '/admin/payments/bank-transfers',
   AdminNewsletterSubscriptions = '/admin/newsletter-subscriptions',
-  AdminPayments = '/admin/payments',
   AdminSessions = '/admin/sessions',
   AdminWorkflows = '/admin/workflows',
   AdminAuthors = '/admin/authors',
@@ -129,7 +127,6 @@ export const adminRoutes = [
   Routes.AdminSessions,
   Routes.AdminRechargeOrders,
   Routes.AdminBankTransfers,
-  Routes.AdminPayments,
   Routes.AdminWorkflows,
   Routes.AdminAuthors,
   Routes.AdminCategories,

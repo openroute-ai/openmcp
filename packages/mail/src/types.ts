@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { ContactMessage } from './templates/contact-message'
 import { ForgotPassword } from './templates/forgot-password'
 import { LiteLLMBudgetUpdateFailed } from './templates/litellm-budget-update-failed'
+import { OrganizationInvitation } from './templates/organization-invitation'
 import { SubscribeNewsletter } from './templates/subscribe-newsletter'
 import { SyncErrorNotification } from './templates/sync-error-notification'
 import { VerifyEmail } from './templates/verify-email'
@@ -32,6 +33,7 @@ export type MailMessages = Record<string, unknown>
 const templateRegistry = {
   forgotPassword: ForgotPassword,
   verifyEmail: VerifyEmail,
+  organizationInvitation: OrganizationInvitation,
   subscribeNewsletter: SubscribeNewsletter,
   contactMessage: ContactMessage,
   litellmBudgetUpdateFailed: LiteLLMBudgetUpdateFailed,

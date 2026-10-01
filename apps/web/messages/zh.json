@@ -1189,7 +1189,8 @@
       "recharge": "余额与充值",
       "onboarding": "入驻与收款",
       "profile": "个人资料",
-      "security": "安全与登录"
+      "security": "安全与登录",
+      "userGuide": "使用指南"
     },
     "usage": {
       "title": "用量与花费",
@@ -1530,6 +1531,16 @@
       "privacyPolicy": "隐私政策",
       "byClickingContinue": "继续即表示您同意我们的 ",
       "and": " 和 "
+    },
+    "invitation": {
+      "title": "组织邀请",
+      "description": "您收到了一个 OpenMCP 协作邀请。",
+      "accept": "接受邀请",
+      "accepting": "正在接受...",
+      "accepted": "已接受邀请，欢迎加入！",
+      "failed": "无法接受该邀请，可能已过期或已被使用。",
+      "signInFirst": "请先登录后再接受邀请。",
+      "goToDashboard": "前往控制台"
     }
   },
   "HomePage": {
@@ -2745,6 +2756,12 @@
       "email": "邮箱: {email}",
       "message": "消息: {message}",
       "subject": "来自网站的联系消息"
+    },
+    "organizationInvitation": {
+      "title": "{inviterName} 邀请您加入 OpenMCP 的 {organizationName}。",
+      "body": "您被以 {email} 身份邀请，接受邀请后即可一起协作。",
+      "accept": "接受邀请",
+      "subject": "邀请您加入 {organizationName}"
     }
   },
   "time": {
