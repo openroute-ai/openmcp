@@ -27,7 +27,7 @@ import type { ReviewRecord } from '../types'
  * the point is to see every decision that was ever made, including the ones
  * later superseded.
  */
-export function ReviewHistoryPage() {
+export default function ReviewHistoryPage() {
   const [search, setSearch] = useState('')
   const [decision, setDecision] = useState<'all' | 'pass' | 'reject' | 'needs_revision'>('all')
   const debouncedSearch = useDebounce(search, 400)

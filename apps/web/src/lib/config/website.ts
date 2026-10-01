@@ -67,6 +67,12 @@ export const websiteConfig = {
       .map((s) => s.trim())
       .filter(Boolean),
     enableGoogleLogin: false,
+    /**
+     * GitHub is also a `trustedProvider` for account linking in `lib/auth.ts`,
+     * so a verified GitHub identity can claim an existing email/password
+     * account instead of colliding with it on the unique `email` column.
+     */
+    enableGithubLogin: false,
     requireEmailVerification: false,
     autoSignInAfterVerification: true,
   },

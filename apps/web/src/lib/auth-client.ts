@@ -7,6 +7,11 @@ export const authClient = createAuthClient({
   // Mirrors the server `user.additionalFields` so custom columns such as `role`
   // are typed on the session user.
   // https://www.better-auth.com/docs/concepts/typescript#additional-fields
+  //
+  // Deliberately no `organizationClient()`: its query atoms widen this
+  // object's type to Better Auth's internal `AuthQueryAtom`, which cannot be
+  // named for declaration emit. Organization writes go through server actions
+  // instead, which also keeps them behind a session check.
   plugins: [inferAdditionalFields<typeof auth>(), phoneNumberClient()],
 })
 

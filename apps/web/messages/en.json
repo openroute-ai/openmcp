@@ -1189,7 +1189,8 @@
       "recharge": "Balance & Top-up",
       "onboarding": "Onboarding & Payout",
       "profile": "Profile",
-      "security": "Security & Login"
+      "security": "Security & Login",
+      "userGuide": "User Guide"
     },
     "usage": {
       "title": "Usage & Spend",
@@ -1460,6 +1461,16 @@
       "privacyPolicy": "Privacy Policy",
       "byClickingContinue": "By clicking continue, you agree to our ",
       "and": " and "
+    },
+    "invitation": {
+      "title": "Organization Invitation",
+      "description": "You have been invited to collaborate on OpenMCP.",
+      "accept": "Accept invitation",
+      "accepting": "Accepting...",
+      "accepted": "Invitation accepted. Welcome aboard!",
+      "failed": "This invitation could not be accepted. It may have expired or already been used.",
+      "signInFirst": "Sign in to accept this invitation.",
+      "goToDashboard": "Go to dashboard"
     }
   },
   "HomePage": {
@@ -2318,6 +2329,7 @@
         "title": "Resources",
         "items": {
           "blog": "Blog",
+          "guide": "User Guide",
           "docs": "Documentation",
           "changelog": "Release Notes",
           "roadmap": "Roadmap"
@@ -2754,6 +2766,23 @@
     "models": "Models",
     "chat": "Chat"
   },
+  "GuidePage": {
+    "eyebrow": "Getting started",
+    "ctaStart": "Start reading",
+    "ctaBrowse": "Browse Skills",
+    "toc": "On this page",
+    "facts": {
+      "time": "About 15 minutes",
+      "audience": "For first-time publishers",
+      "level": "No coding required"
+    },
+    "footerCta": {
+      "title": "Ready to publish your first Skill?",
+      "description": "Create an account and an API token, then publish a local Skill directory with the CLI. Once approved, it becomes searchable and installable by agents worldwide.",
+      "primary": "Browse Skills",
+      "secondary": "Create an account"
+    }
+  },
   "Fumadocs": {
     "chat": {
       "newChat": "New Chat",
@@ -2797,6 +2826,12 @@
       "email": "Email: {email}",
       "message": "Message: {message}",
       "subject": "Contact Message from Website"
+    },
+    "organizationInvitation": {
+      "title": "{inviterName} invited you to join {organizationName} on OpenMCP.",
+      "body": "You were invited with {email}. Accept the invitation to collaborate together.",
+      "accept": "Accept invitation",
+      "subject": "Invitation to join {organizationName}"
     }
   },
   "time": {

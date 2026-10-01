@@ -17,7 +17,7 @@ import { toFlags, type ReviewRecord } from '../types'
  * newest, so a skill that was auto-rejected and then manually rejected appears
  * once rather than twice.
  */
-export function RejectedReviewsPage() {
+export default function RejectedReviewsPage() {
   const { data, isLoading } = trpc.admin.securityReview.getRejected.useQuery()
   const records = (data?.success ? data.data : []) as ReviewRecord[]
 
