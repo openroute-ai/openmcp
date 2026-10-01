@@ -1,11 +1,159 @@
-@import "tailwindcss";
+/* Doc 端唯一的 Tailwind 入口。
+   必须与 `@workspace/ui/globals.css` 处于同一个编译单元：fumadocs 的
+   `lib/base.css` 内部使用 `@apply`，独立样式表无法解析这些工具类。 */
+@import "@workspace/ui/globals.css";
+
+/* 把 Fumadocs 的 `--color-fd-*` 映射到本项目设计 token（shadcn.css），
+   并启用 `fd-*` 工具类与 `prose` 排版。 */
 @import "fumadocs-ui/css/shadcn.css";
 @import "fumadocs-ui/css/preset.css";
 
-html {
-  scrollbar-gutter: stable;
+@theme inline {
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
 }
 
-html:has(body[data-scroll-locked]) {
+/* 页面级滚动交给 PageScrollbar 悬浮条：隐藏原生滚动条且不预留布局空间。 */
+html {
+  scrollbar-width: none;
   scrollbar-gutter: auto;
+}
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* AI Chat 面板：桌面端打开时在右侧预留整列，让页面其余内容左移腾出空间。 */
+:root {
+  --fd-chat-width: 28rem;
+}
+
+@media (min-width: 96rem) {
+  :root {
+    --fd-chat-width: 32rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  body {
+    transition: padding-right 200ms ease;
+  }
+
+  body[data-chat-open="true"] {
+    padding-right: var(--fd-chat-width);
+  }
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  background-color: var(--color-fd-background);
+}
+
+/* 顶栏搜索框与头部控件对齐 */
+header [data-search-full] kbd {
+  display: inline-flex;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.375rem;
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+/* AI Chat 消息进入动画 */
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-chat-in {
+  animation: chat-in 0.28s ease-out both;
+}
+
+/* AI Chat 思考中三点指示器 */
+@keyframes chat-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+.animate-chat-blink {
+  animation: chat-blink 1.3s infinite ease-in-out;
+}
+
+/* AI Chat 滚动条：细、淡 */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-fd-border) 75%, transparent) transparent;
+}
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--color-fd-border) 75%, transparent);
+}
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--color-fd-muted-foreground) 60%, transparent);
+}
+.chat-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 页面级悬浮滚动条：滚动/悬停右缘时淡入，可拖拽，平时隐藏 */
+.page-scrollbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  z-index: 90;
+  pointer-events: none;
+  transition: right 200ms ease;
+}
+body[data-chat-open="true"] .page-scrollbar {
+  right: var(--fd-chat-width);
+}
+.page-scrollbar-thumb {
+  position: absolute;
+  right: 3px;
+  width: 5px;
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--color-fd-muted-foreground) 22%, transparent);
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    background-color 150ms ease;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.page-scrollbar[data-visible="true"] .page-scrollbar-thumb {
+  opacity: 1;
+  transform: translateX(0);
+}
+.page-scrollbar-thumb:hover,
+.page-scrollbar-thumb:active {
+  background-color: color-mix(in oklab, var(--color-fd-muted-foreground) 45%, transparent);
 }
