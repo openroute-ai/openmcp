@@ -109,6 +109,19 @@ function longLabel(day: string): string {
   return `${year} 年 ${Number(month)} 月 ${Number(date)} 日`
 }
 
+/**
+ * A period's headline, honest about a period nobody measured.
+ *
+ * An unmeasured bar is drawn as a gap, so its label must not read as "0 new
+ * stars": the two are different facts, and a public page is the last place to
+ * blur them. The gap gets its own sentence rather than a number in a slot.
+ */
+function gainTitle(period: string, stars: number | undefined): string {
+  return stars === undefined
+    ? `${period} ${UNMEASURED}，没有记录这个周期的 star 变化`
+    : `${period} 新增 ${stars.toLocaleString("zh-CN")} ${UNIT}`
+}
+
 export function PublicStarTrend({
   days,
   weeks,
@@ -122,7 +135,7 @@ export function PublicStarTrend({
     key: day.day,
     label: shortLabel(day.day),
     value: day.stars,
-    title: `${longLabel(day.day)} 新增 ${day.stars} ${UNIT}`,
+    title: gainTitle(longLabel(day.day), day.stars),
     tooltip: tooltipRows(day.counters),
   }))
 
@@ -130,7 +143,10 @@ export function PublicStarTrend({
     key: `${week.yearWeek.year}-${week.yearWeek.week}`,
     label: `W${week.yearWeek.week}`,
     value: week.stars,
-    title: `${week.yearWeek.year} 年第 ${week.yearWeek.week} 周新增 ${week.stars} ${UNIT}`,
+    title: gainTitle(
+      `${week.yearWeek.year} 年第 ${week.yearWeek.week} 周`,
+      week.stars
+    ),
     tooltip: tooltipRows(week.counters),
   }))
 
@@ -147,8 +163,10 @@ export function PublicStarTrend({
           星标增长
         </h2>
         <p className="text-sm text-muted-foreground">
-          逐个 stargazer
-          的到达时间分桶而来。柱高按各自窗口的峰值归一，两张图不共用坐标轴。指向任意一根柱子，
+          每根柱子是这个周期记录下来的 star 增长：优先取逐个 stargazer
+          到达时间分桶的到达数，还没被 stargazer 扫描覆盖的仓库改用该周期的 star
+          净增；两个写者都没记录的周期画成虚线空档，而不是当成
+          0。柱高按各自窗口的峰值归一，两张图不共用坐标轴。指向任意一根柱子，
           tooltip 里是该周期的九项指标：当前值与周期内的净增。
         </p>
       </div>

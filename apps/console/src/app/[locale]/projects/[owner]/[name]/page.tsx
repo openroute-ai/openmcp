@@ -93,10 +93,19 @@ export default async function PublicProjectPage({
     readTimeline(db, project.repoId, { limit: 20 }),
   ])
 
-  const daysGained = project.days.reduce((sum, day) => sum + day.stars, 0)
+  // Days no writer measured are left out of the sum rather than counted as
+  // zero, so a repository the collectors have not reached reads as "未记录" and
+  // not as "nobody starred it in ninety days".
+  const measuredDays = project.days.filter((day) => day.stars !== undefined)
+  const daysGained =
+    measuredDays.length > 0
+      ? measuredDays
+          .reduce((sum, day) => sum + (day.stars ?? 0), 0)
+          .toLocaleString("en-US")
+      : "未记录"
   const facts: [string, string][] = [
     ["星标", project.stars.toLocaleString("en-US")],
-    ["最近 90 天新增", daysGained.toLocaleString("en-US")],
+    ["最近 90 天新增", daysGained],
     ["Fork", project.forks.toLocaleString("en-US")],
     ["贡献者", project.contributors?.toLocaleString("en-US") ?? "未记录"],
     ["发布", project.releases.toLocaleString("en-US")],
@@ -161,7 +170,7 @@ export default async function PublicProjectPage({
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="grid min-w-0 gap-8">
+          <div className="flex min-w-0 flex-col gap-8 self-start">
             {/* The vitals strip, above the chart, because it answers "is this
                 project ok" in one line and the chart only answers it after you
                 have read a shape. Neither replaces the other: the strip is

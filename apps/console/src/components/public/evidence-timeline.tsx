@@ -17,6 +17,8 @@
  * read next to the last release is a claim; next to it, it is a comparison.
  */
 
+"use client"
+
 import {
   IconArrowDownRight,
   IconCircleCheck,
@@ -26,10 +28,17 @@ import {
   IconRadar,
   IconTrendingUp,
 } from "@tabler/icons-react"
-import type { ComponentType } from "react"
+import { useState, type ComponentType } from "react"
 
 import type { AnomalyKind } from "@/db/schema/github"
 import type { TimelineEvent } from "@/lib/radar/timeline"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
+import { Button } from "@workspace/ui/components/button"
 
 type IconType = ComponentType<{
   size?: number
@@ -93,6 +102,11 @@ function formatDate(date: Date): string {
 }
 
 export function EvidenceTimeline({ events }: { events: TimelineEvent[] }) {
+  const [open, setOpen] = useState(false)
+  const maxVisible = 5
+  const visible = events.slice(0, maxVisible)
+  const hasMore = events.length > maxVisible
+
   if (events.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
@@ -102,15 +116,46 @@ export function EvidenceTimeline({ events }: { events: TimelineEvent[] }) {
   }
 
   return (
-    <ol className="grid gap-0">
-      {events.map((event, index) => (
-        <TimelineRow
-          key={`${event.kind}-${event.at.getTime()}-${index}`}
-          event={event}
-          last={index === events.length - 1}
-        />
-      ))}
-    </ol>
+    <div className="grid gap-2">
+      <ol className="grid gap-0">
+        {visible.map((event, index) => (
+          <TimelineRow
+            key={`${event.kind}-${event.at.getTime()}-${index}`}
+            event={event}
+            last={index === visible.length - 1}
+          />
+        ))}
+      </ol>
+      {hasMore ? (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen(true)}
+            aria-label="查看更多证据时间轴"
+          >
+            查看更多
+          </Button>
+        </div>
+      ) : null}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>证据时间轴</DialogTitle>
+          </DialogHeader>
+          <ol className="grid gap-0 pt-2">
+            {events.map((event, index) => (
+              <TimelineRow
+                key={`${event.kind}-${event.at.getTime()}-${index}`}
+                event={event}
+                last={index === events.length - 1}
+              />
+            ))}
+          </ol>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
 

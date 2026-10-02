@@ -32,8 +32,12 @@ export interface VitalSnapshot {
   /**
    * 最近一周的新增 star 数。
    *
-   * 取 `delta_new_stars`（到达数）而不是 `delta_stars`（净变化）：有人取消 star 的
+   * 优先取 `delta_new_stars`（到达数）而不是 `delta_stars`（净变化）：有人取消 star 的
    * 那一周，到达数仍然如实回答「这周有多少人来了」，而净变化会把那天算成负数。
+   *
+   * 但到达数只有被 stargazer 扫描覆盖过的仓库才写。没有覆盖到的退到净变化：那是一个
+   * 诚实的读数（它记的是 star 总数的变化），而把没测过当成 0
+   * 只会把「没记录」说成「这周一个 star 都没来」。两个写者都没记录的周留空。
    */
   starsThisWeek?: number
 
@@ -120,8 +124,14 @@ export function computeVitals(input: {
   // 就是 `n-1-lookback`。取不到就是取不到，不往前再退——退到更早的一周会让这个倍数
   // 回答另一个问题（「比八周前快多少」），而读者看到的是一个没有说明的倍数。
   const baseline = weekly[weekly.length - 1 - lookback]
-  if (latest && baseline && baseline.stars > 0) {
-    snapshot.starFactor = factorOf(latest.stars, baseline.stars)
+  const latestGain = latest?.stars
+  const baselineGain = baseline?.stars
+  if (
+    latestGain !== undefined &&
+    baselineGain !== undefined &&
+    baselineGain > 0
+  ) {
+    snapshot.starFactor = factorOf(latestGain, baselineGain)
     snapshot.starFactorWeeksAgo = lookback
   }
 

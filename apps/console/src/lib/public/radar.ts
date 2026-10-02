@@ -13,9 +13,19 @@
  * 200 that says "this exists but you may not see it" still confirms it exists.
  */
 
-import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm"
+import {
+  and,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  inArray,
+  ne,
+  sql,
+} from "drizzle-orm"
 import { hallOfFame, projects, projectsToTags, repos, tags } from "@/db/schema"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
+import { primaryLanguage } from "@/lib/github/languages"
 import type { Db } from "@/lib/github/service/repo"
 import {
   listDailyArrivals,
@@ -170,7 +180,19 @@ async function tagsByProject(
 }
 
 /**
- * Every public project carrying a tag, most-starred first.
+ * One page of every public project carrying a tag, most-starred first.
+ *
+ * Paged in SQL rather than in the page because a category is unbounded — the
+ * whole promise of a shelf is that everything filed under it is reachable — and a
+ * reader scrolling to the end of one response holding the whole tag is not
+ * browsing, they are waiting. `limit`/`offset` rather than a cursor because the
+ * order is a star count that a sync rewrites wholesale, so a cursor over the sort
+ * key would skip or repeat rows between two page views for nothing that the
+ * fully-deterministic order below does not already buy.
+ *
+ * The caller passes the window rather than a page number because it has to know
+ * how many pages there are before it can turn `?page=` into one — see
+ * {@link countPublicProjectsByTag}, which it reads first.
  *
  * Projects with no recorded star count sort last rather than first: `stars` is
  * nullable, and a Postgres `DESC` puts nulls first, which would top the page
@@ -178,7 +200,8 @@ async function tagsByProject(
  */
 export async function listPublicProjectsByTag(
   db: Db,
-  code: string
+  code: string,
+  input: { limit: number; offset: number }
 ): Promise<PublicProjectSummary[]> {
   const rows = await db
     .select(SUMMARY_COLUMNS)
@@ -190,7 +213,20 @@ export async function listPublicProjectsByTag(
     // `desc(...)` wraps the whole fragment, so `nulls last` has to sit inside
     // it — `ORDER BY x NULLS LAST DESC` is a syntax error, and the direction has
     // to be the last keyword Postgres sees.
-    .orderBy(sql`${repos.stars} desc nulls last`, projects.name)
+    //
+    // Owner and id close the order because a page break is a claim about the
+    // sequence: two projects sharing a name under different owners at the same
+    // star count would otherwise be free to swap places between one page view and
+    // the next, and a row that turns up on two pages is worse than one that is
+    // briefly out of order.
+    .orderBy(
+      sql`${repos.stars} desc nulls last`,
+      projects.name,
+      projects.owner,
+      projects.id
+    )
+    .limit(input.limit)
+    .offset(input.offset)
 
   const byProject = await tagsByProject(
     db,
@@ -204,6 +240,35 @@ export async function listPublicProjectsByTag(
     tags: byProject.get(row.id) ?? [],
     avatar: avatarOf(row),
   }))
+}
+
+/**
+ * How many public projects carry a tag: the denominator a page's controls need.
+ *
+ * A separate read rather than a `count(*) over ()` on the page itself, because
+ * the page has to know the total *before* it can ask for one. `?page=` is clamped
+ * against this so a stale or mistyped link lands on the last page that exists
+ * rather than on an empty one; a total carried only by the returned rows arrives
+ * too late to clamp against, and arrives not at all when the offset overshoots,
+ * which is the very case the clamp exists for.
+ *
+ * `countDistinct` and the same `repos` join the list uses, because a count that
+ * counts a different set than the rows it counts is the one thing a page control
+ * cannot recover from: the total would promise a page the list never fills.
+ */
+export async function countPublicProjectsByTag(
+  db: Db,
+  code: string
+): Promise<number> {
+  const rows = await db
+    .select({ total: countDistinct(projects.id) })
+    .from(projects)
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .innerJoin(projectsToTags, eq(projectsToTags.projectId, projects.id))
+    .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
+    .where(and(eq(tags.code, code), PUBLIC_WHERE))
+
+  return rows[0]?.total ?? 0
 }
 
 export interface PublicProjectDetail extends PublicProjectSummary {
@@ -231,9 +296,9 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   readme: string | null
   /** The translated README, or null when nothing has been translated. */
   readmeZh: string | null
-  /** Per-day arrivals, ascending, quiet days already filled as zero. */
+  /** Per-day star growth, ascending, days nobody measured left undefined. */
   days: DailyArrivals[]
-  /** Per-ISO-week arrivals, ascending. */
+  /** Per-ISO-week star growth, ascending. */
   weeks: WeeklyArrivals[]
 }
 
@@ -291,8 +356,9 @@ export async function getPublicProjectDetail(
       // needs a set-returning function inside a scalar subquery, which is
       // either an `->>` on a text result or a `limit` inside a subquery that may
       // return several rows. Both are more fragile than reading one column and
-      // taking `[0]` here. GitHub orders the map by bytes, so index 0 is the
-      // dominant language.
+      // taking the first name here. The entries are normalised on the way out
+      // because rows written before the current writer store language objects
+      // rather than names — see `github/languages.ts`.
       languages: repos.languages,
       license: repos.licenseSpdxId,
       pushedAt: repos.pushedAt,
@@ -334,7 +400,7 @@ export async function getPublicProjectDetail(
     avatar: githubAvatarUrl(row.owner, { ownerId: row.ownerId }),
     tags: byProject.get(row.id) ?? [],
     url: row.url,
-    language: row.languages?.[0] ?? null,
+    language: primaryLanguage(row.languages),
     license: row.license,
     pushedAt: row.pushedAt,
     createdAt: row.createdAt,

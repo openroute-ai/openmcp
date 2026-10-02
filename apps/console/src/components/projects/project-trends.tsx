@@ -167,7 +167,7 @@ function TrendFigure({
   const format = useFormatter()
 
   return (
-    <div className="grid gap-0.5">
+    <div className="grid min-h-[56px] content-center gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-lg font-medium tabular-nums">
         {value === undefined ? (

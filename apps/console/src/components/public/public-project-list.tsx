@@ -87,6 +87,25 @@ export interface PublicProjectGroup {
   items: PublicProjectItem[]
   /** Shown when the period has no rows at all. */
   emptyLabel: string
+  /**
+   * Replaces the item count in the group heading, for a group that is one page
+   * of a longer list.
+   *
+   * Without it the heading counts `items.length`, which on a paged list is the
+   * page size rather than anything a reader can act on — "20 个项目" on a
+   * category holding 143 reads as the whole shelf. The count stays the default so
+   * a list that is not paged keeps saying what it means.
+   */
+  countLabel?: string
+  /**
+   * The rank of `items[0]`, so row numbers continue across pages.
+   *
+   * Zero-based and absent means the list starts at one. The number column is a
+   * position in the shelf, not a position on the screen: restarting at 1 on page
+   * two tells the reader that the row they are looking at is worse than one they
+   * have already scrolled past.
+   */
+  startIndex?: number
 }
 
 /**
@@ -161,7 +180,7 @@ export function PublicProjectBoard({
               </span>
             ) : null}
             <span className="text-xs text-muted-foreground">
-              {group.items.length} 个项目
+              {group.countLabel ?? `${group.items.length} 个项目`}
             </span>
           </div>
 
@@ -227,7 +246,7 @@ function ProjectRows({ group }: { group: PublicProjectGroup }) {
         >
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
             <span className="w-6 shrink-0 text-xs text-muted-foreground tabular-nums">
-              {index + 1}
+              {(group.startIndex ?? 0) + index + 1}
             </span>
 
             <span className="grid min-w-0 gap-1">

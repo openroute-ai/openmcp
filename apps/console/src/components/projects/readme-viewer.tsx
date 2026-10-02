@@ -126,7 +126,9 @@ export function ReadmeViewer({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
               <CardTitle>{t("readme")}</CardTitle>
-              <CardDescription>{t("readmeDescription")}</CardDescription>
+              <CardDescription className="sr-only">
+                {t("readmeDescription")}
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               {hasReadme ? (

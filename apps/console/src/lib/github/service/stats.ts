@@ -796,20 +796,55 @@ export interface CounterReading {
  */
 export type CounterReadings = Partial<Record<CounterName, CounterReading>>
 
-/** One day's arrivals, as a calendar day rather than an instant. */
+/** One day's star growth, as a calendar day rather than an instant. */
 export interface DailyArrivals {
   day: string
-  stars: number
+  /**
+   * What the day gained, or undefined when no writer measured it.
+   *
+   * Arrivals when the history sweep has been here, the net movement the sampler
+   * recorded otherwise — see {@link starGrowthOf}.
+   */
+  stars: number | undefined
   /** Everything else the day's row recorded, for the reader's tooltip. */
   counters?: CounterReadings
 }
 
-/** One week's arrivals, named by ISO year and week. */
+/** One week's star growth, named by ISO year and week. */
 export interface WeeklyArrivals {
   yearWeek: YearWeek
-  stars: number
+  /** What the week gained, or undefined when no writer measured it. */
+  stars: number | undefined
   /** Everything else the week's row recorded, for the reader's tooltip. */
   counters?: CounterReadings
+}
+
+/**
+ * What one period's bar shows: how many stars it gained.
+ *
+ * Two columns record that, and a period can carry either one:
+ *
+ * - `deltaNewStars` — stargazers who arrived, summed from per-stargazer
+ *   timestamps by the history sweep. It is the better number, because a week
+ *   somebody unstarred still answers "how many people arrived", but it exists
+ *   only for a repository the sweep has run on.
+ * - `deltaStars` — the movement between the level this period closed at and the
+ *   level the period before it closed at, written by the sampler for every
+ *   repository it reads.
+ *
+ * Arrivals win when both are present, and a period neither writer measured stays
+ * `undefined` rather than becoming a zero. A zero here is a claim — "nobody
+ * starred this project that day" — and a reader that invents one charts a
+ * repository nobody ever swept as a project that stopped earning stars, with no
+ * gap and no way to tell it apart from a real decline.
+ */
+function starGrowthOf(row: StatsCounterRow | undefined): number | undefined {
+  if (!row) return undefined
+  return (
+    (row.deltaNewStars as number | null | undefined) ??
+    (row.deltaStars as number | null | undefined) ??
+    undefined
+  )
 }
 
 /** One bar of a monthly chart. */
@@ -930,22 +965,25 @@ export function latestWeekGain(
 }
 
 /**
- * New stargazers per calendar day, oldest first, over a trailing window.
+ * New stars per calendar day, oldest first, over a trailing window.
  *
- * Read from `deltaNewStars`, which the star history writes and the daily sampler
- * leaves alone. That column is arrivals rather than net movement, so a day
- * someone unstarred still reads as the number of people who arrived — which is
- * what the public chart is claiming when it labels a bar "new".
+ * The bars read through {@link starGrowthOf}: the stargazer arrivals the history
+ * sweep writes, falling back to the net movement the sampler recorded. Reading
+ * `deltaNewStars` alone left the window empty for every repository the sweep had
+ * not reached — the column is NULL there, and NULL was being turned into zero,
+ * which is a flat run of bars saying nothing rather than a gap saying "not
+ * measured". Arrivals remain the preferred number where both exist, since a day
+ * someone unstarred still reads as the number of people who arrived, which is
+ * what the public chart claims when it labels a bar "new".
  *
  * The window ends at the newest stored day rather than at today. A repository
  * nobody has starred in a month then charts its own last month of activity
- * instead of a flat run of zeros reaching to the present, and the caller dates
- * the axis from the data rather than from the clock.
+ * instead of a run reaching all the way to the present, and the caller dates the
+ * axis from the data rather than from the clock.
  *
- * Days inside the window with no row are filled with 0. A quiet day is
- * unremarkable, and storing one row per quiet day forever would cost more than
- * the reading is worth — but it has to be drawn, or the chart would skip it and
- * misdate everything after it.
+ * Days inside the window with no row, and rows no writer measured, are drawn as
+ * gaps rather than as zeros. Both are "we did not look", and a quiet day is only
+ * a zero once something has actually recorded it.
  */
 export async function listDailyArrivals(
   db: Db,
@@ -978,7 +1016,7 @@ export async function listDailyArrivals(
     const row = counts.get(day)
     dense.push({
       day,
-      stars: row?.deltaNewStars ?? 0,
+      stars: starGrowthOf(row),
       counters: row ? readingsOf(row) : undefined,
     })
   }
@@ -986,7 +1024,11 @@ export async function listDailyArrivals(
 }
 
 /**
- * New stargazers per ISO week, oldest first, over a trailing window.
+ * Star growth per ISO week, oldest first, over a trailing window.
+ *
+ * Read through {@link starGrowthOf}, for the same reason as the daily reader:
+ * a repository the history sweep never reached still has the net movement the
+ * sampler recorded, and reading only the arrivals column threw it away.
  *
  * The window is taken from the end of the stored history rather than filtered on
  * a date, because a ten-year-old repository has five hundred weeks of rows and
@@ -1009,7 +1051,7 @@ export async function listWeeklyArrivals(
 
   return rows.map((row) => ({
     yearWeek: weekOfPeriod(row.period, timeZone),
-    stars: row.deltaNewStars ?? 0,
+    stars: starGrowthOf(row),
     counters: readingsOf(row),
   }))
 }

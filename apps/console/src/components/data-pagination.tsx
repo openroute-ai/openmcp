@@ -11,39 +11,7 @@ import {
   PaginationPrevious,
 } from "@workspace/ui/components/pagination"
 
-/** How many numbered links surround the current page. */
-const WINDOW = 5
-
-/**
- * The page numbers to show, with a gap marked for the middle.
- *
- * A window around the current page rather than every page: a log with thousands
- * of rows would otherwise render a control wider than the table it paginates.
- * The ends are always reachable — the window clamps to them, and a gap stands
- * in for what was skipped, so jumping to the first or last page never needs a
- * "next" held down.
- */
-export function pageWindow(
-  current: number,
-  total: number
-): Array<number | "gap"> {
-  if (total <= WINDOW + 2) {
-    return Array.from({ length: total }, (_, index) => index + 1)
-  }
-
-  const start = Math.max(
-    1,
-    Math.min(current - Math.floor(WINDOW / 2), total - WINDOW + 1)
-  )
-
-  const pages: Array<number | "gap"> = []
-  if (start > 1) pages.push(1, "gap")
-  for (let page = start; page < start + WINDOW; page += 1) {
-    pages.push(page)
-  }
-  if (start + WINDOW < total) pages.push("gap", total)
-  return pages
-}
+import { pageWindow } from "@/lib/pagination"
 
 export interface DataPaginationProps {
   page: number
