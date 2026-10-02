@@ -6,9 +6,12 @@ import { notFound } from "next/navigation"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
 import { Prose } from "@/components/public/long-form-page"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 import { getPost, listPosts } from "@/lib/blog"
+import { SITE_NAME } from "@/lib/config/site"
+import { articleNode, breadcrumbNode } from "@/lib/seo/structured-data"
 
 /**
  * 一篇文章。
@@ -59,6 +62,21 @@ export default async function BlogPostPage({
 
   return (
     <PublicShell>
+      <JsonLd
+        node={[
+          articleNode({
+            title: post.title,
+            description: post.excerpt,
+            date: post.date,
+            slug: post.slug,
+          }),
+          breadcrumbNode([
+            { name: SITE_NAME, path: "/" },
+            { name: "博客", path: "/blog" },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+        ]}
+      />
       <div className="mx-auto max-w-3xl px-4 py-10">
         <LocaleLink
           href="/blog"

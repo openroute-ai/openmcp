@@ -2,12 +2,11 @@ import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
 import { FaqAccordion } from "@/components/faq/faq-accordion"
-import {
-  PublicPageHeader,
-  PublicShell,
-} from "@/components/public/public-shell"
+import { JsonLd } from "@/components/seo/json-ld"
+import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 import { FAQS } from "@/lib/faq"
+import { faqPageNode } from "@/lib/seo/structured-data"
 
 /**
  * The FAQ as a page of its own, so the questions have a link worth pasting.
@@ -18,24 +17,25 @@ import { FAQS } from "@/lib/faq"
  * the reader lands on something that answers it instead of a marketing page
  * whose answer is somewhere below the fold.
  *
- * Static rather than `force-dynamic`, and the only public page that is: there is
- * no per-reader state in a list of answers, so re-rendering it on every request
- * would spend a database-free render on producing the same bytes. The answers
- * come from one module, so a page and a section cannot disagree.
+ * Dynamic rather than static, and the only public page that had to change for
+ * this reason: the nav it shares with every other page resolves the session to
+ * decide between "登录" and "进入控制台", and a prerendered page would bake one
+ * answer into the HTML for all readers. That is the trade the rest of the public
+ * surface already makes, so the FAQ makes it too rather than being the one page
+ * whose nav disagrees with the others. The answers themselves still come from one
+ * module, so the page and the landing page's `#faq` section cannot disagree.
  */
 
-export const dynamic = "force-static"
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: siteTitle("常见问题"),
-  description:
-    "数据从哪来、多久更新一次、怎么复核一条记录。",
+  description: "数据从哪来、多久更新一次、怎么复核一条记录。",
   alternates: { canonical: "/faq" },
   openGraph: {
     type: "article",
     title: siteTitle("常见问题"),
-    description:
-      "数据从哪来、多久更新一次、怎么复核一条记录。",
+    description: "数据从哪来、多久更新一次、怎么复核一条记录。",
     url: siteUrl("/faq"),
   },
 }
@@ -44,10 +44,7 @@ export default function PublicFaqPage() {
   return (
     <PublicShell>
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <PublicPageHeader
-          title="常见问题"
-          description="被问得最多的几个问题。"
-        >
+        <PublicPageHeader title="常见问题" description="被问得最多的几个问题。">
           <LocaleLink
             href="/#faq"
             className="w-fit text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
@@ -55,6 +52,8 @@ export default function PublicFaqPage() {
             ← 落地页上的常见问题
           </LocaleLink>
         </PublicPageHeader>
+
+        <JsonLd node={faqPageNode(FAQS)} />
 
         <FaqAccordion items={FAQS} className="mt-8 space-y-3" />
 
