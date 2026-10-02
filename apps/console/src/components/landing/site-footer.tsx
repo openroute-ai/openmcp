@@ -2,7 +2,9 @@
 
 import { IconBrandGithub } from "@tabler/icons-react";
 
+import { SiteMark } from "@/components/brand/site-mark";
 import { LocaleLink } from "@/i18n/navigation";
+import { SITE_HOST, SITE_NAME, SITE_TAGLINE } from "@/lib/config/site";
 
 /**
  * 页脚。
@@ -63,13 +65,11 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2.5">
-              <span className="grid size-8 place-items-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
-                V
-              </span>
-              <span className="font-display text-base font-semibold">OpenMCP 雷达</span>
+              <SiteMark className="size-8 shrink-0" />
+              <span className="font-display text-base font-semibold">{SITE_NAME}</span>
             </div>
             <p className="mt-4 max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
-              记录 stargazer 到达时间，判断开源项目正在变好还是变坏。
+              {SITE_TAGLINE}
             </p>
             <div className="mt-5 flex items-center gap-2.5">
               <a
@@ -104,7 +104,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
-          <p>© 2026 OpenMCP 雷达 · radar.openmcp.cn</p>
+          <p>© 2026 {SITE_NAME} · {SITE_HOST}</p>
           <div className="flex items-center gap-4">
             {/* 静态文字，不带下拉箭头：这里没有可点的语言切换器，一个假的
                 下拉箭头会让访客去找一个不存在的控件。 */}

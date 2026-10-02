@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 import { listPosts } from "@/lib/blog"
@@ -12,15 +13,15 @@ import { listPosts } from "@/lib/blog"
  */
 
 export const metadata: Metadata = {
-  title: "博客 — OpenMCP 雷达",
+  title: siteTitle("博客"),
   description:
     "判定方法、数据口径，以及星标回答不了的问题。",
   alternates: { canonical: "/blog" },
   openGraph: {
     type: "website",
-    title: "博客 — OpenMCP 雷达",
+    title: siteTitle("博客"),
     description: "判定方法与数据口径。",
-    url: "https://radar.openmcp.cn/blog",
+    url: siteUrl("/blog"),
   },
 }
 

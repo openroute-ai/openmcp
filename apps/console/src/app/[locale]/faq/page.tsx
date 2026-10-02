@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { FaqAccordion } from "@/components/faq/faq-accordion"
 import {
   PublicPageHeader,
@@ -26,16 +27,16 @@ import { FAQS } from "@/lib/faq"
 export const dynamic = "force-static"
 
 export const metadata: Metadata = {
-  title: "常见问题 — OpenMCP 雷达",
+  title: siteTitle("常见问题"),
   description:
     "数据从哪来、多久更新一次、怎么复核一条记录。",
   alternates: { canonical: "/faq" },
   openGraph: {
     type: "article",
-    title: "常见问题 — OpenMCP 雷达",
+    title: siteTitle("常见问题"),
     description:
       "数据从哪来、多久更新一次、怎么复核一条记录。",
-    url: "https://radar.openmcp.cn/faq",
+    url: siteUrl("/faq"),
   },
 }
 

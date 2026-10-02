@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { hasLocale, NextIntlClientProvider } from "next-intl"
 import { notFound } from "next/navigation"
@@ -10,6 +11,7 @@ import {
   ThemedToaster,
 } from "@/components/theme-provider"
 import { routing } from "@/i18n/routing"
+import { SITE_ORIGIN } from "@/lib/config/site"
 import { TRPCReactProvider } from "@/lib/trpc/client"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
@@ -76,4 +78,27 @@ export default async function LocaleLayout({
       </body>
     </html>
   )
+}
+
+/**
+ * Site-wide metadata, and the only place `metadataBase` is set.
+ *
+ * It belongs on the layout rather than on the homepage because every route needs
+ * it, not just the one: `metadataBase` is what turns a relative image or
+ * alternate URL into an absolute one, and a page that forgot it would emit
+ * `/og.png` for a crawler to resolve against nothing. The icons are declared
+ * explicitly rather than left to the `app/` file conventions because the sizes
+ * differ — the vector mark is the one every modern browser should take, and the
+ * raster sizes exist for the clients that cannot take it.
+ */
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/logo-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
 }

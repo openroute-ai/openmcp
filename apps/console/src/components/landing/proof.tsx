@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconCheck, IconMinus } from "@tabler/icons-react";
 import { Reveal } from "@/hooks/use-reveal";
+import { SITE_NAME } from "@/lib/config/site";
 
 const COMPARISON_ROWS: [string, string, string][] = [
   ["信息收集", "2-3 天，到处翻", "异动流直接看"],
@@ -30,7 +31,7 @@ export function Comparison() {
               <tr className="border-b border-border text-[13px]">
                 <th className="px-5 py-4 font-medium text-muted-foreground"></th>
                 <th className="px-5 py-4 font-medium text-muted-foreground">传统方式</th>
-                <th className="px-5 py-4 font-semibold text-foreground">OpenMCP 雷达</th>
+                <th className="px-5 py-4 font-semibold text-foreground">{SITE_NAME}</th>
               </tr>
             </thead>
             <tbody>

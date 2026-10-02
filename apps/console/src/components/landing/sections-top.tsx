@@ -2,6 +2,7 @@
 
 import { IconBell, IconColumns3, IconGauge, IconPuzzle, IconScale, IconAlertTriangle, IconSkull, IconRadio } from "@tabler/icons-react";
 import { Reveal } from "@/hooks/use-reveal";
+import { SITE_HOST } from "@/lib/config/site";
 
 const PAINS = [
   {
@@ -192,7 +193,7 @@ export function Workflow() {
             <span className="size-2.5 rounded-full bg-rose-400/70" />
             <span className="size-2.5 rounded-full bg-amber-400/70" />
             <span className="size-2.5 rounded-full bg-emerald-400/70" />
-            <span className="ml-3 text-xs text-muted-foreground">radar.openmcp.cn · 判定流程</span>
+            <span className="ml-3 text-xs text-muted-foreground">{SITE_HOST} · 判定流程</span>
           </div>
           <div className="grid gap-4 p-5 md:grid-cols-3">
             <div className="rounded-xl border border-border bg-card p-4">

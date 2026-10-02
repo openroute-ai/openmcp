@@ -3,7 +3,9 @@
 import { useState, useSyncExternalStore } from "react";
 import { IconChevronDown, IconDownload, IconMenu, IconX } from "@tabler/icons-react";
 
+import { SiteMark } from "@/components/brand/site-mark";
 import { LocaleLink } from "@/i18n/navigation";
+import { SITE_HOST, SITE_NAME } from "@/lib/config/site";
 import type { RoutePath } from "@/lib/routes";
 
 import { ThemeToggle } from "./theme";
@@ -133,11 +135,9 @@ function AnnounceBar() {
 function Logo() {
   return (
     <a href="#top" className="flex shrink-0 items-center gap-2.5">
-      <span className="grid size-8 place-items-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">
-        V
-      </span>
-      <span className="font-display text-base font-semibold tracking-tight">OpenMCP 雷达</span>
-      <span className="hidden text-xs text-muted-foreground sm:block">radar.openmcp.cn</span>
+      <SiteMark className="size-8 shrink-0" />
+      <span className="font-display text-base font-semibold tracking-tight">{SITE_NAME}</span>
+      <span className="hidden text-xs text-muted-foreground sm:block">{SITE_HOST}</span>
     </a>
   );
 }

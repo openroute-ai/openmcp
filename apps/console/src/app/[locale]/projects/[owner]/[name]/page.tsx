@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { siteTitle } from "@/lib/config/site"
 import { ProjectLogo } from "@/components/projects/project-logo"
 import { EvidenceTimeline } from "@/components/public/evidence-timeline"
 import { PublicAuthorCard } from "@/components/public/public-author-card"
@@ -45,13 +46,13 @@ export async function generateMetadata({
   if (!project) return { title: "项目不存在" }
 
   return {
-    title: `${project.fullName} — OpenMCP 雷达`,
+    title: siteTitle(`${project.fullName}`),
     description:
       project.description || `${project.fullName} 的星标增长与公开数据。`,
     alternates: { canonical: `/projects/${project.owner}/${project.name}` },
     openGraph: {
       type: "website",
-      title: `${project.fullName} — OpenMCP 雷达`,
+      title: siteTitle(`${project.fullName}`),
       description: project.description,
     },
   }

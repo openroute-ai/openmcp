@@ -4,6 +4,7 @@ import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { notFound } from "next/navigation"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { Prose } from "@/components/public/long-form-page"
 import { PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
@@ -33,17 +34,17 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const post = getPost((await params).slug)
-  if (!post) return { title: "文章不存在 — OpenMCP 雷达" }
+  if (!post) return { title: siteTitle("文章不存在") }
   return {
-    title: `${post.title} — OpenMCP 雷达`,
+    title: siteTitle(`${post.title}`),
     description: post.excerpt,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
       type: "article",
-      title: `${post.title} — OpenMCP 雷达`,
+      title: siteTitle(`${post.title}`),
       description: post.excerpt,
       publishedTime: post.date,
-      url: `https://radar.openmcp.cn/blog/${post.slug}`,
+      url: siteUrl(`/blog/${post.slug}`),
     },
   }
 }

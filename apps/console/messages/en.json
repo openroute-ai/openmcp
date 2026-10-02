@@ -1196,7 +1196,7 @@
       "subject": "Confirm your new email address"
     },
     "subscribeNewsletter": {
-      "subject": "OpenMCP weekly: you're subscribed",
+      "subject": "AI Radar weekly: you're subscribed",
       "body": "Thanks for subscribing. The 2026 AI Agent framework movement report and the weekly digest keep updating; the button below opens the live rising board and its evidence timeline.",
       "button": "Open the rising board",
       "unsubscribe": "No longer interested? Unsubscribe"

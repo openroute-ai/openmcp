@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -16,15 +17,15 @@ const UPDATED = "2026-10-02"
 const REPO = "https://github.com/openroute-ai/openmcp"
 
 export const metadata: Metadata = {
-  title: "开源许可 — OpenMCP 雷达",
+  title: siteTitle("开源许可"),
   description:
     "代码以 LGPL-2.1 发布：可以自建、内网使用、可改可分发。",
   alternates: { canonical: "/license" },
   openGraph: {
     type: "website",
-    title: "开源许可 — OpenMCP 雷达",
+    title: siteTitle("开源许可"),
     description: "LGPL-2.1。",
-    url: "https://radar.openmcp.cn/license",
+    url: siteUrl("/license"),
   },
 }
 

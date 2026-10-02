@@ -1196,7 +1196,7 @@
       "subject": "确认你的新邮箱"
     },
     "subscribeNewsletter": {
-      "subject": "OpenMCP 选型周刊：订阅成功",
+      "subject": "AI雷达 选型周刊：订阅成功",
       "body": "感谢订阅。《2026 AI Agent 框架异动观察》与每周选型周刊都会持续更新，下面这个入口可以直接查看实时的飙升榜与证据时间轴。",
       "button": "查看飙升榜",
       "unsubscribe": "不想再收到？点此退订"

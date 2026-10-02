@@ -24,8 +24,9 @@ import {
 import { getMessagesForLocale } from "@/i18n/messages"
 import { LOCALE_COOKIE_NAME, LOCALES, routing } from "@/i18n/routing"
 import type { Locale } from "@/lib/config/i18n"
+import { SITE_HOST, SITE_NAME } from "@/lib/config/site"
 
-const DEFAULT_FROM = "OpenMCP <service@openmcp.cn>"
+const DEFAULT_FROM = `${SITE_NAME} <service@${SITE_HOST}>`
 
 /**
  * True when a real transport is configured, i.e. mail can actually leave.

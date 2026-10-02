@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -19,15 +20,15 @@ import { LocaleLink } from "@/i18n/navigation"
 const UPDATED = "2026-10-02"
 
 export const metadata: Metadata = {
-  title: "隐私政策 — OpenMCP 雷达",
+  title: siteTitle("隐私政策"),
   description:
     "公开页面不收集个人数据。需要账号的控制台存了什么、存多久、怎么删。",
   alternates: { canonical: "/privacy" },
   openGraph: {
     type: "website",
-    title: "隐私政策 — OpenMCP 雷达",
+    title: siteTitle("隐私政策"),
     description: "存什么、存多久、怎么删。",
-    url: "https://radar.openmcp.cn/privacy",
+    url: siteUrl("/privacy"),
   },
 }
 

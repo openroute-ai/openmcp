@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { AnomalyList, GoodNewsList } from "@/components/public/anomaly-list"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { db } from "@/db/client"
@@ -48,16 +49,16 @@ const FILTERS = [
 ] as const
 
 export const metadata: Metadata = {
-  title: "异动 — OpenMCP 雷达",
+  title: siteTitle("异动"),
   description:
     "最近一周发生变化的开源项目：涨得快、跌得快、停更、换了许可证。",
   alternates: { canonical: "/anomalies" },
   openGraph: {
     type: "website",
-    title: "异动 — OpenMCP 雷达",
+    title: siteTitle("异动"),
     description:
       "最近一周发生变化的开源项目。",
-    url: "https://radar.openmcp.cn/anomalies",
+    url: siteUrl("/anomalies"),
   },
 }
 

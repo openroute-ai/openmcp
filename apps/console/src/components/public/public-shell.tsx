@@ -6,8 +6,10 @@ import {
   IconTags,
 } from "@tabler/icons-react"
 
+import { SiteMark } from "@/components/brand/site-mark"
 import { ThemeToggle } from "@/components/landing/theme"
 import { LocaleLink } from "@/i18n/navigation"
+import { SITE_NAME } from "@/lib/config/site"
 
 /**
  * The chrome around the public radar pages: anomalies, the two rankings,
@@ -57,10 +59,8 @@ function PublicHeader() {
           href="/"
           className="flex items-center gap-2 text-sm font-semibold tracking-tight"
         >
-          <span className="grid size-7 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-            R
-          </span>
-          <span className="hidden sm:inline">OpenMCP 雷达</span>
+          <SiteMark className="size-7 shrink-0" />
+          <span className="hidden sm:inline">{SITE_NAME}</span>
         </LocaleLink>
 
         <nav className="flex items-center gap-1 text-sm">
@@ -95,7 +95,7 @@ function PublicFooter() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground">
-        <span>OpenMCP 雷达</span>
+        <span>{SITE_NAME}</span>
         <span>数据每周更新</span>
       </div>
     </footer>

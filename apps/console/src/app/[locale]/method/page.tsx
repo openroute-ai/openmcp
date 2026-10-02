@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 import { THRESHOLDS } from "@/lib/radar/rules"
@@ -142,15 +143,15 @@ function ruleCards(): RuleCard[] {
 }
 
 export const metadata: Metadata = {
-  title: "判定规则 — OpenMCP 雷达",
+  title: siteTitle("判定规则"),
   description:
     "五条判定规则：增速断崖、异常加速、维护停滞、推送停滞、许可证变更。",
   alternates: { canonical: "/method" },
   openGraph: {
     type: "website",
-    title: "判定规则 — OpenMCP 雷达",
+    title: siteTitle("判定规则"),
     description: "每条规则的窗口、倍数和下限。",
-    url: "https://radar.openmcp.cn/method",
+    url: siteUrl("/method"),
   },
 }
 

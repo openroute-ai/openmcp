@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
+import { SITE_NAME, siteTitle, siteUrl } from "@/lib/config/site"
 
 /**
  * 服务条款。
@@ -17,15 +18,15 @@ import { LocaleLink } from "@/i18n/navigation"
 const UPDATED = "2026-10-02"
 
 export const metadata: Metadata = {
-  title: "服务条款 — OpenMCP 雷达",
+  title: siteTitle("服务条款"),
   description:
     "数据怎么用、什么时候会不准、权利归谁。",
   alternates: { canonical: "/terms" },
   openGraph: {
     type: "website",
-    title: "服务条款 — OpenMCP 雷达",
+    title: siteTitle("服务条款"),
     description: "数据怎么用。",
-    url: "https://radar.openmcp.cn/terms",
+    url: siteUrl("/terms"),
   },
 }
 
@@ -51,7 +52,7 @@ export default function TermsPage() {
     >
       <h2>一、这是什么</h2>
       <p>
-        OpenMCP 雷达是一个公开站点，按周采集 GitHub 上与 MCP 相关的公开仓库，公开它们的
+        {SITE_NAME}是一个公开站点，按周采集 GitHub 上与 AI 相关的公开仓库，公开它们的
         星标、提交、发布与许可证变化。它免费，不需要账号，不收费，也没有付费档位。
         {" "}
         <LocaleLink href="/about" className="underline underline-offset-2">

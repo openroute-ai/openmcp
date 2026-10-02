@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -13,15 +14,15 @@ import { LocaleLink } from "@/i18n/navigation"
  */
 
 export const metadata: Metadata = {
-  title: "选型指南 — OpenMCP 雷达",
+  title: siteTitle("选型指南"),
   description:
     "三张榜各回答什么问题，门槛怎么定，以及什么时候数据已经不够用了。",
   alternates: { canonical: "/guide" },
   openGraph: {
     type: "website",
-    title: "选型指南 — OpenMCP 雷达",
+    title: siteTitle("选型指南"),
     description: "怎么读这几张榜。",
-    url: "https://radar.openmcp.cn/guide",
+    url: siteUrl("/guide"),
   },
 }
 

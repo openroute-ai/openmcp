@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
 
+import { SITE_NAME, SITE_ORIGIN } from "@/lib/config/site"
 import { DeepDives } from "@/components/landing/deep-dives"
 import {
   Comparison,
@@ -58,7 +59,7 @@ export default async function Home() {
   const requestHeaders = await headers()
   const host = requestHeaders.get("host")
   const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
-  const origin = host ? `${proto}://${host}` : "https://radar.openmcp.cn"
+  const origin = host ? `${proto}://${host}` : SITE_ORIGIN
 
   // The hero's live feed (§5.9.4). Fetched on the server so the rows are in the
   // first paint rather than arriving after hydration — the feed's whole argument
@@ -109,19 +110,21 @@ export default async function Home() {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://radar.openmcp.cn"),
-  title: "OpenMCP 雷达 — 开源项目异动监控",
+  title: `${SITE_NAME} — 开源项目异动监控`,
   description:
     "记录每个 stargazer 的到达时间，据此判断一个开源项目正在变好还是变坏。每条结论可点开看原始时间轴。",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
-    siteName: "OpenMCP 雷达",
+    siteName: SITE_NAME,
     locale: "zh_CN",
-    title: "OpenMCP 雷达 — 开源项目异动监控",
-    description:
-      "别人告诉你这个项目多受欢迎，我告诉你它正在变好还是变坏。",
-    url: "https://radar.openmcp.cn",
+    title: `${SITE_NAME} — 开源项目异动监控`,
+    description: "别人告诉你这个项目多受欢迎，我告诉你它正在变好还是变坏。",
+    url: SITE_ORIGIN,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: SITE_NAME }],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og.png"],
+  },
 }

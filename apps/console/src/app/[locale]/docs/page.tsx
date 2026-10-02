@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 
+import { siteTitle, siteUrl } from "@/lib/config/site"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -16,15 +17,15 @@ import { LocaleLink } from "@/i18n/navigation"
  */
 
 export const metadata: Metadata = {
-  title: "API 文档 — OpenMCP 雷达",
+  title: siteTitle("API 文档"),
   description:
     "四个公开 JSON 端点：周榜、月榜、年度飙升榜、异动流。",
   alternates: { canonical: "/docs" },
   openGraph: {
     type: "website",
-    title: "API 文档 — OpenMCP 雷达",
+    title: siteTitle("API 文档"),
     description: "请求参数与返回字段。",
-    url: "https://radar.openmcp.cn/docs",
+    url: siteUrl("/docs"),
   },
 }
 
@@ -196,7 +197,7 @@ export default function ApiDocsPage() {
               <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
                 <span className="font-medium text-foreground">试一下：</span>
                 <code className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono">
-                  curl https://radar.openmcp.cn{endpoint.path}
+                  curl {siteUrl(endpoint.path)}
                 </code>
               </p>
             </section>
