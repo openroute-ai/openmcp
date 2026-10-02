@@ -1,9 +1,9 @@
 # Agent 自动安装（Install into Agent）
 
-> 版本：v1.3（2026-09-30）· Catalog search + recommend  
-> 范围：`apps/openmcp` · 市场资产装进 Cursor / Claude Code / Codex / 通用 Agent  
-> 决策：仅平台网关 URL；**不**支持 Provider 直连端点安装；**支持 OAuth 认证**  
-> API Key 架构：Dashboard 代理签发 LiteLLM Virtual Key，见 [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)  
+> 版本：v1.3（2026-09-30）· Catalog search + recommend
+> 范围：`apps/openmcp` · 市场资产装进 Cursor / Claude Code / Codex / 通用 Agent
+> 决策：仅平台网关 URL；**不**支持 Provider 直连端点安装；**支持 OAuth 认证**
+> API Key 架构：Dashboard 代理签发 LiteLLM Virtual Key，见 [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)
 > 用户下载安装完整设计：[SKILL_USER_DOWNLOAD_INSTALL.md](./SKILL_USER_DOWNLOAD_INSTALL.md) ⬅️ **v2.0：登录必需 + Agent OAuth（Device Code Flow）**
 
 ---
@@ -57,17 +57,17 @@
 
 步骤改为：
 
-1. 选择 Runtime  
-2. 复制「先装商店」bootstrap 提示词（含后续 P1 的 Store MCP 片段）  
-3. 浏览 / 安装第一个免费 Skill  
+1. 选择 Runtime
+2. 复制「先装商店」bootstrap 提示词（含后续 P1 的 Store MCP 片段）
+3. 浏览 / 安装第一个免费 Skill
 
 嵌入 `InstallIntoAgent` demo（bootstrap 模式）。
 
 ### 2.6 验收（P0）
 
-1. 三详情页均可按 Runtime 复制安装提示词。  
-2. MCP / A2A 文案与 snippet **不含** Provider `endpoint`。  
-3. `/start` 含 Runtime 选择与 bootstrap 复制。  
+1. 三详情页均可按 Runtime 复制安装提示词。
+2. MCP / A2A 文案与 snippet **不含** Provider `endpoint`。
+3. `/start` 含 Runtime 选择与 bootstrap 复制。
 4. 无密钥明文入库；占位符指向 Dashboard API Keys。
 
 ---
@@ -80,7 +80,7 @@
 
 ### 3.2 端点
 
-- **URL**：`{BASE_URL}/api/mcp/store`（Streamable HTTP / JSON-RPC）  
+- **URL**：`{BASE_URL}/api/mcp/store`（Streamable HTTP / JSON-RPC）
 - **鉴权（v2.0 OAuth 支持）**：
   - **Bearer Token（API Key）**：`Authorization: Bearer sk-...`（Dashboard 签发的网关 Key，虚拟 Key 见 [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)）
   - **OAuth Device Code Flow（P0）**：无需手动粘贴 Key，Agent 显示 6 位码，用户在浏览器授权，详见 [SKILL_USER_DOWNLOAD_INSTALL.md §7](./SKILL_USER_DOWNLOAD_INSTALL.md#7-agent-oauth-流程设计)
@@ -94,8 +94,8 @@
 |------|------|
 | `search_assets` | 结构化搜索 skill / mcp / a2a / app（`q?`, `kind?`, `tags?`, `categorySlug?`, `priceType?`, `securityGrade?`, `sort?`, `limit?`）；默认热度排序 |
 | `recommend_assets` | Chat/AI 选型：`useCase` → 推荐列表 + `reason`（复用 catalog search） |
-| `get_asset` | 详情 + 安装元数据（id / slug / kind） |
-| `install_asset` | 按 `runtime` 返回安装 payload（files 列表 / mcp 配置 snippet / a2a card URL）。付费 Skill 校验 entitlement（对齐 `skills.acquire`）；免费放行 |
+| `get_asset` | 详情 + 安装元数据（id / slug / kind）。**付费 MCP/A2A 不返回 `gatewayUrl`**（该工具可匿名调用，而付费资产要卖的就是接入方式）；免费资产照常返回 |
+| `install_asset` | 按 `runtime` 返回安装 payload（files 列表 / mcp 配置 snippet / a2a card URL）。付费资产按计价模型分流门禁，见 §3.5 |
 
 ### 3.4 实现取向
 
@@ -136,6 +136,27 @@ Agent 首次调用 `install_asset` 时自动触发 OAuth 授权流程（Device C
 > ⚠️ 上面的 `authMode` / `deviceCodeUrl` / `tokenUrl` 是**给 Agent 读的提示字段**，不是 Cursor / Claude Code / Codex 会解析的配置键。真实客户端不会据此自动发起 OAuth：轮询逻辑需由 Agent 侧实现（见 [SKILL_USER_DOWNLOAD_INSTALL.md §7.5](./SKILL_USER_DOWNLOAD_INSTALL.md#75-agent-侧实现store-mcp)，当前未实现），或直接使用 API Key。`/api/mcp/store` 也尚未提供 `/.well-known/oauth-protected-resource` 发现文档。
 
 `/start` 与 `InstallIntoAgent` 的「添加 OpenMCP Store MCP」snippet 按 Runtime 生成。
+
+### 3.5 付费门禁与计价模型
+
+门禁实现在 `apps/web/src/web/mcp-servers/entitlement.ts`（`checkAssetEntitlement`），Skill 与 MCP/A2A 各有授权表但共用同一套判定。
+
+判定顺序刻意是**先看价格是否可信，再看是否已购**：一个标了 `paid` 但 `priceAmount` 为 0 / NULL / NaN 的资产，先查权益会让免费用户拿到"请先购买"却永远买不了（价格无效），先放行则等于变成免费资产。所以显式返回 `NO_PRICE`，让它在配置修好之前不可安装——一台坏掉的收银机不该静默变成免费窗口。
+
+| `billing_model` | 安装时 | 钱在哪收 | 分成路径 |
+|---|---|---|---|
+| `free` / 空 | 放行（`reason: 'free'`） | — | — |
+| `one_time` | 无 `active` 授权则 `NEED_PURCHASE`；否则放行（`reason: 'entitled'`） | `purchaseAsset` 一次性扣钱包余额 | `creditAssetPurchaseEarning`（按 `entitlement_id` 幂等） |
+| `pay_per_call` | **放行**（`reason: 'metered'`），不需要授权行 | `settleGatewaySpend` 每次调用扣余额 | `creditGatewayEarnings`（按 `gateway_record_id` 幂等） |
+| `subscription` | 拦下，`UNSUPPORTED_BILLING` | — | — |
+
+**`pay_per_call` 为什么不拦也不要求购买**：钱已经在调用链路上收了。安装层再扣一次是重复收费；反过来把它归入「不支持」拦掉安装，等于让一个计费模型完整的资产完全无法使用。它在安装结果里带 `billing: 'metered：安装不收费，每次调用按量从账户余额扣除'`——不说明的话，Agent 会以为装完就免费可用。
+
+**`subscription` 为什么明确拦下而不是当成一次性付费**：整条订阅链路（周期锚点、续费任务、过期撤销、取消）都还没实现，没有任何地方会给它开授权行。把它当一次性付费扣款等于收了钱却不给续费，静默地把订阅卖成了买断。
+
+**门禁必须在发出 gateway URL 之前。** 放在之后等于把收费资产的接入方式先发出去再问要不要付钱。`get_asset` 侧对应地只对 `priceType === 'paid'` 的 MCP/A2A 隐去 `gatewayUrl`。
+
+**购买并发**：`purchaseAsset` 里余额扣款是带 `WHERE amount >= price` 的条件 UPDATE，而不是"先 SELECT 出余额、在 JS 里比较、再无条件 UPDATE"——后者在并发下会超扣（两个请求都读到 100，都认为够付 80，最终余额 -60）。授权行加 `FOR UPDATE` 是防止退款后重新购买被两个请求各扣一次款。
 
 ### 3.6 Authorization Code Flow（P2）
 
@@ -193,11 +214,13 @@ Agent 首次调用 `install_asset` 时自动触发 OAuth 授权流程（Device C
 
 ### 3.7 验收（P1）
 
-1. `initialize` / `tools/list` / `tools/call` 可用。  
-2. `search_assets` 仅返回 `published`。  
-3. 付费 Skill 无 entitlement 时 `install_asset` 失败并提示购买。  
-4. 安装 payload **仅**平台网关标识，无 Provider endpoint。  
-5. 文档与 UI snippet 一致。
+1. `initialize` / `tools/list` / `tools/call` 可用。
+2. `search_assets` 仅返回 `published`。
+3. 付费 Skill 无 entitlement 时 `install_asset` 失败并提示购买。
+4. 付费 MCP/A2A 无 entitlement 时 `install_asset` 失败并返回 `purchaseUrl`；`get_asset` 对其隐去 `gatewayUrl`。
+5. `pay_per_call` 的 MCP/A2A 可直接安装，且安装结果标明按量计费。
+6. 安装 payload **仅**平台网关标识，无 Provider endpoint。
+7. 文档与 UI snippet 一致。
 
 ---
 
@@ -209,8 +232,8 @@ Agent 首次调用 `install_asset` 时自动触发 OAuth 授权流程（Device C
 | 市场 A2A | `{GATEWAY_BASE}/a2a/{agentName}`（Agent Card：`…/.well-known/agent-card.json`） |
 | Store MCP | `{APP_BASE}/api/mcp/store` |
 
-`GATEWAY_BASE`：`NEXT_PUBLIC_GATEWAY_BASE_URL`（默认 `https://api.openmcp.cn`）。  
-`{serverName}` / `{agentName}` 即 LiteLLM 侧的 server name / agent name（`{providerSlug}__{assetName}`），路径形状与 LiteLLM 网关一致。  
+`GATEWAY_BASE`：`NEXT_PUBLIC_GATEWAY_BASE_URL`（默认 `https://api.openmcp.cn`）。
+`{serverName}` / `{agentName}` 即 LiteLLM 侧的 server name / agent name（`{providerSlug}__{assetName}`），路径形状与 LiteLLM 网关一致。
 用户密钥：Dashboard → `/dashboard/apikeys`，签发的是 **LiteLLM Virtual Key**（`sk-…`），同一把 Key 同时用于网关与 Skill 包下载，详见 [API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)。
 
 网关鉴权头（两者均可，`x-litellm-api-key` 为 LiteLLM 首选）：
@@ -233,17 +256,17 @@ x-litellm-api-key: sk-...
 
 ## 5. 非目标
 
-- Provider 直连安装  
-- Stdio MCP 自动安装  
-- 完整 OAuth 到 Agent IDE  
+- Provider 直连安装
+- Stdio MCP 自动安装
+- 完整 OAuth 到 Agent IDE
 - 安装状态回写 / 结算（后续）
 
 ---
 
 ## 6. 提交节奏
 
-1. `feat(openmcp): P0 agent install prompts and detail CTAs`  
-2. `feat(openmcp): P1 OpenMCP Store MCP search get install`  
+1. `feat(openmcp): P0 agent install prompts and detail CTAs`
+2. `feat(openmcp): P1 OpenMCP Store MCP search get install`
 
 ---
 
@@ -271,6 +294,8 @@ x-litellm-api-key: sk-...
 - 尚无 `/.well-known/oauth-protected-resource` 发现文档。
 - Authorization Code Flow UI 已有；深度链接 IDE 回调为后续。
 - `install-callback` 登记安装列表未在本批强制接通（表已存在）。
+- **MCP/A2A 订阅计费（`billing_model = 'subscription'`）未实现**：无周期锚点、无续费任务、无过期撤销。安装时明确报错而非降级为买断。
+- **LiteLLM 存量 key 的停用语义待定**：资产下线后，此前签发的 Virtual Key 是否还能继续调用尚未决策，代码中已标注。门禁只覆盖 OpenMCP 的安装路径，LiteLLM 直连不在平台控制范围内。
 
 ### 手动验证（P1）
 

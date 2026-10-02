@@ -195,9 +195,9 @@ LiteLLM 网关注册第三方服务端/智能体时，采用「一个名称 + �
 
 7. **（可选）沙箱试调**：测试连接通过后，展开 Postman 式试调面板，选择一个 tool 直接调用，返回结果脱敏展示。验证真实业务调用，不只是握手。
 
-8. **服务可用性探测开关（可选）**：周期性健康检查，默认 15 分钟（异常时升级到 1 分钟，恢复后回退），异常自动标橙并在列表提示。
+8. **服务可用性探测开关（可选）**：周期性健康检查，默认 10 分钟。连续 3 次探测失败才标为 `error`（橙），成功一次立即恢复。见 §16。
 
-### 5.2 第 2 步：上架信息
+## 5.2 第 2 步：上架信息
 
 **实现状态（2026-09-22）：已添加 logo 和 cover 图片上传功能。**
 
@@ -318,11 +318,39 @@ MCP / A2A / Skills 各有独立的观测页面（从「我的资产」子入口�
 
 ---
 
-## 8. 安全扫描架构（Skills 专属）
+## 8. 安全扫描架构
 
 参考 agent-skills-hub 的 security_scanner.py + llm_security_analyzer.py，在 openmcp 侧用 TypeScript 重新实现。
 
-### 8.1 两阶段架构
+三类接入的扫描对象完全不同，**能力边界也不同**：
+
+| 接入方式 | 扫描对象 | 能拿到什么 | 拿不到什么 |
+| --- | --- | --- | --- |
+| Skill | README + 全部文件 | 源码全文 | 无 |
+| MCP Server | 端点 URL、传输方式、工具名与描述、协议版本 | 提供方**声明**的元数据 | 远端进程里的任何行为 |
+| A2A Agent | endpoint、Agent Card 里的 skills 列表 | 提供方**声明**的元数据 | 远端智能体的任何行为 |
+
+MCP / A2A 是端点接入，平台**读不到对方的代码，也观察不到对方的运行时行为**。
+网关只负责转发请求。因此端点接入的扫描是一份「声明元数据的风险提示」，不是代码审计：
+
+- 扫描的是提供方自己填的端点、传输方式、工具名与描述。
+- 命中的规则说明的是「这段声明看起来有问题」，而不是「对方代码有这个问题」。
+- 页面必须如实标注扫描口径，不能让买家以为平台验证过对方的实现。
+- 未扫描（规则升级前的历史资产、扫描失败的资产）一律显示「未扫描 / unknown」，**不得**用「安全」兜底。
+
+规则命中后的处置：`credential_in_url`、`secret_in_query`、`private_key_reference` 直接 `reject`；
+`prompt_injection`、`credential_exfiltration`、`shell_execution` 为 `unsafe`；
+`plaintext_endpoint`、`stdin_transport`、以及**冒名官方厂商**为 `caution`。
+
+关于冒名检测的一条现实约束：没有公共后缀列表就无法可靠判断「注册域」边界，
+厂商自己的合法子域很容易被误判——`api.githubcopilot.com` 就是 GitHub 官方的
+Copilot API 端点。所以冒名规则的严重度刻意定在 `caution` 而不是 `unsafe`：
+宁可提示「请自行确认」，也不要把真的官方端点标成不安全。安全徽章一旦误报就没人信了。
+
+规则改动后，已有资产上的 `scan_rules_version` 停在旧版本，页面显示的评级其实是**旧规则的结论**。
+因此 MCP / A2A 的 admin 后台提供「重扫」，且需要升级规则版本时应对历史资产触发回填。
+
+### 8.1 两阶段架构（Skill 内容扫描）
 
 ```
 Skill 内容（README + 全部文件）
@@ -680,7 +708,7 @@ openmcp 侧需支持：
 - 连接测试服务（必过才能保存，分级反馈）。
 - 自动发现服务（拉 .well-known/agent.json / mcp.json 预填表单）。
 - 沙箱试调面板（Postman 式工具调用）。
-- 健康检查任务（默认 15 分钟，异常升级到 1 分钟）。
+- 健康检查任务（固定 10 分钟，连续 3 次失败才下架，见 §8）。
 - 调用日志/指标表、授权关系表（资产 <-> 用户/密钥组）。
 - **安全扫描服务**（两阶段：规则扫描 + LLM 复核，TypeScript 实现）。
 - **ZIP 接收与解压服务**（隔离目录，扫描后清理）。
@@ -725,7 +753,7 @@ openmcp 侧需支持：
 - 自动发现作为首选路径（A2A 拉 Agent Card，MCP 拉服务端能力）。
 - 测试连接分级反馈（握手/鉴权/tools/list/协议版本）。
 - 网关标识名采用 {providerSlug}/{assetName} 二级命名。
-- 健康检查默认 15 分钟，异常升级到 1 分钟。
+- 健康检查默认 10 分钟，连续 3 次失败才置 `error`。
 - Skills 从「资产壳」拆出独立接入流程（GitHub URL / ZIP 上传）。
 - 安全扫描在 openmcp 侧执行（两阶段：规则扫描 + LLM 复核），替换现有 AI-only enrichment。
 - 安全扫描范围：全部文件（README + 入口脚本 + 配置文件 + 全部源码）。
@@ -756,6 +784,42 @@ openmcp 侧需支持：
 ---
 
 ## 15. 实现更新日志
+
+### 2026-10-02: MCP/A2A 元数据扫描、版本管理、分页与角色拆分
+
+**1. MCP / A2A 元数据安全扫描（已实现）**
+
+- `apps/web/src/lib/security-scan/gateway-scan.ts`：对端点 / 传输 / 工具名与描述 / 协议版本做规则扫描。
+- `packages/db/drizzle/0017_gateway_security_scan.sql`：`security_grade`、`security_flags`、`scan_details`、`scanned_at`、`scan_rules_version`。
+- MCP 与 A2A **注册成功后立即扫描**；扫描失败不阻塞注册（注册成功、评级显示「未扫描」）。
+- admin 后台新增 `rescanServer` / `rescanAgent` 重跑入口，用于规则升级后刷新历史资产的评级。
+- 未扫描资产一律显示「未扫描 / unknown」，不再用 `|| t('safeDefault')`兜底成「安全」。
+- 能力边界见 §8：端点接入扫的是提供方**声明的元数据**，不是对方代码，也不是运行时行为。
+
+**2. MCP / A2A 版本管理（已实现）**
+
+- `packages/db/drizzle/0018_gateway_asset_versions.sql`：新增 `gateway_asset_versions`，
+  以及 `mcp_servers.current_version_id` / `current_version`（A2A 同）。
+- 版本记录的是**发布行为的元数据契约快照**（端点 / 传输 / 工具 / 价格），不是代码备份——
+  平台拿不到远程进程里的代码，能承诺的只有这些字段。
+- 支持草稿 → 发布 → 下线（yank）/ 设为当前版本。回滚只改 `current_version_id` 指针。
+- yank **不删行**：已购用户的授权和账本可能指向那一版，物理删除会让那些记录指向不存在的版本。
+- Provider 自助能力，不进 admin：审核管的是「能不能上架」，发第几版是资产所有者自己的事。
+
+**3. 分页与搜索（已实现）**
+
+- 复核队列 / 驳回 / 审核历史：移除 `slice(0, 200)` 静默截断，改为 SQL 分页 + `total`。
+- MCP / A2A / Skills `listMine`：服务端搜索 + 状态筛选 + 分页。
+- 收益 / 账单 / 提现 / API Key：移除固定 `limit`，改为分页并返回 `total`。
+  汇总口径保持「全部行」而非当前页，否则「累计收入」会随翻页变化。
+- Blog 作者 / 分类：服务端搜索 + 分页。
+
+**4. 平台角色拆分（已实现）**
+
+- 新增 `PlatformRole = 'user' | 'admin' | 'super_admin'`，以及 `isSuperAdmin()` / `superAdminProcedure`。
+- `adminProcedure` 允许 `admin` 与 `super_admin`；`super_admin` 专属操作用 `superAdminProcedure`
+  （如恢复被驳回资产 `restore`）。
+- 授予 / 撤销最高角色仅限 `super_admin`，且不能通过该接口改掉**另一个** `super_admin`。
 
 ### 2026-09-22: MCP/A2A 提交 UX 重写
 
@@ -797,3 +861,50 @@ openmcp 侧需支持：
 - `/workspace/apps/openmcp/src/components/mcp/submit-mcp-form.tsx`
 - `/workspace/apps/openmcp/src/components/a2a/submit-a2a-form.tsx`
 - `/workspace/apps/openmcp/src/db/schema/registry-schema.ts`
+
+---
+
+## 16. 定时健康检查（已实现）
+
+### 16.1 为什么它不只是「状态」而是「可见性」
+
+`connection_status` 同时被三处消费，所以它错了的代价不是显示错一个标签：
+
+| 位置 | 作用 |
+|---|---|
+| `assets/visibility.ts` | `connectionStatus !== 'online'` → **从市场列表和 Store MCP 搜索里消失** |
+| `mcp-servers/entitlement.ts` | 安装 / 购买前置校验要求 `online` |
+| `assets/map-asset.ts` | 我的资产页映射为 `abnormal` / `disabled` |
+
+也就是说一次误判 = 提供方收入立刻中断。因此**单次探测失败绝不改这一列**。
+
+### 16.2 两条硬约束
+
+**只探测 opt-in 的资产。** `health_check_enabled` 默认 `false`，检查只处理 `= true` 且 `status = 'published'`、未软删除的资产。持续轮询别人端点会产生对方没预期的流量；而提供方明确不想被探测时，这个开关就是他的退出通道——没有开关可用就等于强制轮询。开关关着的资产即使真的挂了也保持原状，状态由提供方自己决定何时更新。
+
+**连续失败计数。** 新增 `health_fail_count`（migration `0015`）：成功即清零，连续达到 `HEALTH_CHECK_FAIL_THRESHOLD`（默认 3）才置 `error`。单次超时/限流在 `error` 与 `online` 之间反复跳，会让资产在市场上闪烁，买家看到的是「这个 MCP 时有时无」。
+
+探测函数**自身抛错**（配置非法、密钥解密失败）与「探测到不健康」严格分开：前者只记日志、不累加计数。否则一个配置错误会被当成端点不可用，几轮之后资产被下架，而下架原因永远查不到。
+
+### 16.3 实现
+
+| 位置 | 作用 |
+|---|---|
+| `lib/health-check/scheduled-check.ts` | 一轮检查的编排、阈值状态机、按资产并发限制 |
+| `web/mcp-servers/gateway.ts` / `web/a2a-agents/gateway.ts` 的 `probeSystem(id)` | 只读配置 + 探测，**不**校验作者、**不**写状态 |
+| `lib/cron/local-cron.ts` 的 `asset-health-check` | 进程内调度，默认 600s |
+| `app/api/cron/asset-health/route.ts` | 外部调度 / 手动补跑入口，与内置任务同一函数 |
+
+写库策略留在编排层，探测函数只负责「读到配置并探一次」。这样调阈值不用动探测实现，也不会出现 MCP 和 A2A 两份阈值。
+
+并发按资产限 5（`HEALTH_CHECK_CONCURRENCY`），不全局串行：一批全挂的端点会让探测自己的超时被挤掉，于是「平台探测不动了」和「这些资产坏了」两种故障长得一模一样，只有后者是真的。
+
+### 16.4 间隔为什么不升级
+
+本文档早期版本写的是「15 分钟，异常时升级到 1 分钟，恢复后回退」。**未实现，当前是固定间隔。** 间隔的下限语义是**故障可见延迟**，而真正的下架边界是连续失败阈值；配合固定间隔，最坏情况就是「阈值次 × 间隔」后才下架，升级与否不影响这个上界。
+
+做升级的收益是缩短**发现**时间，但 9.2 的滞回已经在为误判兜底，两者叠加会让「多久下架」取决于资产是否刚好在故障期——比固定间隔更难向运营解释。当前选择固定间隔 + 可配阈值，把「多久下架」这一个变量交给 `HEALTH_CHECK_FAIL_THRESHOLD`。真要升级，应当作为独立决策补上，并同时说明它与阈值的关系。
+
+### 16.5 `/api/cron/asset-health` 在有资产失败时仍返回 200
+
+探测失败是**被观测对象**的状态，不是接口自身出错。让调度器把「3 个资产挂了」当接口故障去告警重试，只会刷出重试风暴，真正的资产问题反而被埋掉。`success` 只反映接口能否跑完；资产健康度在 `summaries` 里逐条给出（`healthy` / `degraded` / `takenOffline` / `recovered` / `errors`）。

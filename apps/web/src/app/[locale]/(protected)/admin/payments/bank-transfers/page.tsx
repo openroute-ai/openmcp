@@ -17,7 +17,7 @@ export default async function AdminBankTransferPage() {
     return null
   }
   const role = (session.user as { role?: unknown }).role
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'super_admin') {
     return null
   }
 

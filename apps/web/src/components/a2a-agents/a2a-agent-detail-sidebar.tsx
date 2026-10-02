@@ -5,6 +5,7 @@ import { Check, Copy, Download, Eye } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { LocaleLink } from '@/i18n/navigation'
+import { AssetPurchasePanel } from '@/components/assets/asset-purchase-panel'
 import {
   type AssetAuthType,
   authLabel,
@@ -15,16 +16,20 @@ import {
 interface A2aDetailSidebarProps {
   agent: {
     id: string
+    slug: string
     author: { name: string; username: string; avatar: string | null }
     category: { name: string; slug: string } | null
     authType: AssetAuthType | null
     protocolVersion: string | null
     scope: string
     priceType: string
+    priceAmount: string | null
     billingModel: string | null
     unitPrice: string | null
     currency: string | null
     agentCardUrl: string | null
+    /** 详情 query 算好的门禁结论；匿名访客为 null。 */
+    access: { allowed: boolean; code?: string; reason?: string } | null
     stats: { created: string; updated: string; views: number; downloads: number }
   }
 }
@@ -46,6 +51,9 @@ export function A2aDetailSidebar({ agent }: A2aDetailSidebarProps) {
     }
   }
 
+  // `one_time` 收的是 `priceAmount`；`unitPrice` 是按次/按月的单价，用错字段会
+  // 让详情页显示一个从未被扣过的价。
+  const oneTimeAmount = agent.priceAmount ?? '--'
   const amount = agent.unitPrice ?? agent.currency ?? '--'
   const priceLabel =
     agent.priceType === 'free'
@@ -54,7 +62,7 @@ export function A2aDetailSidebar({ agent }: A2aDetailSidebarProps) {
         ? price('payPerCall', { amount: agent.unitPrice ?? '--' })
         : agent.billingModel === 'subscription'
           ? price('subscription', { amount })
-          : price('oneTime', { amount })
+          : price('oneTime', { amount: oneTimeAmount })
 
   const rows: { label: string; value: string }[] = [
     { label: t('auth'), value: authLabel(agent.authType, lang) || '—' },
@@ -67,6 +75,19 @@ export function A2aDetailSidebar({ agent }: A2aDetailSidebarProps) {
 
   return (
     <div className='space-y-6'>
+      {/* 未购买时 agentCardUrl 已被 router 抹掉，所以购买入口必须排在它前面。 */}
+      <AssetPurchasePanel
+        kind='a2a'
+        assetId={agent.id}
+        assetSlug={agent.slug}
+        priceType={agent.priceType}
+        priceAmount={agent.priceAmount}
+        unitPrice={agent.unitPrice}
+        currency={agent.currency}
+        billingModel={agent.billingModel as 'one_time' | 'subscription' | 'pay_per_call' | null}
+        access={agent.access}
+      />
+
       <div className='rounded-lg border border-border bg-card p-6 shadow-sm'>
         <div className='mb-4 flex items-center'>
           <Avatar className='mr-4 h-12 w-12'>

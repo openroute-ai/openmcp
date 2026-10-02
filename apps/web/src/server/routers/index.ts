@@ -8,6 +8,7 @@ import { adminAuthorsRouter } from '@/web/authors/router-admin'
 import { catalogRouter } from '@/web/catalog/router'
 import { categoriesRouter } from '@/web/categories/router'
 import { adminCategoriesRouter } from '@/web/categories/router-admin'
+import { assetsRouter } from '@/web/assets/router'
 import { mcpServersRouter } from '@/web/mcp-servers/router'
 import { adminMcpServersRouter } from '@/web/mcp-servers/router-admin'
 import { mcpToolsRouter } from '@/web/mcp-tools/router'
@@ -58,6 +59,7 @@ export const appRouter = router({
   recharge: rechargeOrdersRouter,
   mcpServers: mcpServersRouter,
   a2aAgents: a2aAgentsRouter,
+  assets: assetsRouter,
   newsletters: newslettersRouter,
   workflowRankings: workflowRankingsRouter,
   siteMessages: siteMessagesRouter,

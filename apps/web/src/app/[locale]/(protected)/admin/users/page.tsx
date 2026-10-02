@@ -111,6 +111,7 @@ export default function AdminUsersPage() {
             <SelectItem value='all'>全部角色</SelectItem>
             <SelectItem value='user'>普通用户</SelectItem>
             <SelectItem value='admin'>管理员</SelectItem>
+            <SelectItem value='super_admin'>超级管理员</SelectItem>
           </SelectContent>
         </Select>
 

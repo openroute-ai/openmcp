@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getA2aGateway, isLiteLLMConfigured } from '@workspace/litellm'
 import { decryptSecret } from '@/lib/gateway/secrets'
-import { verifyOAuthState } from '@/lib/agent-install/oauth-state'
+import { consumeOAuthState, verifyOAuthState } from '@/lib/agent-install/oauth-state'
 import { db } from '@/lib/db'
 import { notDeleted } from '@/web/assets/visibility'
 
@@ -49,6 +49,13 @@ export async function GET(request: NextRequest) {
     const stateData = {
       agentName: verified.payload.assetName,
       authorId: verified.payload.authorId,
+    }
+
+    // 单次消费，理由同 MCP 回调。
+    const consumed = await consumeOAuthState(verified.payload)
+    if (!consumed.ok) {
+      console.warn('[oauth-callback-a2a] rejected replayed state:', consumed.reason)
+      return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     }
 
     // 签名只证明 state 是我们签的，不证明资产还在。仍要查库挡住 tombstone

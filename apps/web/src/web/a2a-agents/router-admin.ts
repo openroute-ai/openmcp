@@ -4,7 +4,33 @@ import { db } from "@/lib/db"
 import { a2aAgents, authors, categories } from "@workspace/db"
 import { ASSET_AUTH_VALUES } from "@/lib/registry-labels"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
+import { failResult } from "@/lib/gateway/input"
+import { persistA2aScan } from "@/web/assets/scan-persist"
 import { notDeleted } from "@/web/assets/visibility"
+
+/**
+ * Agent Card 的能力列表。字段名随协议版本变化（0.3 / 1.0 不同），
+ * 取不到就返回空数组——扫不到声明不等于声明干净。
+ */
+function readAgentCardSkills(card: unknown): Array<{ name: string; description?: string }> {
+  if (!card || typeof card !== 'object') return []
+  const raw = (card as { skills?: unknown }).skills
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ name: string; description?: string }> = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      out.push({ name: item })
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const o = item as { name?: unknown; id?: unknown; description?: unknown }
+      const name = typeof o.name === 'string' ? o.name : typeof o.id === 'string' ? o.id : null
+      if (!name) continue
+      out.push({ name, description: typeof o.description === 'string' ? o.description : undefined })
+    }
+  }
+  return out
+}
 
 export const adminA2aAgentsRouter = createTRPCRouter({
   /**
@@ -290,6 +316,33 @@ export const adminA2aAgentsRouter = createTRPCRouter({
           success: false,
           error: '更新 A2A 智能体状态失败',
         }
+      }
+    }),
+
+  /** 重跑元数据扫描，理由同 MCP 的 `rescanServer`。 */
+  rescanAgent: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const [agent] = await db
+          .select()
+          .from(a2aAgents)
+          .where(and(eq(a2aAgents.id, input.id), notDeleted(a2aAgents)))
+          .limit(1)
+        if (!agent) return { success: false, error: 'A2A 智能体不存在' }
+
+        const outcome = await persistA2aScan(agent.id, {
+          kind: 'a2a',
+          endpoint: agent.endpoint,
+          protocol: agent.protocolVersion,
+          auth: agent.authType,
+          name: agent.name,
+          description: agent.description ?? agent.descriptionEn,
+          tools: readAgentCardSkills(agent.agentCard),
+        })
+        return { success: true, grade: outcome.grade }
+      } catch (error) {
+        return failResult(error, '重扫 A2A 智能体失败')
       }
     }),
 

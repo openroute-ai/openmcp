@@ -1,6 +1,32 @@
 import { and, count, desc, eq, like, ne, or, sql } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { db } from "@/lib/db"
+import { persistMcpScan } from "@/web/assets/scan-persist"
+
+/**
+ * `mcp_servers.tools` 是无固定结构的 jsonb：注册时既可能写成字符串数组，
+ * 也可能写成 `{name, description}[]`。这里做形状宽松的提取；取不出来就返回
+ * 空数组——扫不到声明不等于声明干净。
+ */
+function readToolList(raw: unknown): Array<{ name: string; description?: string }> {
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ name: string; description?: string }> = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      out.push({ name: item })
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const o = item as { name?: unknown; description?: unknown }
+      if (typeof o.name !== 'string') continue
+      out.push({
+        name: o.name,
+        description: typeof o.description === 'string' ? o.description : undefined,
+      })
+    }
+  }
+  return out
+}
 import { authors, categories, mcpServers } from "@workspace/db"
 import { testMcpConnection } from "@/lib/gateway/mcp-connect"
 import type { AssetAuthType } from "@/lib/registry-labels"
@@ -313,6 +339,22 @@ export const mcpServersDataAccess = {
 
     if (!inserted) {
       throw new Error("MCP Server 注册失败")
+    }
+
+    // 元数据扫描：只覆盖声明的元数据（端点/传输/工具名与描述），拿不到对方进程里的
+    // 行为。失败不阻塞注册，前端会显示「未扫描」。
+    try {
+      await persistMcpScan(inserted.id, {
+        kind: 'mcp',
+        endpoint: inserted.endpoint,
+        protocol: inserted.transport,
+        auth: inserted.authType,
+        name: inserted.name,
+        description: inserted.description ?? inserted.descriptionEn,
+        tools: readToolList(inserted.tools),
+      })
+    } catch (error) {
+      console.error('[gateway-scan] mcp register scan failed', error)
     }
 
     return mcpServersDataAccess.getMcpServerById(inserted.id)

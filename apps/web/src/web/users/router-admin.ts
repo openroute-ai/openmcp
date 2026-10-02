@@ -2,7 +2,13 @@ import { and, asc, count, desc, eq, gte, ilike, isNotNull, or, sql } from 'drizz
 import z from 'zod'
 import { db } from '@/lib/db'
 import { rechargeOrders, user } from '@workspace/db'
-import { adminProcedure, createTRPCRouter } from '@/server/routers/trpc'
+import { adminProcedure, createTRPCRouter, isSuperAdmin } from '@/server/routers/trpc'
+
+/** 目标用户当前是否已是超级管理员（决定这次变更是否触及最高角色）。 */
+async function isTargetSuperAdmin(userId: string): Promise<boolean> {
+  const [row] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId)).limit(1)
+  return row?.role === 'super_admin'
+}
 
 /**
  * Admin user management.
@@ -41,7 +47,7 @@ const listUsersSchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(10),
   search: z.string().trim().max(64).optional(),
-  role: z.enum(['all', 'user', 'admin']).default('all'),
+  role: z.enum(['all', 'user', 'admin', 'super_admin']).default('all'),
   banned: z.boolean().optional(),
   /**
    * Single-column sort, mirroring the table headers. The source app took a
@@ -243,10 +249,18 @@ export const adminUsersRouter = createTRPCRouter({
    * someone edits the row by hand.
    */
   updateUserRole: adminProcedure
-    .input(z.object({ userId: z.string(), role: z.enum(['user', 'admin']) }))
+    .input(z.object({ userId: z.string(), role: z.enum(['user', 'admin', 'super_admin']) }))
     .mutation(async ({ input, ctx }) => {
-      if (input.userId === ctx.user.id && input.role !== 'admin') {
+      if (input.userId === ctx.user.id && input.role !== 'super_admin') {
         return { success: false as const, error: '不能取消自己的管理员权限' }
+      }
+
+      // 授予或撤销 super_admin 只能由 super_admin 本人操作。
+      // 否则任意 admin 都能给自己升权，角色拆分就形同虚设。
+      if (input.role === 'super_admin' || (await isTargetSuperAdmin(input.userId))) {
+        if (!isSuperAdmin(ctx.user.role)) {
+          return { success: false as const, error: '只有超级管理员可以授予或撤销超级管理员' }
+        }
       }
 
       const [updated] = await db

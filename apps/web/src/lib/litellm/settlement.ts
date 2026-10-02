@@ -36,6 +36,12 @@ const BATCH_SIZE = 200
 interface AssetMatch {
   authorId: string
   assetType: 'mcp' | 'a2a'
+  /**
+   * 资产表主键。`asset_name` 只在账本上留了名字，但账单要归因到具体资产行
+   * （"这个 MCP 一共给我赚了多少"）需要 id —— 名字是可改的，改了之后历史
+   * 收入行就无法再对上资产。
+   */
+  assetId: string
 }
 
 export interface SettlementResult {
@@ -99,22 +105,22 @@ async function buildAssetMap(): Promise<Map<string, AssetMatch>> {
   const map = new Map<string, AssetMatch>()
   const [mcps, a2as] = await Promise.all([
     db
-      .select({ authorId: mcpServers.authorId, serverName: mcpServers.serverName })
+      .select({ id: mcpServers.id, authorId: mcpServers.authorId, serverName: mcpServers.serverName })
       .from(mcpServers)
       .where(sql`${mcpServers.serverName} is not null and ${mcpServers.serverName} <> ''`),
     db
-      .select({ authorId: a2aAgents.authorId, agentName: a2aAgents.agentName })
+      .select({ id: a2aAgents.id, authorId: a2aAgents.authorId, agentName: a2aAgents.agentName })
       .from(a2aAgents)
       .where(sql`${a2aAgents.agentName} is not null and ${a2aAgents.agentName} <> ''`),
   ])
 
   for (const row of mcps) {
     const key = normalizeKey(row.serverName)
-    if (key) map.set(key, { authorId: row.authorId, assetType: 'mcp' })
+    if (key) map.set(key, { authorId: row.authorId, assetType: 'mcp', assetId: row.id })
   }
   for (const row of a2as) {
     const key = normalizeKey(row.agentName)
-    if (key) map.set(key, { authorId: row.authorId, assetType: 'a2a' })
+    if (key) map.set(key, { authorId: row.authorId, assetType: 'a2a', assetId: row.id })
   }
   return map
 }
@@ -128,8 +134,13 @@ interface ResolvedLog {
   totalTokens: number
   assetType: 'mcp' | 'a2a' | null
   assetName: string | null
+  /** 与 `assetType` 同时有值或同时为空：命中的资产行 id。 */
+  assetId: string | null
   authorId: string | null
   model: string | null
+  /** `endTime - startTime`，毫秒。任一时间戳缺失/逆序则为 null（不猜）。 */
+  latencyMs: number | null
+  callType: string | null
   occurredAt: Date
 }
 
@@ -160,6 +171,15 @@ async function resolveLogs(
       if (Number.isNaN(occurredAt.getTime())) return null
       if (occurredAt < window.start || occurredAt >= window.end) return null
 
+      // 真实耗时：LiteLLM 的 endTime - startTime。两者都存在且顺序正确才有值。
+      // 缺失或逆序一律留 null —— 观测面板显示「未采集」，不拿别的数字凑延迟。
+      let latencyMs: number | null = null
+      if (typeof log.endTime === 'string') {
+        const endedAt = new Date(log.endTime)
+        const delta = endedAt.getTime() - occurredAt.getTime()
+        if (!Number.isNaN(delta) && delta >= 0) latencyMs = delta
+      }
+
       const model = typeof log.model === 'string' ? log.model : null
       const match = model ? assetMap.get(normalizeKey(model)) : undefined
 
@@ -170,8 +190,11 @@ async function resolveLogs(
         totalTokens: Number(log.total_tokens || 0) || 0,
         assetType: match?.assetType ?? null,
         assetName: model,
+        assetId: match?.assetId ?? null,
         authorId: match?.authorId ?? null,
         model,
+        callType: typeof log.call_type === 'string' ? log.call_type : null,
+        latencyMs,
         occurredAt,
       }
     })
@@ -211,8 +234,11 @@ async function resolveLogs(
       totalTokens: candidate.totalTokens,
       assetType: candidate.assetType,
       assetName: candidate.assetName,
+      assetId: candidate.assetId,
       authorId: candidate.authorId,
       model: candidate.model,
+      latencyMs: candidate.latencyMs,
+      callType: candidate.callType,
       occurredAt: candidate.occurredAt,
     })
   }
@@ -237,14 +263,28 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
   debited: number
   overspend: number
   touchedUsers: Set<string>
-  newRecords: { id: string; authorId: string | null; userId: string; spend: number }[]
+  newRecords: {
+    id: string
+    authorId: string | null
+    userId: string
+    spend: number
+    assetType: 'mcp' | 'a2a' | null
+    assetId: string | null
+  }[]
 }> {
   const inserted: string[] = []
   let duplicates = 0
   let debited = 0
   let overspend = 0
   const touchedUsers = new Set<string>()
-  const newRecords: { id: string; authorId: string | null; userId: string; spend: number }[] = []
+  const newRecords: {
+    id: string
+    authorId: string | null
+    userId: string
+    spend: number
+    assetType: 'mcp' | 'a2a' | null
+    assetId: string | null
+  }[] = []
 
   for (let offset = 0; offset < entries.length; offset += BATCH_SIZE) {
     const batch = entries.slice(offset, offset + BATCH_SIZE)
@@ -264,8 +304,11 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
             totalTokens: entry.totalTokens,
             assetType: entry.assetType,
             assetName: entry.assetName,
+            assetId: entry.assetId,
             authorId: entry.authorId,
             model: entry.model,
+            latencyMs: entry.latencyMs,
+            callType: entry.callType,
             occurredAt: entry.occurredAt,
           })
           .onConflictDoNothing({ target: gatewaySpendRecords.requestId })
@@ -277,7 +320,17 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
           continue
         }
         inserted.push(entry.requestId)
-        newRecords.push({ id: record.id, authorId: entry.authorId, userId: entry.userId, spend: entry.spend })
+        newRecords.push({
+          id: record.id,
+          authorId: entry.authorId,
+          userId: entry.userId,
+          spend: entry.spend,
+          // 归属透传给分成行。账本上已经有 asset_type/asset_name，但分成行
+          // 之前只留了 gateway_record_id，于是创作者账单里看不出这笔调用
+          // 来自哪个 MCP/A2A，只能再 join 一次账本才能回答。
+          assetType: entry.assetType,
+          assetId: entry.assetId,
+        })
 
         // 扣款：先算这个用户扣完之后还剩多少，再决定实际扣多少
         const [balanceRow] = await tx
@@ -341,7 +394,14 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
  * 极小额的调用分成会被舍入为 0 —— 这是 schema 精度限制，不是本函数的问题。
  */
 async function creditGatewayEarnings(
-  records: { id: string; authorId: string | null; userId: string; spend: number }[]
+  records: {
+    id: string
+    authorId: string | null
+    userId: string
+    spend: number
+    assetType: 'mcp' | 'a2a' | null
+    assetId: string | null
+  }[]
 ) {
   let created = 0
   for (const record of records) {
@@ -357,6 +417,10 @@ async function creditGatewayEarnings(
         authorId: record.authorId,
         buyerUserId: record.userId,
         gatewayRecordId: record.id,
+        // 与 `asset_type` 成对写入：`provider_earnings_asset_pair_check` 禁止
+        // 半截归属，所以两个字段必须一起取 `assetId` 判空的结果。
+        assetType: record.assetType,
+        assetId: record.assetId,
         // Gateway usage is never reversed, but `kind` is stated explicitly
         // rather than left to the column default so both earnings writers read
         // the same way.

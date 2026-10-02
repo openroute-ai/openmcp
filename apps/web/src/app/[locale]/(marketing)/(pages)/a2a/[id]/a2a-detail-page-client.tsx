@@ -72,6 +72,7 @@ export function A2aDetailPageClient() {
             <A2aDetailSidebar
               agent={{
                 id: agent.id,
+                slug,
                 author: agent.author,
                 category: agent.category?.id != null
                   ? {
@@ -83,10 +84,12 @@ export function A2aDetailPageClient() {
                 protocolVersion: agent.protocolVersion,
                 scope: agent.visibility ?? 'public',
                 priceType: agent.priceType,
+                priceAmount: agent.priceAmount,
                 billingModel: agent.billingModel,
                 unitPrice: agent.unitPrice,
                 currency: agent.currency,
                 agentCardUrl: agent.agentCardUrl,
+                access: agent.access,
                 stats: {
                   created: agent.createdAt.toISOString().split('T')[0] ?? '',
                   updated: (agent.updatedAt ?? agent.createdAt).toISOString().split('T')[0] ?? '',

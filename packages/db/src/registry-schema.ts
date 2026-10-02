@@ -13,6 +13,7 @@ import {
   unique,
   varchar,
 } from "drizzle-orm/pg-core"
+import { check } from "drizzle-orm/pg-core/checks"
 import { createId, user } from "./auth-schema"
 import { skills } from "./mcp-schema"
 import { authors, categories } from "./workflow-schema"
@@ -134,6 +135,14 @@ export const mcpServers = pgTable(
     healthCheckEnabled: boolean("health_check_enabled")
       .default(false)
       .notNull(),
+    /**
+     * 连续健康检查失败次数。成功即清零。
+     *
+     * 不能只看单次结果就把 `connectionStatus` 置 error：那一列同时决定市场可见性
+     * 和安装门禁，一次超时就会把正常资产踢出市场、创作者收入直接中断。连续计数
+     * 让瞬时抖动必须重复出现才生效，而恢复只需一次成功。
+     */
+    healthFailCount: integer("health_fail_count").default(0).notNull(),
     litellmServerId: varchar("litellm_server_id", { length: 200 }),
     hosting: varchar("hosting", {
       length: 20,
@@ -168,7 +177,29 @@ export const mcpServers = pgTable(
     unitPrice: decimal("unit_price", { precision: 10, scale: 4 }),
     currency: varchar("currency", { length: 3 }).default("CNY"),
     certified: boolean("certified").default(false).notNull(),
-    securityLevel: varchar("security_level", { length: 50 }),
+    /**
+   * 对外展示用的安全等级（`safe` / `caution` / `unsafe` / `unknown`）。
+   *
+   * 语义上 `unknown` = 从未扫描。**空值不等于安全**：`securityLabelOf` 会把
+   * 空值渲染成「未扫描」，避免详情页把没扫过的资产显示成安全。
+   */
+  securityLevel: varchar("security_level", { length: 50 }),
+  /** 规则扫描评级（`lib/security-scan/gateway-scan.ts`），与展示字段分开存 */
+  securityGrade: varchar("security_grade", { length: 20 }),
+  /** 命中的规则（JSON），与 Skills 的 `security_flags` 同构 */
+  securityFlags: jsonb("security_flags"),
+  /** LLM 语义复核的补充评级；未复核为 null */
+  securityLlmGrade: varchar("security_llm_grade", { length: 20 }),
+  /** LLM 复核结论摘要 */
+  securityLlmAnalysis: text("security_llm_analysis"),
+  /** 最近一次扫描时间 */
+  scannedAt: timestamp("scanned_at"),
+  /** 扫描所用规则集版本，用于判断历史结果是否需要重扫 */
+  scanRulesVersion: varchar("scan_rules_version", { length: 20 }),
+  /** 当前在售版本（`gateway_asset_versions.id`）；回滚即改指针 */
+  currentVersionId: text("current_version_id"),
+  /** 当前在售版本号，冗余一份便于列表展示与排序，不建 FK */
+  currentVersion: varchar("current_version", { length: 20 }),
     status: varchar("status", {
       length: 20,
       enum: ["draft", "submitted", "published", "archived", "rejected"],
@@ -217,8 +248,78 @@ export const mcpServers = pgTable(
     index("mcp_servers_price_type_idx").on(table.priceType),
     index("mcp_servers_billing_model_idx").on(table.billingModel),
     index("mcp_servers_tags_gin_idx").using("gin", table.tags),
+    /** 审核队列按扫描评级筛选（只看未删除资产） */
+    index("mcp_servers_security_grade_idx").on(table.securityGrade)
   ]
 )
+
+/**
+ * 网关资产发布版本（MCP Server / A2A Agent 共用）。
+ *
+ * Skills 走 `skill_versions`（含源码快照，因为内容接入拿得到文件）。端点接入
+ * 拿不到对方代码，能快照的只有**平台侧声明的元数据**：端点、传输方式、工具列表、
+ * 价格。这些字段恰好是买家实际依赖的东西——端点一改、工具一删、定价一调，
+ * 都会让"我买到的到底是什么"变得无法回答。
+ *
+ * 所以这里的 snapshot 不是代码备份，而是**一次发布行为的契约快照**：
+ *
+ * - `mcp_servers.current_version_id` / `a2a_agents.current_version_id` 指向
+ *   当前在售版本，回滚 = 把指针指回去。
+ * - yank 只下线某个版本，不影响其他版本；已购用户仍可看到自己买到的是哪一版。
+ * - 不建 FK 到 `mcp_servers` / `a2a_agents`：资产硬删除后版本记录要留下来，
+ *   否则账本和授权会指向一个已经消失的版本。
+ */
+export const gatewayAssetVersions = pgTable(
+  'gateway_asset_versions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    /** 'mcp' | 'a2a' */
+    assetType: varchar('asset_type', { length: 20, enum: ['mcp', 'a2a'] }).notNull(),
+    /** 对应资产表主键（不建 FK，理由见上） */
+    assetId: text('asset_id').notNull(),
+    /** 语义化版本号字符串（如 "1.2.0"） */
+    version: varchar('version', { length: 20 }).notNull(),
+    /** 发布状态；yank 表示发现问题被下线 */
+    status: varchar('status', {
+      length: 20,
+      enum: ['draft', 'published', 'yanked', 'archived'],
+    })
+      .default('draft')
+      .notNull(),
+    /** 端点 / 传输 / 工具 / 价格等平台侧元数据快照 */
+    snapshot: jsonb('snapshot')
+      .$type<{
+        name?: string
+        description?: string | null
+        endpoint?: string | null
+        transport?: string | null
+        authType?: string | null
+        tools?: unknown
+        priceType?: string | null
+        billingModel?: string | null
+        priceAmount?: string | null
+        unitPrice?: string | null
+        protocolVersion?: string | null
+      } | null>(),
+    changelog: text('changelog'),
+    publishedAt: timestamp('published_at'),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    /** 该版本发布时的扫描评级，便于回答"我买的那版当时扫出来是什么" */
+    securityGrade: varchar('security_grade', { length: 20 }),
+    securityScannedAt: timestamp('security_scanned_at'),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    unique('gateway_asset_versions_asset_version_unique').on(table.assetType, table.assetId, table.version),
+    index('gateway_asset_versions_asset_idx').on(table.assetType, table.assetId),
+    index('gateway_asset_versions_status_idx').on(table.status),
+  ]
+)
+
+export type GatewayAssetVersion = typeof gatewayAssetVersions.$inferSelect
+export type NewGatewayAssetVersion = typeof gatewayAssetVersions.$inferInsert
 
 /**
  * A2A Agent 注册表（Agent Card）
@@ -273,6 +374,14 @@ export const a2aAgents = pgTable(
     healthCheckEnabled: boolean("health_check_enabled")
       .default(false)
       .notNull(),
+    /**
+     * 连续健康检查失败次数。成功即清零。
+     *
+     * 不能只看单次结果就把 `connectionStatus` 置 error：那一列同时决定市场可见性
+     * 和安装门禁，一次超时就会把正常资产踢出市场、创作者收入直接中断。连续计数
+     * 让瞬时抖动必须重复出现才生效，而恢复只需一次成功。
+     */
+    healthFailCount: integer("health_fail_count").default(0).notNull(),
     litellmAgentId: varchar("litellm_agent_id", { length: 200 }),
     visibility: varchar("visibility", {
       length: 20,
@@ -298,7 +407,29 @@ export const a2aAgents = pgTable(
     unitPrice: decimal("unit_price", { precision: 10, scale: 4 }),
     currency: varchar("currency", { length: 3 }).default("CNY"),
     certified: boolean("certified").default(false).notNull(),
-    securityLevel: varchar("security_level", { length: 50 }),
+    /**
+   * 对外展示用的安全等级（`safe` / `caution` / `unsafe` / `unknown`）。
+   *
+   * 语义上 `unknown` = 从未扫描。**空值不等于安全**：`securityLabelOf` 会把
+   * 空值渲染成「未扫描」，避免详情页把没扫过的资产显示成安全。
+   */
+  securityLevel: varchar("security_level", { length: 50 }),
+  /** 规则扫描评级（`lib/security-scan/gateway-scan.ts`），与展示字段分开存 */
+  securityGrade: varchar("security_grade", { length: 20 }),
+  /** 命中的规则（JSON），与 Skills 的 `security_flags` 同构 */
+  securityFlags: jsonb("security_flags"),
+  /** LLM 语义复核的补充评级；未复核为 null */
+  securityLlmGrade: varchar("security_llm_grade", { length: 20 }),
+  /** LLM 复核结论摘要 */
+  securityLlmAnalysis: text("security_llm_analysis"),
+  /** 最近一次扫描时间 */
+  scannedAt: timestamp("scanned_at"),
+  /** 扫描所用规则集版本，用于判断历史结果是否需要重扫 */
+  scanRulesVersion: varchar("scan_rules_version", { length: 20 }),
+  /** 当前在售版本（`gateway_asset_versions.id`）；回滚即改指针 */
+  currentVersionId: text("current_version_id"),
+  /** 当前在售版本号，冗余一份便于列表展示与排序，不建 FK */
+  currentVersion: varchar("current_version", { length: 20 }),
     status: varchar("status", {
       length: 20,
       enum: ["draft", "submitted", "published", "archived", "rejected"],
@@ -335,6 +466,8 @@ export const a2aAgents = pgTable(
     index("a2a_agents_price_type_idx").on(table.priceType),
     index("a2a_agents_billing_model_idx").on(table.billingModel),
     index("a2a_agents_tags_gin_idx").using("gin", table.tags),
+    /** 审核队列按扫描评级筛选（只看未删除资产） */
+    index("a2a_agents_security_grade_idx").on(table.securityGrade)
   ]
 )
 
@@ -568,6 +701,113 @@ export const providerKycSubmissions = pgTable(
     index("provider_kyc_submissions_created_at_idx").on(table.createdAt),
   ]
 )
+
+/**
+ * MCP / A2A 购买授权。
+ *
+ * 之前 `mcp_servers` / `a2a_agents` 上只有 `price_type` / `price_amount` 两列，
+ * 没有任何地方校验它，也没有对应的授权表 —— 于是 MCP/A2A 资产实际上无法
+ * 收费：安装路径（`store-mcp/tools.ts` 的 `install_asset`）只看 `status`，
+ * 一个标了 `paid` 的 MCP 任何登录用户都能直接装走并拿到 gatewayUrl。
+ *
+ * 用两张表而不是一张 `asset_entitlements`：外键要能指向具体资产表才能保证
+ * 引用完整性，一张带 `assetId` 泛型列的表没法建外键，只能靠应用层保证。
+ *
+ * 定义放在 `registry-schema.ts` 而不是这里：`mcp_servers` / `a2a_agents` 在那边，
+ * 而 `registry-schema` 已经 import 了本文件的 `skills`。反过来在��里 import
+ * 资产表会形成循环依赖，靠外键闭包的求值时机侥幸工作。
+ *
+ * 字段与 `skill_entitlements` 保持一致（status/revoked/refund 审计字段），
+ * 退款与 clawback 逻辑可以直接复用同一套语义。
+ */
+export const mcpServerEntitlements = pgTable(
+  'mcp_server_entitlements',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    userId: text('user_id').notNull(),
+    mcpServerId: text('mcp_server_id')
+      .notNull()
+      // `ON DELETE CASCADE`：MCP 是软删除（打 tombstone），硬删除只发生在
+      // 数据清理场景，此时授权行已经没有意义，留着只会挡住重新发布同名资产。
+      .references(() => mcpServers.id, { onDelete: 'cascade' }),
+    orderId: text('order_id'),
+    amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
+    /** 与 skill_entitlements 同义：退款置 revoked，不删行。 */
+    status: varchar('status', { length: 20, enum: ['active', 'revoked'] })
+      .default('active')
+      .notNull(),
+    revokedAt: timestamp('revoked_at'),
+    revocationReason: text('revocation_reason'),
+    refundedAmount: decimal('refunded_amount', { precision: 10, scale: 2 }),
+    refundedAt: timestamp('refunded_at'),
+    refundedBy: text('refunded_by'),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    unique('mcp_server_entitlement_user_server_unique').on(table.userId, table.mcpServerId),
+    index('mcp_server_entitlements_user_idx').on(table.userId),
+    index('mcp_server_entitlements_server_idx').on(table.mcpServerId),
+    index('mcp_server_entitlements_status_idx').on(table.status),
+    check('mcp_server_entitlements_status_check', sql`${table.status} in ('active', 'revoked')`),
+    check(
+      'mcp_server_entitlements_default_active_check',
+      sql`${table.status} = 'active' or ${table.revokedAt} is not null`
+    ),
+    check(
+      'mcp_server_entitlements_refunded_not_over_amount_check',
+      sql`${table.refundedAmount} is null or ${table.refundedAmount} <= ${table.amount}`
+    ),
+  ]
+)
+
+export type McpServerEntitlement = typeof mcpServerEntitlements.$inferSelect
+export type NewMcpServerEntitlement = typeof mcpServerEntitlements.$inferInsert
+
+export const a2aAgentEntitlements = pgTable(
+  'a2a_agent_entitlements',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    userId: text('user_id').notNull(),
+    a2aAgentId: text('a2a_agent_id')
+      .notNull()
+      .references(() => a2aAgents.id, { onDelete: 'cascade' }),
+    orderId: text('order_id'),
+    amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
+    status: varchar('status', { length: 20, enum: ['active', 'revoked'] })
+      .default('active')
+      .notNull(),
+    revokedAt: timestamp('revoked_at'),
+    revocationReason: text('revocation_reason'),
+    refundedAmount: decimal('refunded_amount', { precision: 10, scale: 2 }),
+    refundedAt: timestamp('refunded_at'),
+    refundedBy: text('refunded_by'),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    unique('a2a_agent_entitlement_user_agent_unique').on(table.userId, table.a2aAgentId),
+    index('a2a_agent_entitlements_user_idx').on(table.userId),
+    index('a2a_agent_entitlements_agent_idx').on(table.a2aAgentId),
+    index('a2a_agent_entitlements_status_idx').on(table.status),
+    check('a2a_agent_entitlements_status_check', sql`${table.status} in ('active', 'revoked')`),
+    check(
+      'a2a_agent_entitlements_default_active_check',
+      sql`${table.status} = 'active' or ${table.revokedAt} is not null`
+    ),
+    check(
+      'a2a_agent_entitlements_refunded_not_over_amount_check',
+      sql`${table.refundedAmount} is null or ${table.refundedAmount} <= ${table.amount}`
+    ),
+  ]
+)
+
+export type A2aAgentEntitlement = typeof a2aAgentEntitlements.$inferSelect
+export type NewA2aAgentEntitlement = typeof a2aAgentEntitlements.$inferInsert
 
 export type ProviderKycSubmission = typeof providerKycSubmissions.$inferSelect
 export type NewProviderKycSubmission =

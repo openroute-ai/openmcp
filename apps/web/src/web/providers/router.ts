@@ -1,8 +1,11 @@
+import { count, eq } from "drizzle-orm"
 import { z } from "zod"
+import { providerPayoutRequests } from "@workspace/db"
+import { db } from "@/lib/db"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser } from "./author"
 import { providersDataAccess } from "./index"
-import { listMyEarnings, listMyPayoutRequests, requestPayout } from "./settlement"
+import { listMyEarnings, listMyPayoutRequests, paginatedInput, requestPayout } from "./settlement"
 import { confirmStatement, listMyStatements, settlementPeriodFor, statementTimeline } from "./statements"
 
 export const providersRouter = createTRPCRouter({
@@ -90,12 +93,12 @@ export const providersRouter = createTRPCRouter({
   }),
 
   /** Skill 销售分成明细 + 可提现汇总 */
-  listMyEarnings: protectedProcedure.query(async ({ ctx }) => {
+  listMyEarnings: protectedProcedure.input(paginatedInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
       if (!authorId)
-        return { success: true, data: { rows: [], summary: { payable: 0, paid: 0, total: 0, revenueShare: 0.7 } } }
-      const data = await listMyEarnings(authorId)
+        return { success: true, data: { rows: [], summary: { payable: 0, paid: 0, total: 0, revenueShare: 0.7 }, total: 0, page: 1, pageSize: 20 } }
+      const data = await listMyEarnings(authorId, { page: input.page, pageSize: input.pageSize })
       return { success: true, data }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : '获取分成失败' }
@@ -108,7 +111,7 @@ export const providersRouter = createTRPCRouter({
    * 结算改按月后这是创作者的主入口，`listMyEarnings` 退化为"账单生成前的
    * 实时明细"，两者并存因为前者是账单快照、后者会随退款clawback 变动。
    */
-  listMyStatements: protectedProcedure.query(async ({ ctx }) => {
+  listMyStatements: protectedProcedure.input(paginatedInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
       // 与 `listMyEarnings` 一样返回空壳而非空数组：页面读`data.rows` 和
@@ -116,9 +119,12 @@ export const providersRouter = createTRPCRouter({
       if (!authorId)
         return {
           success: true,
-          data: { rows: [], summary: { pending: 0, confirmed: 0, paid: 0, rolled: 0 } },
+          data: { rows: [], summary: { pending: 0, confirmed: 0, paid: 0, rolled: 0 }, total: 0, page: 1, pageSize: 24 },
         }
-      return { success: true, data: await listMyStatements(authorId) }
+      return {
+        success: true,
+        data: await listMyStatements(authorId, { page: input.page, pageSize: input.pageSize }),
+      }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : '获取账单失败' }
     }
@@ -164,12 +170,19 @@ export const providersRouter = createTRPCRouter({
       }
     }),
 
-  listMyPayoutRequests: protectedProcedure.query(async ({ ctx }) => {
+  listMyPayoutRequests: protectedProcedure.input(paginatedInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
-      if (!authorId) return { success: true, data: [] }
-      const data = await listMyPayoutRequests(authorId)
-      return { success: true, data }
+      if (!authorId) return { success: true, data: [], total: 0 }
+      const data = await listMyPayoutRequests(authorId, {
+        page: input.page,
+        pageSize: input.pageSize,
+      })
+      const [totalRow] = await db
+        .select({ n: count() })
+        .from(providerPayoutRequests)
+        .where(eq(providerPayoutRequests.authorId, authorId))
+      return { success: true, data, total: totalRow?.n ?? 0 }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : '获取提现记录失败' }
     }

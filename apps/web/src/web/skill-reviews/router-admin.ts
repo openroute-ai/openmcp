@@ -1,11 +1,11 @@
-import { and, count, desc, eq, gte, ilike, isNotNull, isNull, or } from 'drizzle-orm'
+import { and, count, desc, eq, gte, ilike, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import z from 'zod'
 import { db } from '@/lib/db'
-import { authors, providerProfiles, skillReviews, skills, skillScans, user } from '@workspace/db'
+import { authors, providerProfiles, skillReviews, skills, user } from '@workspace/db'
 import { filesFromSkillRow, runSkillSecurityScan } from '@/lib/security-scan/run-scan'
 import { computeAndPersistEvalReport } from '@/lib/skills/eval-report-persist'
 import { notifyUser } from '@/lib/notifications'
-import { adminProcedure, createTRPCRouter } from '@/server/routers/trpc'
+import { adminProcedure, createTRPCRouter, superAdminProcedure } from '@/server/routers/trpc'
 
 /**
  * Security review console for submitted skills.
@@ -51,8 +51,19 @@ const reviewSelect = {
   authorName: authors.name,
   authorUsername: authors.username,
   authorAvatar: authors.avatar,
-  fileCount: skillScans.fileCount,
-  scanCreatedAt: skillScans.createdAt,
+  /**
+   * 最近一次扫描的文件数。
+   *
+   * 原来这里 `leftJoin(skillScans)` 再在 JS 里按 skillId 去重取最新——join 会
+   * 为每次扫描各出一行，于是一个被扫过 5 次的 skill 就吃掉 5 行预算，
+   * 队列超过阈值后剩下的条目被静默丢弃。改成相关子查询直接取最新一条，
+   * 行数回到「一个 skill 一行」，分页才能在 SQL 里精确切。
+   */
+  fileCount: sql<number | null>`(
+    select s.file_count from skill_scans s
+    where s.skill_id = ${skills.id}
+    order by s.created_at desc limit 1
+  )`,
 } as const
 
 type ReviewRow = {
@@ -85,7 +96,6 @@ type ReviewRow = {
   authorUsername: string
   authorAvatar: string | null
   fileCount: number | null
-  scanCreatedAt: Date | null
 }
 
 /**
@@ -108,35 +118,16 @@ function toReviewRecord(row: ReviewRow) {
 }
 
 /**
- * Collapse the rows produced by joining `skillScans`, keeping one row per key.
+ * 分页入参。
  *
- * `skill_scans` holds one row per scan run, so the join fans a skill out into
- * one row per scan and every result set would otherwise contain duplicates and
- * show stale flags. Callers must order by `skillScans.createdAt DESC` so the
- * first row kept for a key is its newest scan.
+ * 之前这三个列表是「join 出 N 行 → JS 去重 → slice(0, 200)」：第 201 条之后的
+ * 条目既不报错也不提示，直接消失。审核队列在积压时恰好是最需要看到"还有多少"
+ * 的时候，所以这里改成真分页，并把 `total` 一并返回。
  */
-function keepNewestScanPerKey<T extends { skillId: string }>(rows: T[], key: (row: T) => string): T[] {
-  const newest = new Map<string, T>()
-  for (const row of rows) {
-    const k = key(row)
-    if (!newest.has(k)) {
-      newest.set(k, row)
-    }
-  }
-  return Array.from(newest.values())
-}
-
-/** How many items the queue/rejected/history lists surface to the reviewer. */
-const QUEUE_LIMIT = 200
-
-/**
- * Row budget for queries that join `skillScans`.
- *
- * The join emits one row per scan, so a skill scanned several times consumes
- * several rows of the budget before dedupe. Over-fetching then trimming to
- * `QUEUE_LIMIT` avoids silently dropping distinct skills.
- */
-const SCAN_JOIN_FANOUT = 2000
+const pageSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(20),
+})
 
 const queueSchema = z
   .object({
@@ -144,6 +135,7 @@ const queueSchema = z
     trustTier: z.number().int().min(1).max(5).optional(),
     search: z.string().trim().max(100).optional(),
   })
+  .merge(pageSchema)
   .optional()
 
 const historySchema = z
@@ -151,6 +143,7 @@ const historySchema = z
     decision: z.enum(['all', 'pass', 'reject', 'needs_revision']).default('all'),
     search: z.string().trim().max(100).optional(),
   })
+  .merge(pageSchema)
   .optional()
 
 /** Tell the owning provider account about a decision, if there is one. */
@@ -272,7 +265,6 @@ async function decideOne(input: DecideInput) {
     .innerJoin(skills, eq(skillReviews.skillId, skills.id))
     .innerJoin(authors, eq(skills.authorId, authors.id))
     .leftJoin(user, eq(skillReviews.reviewerId, user.id))
-    .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
     .where(eq(skillReviews.skillId, skill.id))
     .orderBy(desc(skillReviews.createdAt))
     .limit(1)
@@ -298,55 +290,104 @@ export const adminSkillReviewsRouter = createTRPCRouter({
       )
     }
 
-    const rows = (await db
-      .select(reviewSelect)
-      .from(skills)
-      .innerJoin(authors, eq(skills.authorId, authors.id))
-      .leftJoin(
-        skillReviews,
-        and(
-          eq(skillReviews.skillId, skills.id),
-          isNull(skillReviews.decision),
-          eq(skillReviews.reviewType, 'manual')
-        )
-      )
-      .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
-      .where(and(...where))
-      .orderBy(desc(skillScans.createdAt))
-      .limit(SCAN_JOIN_FANOUT)) as ReviewRow[]
+    const page = input?.page ?? 1
+    const pageSize = input?.pageSize ?? 20
+    const whereExpr = and(...where)
 
+    const [rows, [totalRow]] = await Promise.all([
+      db
+        .select(reviewSelect)
+        .from(skills)
+        .innerJoin(authors, eq(skills.authorId, authors.id))
+        .leftJoin(
+          skillReviews,
+          and(
+            eq(skillReviews.skillId, skills.id),
+            isNull(skillReviews.decision),
+            eq(skillReviews.reviewType, 'manual')
+          )
+        )
+        .where(whereExpr)
+        // 排队时长从 skills.scannedAt 算起（提交时间），所以直接按它倒序即最久等待在前
+        .orderBy(desc(sql`coalesce(${skills.scannedAt}, ${skills.updatedAt})`))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize) as Promise<ReviewRow[]>,
+      db
+        .select({ n: count() })
+        .from(skills)
+        .innerJoin(authors, eq(skills.authorId, authors.id))
+        .where(whereExpr),
+    ])
+
+    const total = totalRow?.n ?? 0
     return {
       success: true as const,
-      data: keepNewestScanPerKey(rows, (row) => row.skillId)
-        .map(toReviewRecord)
-        .sort((a, b) => b.waitingMinutes - a.waitingMinutes)
-        .slice(0, QUEUE_LIMIT),
+      data: rows.map(toReviewRecord),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     }
   }),
 
   /** Auto-rejected and human-rejected items, newest first. */
-  getRejected: adminProcedure.query(async () => {
-    const rows = (await db
-      .select(reviewSelect)
-      .from(skillReviews)
-      .innerJoin(skills, eq(skillReviews.skillId, skills.id))
-      .innerJoin(authors, eq(skills.authorId, authors.id))
-      .leftJoin(user, eq(skillReviews.reviewerId, user.id))
-      .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
-      .where(or(eq(skillReviews.reviewType, 'auto_reject'), eq(skillReviews.decision, 'reject'))!)
-      .orderBy(desc(skillScans.createdAt))
-      .limit(SCAN_JOIN_FANOUT)) as ReviewRow[]
+  getRejected: adminProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          decision: z.enum(['all', 'auto_reject', 'reject']).default('all'),
+        })
+        .merge(pageSchema)
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const where = [
+        input?.decision === 'auto_reject'
+          ? eq(skillReviews.reviewType, 'auto_reject')
+          : input?.decision === 'reject'
+            ? eq(skillReviews.decision, 'reject')
+            : or(eq(skillReviews.reviewType, 'auto_reject'), eq(skillReviews.decision, 'reject'))!,
+      ]
+      if (input?.search) {
+        const needle = `%${input.search}%`
+        where.push(or(ilike(skills.title, needle), ilike(skills.slug, needle), ilike(authors.username, needle))!)
+      }
 
-    // Keyed on the review id, not the skill: a skill can have several rejected
-    // attempts and this list is meant to show all of them.
-    return {
-      success: true as const,
-      data: keepNewestScanPerKey(rows, (row) => row.id)
-        .map(toReviewRecord)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .slice(0, QUEUE_LIMIT),
-    }
-  }),
+      const page = input?.page ?? 1
+      const pageSize = input?.pageSize ?? 20
+      const whereExpr = and(...where)
+
+      const [rows, [totalRow]] = await Promise.all([
+        db
+          .select(reviewSelect)
+          .from(skillReviews)
+          .innerJoin(skills, eq(skillReviews.skillId, skills.id))
+          .innerJoin(authors, eq(skills.authorId, authors.id))
+          .leftJoin(user, eq(skillReviews.reviewerId, user.id))
+          .where(whereExpr)
+          .orderBy(desc(skillReviews.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize) as Promise<ReviewRow[]>,
+        db
+          .select({ n: count() })
+          .from(skillReviews)
+          .innerJoin(skills, eq(skillReviews.skillId, skills.id))
+          .innerJoin(authors, eq(skills.authorId, authors.id))
+          .where(whereExpr),
+      ])
+
+      const total = totalRow?.n ?? 0
+      return {
+        success: true as const,
+        // 按 review id 展示：一个 skill 可以被驳回多次，这个列表要看到每一次
+        data: rows.map(toReviewRecord),
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      }
+    }),
 
   /** Every decision ever recorded, filterable by outcome. */
   getHistory: adminProcedure.input(historySchema).query(async ({ input }) => {
@@ -363,23 +404,38 @@ export const adminSkillReviewsRouter = createTRPCRouter({
       )
     }
 
-    const rows = (await db
-      .select(reviewSelect)
-      .from(skillReviews)
-      .innerJoin(skills, eq(skillReviews.skillId, skills.id))
-      .innerJoin(authors, eq(skills.authorId, authors.id))
-      .leftJoin(user, eq(skillReviews.reviewerId, user.id))
-      .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
-      .where(and(...where))
-      .orderBy(desc(skillScans.createdAt))
-      .limit(SCAN_JOIN_FANOUT)) as ReviewRow[]
+    const page = input?.page ?? 1
+    const pageSize = input?.pageSize ?? 20
+    const whereExpr = and(...where)
 
+    const [rows, [totalRow]] = await Promise.all([
+      db
+        .select(reviewSelect)
+        .from(skillReviews)
+        .innerJoin(skills, eq(skillReviews.skillId, skills.id))
+        .innerJoin(authors, eq(skills.authorId, authors.id))
+        .leftJoin(user, eq(skillReviews.reviewerId, user.id))
+        .where(whereExpr)
+        .orderBy(desc(skillReviews.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize) as Promise<ReviewRow[]>,
+      db
+        .select({ n: count() })
+        .from(skillReviews)
+        .innerJoin(skills, eq(skillReviews.skillId, skills.id))
+        .innerJoin(authors, eq(skills.authorId, authors.id))
+        .leftJoin(user, eq(skillReviews.reviewerId, user.id))
+        .where(whereExpr),
+    ])
+
+    const total = totalRow?.n ?? 0
     return {
       success: true as const,
-      data: keepNewestScanPerKey(rows, (row) => row.id)
-        .map(toReviewRecord)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .slice(0, QUEUE_LIMIT),
+      data: rows.map(toReviewRecord),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     }
   }),
 
@@ -420,9 +476,7 @@ export const adminSkillReviewsRouter = createTRPCRouter({
       .innerJoin(skills, eq(skillReviews.skillId, skills.id))
       .innerJoin(authors, eq(skills.authorId, authors.id))
       .leftJoin(user, eq(skillReviews.reviewerId, user.id))
-      .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
       .where(eq(skillReviews.id, input.id))
-      .orderBy(desc(skillScans.createdAt))
       .limit(1)) as ReviewRow[]
 
     if (!row) return { success: false as const, error: '审核记录不存在', data: null }
@@ -442,17 +496,13 @@ export const adminSkillReviewsRouter = createTRPCRouter({
       .innerJoin(authors, eq(skills.authorId, authors.id))
       .leftJoin(skillReviews, eq(skillReviews.skillId, skills.id))
       .leftJoin(user, eq(skillReviews.reviewerId, user.id))
-      .leftJoin(skillScans, eq(skillScans.skillId, skills.id))
       .where(eq(skills.id, input.skillId))
-      .orderBy(desc(skillScans.createdAt))
-      .limit(SCAN_JOIN_FANOUT)) as ReviewRow[]
+      .limit(1)) as ReviewRow[]
 
-    // One row per review record, each carrying the skill's newest scan, then
-    // newest decision first.
-    const decided = keepNewestScanPerKey(
-      rows.filter((row) => row.decision != null),
-      (row) => row.id
-    ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    // scanScans join 已移除（相关子查询取代），这里已是「一条 review 一行」
+    const decided = rows
+      .filter((row) => row.decision != null)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     if (decided.length === 0) {
       return { success: false as const, error: '审核记录不存在', data: null }
@@ -537,7 +587,7 @@ export const adminSkillReviewsRouter = createTRPCRouter({
    * reject and the restore both stay in the history, which is the point of
    * having a history.
    */
-  restore: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input, ctx }) => {
+  restore: superAdminProcedure.input(z.object({ id: z.string() })).mutation(async ({ input, ctx }) => {
     const [reviewById] = await db
       .select({ id: skillReviews.id, skillId: skillReviews.skillId })
       .from(skillReviews)

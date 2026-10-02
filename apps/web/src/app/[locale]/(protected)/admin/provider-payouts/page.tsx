@@ -639,6 +639,7 @@ function RefundsCard() {
   const [page, setPage] = useState(0)
   const [pending, setPending] = useState<{
     id: string
+    kind: 'skill' | 'mcp' | 'a2a'
     label: string
     max: number
     reason: string
@@ -698,6 +699,7 @@ function RefundsCard() {
     setBusyId(pending.id)
     refund.mutate({
       entitlementId: pending.id,
+      kind: pending.kind,
       reason,
       ...(isPartial ? { amount: Number(parsed.toFixed(2)) } : {}),
     })
@@ -778,7 +780,14 @@ function RefundsCard() {
                         <div className='font-medium'>{row.buyerEmail ?? row.userId}</div>
                         <div className='font-mono text-muted-foreground text-xs'>{row.orderId ?? row.id}</div>
                       </td>
-                      <td className='px-3 py-2'>{row.skillName ?? row.skillId ?? '—'}</td>
+                      <td className='px-3 py-2'>
+                        {row.assetName ?? row.assetId ?? '—'}
+                        {row.kind !== 'skill' ? (
+                          <div className='text-muted-foreground text-xs'>
+                            {row.kind === 'mcp' ? 'MCP' : 'A2A'}
+                          </div>
+                        ) : null}
+                      </td>
                       <td className='px-3 py-2 tabular-nums'>{formatCurrency(row.amount, row.currency)}</td>
                       <td className='px-3 py-2 tabular-nums'>
                         {row.refundable > 0 ? formatCurrency(row.refundable, row.currency) : '—'}
@@ -802,7 +811,8 @@ function RefundsCard() {
                             onClick={() =>
                               setPending({
                                 id: row.id,
-                                label: `${row.skillName ?? row.skillId ?? row.id} · ${row.buyerEmail ?? row.userId}`,
+                                kind: row.kind,
+                                label: `${row.assetName ?? row.assetId ?? row.id} · ${row.buyerEmail ?? row.userId}`,
                                 max: row.refundable,
                                 reason: '',
                                 amount: '',

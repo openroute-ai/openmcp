@@ -1,14 +1,39 @@
-# Provider 分成与月度账单（Skill 销售 + MCP/A2A 调用）
+# Provider 分成与月度账单（Skill 销售 + MCP/A2A 购买与调用）
 
-> 日期：2026-09-28（分成部分）／2026-10-01（月度账单与退款部分）  
-> 相关：`USER_MARKETPLACE.md`、`PROVIDER_SUBMIT_GATE.md`、`LITELLM_BUDGET_SYNC.md`、migration `0008_provider_statements`、`0009_settlement_constraints`
+> 日期：2026-09-28（分成部分）／2026-10-01（月度账单与退款部分）／2026-10-02（MCP/A2A 购买分成与资产归属）
+> 相关：`USER_MARKETPLACE.md`、`PROVIDER_SUBMIT_GATE.md`、`LITELLM_BUDGET_SYNC.md`、`AGENT_INSTALL.md`、migration `0008_provider_statements`、`0009_settlement_constraints`、`0013_mcp_a2a_entitlements`、`0014_provider_earnings_asset_attribution`
 
-两类收入共用同一张 `provider_earnings` 表与同一套 70/30 比例。
+三类收入共用同一张 `provider_earnings` 表与同一套 70/30 比例。
 
 | 来源 | 触发时机 | 关联字段 |
 |---|---|---|
 | **Skill 付费购买** | 钱包扣款 + `skill_entitlements` 写入成功后 | `skill_id` + `entitlement_id` |
-| **MCP / A2A 调用** | 网关消费结算（`settleGatewaySpend`）落账本时 | `gateway_record_id` → `gateway_spend_records.id` |
+| **MCP / A2A 一次性购买** | 钱包扣款 + `mcp_server_entitlements` / `a2a_agent_entitlements` 写入成功后 | `asset_type` + `asset_id` + `entitlement_id` |
+| **MCP / A2A 调用** | 网关消费结算（`settleGatewaySpend`）落账本时 | `gateway_record_id` → `gateway_spend_records.id` + `asset_type` + `asset_id` |
+
+### 资产归属：`asset_type` + `asset_id`
+
+`skill_id` 只指向 `skills`，所以 MCP/A2A 的收入行原本无处记录"这笔钱是哪个资产的"——创作者账单能显示"你赚了 X"，但回答不了"从什么赚的"。`asset_type` + `asset_id` 这一对可空列补上这个归属。
+
+**为什么不是 `mcp_server_id` / `a2a_agent_id` 两个带 FK 的列**：`provider_earnings` 已经跨多个 schema 模块引用 `skills` / `gateway_spend_records` / `provider_statements`，再加两个指向 `registry-schema` 的 FK 会形成循环（`registry-schema` 已经 import `mcp-schema` 的 `skills`）。`gateway_spend_records` 用的也是 `asset_type` + `asset_name` 这一对，资金表内保持同一套约定。
+
+三条 CHECK 约束（`0014`）：
+
+| 约束 | 保证 |
+|---|---|
+| `provider_earnings_asset_type_check` | `asset_type` 只能是 `mcp` / `a2a` |
+| `provider_earnings_asset_pair_check` | `asset_type` 与 `asset_id` 同有同无 |
+| `provider_earnings_single_source_check` | `skill_id` 与 `asset_id` 不能同时有值 |
+
+半截归属（只有 `asset_type` 没有 `asset_id`）比完全没有归属更难排查：按资产聚合时那行被静默漏掉，按类型聚合时又算得进去，两个数字对不上却找不到差在哪。两条来源列同时有值则让账单无法决定按哪个维度聚合，甚至可能被重复计入。
+
+**不回填历史数据**：平台未上线，0014 之前不存在 MCP/A2A 购买路径，没有需要修复的历史行。
+
+### `gateway_spend_records.asset_id`
+
+账本上已有 `asset_name`，但名字可改：`server_name` 改一次，历史账本行就再也对不上资产本身。`asset_id` 记的是资产表主键，分成行从它取值，所以「这个 MCP 一共赚了多少」在改名之后仍然成立。
+
+**不建 FK**：资产被硬删除时账本行不能跟着消失——账本和财务凭证的生命周期长于资产，`author_id` 上的 `ON DELETE SET NULL` 是同样的取舍。
 
 ## 分成规则
 
@@ -16,10 +41,35 @@
 |---|---|
 | Provider 分成 | **70%**（`PROVIDER_REVENUE_SHARE = 0.7`） |
 | 平台抽成 | **30%** |
-| 触发时机 | Skill 购买成功 / 网关消费结算 |
+| 触发时机 | Skill / MCP / A2A 购买成功 / 网关消费结算 |
 
 Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权**（记日志）。
+MCP/A2A 购买路径调用 `creditAssetPurchaseEarning`，同样在事务提交之后、失败只记日志——买家已经付了钱也拿到了授权，因为记账失败再去扣他的授权或退他的钱，比少一条收入行伤害大得多。代价是提供方会少一笔收入，所以失败日志必须可用于补账。
 网关路径在 `settleGatewaySpend` 内由 `creditGatewayEarnings` 记账，`gateway_record_id` 唯一 → 一次消费只分成一次，重跑结算安全。
+
+三个写入方的幂等键各不相同：Skill 与 MCP/A2A 购买按 `entitlement_id` 去重，网关按 `gateway_record_id` 去重。语义一致——**一笔授权 / 一条账本只分成一次**。
+
+### 幂等约束是**部分**唯一索引
+
+`provider_earnings_entitlement_sale_unique` 建在 `entitlement_id` 上，但带 `WHERE kind = 'sale'`：
+
+```sql
+CREATE UNIQUE INDEX provider_earnings_entitlement_sale_unique
+    ON provider_earnings (entitlement_id) WHERE kind = 'sale';
+```
+
+**不能**建成普通唯一索引。`clawback` 行会从被冲回的销售行复制 `entitlement_id`，所以同一个 `entitlement_id` 合法地出现两次（一条 `sale` + 一条 `clawback`）。普通唯一索引会让退款冲回行永远插不进去——买家退了钱、创作者的负数行却写不进账单，看起来像平台吞了这笔退款。
+
+入账语句的 `ON CONFLICT` 必须带上同样的谓词，Postgres 才能推断出仲裁索引：
+
+```ts
+.onConflictDoNothing({
+  target: providerEarnings.entitlementId,
+  where: sql`${providerEarnings.kind} = 'sale'`,
+})
+```
+
+对不上的后果不是"退化成普通插入"，而是整条 INSERT 报 `42P10`（`there is no unique or exclusion constraint matching the ON CONFLICT specification`）。而入账发生在购买事务**提交之后**、异常又被吞掉，于是买家付了钱、授权也发了，唯独创作者一行收入都没有——静默的收入损失比抛错更难发现。
 
 **货币口径**：与钱包一致，`CNY` 裸数值，OpenMCP ↔ LiteLLM 不做换算（见 [LITELLM_BUDGET_SYNC.md §1](./LITELLM_BUDGET_SYNC.md)）。
 
@@ -70,7 +120,7 @@ Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权
 
 ## 退款
 
-退款走**平台余额**（钱包是站内唯一可退渠道；原支付渠道退款需要各自的商户 API 与资质），并撤销买家权益。
+退款走**平台余额**（钱包是站内唯一可退渠道；原支付渠道退款需要各自的商户 API 与资质），并撤销买家权益。三种资产（skill / MCP / A2A）的授权表字段结构一致，共用同一段 `refundEntitlement({ kind })`，不写三份副本——钱包口径、`FOR_UPDATE` 闸门、clawback 比例计算在任何一处改动都必须同时作用于三者。
 
 三步在**一个事务**里，顺序不能换：
 
@@ -86,7 +136,19 @@ Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权
 
 **退款原因必填**：创作者在账单里看到的负数行只有这一句解释。`refunded_by` 记录执行人，直到 P4 通用审计日志上线，这是退款的最小审计凭据。
 
-**复购**：撤销后 `skill_entitlements` 保留原行（唯一键 `(user_id, skill_id)` 一人一技能只有一条），再次购买复用该行并清除退款状态。
+### 退款后台的跨类型列表
+
+运营在同一个页面切换 skill / MCP / A2A，所以 `adminListRefundableEntitlements` 要合并三张授权表。这里有两处必须写对，否则页面"看起来能跑"但结果是错的：
+
+**过滤条件逐类构造。** 三张表字段结构一致，最容易写成"构造一次 `where` 喂给三类查询"——而那张 `where` 里的 `skill_entitlements.status` / `skills.title` 并不在 MCP/A2A 那条 SQL 的 FROM 里。每一条跨类型查询都会报 missing FROM-clause，整页退款后台对 MCP/A2A 完全不可用；只选 `kind: 'skill'` 时恰好正常，掩盖了这个 bug。默认 `status = 'active'` 恒成立，所以**每一次**默认列表请求都会炸。
+
+**分页必须发生在合并排序之后。** "各类各取 `limit` 条再合并排序 `slice`"第一页碰巧对，第二页起就错：第一页挤掉的行不会再出现，各类 offset 之后捞到的行里混着本该留在第一页的更早数据，运营翻页会漏行。正确做法是每类多取 `offset + limit` 条，合并后按 `createdAt` 倒序切出全局窗口——全局窗口内的任一行，在它自己那一类里必然排在前 `offset + limit` 名内，所以这样取不会漏。
+
+**复购**：撤销后授权表保留原行（三张表各有唯一键，如 `skill_entitlements (user_id, skill_id)`、`mcp_server_entitlements (user_id, mcp_server_id)`、`a2a_agent_entitlements (user_id, a2a_agent_id)`，一人一资产只有一条），再次购买复用该行并清除退款状态。因此重新购买会拿到新的 `order_id`，但 `entitlementId` 不变 —— 而 `provider_earnings.entitlement_id` 是分成幂等键，所以复购**不会**产生第二条收入行，这是符合预期的：一笔授权只分成一次。
+
+**三种资产共用同一段退款实现**（`refundEntitlement({ kind })`）：三张授权表的字段结构一致，所以钱包口径、`FOR UPDATE` 闸门、clawback 比例计算在任何一处改动都必须同时作用于三者。clawback 行会从原销售行复制 `skill_id` 或 `asset_type`/`asset_id`——丢掉归属会让创作者在账单里看到一笔没有出处的负数。
+
+**MCP/A2A 的 clawback 可能没有对应收入行**：按次付费的调用分成走账本（`gateway_record_id`），没有授权行；这种情况下退款入口不存在，也就没有 clawback。反过来，MCP/A2A 一次性购买**必定**有 `entitlement_id` 对应的销售行，所以 `clawbackSkipped` 对它应当恒为 false——如果为 true，说明入账环节失败了，需要按日志补账。
 
 ## 数据表
 
@@ -98,7 +160,9 @@ Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权
 - `kind`: `sale` | `clawback`；`clawback` 必须为负且必须有 `reverses_earning_id`
 - 关联 `author_id`
 - **Skill 销售**：`skill_id`（非空）+ 可选 `entitlement_id`
-- **网关调用**：`skill_id` 为 null，`gateway_record_id` 非空且唯一
+- **MCP/A2A 一次性购买**：`asset_type` + `asset_id`（非空）+ `entitlement_id`
+- **网关调用**：`skill_id` 为 null，`gateway_record_id` 非空且唯一；`asset_type` + `asset_id` 在能解析出资产时写入，解析不出时留空
+- 索引 `provider_earnings_asset_idx (asset_type, asset_id)` 支撑「这个资产一共赚了多少」
 
 ### `provider_statements`
 
@@ -114,7 +178,9 @@ Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权
 
 - `request_id` **唯一** —— 消费扣款的幂等键
 - `spend` / `overspend_amount`（余额扣到 0 后的溢出额，不写负余额）/ `total_tokens`
-- `asset_type` + `asset_name` + `author_id`：Provider 归属
+- `asset_type` + `asset_name` + `asset_id` + `author_id`：Provider 归属
+- `asset_id` 记的是资产表主键而不是名字。名字可改：`server_name` 改一次，历史账本行就再也对不上资产本身。分成行从 `asset_id` 取值，所以「这个 MCP 一共赚了多少」在改名之后仍然成立
+- `asset_id` **不建 FK**：资产被硬删除时账本行不能跟着消失——账本和财务凭证的生命周期长于资产，`author_id` 上的 `ON DELETE SET NULL` 是同样的取舍
 - `occurred_at`（消费发生时间）用于按区间重算报表
 
 ### `provider_payout_requests`（存量，勿新建）
@@ -162,9 +228,11 @@ Skill 路径调用 `creditProviderEarning`，分成失败**不回滚买家授权
 pnpm --filter @workspace/db db:push        # 从 Drizzle schema 建 DDL
 # 0008_provider_statements.sql        — provider_statements + earnings/entitlement 字段
 # 0009_settlement_constraints.sql     — 9 个 CHECK 约束 + refunded_by
+# 0013_mcp_a2a_entitlements.sql       — mcp_server_entitlements / a2a_agent_entitlements
+# 0014_provider_earnings_asset_attribution.sql — earnings + 账本的 asset_type/asset_id
 ```
 
-⚠️ **`db:push` 只读 Drizzle schema，完全忽略 `.sql` 文件**。约束写在 SQL 里而没写进 `mcp-schema.ts`，push 时会被静默丢弃 —— 本项目曾因此出现 9 个 CHECK 全部缺失、正数 `clawback` 能写进库的情况。**约束必须声明在 schema 里**，0009 只是给已 push 过的库补历史缺口。
+⚠️ **`db:push` 只读 Drizzle schema，完全忽略 `.sql` 文件**。约束写在 SQL 里而没写进 `mcp-schema.ts`，push 时会被静默丢弃 —— 本项目曾因此出现 9 个 CHECK 全部缺失、正数 `clawback` 能写进库的情况。**约束必须声明在 schema 里**，0009 / 0014 只是给已 push 过的库补历史缺口。
 
 `drizzle/__drizzle_migrations` 里只有 3 条记录而仓库有 9 个 SQL：0003/0004/0006/0007 为手写且无 snapshot，**不要直接运行 `db:generate`**（会从最后一个 snapshot 重新推导，试图重复应用已存在的列）。
 

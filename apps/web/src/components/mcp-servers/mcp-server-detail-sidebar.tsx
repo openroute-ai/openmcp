@@ -5,6 +5,7 @@ import { Check, Copy, Download, Eye } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { LocaleLink } from '@/i18n/navigation'
+import { AssetPurchasePanel } from '@/components/assets/asset-purchase-panel'
 import {
   type AssetAuthType,
   authLabel,
@@ -17,6 +18,7 @@ import {
 interface McpDetailSidebarProps {
   server: {
     id: string
+    slug: string
     author: { name: string; username: string; avatar: string | null }
     category: { name: string; slug: string } | null
     transport: string
@@ -25,14 +27,18 @@ interface McpDetailSidebarProps {
     scope: string
     endpoint: string | null
     priceType: string
+    priceAmount: string | null
     billingModel: string | null
     unitPrice: string | null
     currency: string | null
+    /** 详情 query 算好的门禁结论；匿名访客为 null。 */
+    access: { allowed: boolean; code?: string; reason?: string } | null
     stats: { created: string; updated: string; views: number; downloads: number }
   }
 }
 
 export function McpDetailSidebar({ server }: McpDetailSidebarProps) {
+  // 购买面板自己走 createPurchase / hasEntitlement，这里只负责展示与安装信息。
   const t = useTranslations('McpPage.detail')
   const common = useTranslations('Common')
   const lang = useLocale() === 'zh' ? 'zh' : 'en'
@@ -56,7 +62,7 @@ export function McpDetailSidebar({ server }: McpDetailSidebarProps) {
         ? `¥${server.unitPrice ?? '--'}/call`
         : server.billingModel === 'subscription'
           ? `¥${server.unitPrice ?? '--'}/month`
-          : `¥${server.unitPrice ?? server.currency ?? '--'}`
+          : `${server.currency === 'CNY' ? '¥' : ''}${server.priceAmount ?? '--'}`
 
   const rows: { label: string; value: string; mono?: boolean }[] = [
     { label: t('transport'), value: transportLabel(server.transport, lang) },
@@ -69,6 +75,20 @@ export function McpDetailSidebar({ server }: McpDetailSidebarProps) {
 
   return (
     <div className='space-y-6'>
+      {/* 购买面板放在最上面：未购买时 endpoint 已被 router 抹掉，下面那块只剩
+          "登录后可查看"，不先给出购买入口用户会以为资产坏了。 */}
+      <AssetPurchasePanel
+        kind='mcp'
+        assetId={server.id}
+        assetSlug={server.slug}
+        priceType={server.priceType}
+        priceAmount={server.priceAmount}
+        unitPrice={server.unitPrice}
+        currency={server.currency}
+        billingModel={server.billingModel as 'one_time' | 'subscription' | 'pay_per_call' | null}
+        access={server.access}
+      />
+
       <div className='rounded-lg border border-border bg-card p-6 shadow-sm'>
         <div className='mb-4 flex items-center'>
           <Avatar className='mr-4 h-12 w-12'>

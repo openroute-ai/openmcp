@@ -29,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect(Routes.Login)
   }
 
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'super_admin') {
     redirect(Routes.Dashboard)
   }
 

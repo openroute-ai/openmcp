@@ -67,6 +67,7 @@ export function McpDetailPageClient() {
             <McpDetailSidebar
               server={{
                 id: server.id,
+                slug,
                 author: server.author,
                 category: server.category?.id != null
                   ? {
@@ -80,9 +81,11 @@ export function McpDetailPageClient() {
                 scope: server.scope,
                 endpoint: server.endpoint,
                 priceType: server.priceType,
+                priceAmount: server.priceAmount,
                 billingModel: server.billingModel,
                 unitPrice: server.unitPrice,
                 currency: server.currency,
+                access: server.access,
                 stats: {
                   created: server.createdAt.toISOString().split('T')[0] ?? '',
                   updated: (server.updatedAt ?? server.createdAt).toISOString().split('T')[0] ?? '',

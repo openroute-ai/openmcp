@@ -16,6 +16,7 @@ import {
 } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { useDebounce } from '@/hooks/use-debounce'
+import PaginationBox from '@/components/web/pagination-box'
 import { trpc } from '@/lib/trpc/client'
 import { formatDateTime } from '@/lib/utils'
 import type { ReviewRecord } from '../types'
@@ -30,14 +31,25 @@ import type { ReviewRecord } from '../types'
 export default function ReviewHistoryPage() {
   const [search, setSearch] = useState('')
   const [decision, setDecision] = useState<'all' | 'pass' | 'reject' | 'needs_revision'>('all')
+  const [page, setPage] = useState(1)
+  const pageSize = 20
   const debouncedSearch = useDebounce(search, 400)
 
   const { data, isLoading } = trpc.admin.securityReview.getHistory.useQuery({
     decision,
     search: debouncedSearch.trim() || undefined,
+    page,
+    pageSize,
   })
 
   const records = (data?.success ? data.data : []) as ReviewRecord[]
+
+  const filterKey = `${decision}|${debouncedSearch.trim()}`
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey)
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey)
+    setPage(1)
+  }
 
   return (
     <div className='space-y-6'>
@@ -136,6 +148,11 @@ export default function ReviewHistoryPage() {
               ))}
             </TableBody>
           </Table>
+          {data?.success === true && (
+            <div className='mt-4'>
+              <PaginationBox page={page} count={data.total} pageSize={pageSize} onPageChange={setPage} />
+            </div>
+          )}
         </div>
       )}
     </div>

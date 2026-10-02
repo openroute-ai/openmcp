@@ -1,25 +1,56 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
 import { db } from "@/lib/db"
 import { repos, skills } from "@workspace/db"
 import { parseGithubRepoUrl } from "@/lib/gateway/names"
 import { consoleApiConfigured, ingestRepoByUrl } from '@/lib/console/client'
 import { filesFromSkillRow, runSkillSecurityScan } from "@/lib/security-scan"
 import { mapSkillRow } from '@/web/assets/map-asset'
+import type { MineListOptions } from '@/web/assets/mine-list'
 
 function toSlug(referenceId: string): string {
   return referenceId.replace(/\//g, '-').replace(/#/g, '--')
 }
 
 export const skillsGatewayAccess = {
-  listMine: async (authorId: string) => {
-    const rows = await db.select().from(skills).where(eq(skills.authorId, authorId)).orderBy(desc(skills.createdAt))
-    return rows.map((row) =>
-      mapSkillRow({
-        ...row,
-        priceAmount: row.priceAmount?.toString() ?? null,
-        unitPrice: row.unitPrice?.toString() ?? null,
-      })
-    )
+  /** 名下资产：服务端搜索 + 分页，理由同 MCP 的 `listMine`。 */
+  listMine: async (authorId: string, opts: MineListOptions = {}) => {
+    const { search, status, page = 1, pageSize = 20 } = opts
+    const where = [eq(skills.authorId, authorId)]
+    // status 在表上是枚举列，入参是 string：按该列自身的枚举收窄，避免塞进库外的值
+    if (status) where.push(eq(skills.status, status as (typeof skills.status.enumValues)[number]))
+    if (search) {
+      const needle = `%${search}%`
+      where.push(
+        or(ilike(skills.title, needle), ilike(skills.slug, needle), ilike(skills.description, needle))!
+      )
+    }
+    const whereExpr = and(...where)
+
+    const [rows, [totalRow]] = await Promise.all([
+      db
+        .select()
+        .from(skills)
+        .where(whereExpr)
+        .orderBy(desc(skills.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ n: count() }).from(skills).where(whereExpr),
+    ])
+
+    const total = totalRow?.n ?? 0
+    return {
+      items: rows.map((row) =>
+        mapSkillRow({
+          ...row,
+          priceAmount: row.priceAmount?.toString() ?? null,
+          unitPrice: row.unitPrice?.toString() ?? null,
+        })
+      ),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    }
   },
 
   getMineById: async (authorId: string, id: string) => {

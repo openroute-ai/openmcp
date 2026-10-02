@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, ilike } from 'drizzle-orm'
 import { getVirtualKeyManager, isLiteLLMConfigured } from '@workspace/litellm'
 import { z } from 'zod'
 import {
@@ -62,16 +62,41 @@ export const apiKeysRouter = createTRPCRouter({
   /**
    * The current user's API key list.
    */
-  listApiKeys: protectedProcedure.query(async ({ ctx }) => {
+  listApiKeys: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().max(200).optional(),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(20),
+        })
+        // 调用方不传参数时也要能用：整个 input 可选，缺省走第一页。
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
     try {
-      const rows = await db
-        .select()
-        .from(apiKeys)
-        .where(eq(apiKeys.userId, ctx.user.id))
-        .orderBy(desc(apiKeys.createdAt))
+      const page = input?.page ?? 1
+      const pageSize = input?.pageSize ?? 20
+      const where = input?.search
+        ? and(eq(apiKeys.userId, ctx.user.id), ilike(apiKeys.name, `%${input.search}%`))
+        : eq(apiKeys.userId, ctx.user.id)
+
+      const [rows, [totalRow]] = await Promise.all([
+        db
+          .select()
+          .from(apiKeys)
+          .where(where)
+          .orderBy(desc(apiKeys.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db.select({ n: count() }).from(apiKeys).where(where),
+      ])
 
       return {
         success: true,
+        total: totalRow?.n ?? 0,
+        page,
+        pageSize,
         data: rows.map((row) => ({
           id: row.id,
           name: row.name,

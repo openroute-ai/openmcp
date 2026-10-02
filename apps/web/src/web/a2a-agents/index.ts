@@ -1,6 +1,37 @@
 import { and, count, desc, eq, like, ne, or, sql } from "drizzle-orm"
 import type { PgColumn } from "drizzle-orm/pg-core"
 import { db } from "@/lib/db"
+import { persistA2aScan } from "@/web/assets/scan-persist"
+
+/**
+ * Agent Card 里的能力列表。
+ *
+ * A2A 没有独立的 tools 列，能力声明在 `agentCard.skills` 里；结构随协议版本
+ * 变化（0.3 与 1.0 字段名不同），所以只做形状宽松的提取，取不到就返回空数组
+ * ——扫描的是声明，拿不到声明就等于没有可扫内容，不能反过来当成"干净"。
+ */
+function readAgentCardSkills(card: unknown): Array<{ name: string; description?: string }> {
+  if (!card || typeof card !== 'object') return []
+  const raw = (card as { skills?: unknown }).skills
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ name: string; description?: string }> = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      out.push({ name: item })
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const o = item as { name?: unknown; id?: unknown; description?: unknown }
+      const name = typeof o.name === 'string' ? o.name : typeof o.id === 'string' ? o.id : null
+      if (!name) continue
+      out.push({
+        name,
+        description: typeof o.description === 'string' ? o.description : undefined,
+      })
+    }
+  }
+  return out
+}
 import { a2aAgents, authors, categories } from "@workspace/db"
 import { testA2aConnection } from "@/lib/gateway/a2a-connect"
 import type { A2aProtocolVersion, AssetAuthType } from "@/lib/registry-labels"
@@ -293,6 +324,21 @@ export const a2aAgentsDataAccess = {
 
     if (!inserted) {
       throw new Error("Agent 注册失败")
+    }
+
+    // 元数据扫描，理由与 MCP 一致：只覆盖声明的元数据，失败不阻塞注册
+    try {
+      await persistA2aScan(inserted.id, {
+        kind: 'a2a',
+        endpoint: inserted.endpoint,
+        protocol: inserted.protocolVersion,
+        auth: inserted.authType,
+        name: inserted.name,
+        description: inserted.description ?? inserted.descriptionEn,
+        tools: readAgentCardSkills(inserted.agentCard),
+      })
+    } catch (error) {
+      console.error('[gateway-scan] a2a register scan failed', error)
     }
 
     return a2aAgentsDataAccess.getAgentById(inserted.id)
