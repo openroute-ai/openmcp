@@ -10,7 +10,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { eq } from "drizzle-orm"
 import { db, pool } from "@/db/client"
-import { repoDailyStats, repoMonthlyStats, repoWeeklyStats, repos } from "@/db/schema"
+import {
+  repoDailyStats,
+  repoMonthlyStats,
+  repoWeeklyStats,
+  repos,
+} from "@/db/schema"
 import type { StarHistoryEntry } from "@/lib/github/client"
 import { upsertRepo } from "@/lib/github/service/repo"
 import {
@@ -69,6 +74,11 @@ async function seedRepo(owner: string, name: string) {
 /** 2026-03-15T04:00Z is noon on a Sunday in Shanghai, inside ISO week 11. */
 const NOW = new Date("2026-03-15T04:00:00Z")
 
+/** A day inside NOW's week, at the instant the day opened in Shanghai. */
+function DAY(dayOfMonth: number): Date {
+  return new Date(Date.UTC(2026, 2, dayOfMonth, 16))
+}
+
 function monthly(repoId: string) {
   return db
     .select()
@@ -108,7 +118,11 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
         NOW
       )
 
-      for (const rows of [await monthly(repo.id), await weekly(repo.id), await daily(repo.id)]) {
+      for (const rows of [
+        await monthly(repo.id),
+        await weekly(repo.id),
+        await daily(repo.id),
+      ]) {
         expect(rows).toHaveLength(1)
         expect(rows[0]?.totalStars).toBe(100)
         expect(rows[0]?.totalForks).toBe(10)
@@ -164,8 +178,8 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
         new Date("2026-03-16T04:00:00Z")
       )
 
-      const rows = (await daily(repo.id)).sort((a, b) =>
-        a.period.getTime() - b.period.getTime()
+      const rows = (await daily(repo.id)).sort(
+        (a, b) => a.period.getTime() - b.period.getTime()
       )
       expect(rows).toHaveLength(2)
       expect(rows[1]?.totalStars).toBe(105)
@@ -188,7 +202,11 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
     it("keeps a counter NULL rather than claiming a zero", async () => {
       const repo = await seedRepo("stats", "nulls")
       await recordCurrentPeriods(db, { id: repo.id, stars: 10 }, NOW)
-      await recordCurrentPeriods(db, { id: repo.id, stars: 12 }, new Date("2026-03-16T04:00:00Z"))
+      await recordCurrentPeriods(
+        db,
+        { id: repo.id, stars: 12 },
+        new Date("2026-03-16T04:00:00Z")
+      )
 
       const rows = await daily(repo.id)
       // No package means no download count, which is not the same as none.
@@ -255,7 +273,9 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
       // The history reports arrivals; a day's closing level would have to
       // account for unstars, which it cannot.
       expect(rows.every((row) => row.totalStars === null)).toBe(true)
-      expect(rows.map((row) => row.deltaNewStars)).toEqual([1, 1, 2, 3, 4, 10, 6, 5, 7])
+      expect(rows.map((row) => row.deltaNewStars)).toEqual([
+        1, 1, 2, 3, 4, 10, 6, 5, 7,
+      ])
     })
 
     it("takes the level from the bucket total rather than summing arrivals", async () => {
@@ -322,13 +342,17 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
 
       await recordStarHistory(db, repo.id, history, NOW)
 
-      expect((await daily(repo.id)).map((row) => row.deltaNewStars)).toEqual(first)
+      expect((await daily(repo.id)).map((row) => row.deltaNewStars)).toEqual(
+        first
+      )
     })
 
     it("returns nothing for an empty history", async () => {
       const repo = await seedRepo("stats", "history-empty")
       expect(await recordStarHistory(db, repo.id, [], NOW)).toBe(0)
-      expect(await recordStarHistory(db, repo.id, [entry(1, 0, [])], NOW)).toBe(0)
+      expect(await recordStarHistory(db, repo.id, [entry(1, 0, [])], NOW)).toBe(
+        0
+      )
     })
   })
 
@@ -336,10 +360,13 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
     it("reads the newest days, not the first ones stored", async () => {
       const repo = await seedRepo("stats", "window")
       const rows = Array.from({ length: 10 }, (_, index) => ({
-        period: new Date(Date.UTC(2026, 2, 1 + index, 16)),
+        period: DAY(index + 1),
         values: { changes: { newStars: index + 1 } },
       }))
-      await recordCurrentPeriods(db, { id: repo.id, stars: 1 }, NOW)
+      // The sampler's own day, on the first of the arrivals days rather than
+      // after them: a row written past the arrivals run becomes the newest day
+      // in the window and displaces the three the test is about.
+      await recordCurrentPeriods(db, { id: repo.id, stars: 1 }, DAY(1))
 
       // Written through the batch path, which is what the history sweep uses.
       const { upsertStatsRows } = await import("@/lib/github/service/stats")
@@ -347,6 +374,37 @@ describe.skipIf(!hasDatabase)("stats service (integration)", () => {
 
       const window = await listDailyArrivals(db, repo.id, 3)
       expect(window.map((day) => day.stars)).toEqual([8, 9, 10])
+    })
+
+    it("falls back to the net movement when no sweep has measured arrivals", async () => {
+      const repo = await seedRepo("stats", "net-fallback")
+      // Three sampled days and no arrivals: the shape of every repository the
+      // stargazer sweep has not reached, where `delta_new_stars` is NULL. The
+      // first day has no stored prior, so nothing recorded how much it gained
+      // and it stays a gap rather than becoming a zero.
+      await recordCurrentPeriods(db, { id: repo.id, stars: 100 }, DAY(1))
+      await recordCurrentPeriods(db, { id: repo.id, stars: 130 }, DAY(2))
+      await recordCurrentPeriods(db, { id: repo.id, stars: 155 }, DAY(3))
+
+      const window = await listDailyArrivals(db, repo.id, 3)
+      expect(window.map((day) => day.stars)).toEqual([undefined, 30, 25])
+    })
+
+    it("prefers arrivals over the net movement when both are recorded", async () => {
+      const repo = await seedRepo("stats", "arrivals-win")
+      await recordCurrentPeriods(db, { id: repo.id, stars: 100 }, DAY(1))
+      await recordCurrentPeriods(db, { id: repo.id, stars: 110 }, DAY(2))
+
+      const { upsertStatsRows } = await import("@/lib/github/service/stats")
+      await upsertStatsRows(
+        db,
+        repo.id,
+        [{ period: DAY(2), values: { changes: { newStars: 14 } } }],
+        "day"
+      )
+
+      const window = await listDailyArrivals(db, repo.id, 2)
+      expect(window.map((day) => day.stars)).toEqual([undefined, 14])
     })
   })
 

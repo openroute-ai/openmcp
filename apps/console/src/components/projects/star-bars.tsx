@@ -134,9 +134,22 @@ export function StarBarChart({
   const max = values.length > 0 ? Math.max(...values, 0) : 0
 
   const current = bars.find((bar) => bar.key === selected)
+  const hasAnyValue = values.some((v) => v > 0)
 
   if (values.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+    return (
+      <div className="grid min-w-0 gap-2">
+        <p className="h-5 text-sm text-muted-foreground">{emptyLabel}</p>
+        <div
+          className="grid items-end gap-px border-b border-dashed border-muted-foreground/20"
+          style={{
+            gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))`,
+            minHeight: `${MAX_BAR_HEIGHT + 8}px`,
+          }}
+          aria-hidden
+        />
+      </div>
+    )
   }
 
   const columns = `repeat(${bars.length}, minmax(0, 1fr))`
@@ -212,15 +225,16 @@ export function StarBarChart({
 
         <div
           className="grid items-end gap-px"
-          style={{ gridTemplateColumns: columns }}
+          style={{
+            gridTemplateColumns: columns,
+            minHeight: `${MAX_BAR_HEIGHT + 8}px`,
+          }}
         >
           {bars.map((bar) => {
             const height =
-              bar.value === undefined
+              bar.value === undefined || !hasAnyValue || max <= 0
                 ? 0
-                : max === 0
-                  ? 0
-                  : Math.max(2, Math.round((bar.value / max) * MAX_BAR_HEIGHT))
+                : Math.max(2, Math.round((bar.value / max) * MAX_BAR_HEIGHT))
             const isSelected = bar.key === selected
 
             return (
@@ -245,7 +259,7 @@ export function StarBarChart({
               >
                 <span
                   className={
-                    bar.value === undefined
+                    bar.value === undefined || !hasAnyValue
                       ? "w-3/4 border-b border-dashed border-muted-foreground/40"
                       : isSelected
                         ? "w-3/4 rounded-t bg-primary"
