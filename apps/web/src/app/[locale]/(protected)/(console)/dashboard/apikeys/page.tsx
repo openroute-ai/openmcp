@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog'
 import { Input } from '@workspace/ui/components/input'
+import PaginationBox from '@/components/web/pagination-box'
 import { Label } from '@workspace/ui/components/label'
 import { Skeleton } from '@workspace/ui/components/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
@@ -70,8 +71,15 @@ export default function ApiKeysPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
-  const { data, isLoading, error, refetch } = trpc.apiKeys.listApiKeys.useQuery()
+  const { data, isLoading, error, refetch } = trpc.apiKeys.listApiKeys.useQuery({
+    search: search || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  })
   const budgetQuery = trpc.apiKeys.getGatewayBudgetStatus.useQuery()
   const syncBudget = trpc.apiKeys.syncGatewayBudget.useMutation({
     onSuccess: (result) => {
@@ -113,6 +121,7 @@ export default function ApiKeysPage() {
   })
 
   const keys = (data?.data as ApiKeyRow[] | undefined) ?? []
+  const totalKeys = data?.total ?? 0
   const budget = (budgetQuery.data?.data as BudgetStatus | undefined) ?? null
   const availableNumber = Number(budget?.available ?? '0')
   const insufficient = budget !== null && availableNumber <= 0
@@ -221,6 +230,16 @@ export default function ApiKeysPage() {
               <CardDescription>{t('description')}</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* 搜索在服务端做：key 数量增长后，浏览器端 filter 只能筛到当前页 */}
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                placeholder={t('searchPlaceholder')}
+                className='mb-4 max-w-64'
+              />
               {isLoading ? (
                 <div className='space-y-2'>
                   {Array.from({ length: 3 }).map((_, index) => (
@@ -289,6 +308,12 @@ export default function ApiKeysPage() {
           </Card>
         </div>
       </div>
+
+      {keys.length > 0 ? (
+        <div className='mt-4'>
+          <PaginationBox page={page} count={totalKeys} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        </div>
+      ) : null}
 
       <CreateKeyDialog
         open={createOpen}

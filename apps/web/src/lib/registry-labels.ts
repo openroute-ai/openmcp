@@ -15,7 +15,12 @@ export type AssetStatus = (typeof ASSET_STATUS_VALUES)[number]
 export const ASSET_CONNECTION_VALUES = ['online', 'error', 'disabled'] as const
 export type AssetConnectionStatus = (typeof ASSET_CONNECTION_VALUES)[number]
 
-export const ASSET_SECURITY_VALUES = ['safe', 'pending', 'unsafe'] as const
+/**
+ * 注意 `unknown` 是合法取值：MCP/A2A 的扫描只覆盖**声明的元数据**
+ * （端点、传输方式、工具名与描述），拿不到对方进程里的实际行为。未扫描的资产
+ * 用 `unknown` 而不是 `pending`，因为 `pending` 暗示"已经在流程里等着被扫"。
+ */
+export const ASSET_SECURITY_VALUES = ['safe', 'pending', 'unsafe', 'caution', 'unknown'] as const
 export type AssetSecurityLevel = (typeof ASSET_SECURITY_VALUES)[number]
 
 export const ASSET_BILLING_VALUES = ['one_time', 'subscription', 'pay_per_call'] as const
@@ -76,7 +81,22 @@ export const ASSET_SECURITY_LABEL: Record<AssetSecurityLevel, Bilingual> = {
   safe: bilingual('安全', 'Safe'),
   pending: bilingual('待扫描', 'Pending'),
   unsafe: bilingual('存在风险', 'Unsafe'),
+  unknown: bilingual('未扫描', 'Not scanned'),
+  caution: bilingual('需谨慎', 'Use caution'),
 }
+
+/**
+ * 安全评级文案。
+ *
+ * 之前这个函数在拿到空值时返回空串，调用方再 `|| t('safeDefault')` 兜底成
+ * "安全"——于是**从未扫描过的资产在详情页显示为安全**。这里对空值直接给出
+ * 「未扫描」：没扫过就是没扫过，不能因为没数据就报一个最好的结果。
+ */
+export const securityLabelOf = (
+  value: LabelInput,
+  locale: Locale,
+  fallback: Bilingual = ASSET_SECURITY_LABEL.unknown
+): string => (value ? label(value, ASSET_SECURITY_LABEL, locale) : pick(fallback, locale))
 
 export const ASSET_BILLING_LABEL: Record<AssetBillingModel, Bilingual> = {
   one_time: bilingual('一次性', 'One-time'),
@@ -113,7 +133,7 @@ export const statusLabel = (value: LabelInput, locale: Locale): string => label(
 export const connectionLabel = (value: LabelInput, locale: Locale): string =>
   label(value, ASSET_CONNECTION_LABEL, locale)
 
-export const securityLabel = (value: LabelInput, locale: Locale): string => label(value, ASSET_SECURITY_LABEL, locale)
+export const securityLabel = securityLabelOf
 
 export const billingLabel = (value: LabelInput, locale: Locale): string => label(value, ASSET_BILLING_LABEL, locale)
 

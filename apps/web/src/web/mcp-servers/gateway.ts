@@ -1,6 +1,7 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { mcpServers } from "@workspace/db"
+import type { MineListOptions } from "@/web/assets/mine-list"
 import { discoverMcp, testMcpConnection } from "@/lib/gateway/mcp-connect"
 import { toGatewayName } from "@/lib/gateway/names"
 import { decryptSecret, encryptSecret } from "@/lib/gateway/secrets"
@@ -39,20 +40,56 @@ function authFromRow(
 }
 
 export const mcpGatewayAccess = {
-  listMine: async (authorId: string) => {
-    const rows = await db
-      .select()
-      .from(mcpServers)
-      .where(and(eq(mcpServers.authorId, authorId), notDeleted(mcpServers)))
-      .orderBy(desc(mcpServers.createdAt))
-    return rows.map((row) =>
-      mapMcpRow({
-        ...row,
-        priceAmount: row.priceAmount?.toString() ?? null,
-        unitPrice: row.unitPrice?.toString() ?? null,
-        rejectReason: rejectNote(row.metadata),
-      })
-    )
+  /**
+   * 名下资产，支持服务端搜索 + 分页。
+   *
+   * 之前是无 limit 全量返回、搜索在浏览器里做：资产多了以后整个列表（含每行的
+   * 指标聚合）一次性下发，搜索也只对已下发的子集生效。现在搜索和分页都在 SQL。
+   */
+  listMine: async (authorId: string, opts: MineListOptions = {}) => {
+    const { search, status, page = 1, pageSize = 20 } = opts
+    const where = [eq(mcpServers.authorId, authorId), notDeleted(mcpServers)]
+    // status 在表上是枚举列，入参是 string：按该列自身的枚举收窄，避免塞进库外的值
+    if (status) where.push(eq(mcpServers.status, status as (typeof mcpServers.status.enumValues)[number]))
+    if (search) {
+      const needle = `%${search}%`
+      where.push(
+        or(
+          ilike(mcpServers.name, needle),
+          ilike(mcpServers.slug, needle),
+          ilike(mcpServers.serverName, needle),
+          ilike(mcpServers.endpoint, needle)
+        )!
+      )
+    }
+    const whereExpr = and(...where)
+
+    const [rows, [totalRow]] = await Promise.all([
+      db
+        .select()
+        .from(mcpServers)
+        .where(whereExpr)
+        .orderBy(desc(mcpServers.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ n: count() }).from(mcpServers).where(whereExpr),
+    ])
+
+    const total = totalRow?.n ?? 0
+    return {
+      items: rows.map((row) =>
+        mapMcpRow({
+          ...row,
+          priceAmount: row.priceAmount?.toString() ?? null,
+          unitPrice: row.unitPrice?.toString() ?? null,
+          rejectReason: rejectNote(row.metadata),
+        })
+      ),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    }
   },
 
   getMineById: async (authorId: string, id: string) => {
@@ -267,6 +304,25 @@ export const mcpGatewayAccess = {
       // 停用即下架。市场可见性要求 `connectionStatus = 'online'`，所以只改
       // connectionStatus 就够了：`status` 保持 published，重新启用后能自动回到
       // 市场，不需要重新走一遍审核。
+      //
+      // ⚠️ 待定（P3）：已安装的买家是否还能调用。
+      //
+      // 买家拿到的是 LiteLLM 公网地址（`buildMcpGatewayUrl`），平台侧没有
+      // proxy，所以这里只改 DB 不会切断已发放的 virtual key：
+      // 停用后 asset 从市场消失、resolveMcp 拒绝安装，但存量 key 仍可能打到自己
+      // 维护的上游。`remove()` 走 `getMcpGateway().deleteServer` 会真的删掉
+      // LiteLLM 侧映射，`toggle(false)` 则不动它 —— 两条路径行为不一致。
+      //
+      // 没有擅自改的原因：LiteLLM 是否提供"停用但保留映射"的能力、以及停用
+      // 到底该"停止服务"还是仅"停止售卖"，是产品语义问题，且无法在本仓库内
+      // 对 LiteLLM 端做验证。A2A 侧 `a2a-agents/gateway.ts` 的 `toggle(false)`
+      // 有同一处标记，语义定下来后两边要按同一套处理。
+      //
+      // 采取哪种方案取决于上述决定：
+      // - "停止服务"：toggle(false) 需 deleteServer 或 LiteLLM 侧 disable，
+      //   重新启用要重新注册并换发 key。
+      // - "仅停止售卖"：保持现状，但需要在买家侧 UI 说明停用不影响存量调用，
+      //   并且 `remove` 仍然删映射的现状要写进文档。
       await db
         .update(mcpServers)
         .set({ connectionStatus: "disabled", updatedAt: new Date() })
@@ -331,6 +387,25 @@ export const mcpGatewayAccess = {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(mcpServers.id, id))
     return { ok: true }
+  },
+
+  /**
+   * 定时健康检查用的探测：**不**校验 `authorId`，也**不**写 `connectionStatus`。
+   *
+   * 调用方（`lib/health-check/scheduled-check.ts`）自己决定写入什么，因为"单次失败
+   * 立即 error"会把一次超时变成市场下架。写库留在调用方，这里只负责读出端点配置
+   * 并探测——把探测和状态机分开，改阈值不用动这个函数。
+   */
+  probeSystem: async (id: string) => {
+    const [row] = await db
+      .select()
+      .from(mcpServers)
+      .where(and(eq(mcpServers.id, id), notDeleted(mcpServers)))
+      .limit(1)
+    if (!row) throw new Error("资产不存在")
+    const auth = authFromRow(row.authConfig, row.authType)
+    const transport = row.transport === "sse" ? "sse" : "streamable"
+    return testMcpConnection({ url: row.endpoint ?? "", transport, auth })
   },
 
   retest: async (authorId: string, id: string) => {

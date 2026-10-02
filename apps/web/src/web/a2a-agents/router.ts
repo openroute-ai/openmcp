@@ -5,6 +5,8 @@ import { ASSET_AUTH_VALUES } from "@/lib/registry-labels"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
 import { signOAuthState } from "@/lib/agent-install/oauth-state"
+import { assetIsGated, checkAssetEntitlement, purchaseAsset } from '@/web/mcp-servers/entitlement'
+import { emptyPage, mineListInput } from '@/web/assets/mine-list'
 import { a2aGatewayAccess } from './gateway'
 import { a2aAgentsDataAccess } from './index'
 
@@ -48,12 +50,31 @@ export const a2aAgentsRouter = createTRPCRouter({
       }
     }),
 
-  getAgentById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+  getAgentById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
     try {
       const data = await a2aAgentsDataAccess.getAgentById(input.id)
       if (!data) return { success: false, error: '智能体未找到' }
       await a2aAgentsDataAccess.incrementViews(input.id)
-      return { success: true, data }
+
+      // 未购买时抹掉 `agentCardUrl`：它就是付费资产本身的可调用地址。与 MCP 侧
+      // `getMcpServerById` 抹 `endpoint` 同理，口径必须一致。安装链路的门禁在
+      // `install_asset`，两处都要在发出接入方式之前完成。
+      const access = ctx.user?.id
+        ? await checkAssetEntitlement({ userId: ctx.user.id, kind: 'a2a', assetId: input.id })
+        : null
+
+      // 匿名访客（`access === null`）没有授权可查，null 不等于放行：付费
+      // `agentCardUrl` 就是商品本身，必须抹掉。判定口径与 MCP 侧一致。
+      const gated = access === null ? await assetIsGated('a2a', input.id) : !access.allowed
+
+      return {
+        success: true as const,
+        data: {
+          ...data,
+          agentCardUrl: gated ? null : data.agentCardUrl,
+          access,
+        },
+      }
     } catch (error) {
       return failResult(error, '获取智能体详情失败')
     }
@@ -93,12 +114,11 @@ export const a2aAgentsRouter = createTRPCRouter({
     }
   }),
 
-  listMine: protectedProcedure.query(async ({ ctx }) => {
+  listMine: protectedProcedure.input(mineListInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
-      if (!authorId) return { success: true, data: [] }
-      const data = await a2aGatewayAccess.listMine(authorId)
-      return { success: true, data }
+      if (!authorId) return { success: true, data: emptyPage() }
+      return { success: true, data: await a2aGatewayAccess.listMine(authorId, input) }
     } catch (error) {
       return failResult(error, '获取我的 A2A 资产失败')
     }
@@ -323,4 +343,64 @@ export const a2aAgentsRouter = createTRPCRouter({
       return failResult(error, '查询 OAuth 状态失败')
     }
   }),
+
+  /** 当前用户是否已购买该 A2A（免费资产恒为 true）。 */
+  hasEntitlement: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const decision = await checkAssetEntitlement({
+          userId: ctx.user.id,
+          kind: 'a2a',
+          assetId: input.id,
+        })
+        if (decision.allowed) {
+          return { success: true as const, data: { entitled: true, reason: decision.reason } }
+        }
+        return {
+          success: false as const,
+          error: decision.error,
+          code: decision.code,
+          entitled: false,
+        }
+      } catch (error) {
+        return failResult(error, '查询授权失败')
+      }
+    }),
+
+  /** 付费购买：钱包扣款 + 写入 a2a_agent_entitlements。计价口径同 MCP 侧。 */
+  createPurchase: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await purchaseAsset({
+          userId: ctx.user.id,
+          kind: 'a2a',
+          assetId: input.id,
+        })
+        if (!result.ok) {
+          return {
+            success: false as const,
+            error: result.error,
+            code: result.code,
+            needRecharge: result.needRecharge ?? false,
+            rechargeUrl: result.rechargeUrl,
+            requiredAmount: result.requiredAmount,
+            balance: result.balance,
+          }
+        }
+        return {
+          success: true as const,
+          data: {
+            alreadyOwned: result.alreadyOwned,
+            entitlementId: result.entitlementId,
+            amount: result.amount,
+            currency: result.currency,
+            balanceAfter: result.balanceAfter,
+          },
+        }
+      } catch (error) {
+        return failResult(error, '购买失败')
+      }
+    }),
 })

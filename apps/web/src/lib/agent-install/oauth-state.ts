@@ -22,6 +22,9 @@
  */
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { lt as sqlLt } from 'drizzle-orm'
+import { oauthStateNonces } from '@workspace/db'
+import { db } from '@/lib/db'
 
 /** 签名 `state` 的有效期。OAuth 授权往返通常在几分钟内完成。 */
 export const OAUTH_STATE_TTL_SEC = 10 * 60
@@ -150,4 +153,52 @@ export function verifyOAuthState(
   }
 
   return { ok: true, payload }
+}
+
+/**
+ * 消费一个已验签的 `state`：把 nonce 记进 `oauth_state_nonces`。
+ *
+ * 用 `ON CONFLICT DO NOTHING` 再看影响行数，而不是"先查有没有、再插入"：
+ * 后者有两个并发回调同时通过"没查到"这一步，然后都插入成功 —— 重放保护在
+ * 唯一的并发场景下失效，正是最需要它的场景。唯一约束 + 冲突即重放，让"只能
+ * 用一次"变成数据库层面的原子事实。
+ *
+ * 必须在验签之后调用：写入本身不证明 state 合法，只记录"这个 nonce 被用掉了"。
+ */
+export async function consumeOAuthState(payload: OAuthStatePayload): Promise<
+  { ok: true } | { ok: false; reason: string }
+> {
+  // 与签发时的 TTL 保持一致，否则这里会写入一个早于实际过期时间的行，
+  // 清理任务会提前把它删掉，重新打开一个短暂的窗口。
+  const expiresAt = new Date((payload.iat + OAUTH_STATE_TTL_SEC) * 1000)
+
+  const inserted = await db
+    .insert(oauthStateNonces)
+    .values({
+      nonce: payload.nonce,
+      assetName: payload.assetName,
+      authorId: payload.authorId,
+      expiresAt,
+    })
+    .onConflictDoNothing({ target: oauthStateNonces.nonce })
+    .returning({ id: oauthStateNonces.id })
+
+  if (inserted.length === 0) {
+    return { ok: false, reason: 'state 已被使用过（检测到重放）' }
+  }
+  return { ok: true }
+}
+
+/**
+ * 删除已过期的 nonce 行。
+ *
+ * 不影响正确性：过期的 state 无论如何都过不了 `verifyOAuthState` 的 TTL 检查。
+ * 这只是不让表无限增长，所以清理失败不必告警成事故。
+ */
+export async function purgeExpiredOAuthStates(): Promise<number> {
+  const deleted = await db
+    .delete(oauthStateNonces)
+    .where(sqlLt(oauthStateNonces.expiresAt, new Date()))
+    .returning({ id: oauthStateNonces.id })
+  return deleted.length
 }

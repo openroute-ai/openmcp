@@ -80,7 +80,7 @@ export function McpDetailHero({ server }: McpDetailHeroProps) {
           <div className='flex shrink-0 items-center gap-1.5'>
             <ShieldCheck className='size-3.5 text-foreground/35' aria-hidden />
             <span className='font-medium text-foreground/90 text-xs'>
-              {securityLabel(server.securityLevel, lang) || t('safeDefault')}
+              {securityLabel(server.securityLevel, lang)}
             </span>
           </div>
           <div className='flex shrink-0 items-center gap-1.5'>

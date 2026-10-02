@@ -33,8 +33,18 @@ type RawEntry = {
    * 打包器（`zip -y`）也是这么存的。
    */
   symlink?: boolean
-  /** 写入的本地头偏移，通常不需要显式给。 */
+  /**
+   * 写入的本地头偏移，通常不需要显式给。
+   *
+   * 只在刻意构造「中央目录声称的偏移与真实本地头不符」时才用 —— 那种包本来
+   * 就是坏的，不代表 DOS 打包器的正常输出。
+   */
   localOffset?: number
+  /**
+   * 覆盖中央目录的 external attributes（高 16 位在 Unix 打包器下是 st_mode）。
+   * 用来表达 DOS 打包器写的 dos 属性位，而不借用 `localOffset` 顺带改偏移。
+   */
+  externalAttrs?: number
 }
 
 /**
@@ -86,10 +96,10 @@ function makeZip(entries: RawEntry[]): Buffer {
     central.writeUInt16LE(name.length, 28)
     // external attributes 高 16 位在 Unix 打包器下就是 st_mode。
     // 0xA1FF = S_IFLNK | 0777，即一个可写的符号链接。
-    if (entry.symlink) {
+    if (entry.externalAttrs !== undefined) {
+      central.writeUInt32LE(entry.externalAttrs, 38)
+    } else if (entry.symlink) {
       central.writeUInt32LE(0xa1ff0000, 38)
-    } else if (entry.localOffset !== undefined) {
-      central.writeUInt32LE(0x81a40000, 38)
     }
     central.writeUInt32LE(entry.localOffset ?? offset, 42)
 
@@ -226,11 +236,30 @@ describe("unzipTextFiles symlinks", () => {
     // 把它当 mode 解读会把一个普通文件误判成链接，把正常包整个打回。
     const zip = makeZip([
       { path: "SKILL.md", content: "# ok" },
-      { path: "docs/readme.md", content: "hello", localOffset: 0 },
+      // 只改 dos 属性位，偏移保持正确 —— 一个真实的 DOS 打包器就是这么写的。
+      { path: "docs/readme.md", content: "hello", externalAttrs: 0x81a40000 },
     ])
     const { files, rejections } = unzipTextFilesWithReport(zip)
     expect(files.map((f) => f.path)).toContain("docs/readme.md")
     expect(rejections).toEqual([])
+  })
+})
+
+describe("unzipTextFiles unverifiable entries", () => {
+  it("rejects a local header that the central directory does not account for", () => {
+    // 中央目录里没有这条记录，于是 symlink 检查会静默跳过（`central?.symlink`
+    // 为 undefined -> false）。构造者只要把一个 symlink 的本地头塞在中央目录
+    // 声称的 entry 之外，它就会以普通文本通过 —— EOCD 的计数校验拦不住，
+    // 因为计数只约束中央目录自己那几行。
+    const zip = makeZip([
+      { path: "SKILL.md", content: "# ok" },
+      { path: "pkg/passwd", content: "/etc/passwd", symlink: true, localOffset: 0 },
+    ])
+    const { files, rejections } = unzipTextFilesWithReport(zip)
+
+    expect(files.map((f) => f.path)).not.toContain("pkg/passwd")
+    expect(rejections.some((r) => r.kind === "unverifiable-entry")).toBe(true)
+    expect(hasUnsafeArchive(rejections)).toBe(true)
   })
 })
 

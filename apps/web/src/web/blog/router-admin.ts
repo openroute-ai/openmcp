@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, like, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -66,6 +66,14 @@ const listPostsSchema = z.object({
 })
 
 // ========== 文章管理 ==========
+
+/** 作者/分类列表的分页入参。`pageSize` 上限 100 防止一次拉爆整表。 */
+const listPageInput = z.object({
+  locale: z.string().optional(),
+  search: z.string().max(200).optional(),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(20),
+})
 
 export const adminBlogRouter = createTRPCRouter({
   /**
@@ -273,22 +281,36 @@ export const adminBlogRouter = createTRPCRouter({
    * 获取作者列表
    */
   listAuthors: adminProcedure
-    .input(
-      z.object({
-        locale: z.string().optional(),
-      })
-    )
+    .input(listPageInput)
     .query(async ({ input }) => {
       try {
-        const authors = await db
-          .select()
-          .from(blogAuthors)
-          .where(input.locale ? eq(blogAuthors.locale, input.locale) : undefined)
-          .orderBy(asc(blogAuthors.name))
+        const where = input.locale ? eq(blogAuthors.locale, input.locale) : undefined
+        // 搜索与分页都放在 SQL：作者表增长后浏览器端 filter 只能筛到已下发的那一屏。
+        const searchCond = input.search
+          ? or(ilike(blogAuthors.name, `%${input.search}%`), ilike(blogAuthors.slug, `%${input.search}%`))
+          : undefined
+        const whereExpr = searchCond
+          ? and(where, searchCond)
+          : where
+
+        const [rows, [totalRow]] = await Promise.all([
+          db
+            .select()
+            .from(blogAuthors)
+            .where(whereExpr)
+            .orderBy(asc(blogAuthors.name))
+            .limit(input.pageSize)
+            .offset((input.page - 1) * input.pageSize),
+          db.select({ n: count() }).from(blogAuthors).where(whereExpr),
+        ])
+        const total = totalRow?.n ?? 0
 
         return {
           success: true,
-          data: authors,
+          data: rows,
+          total,
+          page: input.page,
+          pageSize: input.pageSize,
         }
       } catch (error) {
         console.error('获取作者列表失败:', error)
@@ -392,22 +414,35 @@ export const adminBlogRouter = createTRPCRouter({
    * 获取分类列表
    */
   listCategories: adminProcedure
-    .input(
-      z.object({
-        locale: z.string().optional(),
-      })
-    )
+    .input(listPageInput)
     .query(async ({ input }) => {
       try {
-        const categories = await db
-          .select()
-          .from(blogCategories)
-          .where(input.locale ? eq(blogCategories.locale, input.locale) : undefined)
-          .orderBy(asc(blogCategories.name))
+        const where = input.locale ? eq(blogCategories.locale, input.locale) : undefined
+        const searchCond = input.search
+          ? or(ilike(blogCategories.name, `%${input.search}%`), ilike(blogCategories.slug, `%${input.search}%`))
+          : undefined
+        const whereExpr = searchCond
+          ? and(where, searchCond)
+          : where
+
+        const [rows, [totalRow]] = await Promise.all([
+          db
+            .select()
+            .from(blogCategories)
+            .where(whereExpr)
+            .orderBy(asc(blogCategories.name))
+            .limit(input.pageSize)
+            .offset((input.page - 1) * input.pageSize),
+          db.select({ n: count() }).from(blogCategories).where(whereExpr),
+        ])
+        const total = totalRow?.n ?? 0
 
         return {
           success: true,
-          data: categories,
+          data: rows,
+          total,
+          page: input.page,
+          pageSize: input.pageSize,
         }
       } catch (error) {
         console.error('获取分类列表失败:', error)

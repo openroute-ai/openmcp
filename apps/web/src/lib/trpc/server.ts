@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import type { UserWithRole } from "@/server/routers";
+import type { PlatformRole } from "@/server/routers/trpc";
 import {
   appRouter,
   createCallerFactory,
@@ -16,11 +17,16 @@ const resolveSession = async (headers: Headers) => {
   if (!authSession?.user) {
     return { user: null, session: null };
   }
+  // 只放行已知角色：DB 里出现别的值时降级为 undefined（按普通用户处理），
+  // 而不是把任意字符串当作 role 往下传。super_admin 必须在这里显式放行，
+  // 否则它会在 session 归一化时被抹掉、进而被 adminProcedure 挡下。
   const role = (authSession.user as { role?: unknown }).role;
   const user = {
     ...authSession.user,
     role:
-      role === "admin" || role === "user" ? (role as "admin" | "user") : undefined,
+      role === "admin" || role === "super_admin" || role === "user"
+        ? (role as PlatformRole)
+        : undefined,
   } as UserWithRole;
   return { user, session: authSession.session ?? null };
 };

@@ -1,9 +1,12 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm"
+import { z } from "zod"
 import { createId } from "@workspace/db"
 import { db } from "@/lib/db"
 import {
   PROVIDER_REVENUE_SHARE,
+  a2aAgents,
   authors,
+  mcpServers,
   providerEarnings,
   providerPayoutRequests,
   skills,
@@ -28,28 +31,110 @@ export async function creditProviderEarning(params: {
   const net = gross * PROVIDER_REVENUE_SHARE
   const fee = gross - net
   const id = createId()
-  await db.insert(providerEarnings).values({
-    id,
-    authorId: params.authorId,
-    buyerUserId: params.buyerUserId,
-    skillId: params.skillId,
-    entitlementId: params.entitlementId,
-    kind: 'sale',
-    grossAmount: round2(gross),
-    platformFee: round2(fee),
-    netAmount: round2(net),
-    currency: params.currency ?? 'CNY',
-    status: 'payable',
-  })
+  await db
+    .insert(providerEarnings)
+    .values({
+      id,
+      authorId: params.authorId,
+      buyerUserId: params.buyerUserId,
+      skillId: params.skillId,
+      entitlementId: params.entitlementId,
+      kind: 'sale',
+      grossAmount: round2(gross),
+      platformFee: round2(fee),
+      netAmount: round2(net),
+      currency: params.currency ?? 'CNY',
+      status: 'payable',
+    })
+    // 与 MCP/A2A 侧同一个部分唯一索引。少了这一句，重试入账会插出第二条收入行，
+    // 创作者账单凭空多一笔平台没收到的钱。谓词必须与索引的 WHERE 逐字一致。
+    .onConflictDoNothing({
+      target: providerEarnings.entitlementId,
+      where: sql`${providerEarnings.kind} = 'sale'`,
+    })
   return { id, netAmount: round2(net), platformFee: round2(fee) }
 }
 
-export async function listMyEarnings(authorId: string, limit = 50) {
+/**
+ * MCP / A2A 一次性购买成功后的分成入账。
+ *
+ * 比例、口径、`entitlement_id` 的唯一关系都与 Skill 侧一致，所以退款冲回能
+ * 用同一段逻辑按 `entitlement_id` 找到这行。
+ *
+ * 归属写在 `asset_type` + `asset_id` 上而不是复用 `skill_id`：那两列指向
+ * `skills`，填进去会在创作者账单里渲染出一个毫不相干的 Skill 名 —— 比没有
+ * 归属更难解释。
+ *
+ * 按 `entitlement_id` 去重：授权行在购买事务里已经落库，这里是提交之后才调用，
+ * 所以重试入账不会把同一笔收入算两遍。网关路径靠 `gateway_record_id` 唯一
+ * 达到同样效果，这里沿用同一个思路。
+ */
+export async function creditAssetPurchaseEarning(params: {
+  authorId: string
+  buyerUserId: string
+  assetType: 'mcp' | 'a2a'
+  assetId: string
+  entitlementId: string
+  grossAmount: string
+  currency?: string
+}): Promise<{ id: string; netAmount: string; platformFee: string }> {
+  const gross = Number(params.grossAmount)
+  const net = gross * PROVIDER_REVENUE_SHARE
+  const fee = gross - net
+  const id = createId()
+  await db
+    .insert(providerEarnings)
+    .values({
+      id,
+      authorId: params.authorId,
+      buyerUserId: params.buyerUserId,
+      assetType: params.assetType,
+      assetId: params.assetId,
+      entitlementId: params.entitlementId,
+      kind: 'sale',
+      grossAmount: round2(gross),
+      platformFee: round2(fee),
+      netAmount: round2(net),
+      currency: params.currency ?? 'CNY',
+      status: 'payable',
+    })
+    .onConflictDoNothing({
+      target: providerEarnings.entitlementId,
+      // 谓词必须与 `provider_earnings_entitlement_sale_unique` 的 WHERE 逐字
+      // 对应，Postgres 才能推断出仲裁索引。对不上时不是"退化为普通插入"，而是
+      // 整个 INSERT 报 42P10 —— 而这行是在购买事务提交后才调用的，异常被吞掉，
+      // 结果是买家付了钱、授权也发了，唯独创作者一行收入都没有。
+      where: sql`${providerEarnings.kind} = 'sale'`,
+    })
+  return { id, netAmount: round2(net), platformFee: round2(fee) }
+}
+
+/**
+ * 分页入参。`pageSize` 上限 100：收益行会随调用量无限增长，不封顶的接口迟早
+ * 一次性把某个大 provider 的全部历史拉下来。
+ */
+export const paginatedInput = z.object({
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(20),
+})
+
+export async function listMyEarnings(
+  authorId: string,
+  opts: { page?: number; pageSize?: number } = {}
+) {
+  const page = opts.page ?? 1
+  const pageSize = opts.pageSize ?? 20
   const rows = await db
     .select({
       id: providerEarnings.id,
       skillId: providerEarnings.skillId,
       skillTitle: skills.title,
+      // MCP / A2A 归属。买家的账单要能回答"这笔钱是哪个资产赚的"，所以和
+      // `skillTitle` 一起返回：三者只有一组非空。
+      assetType: providerEarnings.assetType,
+      assetId: providerEarnings.assetId,
+      mcpServerName: mcpServers.serverName,
+      a2aAgentName: a2aAgents.agentName,
       grossAmount: providerEarnings.grossAmount,
       platformFee: providerEarnings.platformFee,
       netAmount: providerEarnings.netAmount,
@@ -59,18 +144,32 @@ export async function listMyEarnings(authorId: string, limit = 50) {
     })
     .from(providerEarnings)
     .leftJoin(skills, eq(providerEarnings.skillId, skills.id))
+    // `asset_id` 不带跨表 FK（见迁移注释），所以归属由应用层按 `asset_type`
+    // 选表连接。类型不同不能共用一个 join，所以两个都是 left join 且靠
+    // `assetType` 判空 —— 一次 MCP 收入行的 `a2a_agent_name` 自然是 null。
+    .leftJoin(mcpServers, eq(providerEarnings.assetId, mcpServers.id))
+    .leftJoin(a2aAgents, eq(providerEarnings.assetId, a2aAgents.id))
     .where(eq(providerEarnings.authorId, authorId))
     .orderBy(desc(providerEarnings.createdAt))
-    .limit(limit)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
 
-  const [agg] = await db
-    .select({
-      payable: sql<string>`coalesce(sum(case when ${providerEarnings.status} = 'payable' then ${providerEarnings.netAmount} else 0 end), 0)`,
-      paid: sql<string>`coalesce(sum(case when ${providerEarnings.status} = 'paid' then ${providerEarnings.netAmount} else 0 end), 0)`,
-      total: sql<string>`coalesce(sum(${providerEarnings.netAmount}), 0)`,
-    })
-    .from(providerEarnings)
-    .where(eq(providerEarnings.authorId, authorId))
+  // total 与聚合放在同一次往返里。汇总必须统计全部行而不是当前页——
+  // 只算当前页会让"累计收入"随翻页变化。
+  const [[agg], [totalRow]] = await Promise.all([
+    db
+      .select({
+          payable: sql<string>`coalesce(sum(case when ${providerEarnings.status} = 'payable' then ${providerEarnings.netAmount} else 0 end), 0)`,
+        paid: sql<string>`coalesce(sum(case when ${providerEarnings.status} = 'paid' then ${providerEarnings.netAmount} else 0 end), 0)`,
+        total: sql<string>`coalesce(sum(${providerEarnings.netAmount}), 0)`,
+      })
+      .from(providerEarnings)
+      .where(eq(providerEarnings.authorId, authorId)),
+    db
+      .select({ n: count() })
+      .from(providerEarnings)
+      .where(eq(providerEarnings.authorId, authorId)),
+  ])
 
   return {
     rows: rows.map((r) => ({
@@ -78,6 +177,13 @@ export async function listMyEarnings(authorId: string, limit = 50) {
       grossAmount: r.grossAmount?.toString() ?? '0',
       platformFee: r.platformFee?.toString() ?? '0',
       netAmount: r.netAmount?.toString() ?? '0',
+      /**
+       * 展示用的来源名。`assetType` 为 null 的行（无法解析出资产的网关调用）
+       * 落到 `null`，UI 显示"网关调用"而不是一个空字符串。
+       */
+      sourceName:
+        r.skillTitle ??
+        (r.assetType === 'mcp' ? r.mcpServerName : r.assetType === 'a2a' ? r.a2aAgentName : null),
     })),
     summary: {
       payable: Number(agg?.payable ?? 0),
@@ -85,6 +191,9 @@ export async function listMyEarnings(authorId: string, limit = 50) {
       total: Number(agg?.total ?? 0),
       revenueShare: PROVIDER_REVENUE_SHARE,
     },
+    total: totalRow?.n ?? 0,
+    page,
+    pageSize,
   }
 }
 
@@ -106,13 +215,19 @@ export async function requestPayout(params: { userId: string; authorId: string; 
   throw new Error('提现已改为按月结算：每月 5 日出账、20 日打款，请前往"我的收益"查看账单')
 }
 
-export async function listMyPayoutRequests(authorId: string) {
+export async function listMyPayoutRequests(
+  authorId: string,
+  opts: { page?: number; pageSize?: number } = {}
+) {
+  const page = opts.page ?? 1
+  const pageSize = opts.pageSize ?? 20
   const rows = await db
     .select()
     .from(providerPayoutRequests)
     .where(eq(providerPayoutRequests.authorId, authorId))
     .orderBy(desc(providerPayoutRequests.createdAt))
-    .limit(50)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
   return rows.map((r) => ({
     ...r,
     amount: r.amount?.toString() ?? '0',

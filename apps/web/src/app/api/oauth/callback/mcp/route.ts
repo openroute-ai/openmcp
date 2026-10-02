@@ -4,7 +4,7 @@ import { mcpServers } from '@workspace/db'
 import { getMcpGateway, isLiteLLMConfigured } from '@workspace/litellm'
 import { db } from '@/lib/db'
 import { decryptSecret } from '@/lib/gateway/secrets'
-import { verifyOAuthState } from '@/lib/agent-install/oauth-state'
+import { consumeOAuthState, verifyOAuthState } from '@/lib/agent-install/oauth-state'
 import { notDeleted } from '@/web/assets/visibility'
 
 /**
@@ -51,6 +51,20 @@ export async function GET(request: NextRequest) {
     const stateData = {
       serverName: verified.payload.assetName,
       authorId: verified.payload.authorId,
+    }
+
+    // 验签只证明"这个 state 是我们签的"，不证明"没用过"。一个从浏览器历史
+    // 或上游日志里捡到的旧 state 签名是过得了的，所以必须单次消费。
+    //
+    // 刻意放在资产查询和 code 兑换**之前**：失败的 callback 也会烧掉这个 state。
+    // 这是有意的 —— 一个 state 一旦被送到 callback 就已经暴露给上游和浏览器，
+    // 留着它"以便重试"等于给重放留窗口。用户侧的后果只是重新走一遍授权，
+    // 而反过来（校验成功才消费）会让"资产不存在"这种可枚举的分支泄露哪些
+    // state 是有效的。
+    const consumed = await consumeOAuthState(verified.payload)
+    if (!consumed.ok) {
+      console.warn('[oauth-callback-mcp] rejected replayed state:', consumed.reason)
+      return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     }
 
     // 签名只证明"这个 state 是我们签的"，不证明资产还在。所以仍要查库：

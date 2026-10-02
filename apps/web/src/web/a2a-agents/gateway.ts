@@ -1,6 +1,7 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { a2aAgents } from "@workspace/db"
+import type { MineListOptions } from "@/web/assets/mine-list"
 import { discoverA2a, testA2aConnection } from "@/lib/gateway/a2a-connect"
 import { toGatewayName } from "@/lib/gateway/names"
 import { decryptSecret, encryptSecret } from "@/lib/gateway/secrets"
@@ -36,20 +37,51 @@ function authFromRow(
 }
 
 export const a2aGatewayAccess = {
-  listMine: async (authorId: string) => {
-    const rows = await db
-      .select()
-      .from(a2aAgents)
-      .where(and(eq(a2aAgents.authorId, authorId), notDeleted(a2aAgents)))
-      .orderBy(desc(a2aAgents.createdAt))
-    return rows.map((row) =>
-      mapA2aRow({
-        ...row,
-        priceAmount: row.priceAmount?.toString() ?? null,
-        unitPrice: row.unitPrice?.toString() ?? null,
-        rejectReason: rejectNote(row.metadata),
-      })
-    )
+  /** 名下资产：服务端搜索 + 分页，理由同 MCP 的 `listMine`。 */
+  listMine: async (authorId: string, opts: MineListOptions = {}) => {
+    const { search, status, page = 1, pageSize = 20 } = opts
+    const where = [eq(a2aAgents.authorId, authorId), notDeleted(a2aAgents)]
+    // status 在表上是枚举列，入参是 string：按该列自身的枚举收窄，避免塞进库外的值
+    if (status) where.push(eq(a2aAgents.status, status as (typeof a2aAgents.status.enumValues)[number]))
+    if (search) {
+      const needle = `%${search}%`
+      where.push(
+        or(
+          ilike(a2aAgents.name, needle),
+          ilike(a2aAgents.slug, needle),
+          ilike(a2aAgents.agentName, needle),
+          ilike(a2aAgents.endpoint, needle)
+        )!
+      )
+    }
+    const whereExpr = and(...where)
+
+    const [rows, [totalRow]] = await Promise.all([
+      db
+        .select()
+        .from(a2aAgents)
+        .where(whereExpr)
+        .orderBy(desc(a2aAgents.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ n: count() }).from(a2aAgents).where(whereExpr),
+    ])
+
+    const total = totalRow?.n ?? 0
+    return {
+      items: rows.map((row) =>
+        mapA2aRow({
+          ...row,
+          priceAmount: row.priceAmount?.toString() ?? null,
+          unitPrice: row.unitPrice?.toString() ?? null,
+          rejectReason: rejectNote(row.metadata),
+        })
+      ),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    }
   },
 
   getMineById: async (authorId: string, id: string) => {
@@ -263,6 +295,13 @@ export const a2aGatewayAccess = {
     if (!enabled) {
       // 停用即下架：市场可见性要求 `connectionStatus = 'online'`。`status` 保持
       // published，重新启用通过复查后能自动回到市场。
+      //
+      // ⚠️ 待定（P3）：与 `mcp-servers/gateway.ts` 的 `toggle(false)` 是同一个
+      // 未决问题，标记理由见那里的完整说明，简述：买家持有的是 LiteLLM 公网
+      // 地址和已发放的 virtual key，平台侧没有 proxy，所以只改 DB 不会切断
+      // 存量调用；`remove()` 会 deleteServer 而 `toggle(false)` 不会，两条路径
+      // 行为不一致。停用是"停止服务"还是"停止售卖"属于产品语义，且 LiteLLM
+      // 侧无法在本仓库验证，定下来后 MCP/A2A 要按同一套处理。
       await db
         .update(a2aAgents)
         .set({ connectionStatus: "disabled", updatedAt: new Date() })
@@ -323,6 +362,29 @@ export const a2aGatewayAccess = {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(a2aAgents.id, id))
     return { ok: true }
+  },
+
+  /**
+   * 定时健康检查用的探测：不校验 `authorId`，也不写 `connectionStatus`。
+   * 理由与 MCP 侧的 `probeSystem` 相同——写库策略（连续失败几次才下架）在调用方，
+   * 不在这里，免得改阈值要改两个探测实现。
+   */
+  probeSystem: async (id: string) => {
+    const [row] = await db
+      .select()
+      .from(a2aAgents)
+      .where(and(eq(a2aAgents.id, id), notDeleted(a2aAgents)))
+      .limit(1)
+    if (!row) throw new Error("资产不存在")
+    const auth = authFromRow(row.authConfig, row.authType)
+    const protocol = (
+      row.protocolVersion === "0.3" ? "0.3" : "1.0"
+    ) as A2aProtocolUi
+    return testA2aConnection({
+      url: row.endpoint || row.agentCardUrl || "",
+      protocol,
+      auth,
+    })
   },
 
   retest: async (authorId: string, id: string) => {

@@ -419,6 +419,48 @@ export const oauthDeviceCodes = pgTable(
 export type OAuthDeviceCode = typeof oauthDeviceCodes.$inferSelect
 export type NewOAuthDeviceCode = typeof oauthDeviceCodes.$inferInsert
 
+/**
+ * Provider-side OAuth `state` 的单次消费记录。
+ *
+ * `state` 由 `apps/web/src/lib/agent-install/oauth-state.ts` 用 HMAC 签名，
+ * 签名本身能挡住伪造和篡改，但挡不住重放：一个从浏览器历史或上游日志里
+ * 捡到的**合法** state 签名是过得了校验的。所以每次消费把 nonce 写进这张
+ * 表，靠唯一约束保证同一个 state 只能被用一次。
+ *
+ * 存的是 nonce 而不是整个 state：state 里有 `authorId` 和资产名，属于
+ * 一次性凭据，不该在表里留全文。签名比对已经在读表之前完成，这里只做
+ * "这个 nonce 见过没有"的判定。
+ *
+ * 行不主动删除。清理交给定时任务按 `expiresAt` 删（见 migration 0012 的
+ * 索引与 cron 说明）：清理失败只会让表慢慢变大，不会让校验变松。
+ */
+export const oauthStateNonces = pgTable(
+  "oauth_state_nonces",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    /**
+     * 唯一。冲突即代表重放：消费逻辑用 `ON CONFLICT DO NOTHING` 后检查
+     * 影响行数，为 0 就说明这个 state 之前已经用过了。
+     */
+    nonce: text("nonce").notNull().unique(),
+    /** 便于排查："这个 nonce 是哪条资产、哪个作者的授权流程留下的"。 */
+    assetName: text("asset_name").notNull(),
+    authorId: text("author_id").notNull(),
+    /** 与 `state` 里的 `iat + ttl` 一致，清理任务按它删除过期行。 */
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("oauthStateNonces_expiresAt_idx").on(table.expiresAt),
+    index("oauthStateNonces_authorId_idx").on(table.authorId),
+  ]
+)
+
+export type OAuthStateNonce = typeof oauthStateNonces.$inferSelect
+export type NewOAuthStateNonce = typeof oauthStateNonces.$inferInsert
+
 export const oauthTokens = pgTable(
   "oauth_tokens",
   {

@@ -4,6 +4,7 @@ import { failResult, listingInput } from "@/lib/gateway/input"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
 import { acquireSkill } from './acquire'
+import { emptyPage, mineListInput } from '@/web/assets/mine-list'
 import { skillsGatewayAccess } from './gateway'
 import { skillsHistoryAccess } from './history'
 import { skillsDataAccess } from './index'
@@ -92,12 +93,11 @@ export const skillsRouter = createTRPCRouter({
       }
     }),
 
-  listMine: protectedProcedure.query(async ({ ctx }) => {
+  listMine: protectedProcedure.input(mineListInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
-      if (!authorId) return { success: true, data: [] }
-      const data = await skillsGatewayAccess.listMine(authorId)
-      return { success: true, data }
+      if (!authorId) return { success: true, data: emptyPage() }
+      return { success: true, data: await skillsGatewayAccess.listMine(authorId, input) }
     } catch (error) {
       return failResult(error, '获取我的 Skill 失败')
     }

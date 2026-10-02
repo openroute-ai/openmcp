@@ -948,9 +948,30 @@ export const gatewaySpendRecords = pgTable(
     assetType: varchar('asset_type', { length: 20, enum: ['mcp', 'a2a'] }),
     /** LiteLLM model 名，即 server_name / agent_name */
     assetName: text('asset_name'),
+    /**
+     * 命中市场资产时的资产表主键。
+     *
+     * 与 `assetName` 并存是因为名字会被改：`server_name` 改一次，历史账本上
+     * 那一行就再也对不上资产本身了。分成行（`provider_earnings.asset_id`）
+     * 从这里取 id，所以"这个 MCP 一共赚了多少"在改名之后仍然成立。
+     *
+     * 不建 FK：`mcp_servers` / `a2a_agents` 软删除时保留 tombstone，但硬删除
+     * 后让账本行消失会连带删掉财务凭证。账本不因资产消失而丢失，所以这里
+     * 只是一个 id 引用。
+     */
+    assetId: text('asset_id'),
     /** Provider 归属，分成用 */
     authorId: text('author_id').references(() => authors.id, { onDelete: 'set null' }),
     model: text('model'),
+    /**
+     * LiteLLM 上报的真实耗时（`endTime - startTime`，毫秒）。
+     *
+     * 只在两个时间戳都存在且顺序正确时写入；否则留 null —— 调用观测面板
+     * 对 null 显示「未采集」，而不是拿别的值凑一个延迟出来。
+     */
+    latencyMs: integer('latency_ms'),
+    /** LiteLLM 的 call_type（completion / embed / image 等），用于区分调用入口 */
+    callType: text('call_type'),
     /** 消费发生时间（LiteLLM startTime），与 createdAt 区分 */
     occurredAt: timestamp('occurred_at').notNull(),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
@@ -961,6 +982,12 @@ export const gatewaySpendRecords = pgTable(
     index('gateway_spend_records_author_idx').on(table.authorId),
     index('gateway_spend_records_occurred_at_idx').on(table.occurredAt),
     index('gateway_spend_records_key_alias_idx').on(table.keyAlias),
+    /**
+     * Provider「调用观测」按资产聚合 + 按时间倒序取明细的复合索引。
+     * 资产维度的每次查询都带 `asset_type` + `occurred_at` 范围，
+     * 单独索引 `asset_id` 仍要回表筛类型再排序。
+     */
+    index('gateway_spend_records_asset_time_idx').on(table.assetType, table.assetId, table.occurredAt),
   ]
 )
 
@@ -1087,6 +1114,23 @@ export const providerEarnings = pgTable(
     gatewayRecordId: text('gateway_record_id').references(() => gatewaySpendRecords.id, {
       onDelete: 'cascade',
     }),
+    /**
+     * MCP / A2A 资产归属。`skill_id` 只指向 `skills`，所以 MCP/A2A 的收入行
+     * 之前无处记录"这笔钱是哪个资产的"，创作者账单只能看到一个孤立的 authorId
+     * 和 `gateway_record_id`。
+     *
+     * 用 `asset_type` + `asset_id` 一对而不是两个各带 FK 的列：`provider_earnings`
+     * 已经因为同时引用 `skills` / `gateway_spend_records` / `provider_statements`
+     * 而依赖多个 schema 文件，再加两个指向 `registry-schema` 的 FK 会把
+     * `mcp-schema` ↔ `registry-schema` 变成循环（后者已经 import 本文件的
+     * `skills`）。`gateway_spend_records` 用的也是同一对 `asset_type` /
+     * `asset_name`，保持一致。
+     *
+     * 可空：Skill 销售行和无法解析出资产名的网关调用行都留空，由下面的
+     * CHECK 约束保证「要么都有、要么都没有」，不出现半截归属。
+     */
+    assetType: varchar('asset_type', { length: 20, enum: ['mcp', 'a2a'] }),
+    assetId: text('asset_id'),
     entitlementId: text('entitlement_id'),
     /**
      * 被哪张结算单结算过。出账时把当月未归属的收入行挂到账单上，
@@ -1119,11 +1163,25 @@ export const providerEarnings = pgTable(
   (table) => [
     index('provider_earnings_author_idx').on(table.authorId),
     index('provider_earnings_skill_idx').on(table.skillId),
+    // 「这个 MCP/A2A 一共给我赚了多少」是资产详情页要展示的数字。
+    index('provider_earnings_asset_idx').on(table.assetType, table.assetId),
     index('provider_earnings_status_idx').on(table.status),
     index('provider_earnings_created_at_idx').on(table.createdAt),
     // 出账扫描的是「未归属 + 落在结算月内」，这两列必须各自可用。
     index('provider_earnings_statement_idx').on(table.statementId),
     unique('provider_earnings_gateway_record_unique').on(table.gatewayRecordId),
+    // 一笔授权只分成一次：重试入账（网络超时后重跑）靠它挡住第二条收入行。
+    //
+    // 必须是**部分唯一索引**而不是普通唯一索引：`clawback` 行会从原销售行复制
+    // `entitlement_id`，所以同一个 entitlement_id 合法地会出现两次（sale +
+    // clawback）。普通唯一索引会让退款永远插不进冲回行 —— 买家退了钱、创作者
+    // 的负数行却写不进去，账单看起来像平台吞了这笔退款。
+    //
+    // 入账的 `ON CONFLICT (entitlement_id) WHERE kind = 'sale'` 必须与这里的
+    // 谓词逐字对应，否则 Postgres 推断不出仲裁索引（42P10）。
+    uniqueIndex('provider_earnings_entitlement_sale_unique')
+      .on(table.entitlementId)
+      .where(sql`${table.kind} = 'sale'`),
     // 一条销售行最多被冲回一次，退款接口重复调用时靠它挡住第二次 clawback。
     unique('provider_earnings_reverses_earning_unique').on(table.reversesEarningId),
     check('provider_earnings_kind_check', sql`${table.kind} in ('sale', 'clawback')`),
@@ -1138,6 +1196,19 @@ export const providerEarnings = pgTable(
     check(
       'provider_earnings_reverses_only_clawback_check',
       sql`${table.kind} <> 'clawback' or ${table.reversesEarningId} is not null`
+    ),
+    // 归属必须成对出现。半截归属（只有 asset_type 没有 asset_id）比完全没有
+    // 归属更难排查：按资产聚合时那行会被静默漏掉，而按类型聚合时又算得进去，
+    // 两个数字对不上却没人知道差在哪。
+    check(
+      'provider_earnings_asset_pair_check',
+      sql`(${table.assetType} is null) = (${table.assetId} is null)`
+    ),
+    // 一行只能归属一个来源。两种收入同时带归属列意味着账单无法判断该按哪个
+    // 维度聚合，或者（更糟）按两者重复计入。
+    check(
+      'provider_earnings_single_source_check',
+      sql`num_nonnulls(${table.skillId}, ${table.assetId}) <= 1`
     ),
   ]
 )

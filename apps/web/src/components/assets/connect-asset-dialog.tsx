@@ -23,13 +23,22 @@ import {
   ALLOWED_AUTHS,
   ALLOWED_PROTOCOLS,
   type AutoDiscoverResult,
-  type ConnectionTestResult,
   type GradedTestResult,
   type GradedTestStep,
   type MyAsset,
   type MyAssetType,
 } from './assets-data'
 import { assetAuthLabelKey, TYPE_KEY } from './assets-ui'
+
+type TestErrorCode = 'auth' | 'timeout' | 'protocol' | 'url'
+
+/** 沙箱试调结果：只描述"这次探测发生了什么"，不写资产状态。 */
+interface ConnectionTestResult {
+  ok: boolean
+  code?: TestErrorCode
+  count?: number
+  durationMs: number
+}
 
 const CATEGORIES = [
   '电商服务',

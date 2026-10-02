@@ -13,7 +13,7 @@ import {
   markStatementPaid,
   unbilledEarningsTotal,
 } from "./statements"
-import { adminListRefundableEntitlements, refundSkillEntitlement } from "./refunds"
+import { adminListRefundableEntitlements, refundEntitlement } from "./refunds"
 
 export const adminProvidersRouter = createTRPCRouter({
   /**
@@ -495,14 +495,15 @@ export const adminProvidersRouter = createTRPCRouter({
    * 二次退钱。`reason` 必填：创作者在账单里看到的负数行只有这一句解释。
    */
   /**
-   * 可退款权益列表。退款接口需要一个能列出 `skill_entitlements` 的入口，
-   * 否则运营只能靠猜 id 去调退款。
+   * 可退款权益列表。退款接口需要一个能列出授权表的入口，否则运营只能靠猜
+   * id 去调退款。`kind` 缺省列出全部类型。
    */
   listRefundableEntitlements: adminProcedure
     .input(
       z
         .object({
           status: z.enum(['active', 'revoked', 'all']).optional(),
+          kind: z.enum(['skill', 'mcp', 'a2a', 'all']).optional(),
           search: z.string().max(200).optional(),
           limit: z.number().int().min(1).max(200).optional(),
           offset: z.number().int().min(0).optional(),
@@ -525,14 +526,20 @@ export const adminProvidersRouter = createTRPCRouter({
     .input(
       z.object({
         entitlementId: z.string(),
+        /**
+         * 授权表不是一张表，缺省按 skill 查 —— 后台老的调用方不传 kind 也能
+         * 退历史 Skill 订单。
+         */
+        kind: z.enum(['skill', 'mcp', 'a2a']).default('skill'),
         reason: z.string().min(1).max(500),
         amount: z.number().positive().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const data = await refundSkillEntitlement({
+        const data = await refundEntitlement({
           entitlementId: input.entitlementId,
+          kind: input.kind,
           adminUserId: ctx.user.id,
           reason: input.reason,
           amount: input.amount,

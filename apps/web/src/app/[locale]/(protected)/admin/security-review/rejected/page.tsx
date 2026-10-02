@@ -2,10 +2,21 @@
 
 import { Loader2Icon, ShieldXIcon } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent } from '@workspace/ui/components/card'
+import { Input } from '@workspace/ui/components/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
+import { useDebounce } from '@/hooks/use-debounce'
+import PaginationBox from '@/components/web/pagination-box'
 import { trpc } from '@/lib/trpc/client'
 import { formatDateTime } from '@/lib/utils'
 import { toFlags, type ReviewRecord } from '../types'
@@ -13,13 +24,31 @@ import { toFlags, type ReviewRecord } from '../types'
 /**
  * Rejected submissions.
  *
- * One row per skill: the router collapses repeated review rows and keeps the
- * newest, so a skill that was auto-rejected and then manually rejected appears
- * once rather than twice.
+ * 一行对应一次驳回记录（不是一个 skill）：同一个 skill 被自动驳回后又人工驳回，
+ * 两次都值得看到，所以不按 skillId 折叠。搜索与分页都在服务端做——这个列表
+ * 之前既没有搜索也没有分页，超过 200 条的部分会静默消失。
  */
 export default function RejectedReviewsPage() {
-  const { data, isLoading } = trpc.admin.securityReview.getRejected.useQuery()
+  const [search, setSearch] = useState('')
+  const [decision, setDecision] = useState<'all' | 'auto_reject' | 'reject'>('all')
+  const [page, setPage] = useState(1)
+  const pageSize = 20
+  const debouncedSearch = useDebounce(search, 400)
+
+  const { data, isLoading } = trpc.admin.securityReview.getRejected.useQuery({
+    search: debouncedSearch.trim() || undefined,
+    decision,
+    page,
+    pageSize,
+  })
   const records = (data?.success ? data.data : []) as ReviewRecord[]
+
+  const filterKey = `${decision}|${debouncedSearch.trim()}`
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey)
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey)
+    setPage(1)
+  }
 
   return (
     <div className='space-y-6'>
@@ -31,6 +60,28 @@ export default function RejectedReviewsPage() {
         <p className='text-muted-foreground'>
           被自动扫描或人工审核驳回的 Skill。可以通过详情页恢复到复核队列。
         </p>
+      </div>
+
+      <div className='flex flex-wrap gap-3'>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder='搜索 Skill 名称、slug 或创作者'
+          className='max-w-sm'
+        />
+        <Select
+          value={decision}
+          onValueChange={(v) => setDecision(v as 'all' | 'auto_reject' | 'reject')}
+        >
+          <SelectTrigger className='w-40'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>全部驳回</SelectItem>
+            <SelectItem value='auto_reject'>仅自动驳回</SelectItem>
+            <SelectItem value='reject'>仅人工驳回</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -98,6 +149,11 @@ export default function RejectedReviewsPage() {
               ))}
             </TableBody>
           </Table>
+          {data?.success === true && (
+            <div className='mt-4'>
+              <PaginationBox page={page} count={data.total} pageSize={pageSize} onPageChange={setPage} />
+            </div>
+          )}
         </div>
       )}
     </div>

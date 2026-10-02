@@ -145,7 +145,11 @@ export function UserDetailPage({ userId }: { userId: string }) {
             <CardContent className='space-y-4'>
               <div className='flex flex-wrap gap-2'>
                 <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
-                  {user.role === 'admin' ? '管理员' : '用户'}
+                  {user.role === 'super_admin'
+                    ? '超级管理员'
+                    : user.role === 'admin'
+                      ? '管理员'
+                      : '用户'}
                 </Badge>
                 <Badge variant='outline' className='flex items-center gap-1'>
                   {user.emailVerified ? (

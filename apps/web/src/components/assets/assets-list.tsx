@@ -18,13 +18,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Activity, ArrowRight, Bot, Cable, FlaskConical, Loader2, Plug, Plus, Search, Trash2, X } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { type ReactNode, useCallback, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { useDebounce } from '@/hooks/use-debounce'
+import PaginationBox from '@/components/web/pagination-box'
 import { toast } from 'sonner'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { resultError } from '@/lib/gateway/input'
 import { trpc } from '@/lib/trpc/client'
 import { AssetDetailView } from './asset-detail'
-import { type AssetVisibility, buildMetrics, type MyAsset, type MyAssetType } from './assets-data'
+import { type AssetVisibility, type MyAsset, type MyAssetType } from './assets-data'
 import { AssetStatusBadge, assetAuthLabelKey, BILLING_KEY, SCOPE_KEY, STATUS_KEY, TITLE_KEY } from './assets-ui'
 import { ConnectAssetDialog } from './connect-asset-dialog'
 import { SkillsConnectDialog } from './skills-connect-dialog'
@@ -43,17 +45,35 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
   const t = useTranslations('Dashboard.myAssets')
   const tDashboard = useTranslations('Dashboard.dashboard')
 
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const selectedId = searchParams.get('id')
   const utils = trpc.useUtils()
 
-  const mcpQuery = trpc.mcpServers.listMine.useQuery(undefined, { enabled: type === 'mcp' })
-  const a2aQuery = trpc.a2aAgents.listMine.useQuery(undefined, { enabled: type === 'a2a' })
-  const skillsQuery = trpc.skills.listMine.useQuery(undefined, { enabled: type === 'skills' })
+  // 搜索 / 状态筛选 / 分页都在服务端：这些条件现在直接进 SQL，
+  // 不再是"先全量下发再在浏览器里 filter"
+  const [page, setPage] = useState(1)
+  const pageSize = 20
+  const debouncedSearch = useDebounce(search, 400)
+  const listArgs = {
+    search: debouncedSearch.trim() || undefined,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    page,
+    pageSize,
+  }
+
+  const mcpQuery = trpc.mcpServers.listMine.useQuery(listArgs, { enabled: type === 'mcp' })
+  const a2aQuery = trpc.a2aAgents.listMine.useQuery(listArgs, { enabled: type === 'a2a' })
+  const skillsQuery = trpc.skills.listMine.useQuery(listArgs, { enabled: type === 'skills' })
   const listQuery = type === 'mcp' ? mcpQuery : type === 'a2a' ? a2aQuery : skillsQuery
-  const assets = useMemo(() => (listQuery.data?.success ? (listQuery.data.data as MyAsset[]) : []), [listQuery.data])
+  const assets = useMemo(
+    () => (listQuery.data?.success ? ((listQuery.data.data?.items ?? []) as MyAsset[]) : []),
+    [listQuery.data]
+  )
+  const total = listQuery.data?.success ? (listQuery.data.data?.total ?? 0) : 0
 
   const mcpToggle = trpc.mcpServers.toggle.useMutation()
   const a2aToggle = trpc.a2aAgents.toggle.useMutation()
@@ -65,8 +85,6 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
   const a2aRetest = trpc.a2aAgents.retest.useMutation()
   const skillsRescan = trpc.skills.rescan.useMutation()
 
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<MyAsset | null>(null)
@@ -87,24 +105,16 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
 
   const selectedAsset = selectedId ? assets.find((asset) => asset.id === selectedId) : undefined
 
-  const filtered = assets.filter((asset) => {
-    if (statusFilter !== 'all' && asset.status !== statusFilter) return false
-    if (!search.trim()) return true
-    const keyword = search.trim().toLowerCase()
-    return (
-      asset.name.toLowerCase().includes(keyword) ||
-      asset.slug.toLowerCase().includes(keyword) ||
-      (asset.endpoint ?? '').toLowerCase().includes(keyword)
-    )
-  })
+  // 条件变化时回到第一页，否则可能停在一个已被过滤掉的空页上
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, statusFilter])
 
-  const metrics = assets.map(buildMetrics)
-  const totalRequests = metrics.reduce((sum, item) => sum + item.requests, 0)
-  const totalErrors = metrics.reduce((sum, item) => sum + item.errors, 0)
-  const avgSuccess =
-    metrics.length === 0
-      ? '100.00'
-      : (metrics.reduce((sum, item) => sum + Number(item.success), 0) / metrics.length).toFixed(2)
+  // 顶部观测汇总取真实账本聚合。成功率和错误数不展示：账本只记录成功计费的
+  // 调用，失败调用没有落库，算出来的成功率恒为 100%，比不显示更有害。
+  const overviewQuery = trpc.assets.getUsageOverview.useQuery({ days: 30 })
+  const notCollected = t('notCollected')
+  const overview = overviewQuery.data
 
   const handleCreated = useCallback(() => {
     invalidateList()
@@ -236,16 +246,22 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
                         <h2 className='font-medium'>{t('observabilityTitle')}</h2>
                       </div>
                       <div className='grid grid-cols-2 gap-4 lg:grid-cols-4'>
-                        <SummaryStat label={t('obsRequests')} value={totalRequests.toLocaleString()} />
-                        <SummaryStat label={t('obsSuccessRate')} value={`${avgSuccess}%`} />
+                        <SummaryStat
+                          label={t('obsRequests')}
+                          value={overview ? overview.calls.toLocaleString() : notCollected}
+                        />
+                        <SummaryStat label={t('obsSpend')} value={overview ? `¥${overview.spend}` : notCollected} />
                         <SummaryStat
                           label={t('obsLatency')}
-                          value={`${Math.round(metrics.map((m) => Number(m.p50.replace('ms', ''))).reduce((a, b) => a + b, 0) / Math.max(metrics.length, 1))}ms`}
+                          value={
+                            overview?.p50Ms === null || !overview ? notCollected : `${overview.p50Ms}ms`
+                          }
                         />
                         <SummaryStat
-                          label={t('obsErrors')}
-                          value={totalErrors.toLocaleString()}
-                          alert={totalErrors > 0}
+                          label={t('obsLatencyCoverage')}
+                          value={
+                            overview ? `${Math.round(overview.latencyCoverage * 100)}%` : notCollected
+                          }
                         />
                       </div>
                     </CardContent>
@@ -307,11 +323,11 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
                       actionLabel={t('emptyAction')}
                       onAction={() => setDialogOpen(true)}
                     />
-                  ) : filtered.length === 0 ? (
+                  ) : assets.length === 0 ? (
                     <EmptyState title={t('noMatchedTitle')} desc={t('noMatchedDesc')} />
                   ) : (
                     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-                      {filtered.map((asset) => (
+                      {assets.map((asset) => (
                         <AssetCard
                           key={asset.id}
                           asset={asset}
@@ -330,6 +346,9 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
                       ))}
                     </div>
                   )}
+                  <div className='mt-4'>
+                    <PaginationBox page={page} count={total} pageSize={pageSize} onPageChange={setPage} />
+                  </div>
                 </>
               )}
             </div>

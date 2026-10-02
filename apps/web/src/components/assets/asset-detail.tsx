@@ -31,10 +31,9 @@ import { toast } from 'sonner'
 import { resultError } from '@/lib/gateway/input'
 import { trpc } from '@/lib/trpc/client'
 import { SkillVersions } from '@/components/skills/skill-versions'
+import { GatewayAssetVersions } from '@/components/assets/gateway-versions'
 import {
   type AssetVisibility,
-  buildCallLogs,
-  buildMetrics,
   type MyAsset,
   type MyAssetType,
   type ScanResult,
@@ -58,6 +57,11 @@ interface GrantEntry {
   name: string
 }
 
+function formatTime(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export function AssetDetailView({
   asset,
   type,
@@ -76,9 +80,17 @@ export function AssetDetailView({
         ? 'OpenAI'
         : t(asset.protocol === 'streamable' ? 'protoStreamable' : asset.protocol === 'sse' ? 'protoSse' : 'protoStdio')
   const authLabel = t(assetAuthLabelKey(asset.auth))
+  const notCollected = t('notCollected')
 
-  const metrics = useMemo(() => buildMetrics(asset), [asset])
-  const logs = useMemo(() => buildCallLogs(asset, 14), [asset])
+  // 真实账本数据；没有计费记录时后端返回 calls=0，面板显示未采集而不是伪造
+  const isGateway = asset.type === 'mcp' || asset.type === 'a2a'
+  const usageQuery = trpc.assets.getUsage.useQuery(
+    { assetType: asset.type === 'a2a' ? 'a2a' : 'mcp', assetId: asset.id },
+    { enabled: isGateway }
+  )
+  const metrics = usageQuery.data?.summary
+  const logs = usageQuery.data?.calls ?? []
+  const usageLoading = usageQuery.isLoading
 
   const [testingAgain, setTestingAgain] = useState(false)
   const [lastTestOk, setLastTestOk] = useState<boolean | null>(null)
@@ -296,11 +308,20 @@ export function AssetDetailView({
         </CardHeader>
         <CardContent className='space-y-6'>
           <div className='grid grid-cols-2 gap-4 md:grid-cols-5'>
-            <StatCard label={t('statRequests')} value={metrics.requests.toLocaleString()} />
-            <StatCard label={t('statSuccess')} value={`${metrics.success}%`} />
-            <StatCard label={t('statP50')} value={metrics.p50} />
-            <StatCard label={t('statP95')} value={metrics.p95} />
-            <StatCard label={t('statErrors')} value={String(metrics.errors)} alert={metrics.errors > 0} />
+            <StatCard label={t('statRequests')} value={metrics ? metrics.calls.toLocaleString() : '—'} />
+            {/*
+              成功率/错误数不展示：账本只记录成功计费的调用，失败调用没有落库，
+              算出来的"成功率"恒等于 100%，比不显示更有害。
+            */}
+            <StatCard label={t('statSpend')} value={metrics ? `¥${metrics.spend}` : '—'} />
+            <StatCard
+              label={t('statP50')}
+              value={metrics?.p50Ms === null || !metrics ? notCollected : `${metrics.p50Ms}ms`}
+            />
+            <StatCard
+              label={t('statP95')}
+              value={metrics?.p95Ms === null || !metrics ? notCollected : `${metrics.p95Ms}ms`}
+            />
           </div>
 
           <div>
@@ -309,7 +330,11 @@ export function AssetDetailView({
               <h3 className='font-medium'>{t('logsTitle')}</h3>
               <span className='text-muted-foreground text-xs'>({t('logsDesc')})</span>
             </div>
-            {logs.length === 0 ? (
+            {usageLoading ? (
+              <div className='rounded-lg border border-dashed py-10 text-center text-muted-foreground'>
+                {t('logLoading')}
+              </div>
+            ) : logs.length === 0 ? (
               <div className='rounded-lg border border-dashed py-10 text-center text-muted-foreground'>
                 {t('logEmpty')}
               </div>
@@ -329,21 +354,19 @@ export function AssetDetailView({
                   <TableBody>
                     {logs.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell className='font-mono text-xs'>{entry.time}</TableCell>
-                        <TableCell className='font-mono text-xs'>{entry.caller}</TableCell>
-                        <TableCell className='font-mono text-xs'>{entry.method}</TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                              entry.ok
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-destructive/15 text-destructive'
-                            }`}
-                          >
-                            {entry.ok ? t('resultOk') : t('resultErr')}
-                          </span>
+                        <TableCell className='font-mono text-xs'>{formatTime(entry.occurredAt)}</TableCell>
+                        <TableCell className='font-mono text-xs'>{entry.caller ?? notCollected}</TableCell>
+                        <TableCell className='font-mono text-xs'>{entry.callType ?? notCollected}</TableCell>
+                        {/*
+                          每一行都对应一次真实扣费，因此没有 ok/失败列：
+                          账本里根本没有失败调用这一行，显示"成功"是循环论证。
+                        */}
+                        <TableCell className='font-mono text-xs text-muted-foreground'>
+                          {t('logBilledOnly')}
                         </TableCell>
-                        <TableCell className='text-right font-mono text-xs'>{entry.latencyMs}ms</TableCell>
+                        <TableCell className='text-right font-mono text-xs'>
+                          {entry.latencyMs === null ? notCollected : `${entry.latencyMs}ms`}
+                        </TableCell>
                         <TableCell className='text-right font-mono text-xs'>¥{entry.cost}</TableCell>
                       </TableRow>
                     ))}
@@ -494,6 +517,27 @@ export function AssetDetailView({
           </CardHeader>
           <CardContent>
             <SkillVersions skillId={asset.id} isProvider={true} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/*
+        网关资产（MCP / A2A）的版本管理。
+
+        快照的是端点/工具/价格等平台侧元数据，不是对方代码——平台拿不到远程
+        进程里的东西，能承诺的只有这些字段。
+      */}
+      {isGateway && (
+        <Card>
+          <CardHeader className='pb-3'>
+            <CardTitle className='flex items-center gap-2 text-base'>
+              <History className='size-4 text-primary' />
+              {t('gatewayVersionsTitle')}
+            </CardTitle>
+            <CardDescription>{t('gatewayVersionsDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GatewayAssetVersions kind={asset.type as 'mcp' | 'a2a'} assetId={asset.id} />
           </CardContent>
         </Card>
       )}

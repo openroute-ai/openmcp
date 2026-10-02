@@ -146,7 +146,11 @@ export function UsersTable({
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.role === 'admin' ? 'default' : 'outline'} className='px-1.5'>
-                          {row.role === 'admin' ? '管理员' : '用户'}
+                          {row.role === 'super_admin'
+                            ? '超级管理员'
+                            : row.role === 'admin'
+                              ? '管理员'
+                              : '用户'}
                         </Badge>
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>{formatDateTime(row.createdAt)}</TableCell>

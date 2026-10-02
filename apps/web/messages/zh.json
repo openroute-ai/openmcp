@@ -274,7 +274,8 @@
         "neverSynced": "未同步",
         "perKeyBudget": "Key 额度",
         "notConfigured": "网关未配置"
-      }
+      },
+      "searchPlaceholder": "搜索 Key 名称"
     },
     "bills": {
       "title": "消费账单",
@@ -1179,7 +1180,33 @@
       "deleteConfirmDesc": "删除后网关将立即使其不可调用，且不可恢复。",
       "rejectReason": "驳回原因",
       "authOauthClient": "OAuth2 Client Credentials",
-      "engagement": "浏览 {views} · 下载/调用 {downloads}"
+      "engagement": "浏览 {views} · 下载/调用 {downloads}",
+      "notCollected": "未采集",
+      "logLoading": "加载中…",
+      "logBilledOnly": "已计费",
+      "statSpend": "累计扣款",
+      "obsSpend": "累计扣款",
+      "obsLatencyCoverage": "延迟采集率",
+      "gatewayVersionsTitle": "版本管理",
+      "gatewayVersionsDesc": "发布新版本、下线问题版本或回滚到历史版本",
+      "gatewayVersionHint": "版本快照记录的是端点、传输方式、工具列表与价格等平台侧元数据。平台无法读取远端进程代码，回滚只改变平台侧承诺的元数据。",
+      "versionNewLabel": "新版本号",
+      "versionCreate": "创建草稿",
+      "versionPublish": "发布",
+      "versionRollback": "设为当前",
+      "versionYank": "下线",
+      "versionCreated": "版本草稿已创建",
+      "versionPublished": "版本已发布",
+      "versionRolledBack": "当前版本已切换",
+      "versionYanked": "版本已下线",
+      "versionChangelogPlaceholder": "更新说明（可选）",
+      "versionLoading": "正在加载版本…",
+      "versionEmpty": "还没有版本。发布第一个版本后，端点和定价的变更才有记录。",
+      "versionColVersion": "版本",
+      "versionColStatus": "状态",
+      "versionColPublished": "发布时间",
+      "versionColChangelog": "更新说明",
+      "versionColActions": "操作"
     },
     "sidebar": {
       "workspace": "工作台",
@@ -1244,6 +1271,7 @@
     "earnings": {
       "title": "收益与打款",
       "description": "查看技能销售、网关调用收益与提现申请",
+      "gatewayCall": "网关调用",
       "comingSoon": "收益中心即将完善",
       "notProvider": "您还不是 Provider，请先完成入驻",
       "goOnboarding": "前往入驻",
@@ -2849,7 +2877,6 @@
     "description": "发现由我们的 OpenMCP AI 专家社区创建的能力资产。",
     "totalAuthors": "{count} 位创作者",
     "authors": "创作者",
-    "searchPlaceholder": "搜索创作者...",
     "skills": "个Skills",
     "loadingMore": "加载更多创作者...",
     "allLoaded": "所有创作者已加载",
@@ -3134,6 +3161,24 @@
       "copyFailed": "复制失败",
       "close": "关闭"
     }
+  },
+  "AssetPurchase": {
+    "free": "免费",
+    "perCall": "每次调用 {amount}",
+    "oneTimeHint": "一次性付费，购买后长期可用",
+    "meteredHint": "按调用计费，安装后直接使用，每次调用从账户余额扣除",
+    "subscriptionUnsupported": "订阅计费尚未上线，暂不可购买",
+    "ownedHint": "已购买，可直接使用",
+    "buyNow": "立即购买",
+    "loginToBuy": "登录后购买",
+    "checkingSession": "检查登录状态…",
+    "alreadyOwned": "你已拥有该资产",
+    "purchaseSuccess": "购买成功：{amount} {currency}",
+    "purchaseFailed": "购买失败",
+    "needRecharge": "余额不足",
+    "needRechargeHint": "还差 {amount}，充值后再试",
+    "goRecharge": "去充值",
+    "retryPurchase": "重试购买"
   },
   "Skills": {
     "hero": {
@@ -4265,7 +4310,6 @@
         "description": "{description}"
       }
     },
-    "searchPlaceholder": "搜索模型...",
     "showFilters": "显示筛选",
     "hideFilters": "隐藏筛选",
     "loading": "加载中...",

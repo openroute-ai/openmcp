@@ -82,6 +82,52 @@
       "version": "7",
       "when": 1790770800000,
       "tag": "0011_catalog_visibility"
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790774400000,
+      "tag": "0012_oauth_state_nonces"
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790778000000,
+      "tag": "0013_mcp_a2a_entitlements"
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790781600000,
+      "tag": "0014_provider_earnings_asset_attribution"
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790781600001,
+      "tag": "0015_asset_health_check_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790781600002,
+      "tag": "0016_gateway_spend_latency",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790781600003,
+      "tag": "0017_gateway_security_scan",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790781600004,
+      "tag": "0018_gateway_asset_versions",
+      "breakpoints": true
     }
   ]
 }

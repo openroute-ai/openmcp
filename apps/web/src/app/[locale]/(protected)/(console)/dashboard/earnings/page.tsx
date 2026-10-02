@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@workspace/ui/components/table'
 import { useLocale, useTranslations } from 'next-intl'
+import PaginationBox from '@/components/web/pagination-box'
 import { useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis } from 'recharts'
 import { toast } from 'sonner'
@@ -31,11 +32,16 @@ interface DailyUsage {
 
 const DATE_LOCALES = { zh: 'zh-CN', en: 'en-US' } as const
 
+const EARNINGS_PAGE_SIZE = 20
+
 export default function EarningsPage() {
   const t = useTranslations('Dashboard.earnings')
   const locale = useLocale()
   const dateLocale = DATE_LOCALES[locale === 'zh' ? 'zh' : 'en']
   const utils = trpc.useUtils()
+  const [earningsPage, setEarningsPage] = useState(1)
+  const [payoutPage, setPayoutPage] = useState(1)
+  const [statementPage, setStatementPage] = useState(1)
 
   const { data: providerStatusData, isLoading: isLoadingStatus } =
     trpc.dashboard.getUserProviderStatus.useQuery()
@@ -47,14 +53,17 @@ export default function EarningsPage() {
     data: earningsRes,
     isLoading: earningsLoading,
     refetch: refetchEarnings,
-  } = trpc.providers.listMyEarnings.useQuery(undefined, { retry: false })
+  } = trpc.providers.listMyEarnings.useQuery(
+    { page: earningsPage, pageSize: EARNINGS_PAGE_SIZE },
+    { retry: false }
+  )
   const { data: payoutsRes, refetch: refetchPayouts } = trpc.providers.listMyPayoutRequests.useQuery(
-    undefined,
+    { page: payoutPage, pageSize: EARNINGS_PAGE_SIZE },
     { retry: false }
   )
   const { data: profileRes } = trpc.providers.getMyProfile.useQuery(undefined, { retry: false })
   const { data: statementsRes, refetch: refetchStatements } = trpc.providers.listMyStatements.useQuery(
-    undefined,
+    { page: statementPage, pageSize: EARNINGS_PAGE_SIZE },
     { retry: false }
   )
   const { data: timelineRes } = trpc.providers.getStatementTimeline.useQuery(undefined, { retry: false })
@@ -323,7 +332,11 @@ export default function EarningsPage() {
                           ) : (
                             (earnings?.rows ?? []).map((row) => (
                               <TableRow key={row.id}>
-                                <TableCell>{row.skillTitle || row.skillId}</TableCell>
+                                <TableCell>
+                                  {/* 三种来源互斥：Skill 购买 / MCP / A2A。都没有时是
+                                      解析不出资产名的网关调用，不是数据坏了。 */}
+                                  {row.sourceName ?? row.skillId ?? row.assetId ?? t('earnings.gatewayCall')}
+                                </TableCell>
                                 <TableCell className='tabular-nums'>
                                   {formatCurrency(Number(row.grossAmount), 'CNY')}
                                 </TableCell>
@@ -344,6 +357,12 @@ export default function EarningsPage() {
                           )}
                         </TableBody>
                       </Table>
+                          <PaginationBox
+                            page={earningsPage}
+                            count={earnings?.total ?? 0}
+                            pageSize={EARNINGS_PAGE_SIZE}
+                            onPageChange={setEarningsPage}
+                          />
 
                       {(payouts?.length ?? 0) > 0 ? (
                         <div className='space-y-2'>
@@ -361,7 +380,7 @@ export default function EarningsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {payouts?.map((payout) => (
+                              {payouts?.map((payout: (typeof payouts extends undefined ? never : any[])[number]) => (
                                 <TableRow key={payout.id}>
                                   <TableCell className='tabular-nums'>
                                     {formatCurrency(Number(payout.amount), 'CNY')}
@@ -380,6 +399,14 @@ export default function EarningsPage() {
                               ))}
                             </TableBody>
                           </Table>
+                          {/* 收益 / 账单 / 提现都是钱相关的历史，之前靠固定 limit
+                              截断，用户看不到第 20 条之后的记录。 */}
+                          <PaginationBox
+                            page={payoutPage}
+                            count={payoutsRes?.success ? (payoutsRes.total ?? 0) : 0}
+                            pageSize={EARNINGS_PAGE_SIZE}
+                            onPageChange={setPayoutPage}
+                          />
                         </div>
                       ) : null}
                     </>
@@ -492,6 +519,12 @@ export default function EarningsPage() {
                       )}
                     </TableBody>
                   </Table>
+                        <PaginationBox
+                          page={statementPage}
+                          count={statements?.total ?? 0}
+                          pageSize={EARNINGS_PAGE_SIZE}
+                          onPageChange={setStatementPage}
+                        />
                 </CardContent>
               </Card>
 

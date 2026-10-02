@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
+import PaginationBox from '@/components/web/pagination-box'
 import { useDebounce } from '@/hooks/use-debounce'
 import { trpc } from '@/lib/trpc/client'
 import { formatWaiting, toFlags, type ReviewRecord } from '../types'
@@ -53,6 +54,8 @@ export function ReviewQueuePage() {
   const [source, setSource] = useState<'all' | 'github' | 'zip'>('all')
   const [tier, setTier] = useState('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
+  const pageSize = 20
 
   const debouncedSearch = useDebounce(search, 400)
   const utils = trpc.useUtils()
@@ -61,9 +64,19 @@ export function ReviewQueuePage() {
     source,
     trustTier: tier === 'all' ? undefined : Number(tier),
     search: debouncedSearch.trim() || undefined,
+    page,
+    pageSize,
   })
 
   const { data: statsData } = trpc.admin.securityReview.getStats.useQuery()
+
+  // 换筛选条件时回到第一页，否则可能停在一个已经不存在的空页上
+  const filterKey = `${source}|${tier}|${debouncedSearch.trim()}`
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey)
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey)
+    setPage(1)
+  }
 
   const batchMutation = trpc.admin.securityReview.batchDecide.useMutation({
     onSuccess: async (result) => {
@@ -318,6 +331,16 @@ export function ReviewQueuePage() {
               })}
             </TableBody>
           </Table>
+          {queueData?.success === true && (
+            <div className='mt-4'>
+              <PaginationBox
+                page={page}
+                count={queueData.total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

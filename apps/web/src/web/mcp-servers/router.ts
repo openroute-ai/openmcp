@@ -4,6 +4,8 @@ import { isValidAssetName } from "@/lib/gateway/names"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
 import { signOAuthState } from "@/lib/agent-install/oauth-state"
+import { assetIsGated, checkAssetEntitlement, purchaseAsset } from './entitlement'
+import { emptyPage, mineListInput } from '@/web/assets/mine-list'
 import { mcpGatewayAccess } from './gateway'
 import { mcpServersDataAccess } from './index'
 
@@ -50,12 +52,36 @@ export const mcpServersRouter = createTRPCRouter({
       }
     }),
 
-  getMcpServerById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+  getMcpServerById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
     try {
       const data = await mcpServersDataAccess.getMcpServerById(input.id)
       if (!data) return { success: false, error: 'MCP 服务未找到' }
       await mcpServersDataAccess.incrementViews(input.id)
-      return { success: true, data }
+
+      /**
+       * 付费资产的 `endpoint` 就是商品本身。未购买时在这里抹掉，而不是让前端自己
+       * 判断 —— 前端判断迟早会漏（直接调这个 query 就拿到了），而且安装链路的门禁在
+       * `install_asset`，两处口径必须一致。
+       *
+       * 匿名访客不查授权：查了也只是多一次注定拿不到授权的查询，而匿名用户本来
+       * 就买不了，`access: null` 让 UI 走"登录后购买"。
+       */
+      const access = ctx.user?.id
+        ? await checkAssetEntitlement({ userId: ctx.user.id, kind: 'mcp', assetId: input.id })
+        : null
+
+      // 匿名访客没有授权可查，`access` 是 null。null 绝不能等于"放行"：
+      // 付费端点就是商品本身，未购买时必须抹掉。
+      const gated = access === null ? await assetIsGated('mcp', input.id) : !access.allowed
+
+      return {
+        success: true as const,
+        data: {
+          ...data,
+          endpoint: gated ? null : data.endpoint,
+          access,
+        },
+      }
     } catch (error) {
       return failResult(error, '获取 MCP 服务详情失败')
     }
@@ -95,12 +121,11 @@ export const mcpServersRouter = createTRPCRouter({
     }
   }),
 
-  listMine: protectedProcedure.query(async ({ ctx }) => {
+  listMine: protectedProcedure.input(mineListInput).query(async ({ ctx, input }) => {
     try {
       const { authorId } = await getAuthorForUser(ctx.user.id)
-      if (!authorId) return { success: true, data: [] }
-      const data = await mcpGatewayAccess.listMine(authorId)
-      return { success: true, data }
+      if (!authorId) return { success: true, data: emptyPage() }
+      return { success: true, data: await mcpGatewayAccess.listMine(authorId, input) }
     } catch (error) {
       return failResult(error, '获取我的 MCP 资产失败')
     }
@@ -329,12 +354,81 @@ export const mcpServersRouter = createTRPCRouter({
         return { 
           success: true, 
           data: { 
-            status: oauthStatus || 'unauthorized',
+            oauthStatus: oauthStatus || 'unauthorized',
             authorizedAt: oauthAuthorizedAt 
           } 
         }
       } catch (error) {
         return failResult(error, '查询 OAuth 状态失败')
+      }
+    }),
+
+  /** 当前用户是否已购买该 MCP（免费资产恒为 true）。 */
+  hasEntitlement: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const decision = await checkAssetEntitlement({
+          userId: ctx.user.id,
+          kind: 'mcp',
+          assetId: input.id,
+        })
+        if (decision.allowed) {
+          return { success: true as const, data: { entitled: true, reason: decision.reason } }
+        }
+        return {
+          success: false as const,
+          error: decision.error,
+          code: decision.code,
+          entitled: false,
+        }
+      } catch (error) {
+        return failResult(error, '查询授权失败')
+      }
+    }),
+
+  /**
+   * 付费购买：钱包扣款 + 写入 mcp_server_entitlements。
+   *
+   * 只支持一次性付费。`pay_per_call` / `subscription` 在调用时结算，
+   * 在这里扣款会与 spend 结算重复收费。
+   *
+   * 注意：本 mutation **不**产生 providerEarnings 分成行，理由见
+   * `entitlement.ts` 的 `purchaseAsset`。在这条链路补齐之前，
+   * MCP 销售不计入提供方账单。
+   */
+  createPurchase: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await purchaseAsset({
+          userId: ctx.user.id,
+          kind: 'mcp',
+          assetId: input.id,
+        })
+        if (!result.ok) {
+          return {
+            success: false as const,
+            error: result.error,
+            code: result.code,
+            needRecharge: result.needRecharge ?? false,
+            rechargeUrl: result.rechargeUrl,
+            requiredAmount: result.requiredAmount,
+            balance: result.balance,
+          }
+        }
+        return {
+          success: true as const,
+          data: {
+            alreadyOwned: result.alreadyOwned,
+            entitlementId: result.entitlementId,
+            amount: result.amount,
+            currency: result.currency,
+            balanceAfter: result.balanceAfter,
+          },
+        }
+      } catch (error) {
+        return failResult(error, '购买失败')
       }
     }),
 })

@@ -20,6 +20,7 @@ import { filesFromSkillRow } from '@/lib/security-scan'
 import { recommendCatalogAssets } from '@/web/catalog/recommend'
 import { searchCatalog } from '@/web/catalog/search'
 import type { CatalogKind } from '@/web/catalog/types'
+import { checkAssetEntitlement } from '@/web/mcp-servers/entitlement'
 import type { StoreAuthResult } from './auth'
 import { resolveA2a, resolveMcp } from './resolve'
 import { createDeviceCode } from './oauth'
@@ -104,7 +105,7 @@ export const STORE_MCP_TOOLS = [
   {
     name: 'install_asset',
     description:
-      '为指定 runtime 安装已上架资产。需要鉴权（API Key 或 OAuth）。付费 Skill 需 entitlement。',
+      '为指定 runtime 安装已上架资产。需要鉴权（API Key 或 OAuth）。付费 Skill / MCP / A2A 需先购买（entitlement），未购买时返回 NEED_PURCHASE 与购买链接。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -290,10 +291,19 @@ export async function callStoreTool(
           title: row.name,
           description: row.description,
           priceType: row.priceType,
+          priceAmount: row.priceAmount,
+          billingModel: row.billingModel,
           certified: row.certified,
           serverName: row.serverName,
           detailUrl: buildAssetDetailUrl('mcp', row.slug),
-          gatewayUrl: row.serverName ? buildMcpGatewayUrl(row.serverName) : null,
+          // 付费资产不返回 gatewayUrl：`get_asset` 可匿名调用，而付费资产的
+          // 接入方式正是收费的东西 —— 匿名拿到 URL 就等于白嫖。安装走
+          // `install_asset`，那里才有门禁。
+          //
+          // 免费资产照常返回：它没有需要保护的东西，藏起来只是让免费 MCP
+          // 少了"这条 URL 怎么用"这条信息，用户还得先安装一遍才知道。
+          gatewayUrl: row.priceType === 'paid' || !row.serverName ? null : buildMcpGatewayUrl(row.serverName),
+          installHint: '调用 install_asset 完成安装并获取 gatewayUrl',
           note: '仅平台网关 URL，禁止使用 Provider 直连 endpoint',
         })
       }
@@ -310,11 +320,15 @@ export async function callStoreTool(
           title: row.name,
           description: row.description,
           priceType: row.priceType,
+          priceAmount: row.priceAmount,
+          billingModel: row.billingModel,
           certified: row.certified,
           agentName: row.agentName,
           detailUrl: buildAssetDetailUrl('a2a', row.slug),
-          gatewayUrl: row.agentName ? buildA2aGatewayUrl(row.agentName) : null,
-          agentCardUrl: row.agentName ? buildA2aAgentCardUrl(row.agentName) : null,
+          // 同 MCP：付费资产的 gatewayUrl 不能从匿名入口出去。
+          gatewayUrl: row.priceType === 'paid' || !row.agentName ? null : buildA2aGatewayUrl(row.agentName),
+          agentCardUrl: null,
+          installHint: '调用 install_asset 完成安装并获取 gatewayUrl',
           note: '仅平台网关 URL，禁止使用 Provider 直连 endpoint',
         })
       }
@@ -437,6 +451,26 @@ export async function callStoreTool(
         if (!row.serverName) {
           return textResult({ error: '该 MCP 尚未绑定平台网关 serverName' }, true)
         }
+
+        // 付费门禁必须在发出 gatewayUrl 之前。放在这之后等于把收费资产的
+        // 接入方式先发出去再问要不要付钱。
+        const mcpEntitlement = await checkAssetEntitlement({
+          userId: authResult.userId,
+          kind: 'mcp',
+          assetId: row.id,
+        })
+        if (!mcpEntitlement.allowed) {
+          return textResult(
+            {
+              error: mcpEntitlement.code,
+              message: mcpEntitlement.error,
+              priceType: row.priceType,
+              priceAmount: row.priceAmount?.toString() ?? null,
+              purchaseUrl: `${getAppBaseUrl()}/mcp/${row.slug}`,
+            },
+            true
+          )
+        }
         const gatewayUrl = buildMcpGatewayUrl(row.serverName)
         const snippet = buildMcpJsonSnippet({
           label: row.slug || row.serverName,
@@ -461,6 +495,12 @@ export async function callStoreTool(
           configSnippet: snippet,
           apiKeyPlaceholder: API_KEY_PLACEHOLDER,
           apiKeysPath: API_KEYS_PATH,
+          // 按次付费资产没有"已购买"这个状态，值得在安装结果里说明：否则
+          // Agent 会以为装完就免费可用，实际每次调用都在扣余额。
+          billing:
+            mcpEntitlement.reason === 'metered'
+              ? 'metered：安装不收费，每次调用按量从账户余额扣除'
+              : undefined,
           note: '仅平台网关；请用 Dashboard 签发的 Virtual Key。禁止 Provider endpoint。',
         })
       }
@@ -472,6 +512,25 @@ export async function callStoreTool(
         }
         if (!row.agentName) {
           return textResult({ error: '该 A2A 尚未绑定平台网关 agentName' }, true)
+        }
+
+        // 同 MCP 侧：门禁在发出 gatewayUrl / Agent Card 之前。
+        const a2aEntitlement = await checkAssetEntitlement({
+          userId: authResult.userId,
+          kind: 'a2a',
+          assetId: row.id,
+        })
+        if (!a2aEntitlement.allowed) {
+          return textResult(
+            {
+              error: a2aEntitlement.code,
+              message: a2aEntitlement.error,
+              priceType: row.priceType,
+              priceAmount: row.priceAmount?.toString() ?? null,
+              purchaseUrl: `${getAppBaseUrl()}/a2a/${row.slug}`,
+            },
+            true
+          )
         }
         await db
           .update(a2aAgents)
@@ -488,6 +547,11 @@ export async function callStoreTool(
           agentName: row.agentName,
           authHeader: `Authorization: Bearer ${API_KEY_PLACEHOLDER}`,
           apiKeysPath: API_KEYS_PATH,
+          // 同 MCP：按次付费没有"已购买"状态，要说清调用时才扣费。
+          billing:
+            a2aEntitlement.reason === 'metered'
+              ? 'metered：安装不收费，每次调用按量从账户余额扣除'
+              : undefined,
           note: '仅平台网关 Agent Card / invoke；禁止 Provider 直连。',
         })
       }

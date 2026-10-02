@@ -181,7 +181,7 @@ async function insertSale(opts: {
 
 /** 通过真实查询取账单：只走 `listMyStatements` + `adminGetStatement`。 */
 async function statementFor(period: string) {
-  const list = await listMyStatements(AUTHOR_ID, { limit: 50 })
+  const list = await listMyStatements(AUTHOR_ID, { pageSize: 50 })
   const row = list.rows.find((r) => r.period === period)
   if (!row) throw new Error(`找不到 ${period} 的账单`)
   const detail = await adminGetStatement(row.id)
@@ -342,7 +342,7 @@ describe("出账口径", () => {
     expect(result.rolled).toBe(0)
     expect(result.skipped).toBe(0)
 
-    const list = await listMyStatements(AUTHOR_ID, { limit: 100 })
+    const list = await listMyStatements(AUTHOR_ID, { pageSize: 100 })
     expect(list.rows.some((r) => r.period === "2099-09")).toBe(false)
   })
 

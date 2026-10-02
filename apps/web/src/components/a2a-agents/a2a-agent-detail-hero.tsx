@@ -82,7 +82,7 @@ export function A2aDetailHero({ agent }: A2aDetailHeroProps) {
           <div className='flex shrink-0 items-center gap-1.5'>
             <ShieldCheck className='size-3.5 text-foreground/35' aria-hidden />
             <span className='font-medium text-foreground/90 text-xs'>
-              {securityLabel(agent.securityLevel, lang) || t('safeDefault')}
+              {securityLabel(agent.securityLevel, lang)}
             </span>
           </div>
           {agent.protocolVersion && (

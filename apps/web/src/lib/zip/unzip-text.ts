@@ -294,6 +294,21 @@ export function unzipTextFilesWithReport(
       continue
     }
 
+    // 本地头在中央目录里查不到对应记录，说明这条 entry 不属于这个包 —— 也就是
+    // 构造者可以往中央目录声称的 entry 之外再塞一条本地头，而 EOCD 的计数校验
+    // 拦不住这种情况（计数只约束中央目录自己那几行）。
+    //
+    // 更实际的影响是 symlink 检查被跳过：`central` 是 undefined 时上面那个
+    // `central?.symlink` 静默为 false，于是一个 Unix symlink 只要不在中央目录
+    // 里登记就会以普通文本通过。用"缺记录即不可信"关掉这个洞。
+    if (!central) {
+      rejections.push({
+        kind: "unverifiable-entry",
+        detail: `${sanitized.path} 在中央目录中缺少对应记录，无法校验`,
+      })
+      continue
+    }
+
     // 重复 entry：`foo.md` 和 `pkg/../foo.md` 规整后是同一个路径，`a//b.md` 与
     // `a/b.md` 也是。不去重的话下游按数组顺序写入，最后一条会静默覆盖前面
     // 那条 —— 买家拿到的文件内容和平台展示的不一致，而且这取决于顺序，是个
@@ -390,6 +405,7 @@ const UNSAFE_ARCHIVE_KINDS = new Set<UnzipRejection["kind"]>([
   "symlink",
   "duplicate-entry",
   "malformed-central-directory",
+  "unverifiable-entry",
 ])
 
 export function hasUnsafeArchive(rejections: UnzipRejection[]): boolean {

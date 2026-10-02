@@ -185,7 +185,7 @@ describe("soft delete keeps the row", () => {
     const id = await insertServer()
     await mcpGatewayAccess.remove(AUTHOR_ID, id)
     expect(
-      (await mcpGatewayAccess.listMine(AUTHOR_ID)).some((s) => s.id === id)
+      (await mcpGatewayAccess.listMine(AUTHOR_ID)).items.some((s) => s.id === id)
     ).toBe(false)
   })
 })
@@ -221,7 +221,7 @@ describe("disable delists immediately", () => {
     const id = await insertServer()
     await mcpGatewayAccess.toggle(AUTHOR_ID, id, false)
     const mine = await mcpGatewayAccess.listMine(AUTHOR_ID)
-    const row = mine.find((s) => s.id === id)
+    const row = mine.items.find((s) => s.id === id)
     expect(row).toBeDefined()
   })
 

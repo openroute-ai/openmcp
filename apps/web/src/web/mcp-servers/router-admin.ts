@@ -3,7 +3,29 @@ import z from 'zod'
 import { db } from "@/lib/db"
 import { authors, categories, mcpServers } from "@workspace/db"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
+import { failResult } from "@/lib/gateway/input"
+import { persistMcpScan } from "@/web/assets/scan-persist"
 import { notDeleted } from "@/web/assets/visibility"
+
+/**
+ * `mcp_servers.tools` 是无固定结构的 jsonb，提取逻辑与注册时保持一致。
+ */
+function readToolList(raw: unknown): Array<{ name: string; description?: string }> {
+  if (!Array.isArray(raw)) return []
+  const out: Array<{ name: string; description?: string }> = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      out.push({ name: item })
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const o = item as { name?: unknown; description?: unknown }
+      if (typeof o.name !== 'string') continue
+      out.push({ name: o.name, description: typeof o.description === 'string' ? o.description : undefined })
+    }
+  }
+  return out
+}
 
 export const adminMcpServersRouter = createTRPCRouter({
   /**
@@ -292,6 +314,39 @@ export const adminMcpServersRouter = createTRPCRouter({
           success: false,
           error: '更新 MCP Server 状态失败',
         }
+      }
+    }),
+
+  /**
+   * 重跑元数据扫描。
+   *
+   * 扫描是纯本地规则计算，改了 `gateway-scan.ts` 里的规则就必须重扫才能让
+   * 新规则生效——历史行上的 `scan_rules_version` 停在旧版本，页面显示的评级
+   * 其实是旧规则的结论。
+   */
+  rescanServer: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const [server] = await db
+          .select()
+          .from(mcpServers)
+          .where(and(eq(mcpServers.id, input.id), notDeleted(mcpServers)))
+          .limit(1)
+        if (!server) return { success: false, error: 'MCP Server 不存在' }
+
+        const outcome = await persistMcpScan(server.id, {
+          kind: 'mcp',
+          endpoint: server.endpoint,
+          protocol: server.transport,
+          auth: server.authType,
+          name: server.name,
+          description: server.description ?? server.descriptionEn,
+          tools: readToolList(server.tools),
+        })
+        return { success: true, grade: outcome.grade }
+      } catch (error) {
+        return failResult(error, '重扫 MCP Server 失败')
       }
     }),
 

@@ -274,7 +274,8 @@
         "neverSynced": "Never synced",
         "perKeyBudget": "Key budget",
         "notConfigured": "Gateway not configured"
-      }
+      },
+      "searchPlaceholder": "Search key name"
     },
     "bills": {
       "title": "Bills",
@@ -1179,7 +1180,33 @@
       "deleteConfirmDesc": "The gateway will immediately stop serving it, and this cannot be undone.",
       "rejectReason": "Rejection reason",
       "authOauthClient": "OAuth2 Client Credentials",
-      "engagement": "Views {views} · Downloads/calls {downloads}"
+      "engagement": "Views {views} · Downloads/calls {downloads}",
+      "notCollected": "Not collected",
+      "logLoading": "Loading…",
+      "logBilledOnly": "Billed",
+      "statSpend": "Total spend",
+      "obsSpend": "Total spend",
+      "obsLatencyCoverage": "Latency coverage",
+      "gatewayVersionsTitle": "Version Management",
+      "gatewayVersionsDesc": "Publish a new version, yank a problematic one, or roll back to a previous one",
+      "gatewayVersionHint": "A version snapshot records endpoint, transport, tool list and pricing as declared on our side. The platform cannot read code inside the remote process, so rolling back only changes the metadata we promise.",
+      "versionNewLabel": "New version",
+      "versionCreate": "Create draft",
+      "versionPublish": "Publish",
+      "versionRollback": "Set as current",
+      "versionYank": "Yank",
+      "versionCreated": "Draft version created",
+      "versionPublished": "Version published",
+      "versionRolledBack": "Current version switched",
+      "versionYanked": "Version yanked",
+      "versionChangelogPlaceholder": "Changelog (optional)",
+      "versionLoading": "Loading versions…",
+      "versionEmpty": "No versions yet. Once you publish one, endpoint and pricing changes become traceable.",
+      "versionColVersion": "Version",
+      "versionColStatus": "Status",
+      "versionColPublished": "Published",
+      "versionColChangelog": "Changelog",
+      "versionColActions": "Actions"
     },
     "sidebar": {
       "workspace": "Workspace",
@@ -1244,6 +1271,7 @@
     "earnings": {
       "title": "Earnings & Payouts",
       "description": "Skill sales, gateway usage income, and payout requests",
+      "gatewayCall": "Gateway call",
       "comingSoon": "Earnings center coming soon",
       "notProvider": "You are not a provider yet. Please complete onboarding first.",
       "goOnboarding": "Go to onboarding",
@@ -2466,7 +2494,6 @@
         "description": "{modelName} by {provider}. {description} Context length: {contextLength}. Input: {inputPrice}, Output: {outputPrice}. Access via OpenMCP unified gateway."
       }
     },
-    "searchPlaceholder": "Search models",
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
     "loading": "Loading models...",
@@ -2901,7 +2928,6 @@
     "description": "Discover skills created by our community of AI experts.",
     "totalAuthors": "{count} authors",
     "authors": "authors",
-    "searchPlaceholder": "Search for an author...",
     "workflows": "workflows",
     "loadingMore": "Loading more authors...",
     "allLoaded": "All authors have been loaded",
@@ -3186,6 +3212,24 @@
       "copyFailed": "Copy failed",
       "close": "Close"
     }
+  },
+  "AssetPurchase": {
+    "free": "Free",
+    "perCall": "{amount} per call",
+    "oneTimeHint": "One-time payment, yours permanently after purchase",
+    "meteredHint": "Pay per call — install and use now, each call is billed to your balance",
+    "subscriptionUnsupported": "Subscription billing is not available yet",
+    "ownedHint": "Purchased — ready to use",
+    "buyNow": "Buy now",
+    "loginToBuy": "Sign in to buy",
+    "checkingSession": "Checking session…",
+    "alreadyOwned": "You already own this asset",
+    "purchaseSuccess": "Purchased: {amount} {currency}",
+    "purchaseFailed": "Purchase failed",
+    "needRecharge": "Insufficient balance",
+    "needRechargeHint": "{amount} short — top up and retry",
+    "goRecharge": "Top up",
+    "retryPurchase": "Retry purchase"
   },
   "Skills": {
     "hero": {

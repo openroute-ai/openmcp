@@ -26,7 +26,7 @@
  * 那期就不再是 `rolled`，后面各期自然读到 0，同一笔欠款不会被扣两次。
  */
 
-import { and, asc, desc, eq, gte, isNull, lt, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm"
 import {
   authors,
   createId,
@@ -676,27 +676,40 @@ function toView(row: typeof providerStatements.$inferSelect) {
 /** 创作者视角：自己的账单 + 每期应付合计，用于 earnings 页。 */
 export async function listMyStatements(
   authorId: string,
-  options: { limit?: number } = {}
+  options: { page?: number; pageSize?: number } = {}
 ) {
+  const page = options.page ?? 1
+  const pageSize = options.pageSize ?? 24
   const rows = await db
     .select()
     .from(providerStatements)
     .where(eq(providerStatements.authorId, authorId))
     .orderBy(desc(providerStatements.period))
-    .limit(options.limit ?? 24)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
 
-  const [sums] = await db
-    .select({
-      pending: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'pending' then ${providerStatements.payableAmount} else 0 end), 0)`,
-      confirmed: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'confirmed' then ${providerStatements.payableAmount} else 0 end), 0)`,
-      paid: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'paid' then ${providerStatements.payableAmount} else 0 end), 0)`,
-      rolled: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'rolled' then -${providerStatements.settlement} else 0 end), 0)`,
-    })
-    .from(providerStatements)
-    .where(eq(providerStatements.authorId, authorId))
+  // summary 必须覆盖全部账单而不是当前页：只统计当前页会让"累计已付"随翻页变化。
+  const [[sums], [totalRow]] = await Promise.all([
+    db
+      .select({
+        pending: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'pending' then ${providerStatements.payableAmount} else 0 end), 0)`,
+        confirmed: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'confirmed' then ${providerStatements.payableAmount} else 0 end), 0)`,
+        paid: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'paid' then ${providerStatements.payableAmount} else 0 end), 0)`,
+        rolled: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'rolled' then -${providerStatements.settlement} else 0 end), 0)`,
+      })
+      .from(providerStatements)
+      .where(eq(providerStatements.authorId, authorId)),
+    db
+      .select({ n: count() })
+      .from(providerStatements)
+      .where(eq(providerStatements.authorId, authorId)),
+  ])
 
   return {
     rows: rows.map(toView),
+    total: totalRow?.n ?? 0,
+    page,
+    pageSize,
     summary: {
       pending: money(sums?.pending),
       confirmed: money(sums?.confirmed),
@@ -713,6 +726,10 @@ export async function listStatementEarnings(statementId: string) {
     .select({
       id: providerEarnings.id,
       skillId: providerEarnings.skillId,
+      // MCP / A2A 归属。账单详情要能对上「这笔收入来自哪个资产」，否则一列
+      // 只有金额和 entitlementId 的行没法解释。
+      assetType: providerEarnings.assetType,
+      assetId: providerEarnings.assetId,
       kind: providerEarnings.kind,
       grossAmount: providerEarnings.grossAmount,
       platformFee: providerEarnings.platformFee,

@@ -20,6 +20,8 @@
  */
 
 import { isLiteLLMConfigured } from '@workspace/litellm'
+import { runScheduledHealthChecks } from '@/lib/health-check/scheduled-check'
+import { purgeExpiredOAuthStates } from '@/lib/agent-install/oauth-state'
 import { settleGatewaySpend } from '@/lib/litellm/settlement'
 import {
   autoConfirmOverdueStatements,
@@ -130,7 +132,57 @@ const statementsJob: Job = {
   },
 }
 
-const jobs: Job[] = [settlementJob, statementsJob]
+/**
+ * 清理过期的 provider OAuth `state` nonce。
+ *
+ * 纯 housekeeping：过期 nonce 本来就过不了 `verifyOAuthState` 的 TTL 检查，
+ * 留着只是让表变大。所以清理失败只记日志，不升级成告警。
+ *
+ * 每天一次即可 —— 过期窗口是 10 分钟，多留一天没有任何语义差别。
+ */
+const oauthStateCleanupJob: Job = {
+  name: 'oauth-state-cleanup',
+  intervalMs: envInt('OAUTH_STATE_CLEANUP_INTERVAL_SEC', 86400, 300) * 1000,
+  run: async () => {
+    const removed = await purgeExpiredOAuthStates()
+    if (removed > 0) {
+      console.log(`[cron/oauth-state] purged ${removed} expired state nonce row(s)`)
+    }
+    return { removed }
+  },
+}
+
+/**
+ * 定时健康检查：探测开了开关的已发布 MCP / A2A，更新可达性状态。
+ *
+ * 间隔 10 分钟。间隔的下限语义是**故障可见延迟**，不是安全边界——真正的边界是
+ * 连续失败阈值（`HEALTH_CHECK_FAIL_THRESHOLD`，默认 3），所以就算探测晚了一轮，
+ * 也不会有资产被提前下架；反过来调小间隔也不会让单次抖动就下架。
+ *
+ * 不需要 LiteLLM：探测直连提供方端点，所以没有加 `enabled` 前置条件——网关结算
+ * 那两个任务需要 LiteLLM，而这一条不需要。
+ */
+const assetHealthJob: Job = {
+  name: 'asset-health-check',
+  intervalMs: envInt('ASSET_HEALTH_CHECK_INTERVAL_SEC', 600, 60) * 1000,
+  run: async () => {
+    const summaries = await runScheduledHealthChecks()
+    for (const s of summaries) {
+      if (s.checked > 0) {
+        console.log(
+          `[cron/asset-health] ${s.kind} checked=${s.checked} healthy=${s.healthy} ` +
+            `degraded=${s.degraded} offline=${s.takenOffline} recovered=${s.recovered}`
+        )
+      }
+      // 探测函数抛错（配置错误、解密失败）要显式打出来：这些不会被计入失败次数，
+      // 所以不会触发下架，只靠计数会让人以为"检查过了没问题"。
+      for (const err of s.errors) console.warn(`[cron/asset-health] ${s.kind} ${err}`)
+    }
+    return summaries
+  },
+}
+
+const jobs: Job[] = [settlementJob, statementsJob, oauthStateCleanupJob, assetHealthJob]
 
 let started = false
 
