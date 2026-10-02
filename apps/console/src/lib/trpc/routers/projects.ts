@@ -27,6 +27,7 @@ import {
   tags,
 } from "@/db/schema"
 import type { ProjectSort } from "@/db/schema"
+import { languageNames } from "@/lib/github/languages"
 import {
   InvalidRepoUrlError,
   createProjectFromRepo,
@@ -563,6 +564,10 @@ export const projectsRouter = createTRPCRouter({
 
       return {
         ...project,
+        // Normalised rather than the column as stored: rows written before the
+        // current writer hold `{"name": …}` objects, and the page renders one
+        // badge per entry. See `github/languages.ts`.
+        languages: languageNames(project.languages),
         skills,
         jobs,
         authors,

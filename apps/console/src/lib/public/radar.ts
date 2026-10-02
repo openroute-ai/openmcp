@@ -25,6 +25,7 @@ import {
 } from "drizzle-orm"
 import { hallOfFame, projects, projectsToTags, repos, tags } from "@/db/schema"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
+import { primaryLanguage } from "@/lib/github/languages"
 import type { Db } from "@/lib/github/service/repo"
 import {
   listDailyArrivals,
@@ -295,9 +296,9 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   readme: string | null
   /** The translated README, or null when nothing has been translated. */
   readmeZh: string | null
-  /** Per-day arrivals, ascending, quiet days already filled as zero. */
+  /** Per-day star growth, ascending, days nobody measured left undefined. */
   days: DailyArrivals[]
-  /** Per-ISO-week arrivals, ascending. */
+  /** Per-ISO-week star growth, ascending. */
   weeks: WeeklyArrivals[]
 }
 
@@ -355,8 +356,9 @@ export async function getPublicProjectDetail(
       // needs a set-returning function inside a scalar subquery, which is
       // either an `->>` on a text result or a `limit` inside a subquery that may
       // return several rows. Both are more fragile than reading one column and
-      // taking `[0]` here. GitHub orders the map by bytes, so index 0 is the
-      // dominant language.
+      // taking the first name here. The entries are normalised on the way out
+      // because rows written before the current writer store language objects
+      // rather than names — see `github/languages.ts`.
       languages: repos.languages,
       license: repos.licenseSpdxId,
       pushedAt: repos.pushedAt,
@@ -398,7 +400,7 @@ export async function getPublicProjectDetail(
     avatar: githubAvatarUrl(row.owner, { ownerId: row.ownerId }),
     tags: byProject.get(row.id) ?? [],
     url: row.url,
-    language: row.languages?.[0] ?? null,
+    language: primaryLanguage(row.languages),
     license: row.license,
     pushedAt: row.pushedAt,
     createdAt: row.createdAt,

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { createGitHubClient } from "@/lib/github/client"
+import { languageNames } from "@/lib/github/languages"
 import { parseGithubRepoUrl } from "@/lib/github/repo-url"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import { refreshRepoFromGitHub } from "@/lib/github/sync-project"
@@ -363,6 +364,10 @@ export const reposRouter = createTRPCRouter({
 
       return {
         ...repo,
+        // Normalised rather than the column as stored: rows written before the
+        // current writer hold `{"name": …}` objects, and `LabelRow` renders one
+        // badge per entry. See `github/languages.ts`.
+        languages: languageNames(repo.languages),
         fullName: `${repo.owner}/${repo.name}`,
         repoUrl: `https://github.com/${repo.owner}/${repo.name}`,
         projects: linked,
