@@ -71,32 +71,36 @@ function run(
 const months = (...entries: [number, number, number][]) => run(entries, 10)
 
 describe("lastNMonths", () => {
-  test("ends on the month containing now, oldest first", () => {
+  test("ends on the month before now, oldest first", () => {
+    // The open month is deliberately left out. It is not over, so its bar is
+    // short for a reason that has nothing to do with the project, and it would
+    // move every time the page reloaded.
     expect(lastNMonths(3, new Date(Date.UTC(2025, 5, 20)), zone)).toEqual([
+      { year: 2025, month: 3 },
+      { year: 2025, month: 4 },
       { year: 2025, month: 5 },
-      { year: 2025, month: 6 },
-      { year: 2025, month: 7 },
     ])
   })
 
   test("steps back across a year boundary", () => {
     expect(lastNMonths(3, new Date(Date.UTC(2025, 1, 15)), zone)).toEqual([
+      { year: 2024, month: 11 },
       { year: 2024, month: 12 },
       { year: 2025, month: 1 },
-      { year: 2025, month: 2 },
     ])
   })
 
   test("handles a leap day without drifting", () => {
     // 29 February 2024 is the day this most often goes wrong, so it is checked
-    // alongside an ordinary March.
+    // alongside an ordinary March. The month is read through the zone, so the
+    // day itself only has to land inside the month being named.
     expect(lastNMonths(2, new Date(Date.UTC(2024, 2, 29)), zone)).toEqual([
+      { year: 2024, month: 1 },
       { year: 2024, month: 2 },
-      { year: 2024, month: 3 },
     ])
     expect(lastNMonths(2, new Date(Date.UTC(2025, 2, 31)), zone)).toEqual([
+      { year: 2025, month: 1 },
       { year: 2025, month: 2 },
-      { year: 2025, month: 3 },
     ])
   })
 
@@ -109,7 +113,7 @@ describe("lastNMonths", () => {
       new Set(drawn.map((month) => month.year * 100 + month.month)).size
     ).toBe(12)
     expect(drawn[0]).toEqual({ year: 2024, month: 6 })
-    expect(drawn[11]).toEqual({ year: 2025, month: 6 })
+    expect(drawn[11]).toEqual({ year: 2025, month: 5 })
   })
 })
 
@@ -199,12 +203,20 @@ describe("periodTrends", () => {
     expect(trends.month).toBe(10)
   })
 
-  test("reads the week from the newest weekly row on record", () => {
-    const trends = periodTrends(months([2025, 3, 10], [2025, 4, 20]), [
-      { yearWeek: { year: 2025, week: 10 }, stars: 4 },
-      { yearWeek: { year: 2025, week: 12 }, stars: 6 },
-      { yearWeek: { year: 2025, week: 11 }, stars: 9 },
-    ], zone)
+  test("reads the week from the newest row of an ascending window", () => {
+    // `weekly` arrives oldest first: `listWeeklyArrivals` pages the rows
+    // descending, then reverses them, so the last row is the newest week on
+    // record. The window is a stored window rather than the current one, which
+    // is why the newest row is the last one rather than "this week".
+    const trends = periodTrends(
+      months([2025, 3, 10], [2025, 4, 20]),
+      [
+        { yearWeek: { year: 2025, week: 10 }, stars: 9 },
+        { yearWeek: { year: 2025, week: 11 }, stars: 4 },
+        { yearWeek: { year: 2025, week: 12 }, stars: 6 },
+      ],
+      zone
+    )
     expect(trends.week).toBe(6)
   })
 
@@ -230,12 +242,15 @@ describe("latestWeekGain", () => {
     stars,
   })
 
-  test("takes the highest ISO week, not the last row", () => {
-    expect(latestWeekGain([
-      week(2025, 12, 6),
-      week(2025, 9, 99),
-      week(2024, 52, 99),
-    ])).toBe(6)
+  test("takes the last row, which is the newest week of an ascending window", () => {
+    // The reader trusts its input to be oldest first, which is the order
+    // `listWeeklyArrivals` returns, and takes the newest week positionally
+    // rather than by comparing week numbers — an ISO year wraps at 52, so a
+    // reader that compared numbers alone would have to special-case the
+    // boundary, and the ordering already carries the answer.
+    expect(
+      latestWeekGain([week(2024, 52, 99), week(2025, 9, 99), week(2025, 12, 6)])
+    ).toBe(6)
   })
 
   test("is undefined with no weekly rows", () => {

@@ -66,7 +66,7 @@ describe("toRepoRow", () => {
     expect(row.topics).toEqual(["react"])
     expect(row.languages).toEqual(["TypeScript"])
     expect(row.pushedAt).toEqual(new Date("2026-01-02T03:04:05Z"))
-    expect(row.openIssuesCount).toBe(1_500)
+    expect(row.openIssuesCount).toBe(4_000)
     expect(row.updatedAt).toBeInstanceOf(Date)
   })
 

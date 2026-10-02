@@ -956,7 +956,14 @@ export function periodTrends(
   }
 }
 
-/** Arrivals in the most recent recorded week. */
+/**
+ * Arrivals in the most recent recorded week.
+ *
+ * Positional rather than by week number, so the caller owes it an ascending
+ * window: `listWeeklyArrivals` returns oldest first, and an ISO year wraps at
+ * 52, so comparing week numbers alone would answer a different question than
+ * "the most recent week".
+ */
 export function latestWeekGain(
   weekly: WeeklyArrivals[] | undefined
 ): number | undefined {

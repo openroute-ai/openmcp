@@ -39,21 +39,23 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the thirty-three tables console owns", () => {
-    // Four better-auth + one submission + one API key + two decision workbench +
-    // twenty-five GitHub. If this list changes, the count changes with it, and the
-    // diff is the review.
-    expect(managedTables).toHaveLength(33)
+  it("is the thirty-five tables console owns", () => {
+    // Four better-auth + one submission + one API key + one newsletter + two
+    // decision workbench + twenty-six GitHub. If this list changes, the count
+    // changes with it, and the diff is the review.
+    expect(managedTables).toHaveLength(35)
     expect(managedTables).toEqual(
       [
         "account",
         "api_keys",
         "bundles",
         "capabilities",
+        "categories",
         "decision_boards",
         "decision_candidates",
         "hall_of_fame",
         "hall_of_fame_to_projects",
+        "newsletter_subscription",
         "packages",
         "project_skills",
         "project_sync_jobs",
