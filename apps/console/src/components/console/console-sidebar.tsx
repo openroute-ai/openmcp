@@ -15,20 +15,29 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { IconCode, IconInnerShadowTop, IconScale } from "@tabler/icons-react"
+import {
+  IconCode,
+  IconInnerShadowTop,
+  IconScale,
+  IconSettings,
+} from "@tabler/icons-react"
 
-// No group: one entry under a heading of its own would be a heading that names
-// the page it sits above, which is noise rather than navigation.
+// Ungrouped: these are the account's three pages, and a heading over them would
+// either name the product ("Workspace") or repeat each page back at the reader,
+// which is noise rather than navigation.
 const navMain: NavMainItem[] = [
   { key: "repos", url: "/console", icon: <IconCode /> },
   { key: "decisions", url: "/console/decisions", icon: <IconScale /> },
+  // Also in the account menu at the foot of the sidebar. Here as well because
+  // it is per-account data like the other two, and that is what this list holds.
+  { key: "settings", url: "/settings", icon: <IconSettings /> },
 ]
 
 /**
- * The user console's sidebar: the repositories you added, and your decision
- * boards.
+ * The user console's sidebar: the repositories you added, your decision boards,
+ * and your account settings.
  *
- * Two entries because both are per-account data and nothing else is. The
+ * Ungrouped because all three are per-account data and nothing else is. The
  * workbench is here rather than on the public site on purpose: a shortlist is a
  * private working document, and `decisions.*` is `protectedProcedure` with the
  * ownership filter in the query, so there is no public version of it to link to.

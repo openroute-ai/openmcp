@@ -580,6 +580,42 @@ export type DecisionBoardRow = typeof decisionBoards.$inferSelect
 export type DecisionCandidateRow = typeof decisionCandidates.$inferSelect
 
 /**
+ * 「订阅选型周刊」留下的邮箱。
+ *
+ * 与 `apps/web` 共享库里的同名表同源，但这里只保留订阅状态需要的列：console 连的是
+ * 自己的数据库，跨应用读同一张表要先引入共享 schema 包，而 console 没有这个依赖——
+ * 所以留一份精简的。来源标记有就记、没有不编：表单只收一个邮箱，它不该因为多带一个
+ * 字段而失败。
+ */
+export const newsletterSubscription = pgTable("newsletter_subscription", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  subscribed: boolean("subscribed").notNull().default(true),
+  source: text("source"),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date()),
+  subscribedAt: timestamp("subscribed_at").notNull().defaultNow(),
+  unsubscribedAt: timestamp("unsubscribed_at"),
+})
+
+export const newsletterSubscriptionRelations = relations(
+  newsletterSubscription,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [newsletterSubscription.userId],
+      references: [user.id],
+    }),
+  })
+)
+
+export type NewsletterSubscriptionRow =
+  typeof newsletterSubscription.$inferSelect
+
+/**
  * Better Auth 和 `drizzle-kit` 看到的全部内容：console 自己的四张 auth 表加上
  * GitHub schema。`src/lib/auth.ts` 把它作为 Better Auth 的 `schema` 传入，而
  * Better Auth 只读这四张——它此前拿到的是共享 schema 的全部 86 张表。

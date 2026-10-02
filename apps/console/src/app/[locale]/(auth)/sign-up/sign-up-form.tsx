@@ -7,6 +7,7 @@ import { LocaleLink } from "@/i18n/navigation"
 import { useLocaleRouter } from "@/i18n/navigation"
 import { authClient } from "@/lib/auth-client"
 import { AuthDivider, GitHubButton } from "@/components/github-button"
+import { EmailVerificationForm } from "@/components/auth/email-verification-form"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -35,6 +36,10 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Set once the account exists but its address is unproven: with
+  // `requireEmailVerification` the sign-up call creates the user and returns no
+  // session, so the form becomes the code step rather than redirecting.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,6 +50,14 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
       { name, email, password },
       {
         onSuccess: ({ data }) => {
+          // `token === null` is the shape of an account awaiting verification,
+          // not a failure — `requireEmailVerification` withholds the session on
+          // purpose. The code is already in the reader's inbox by now, sent by
+          // `emailVerification.sendVerificationEmail` during this very call.
+          if (!data?.token) {
+            setPendingEmail(data?.user?.email ?? email)
+            return
+          }
           toast.success(t("accountCreated"))
           // Read from the response rather than hard-coded: the account this
           // creates is an ordinary one, so it belongs on `/console`, and asking
@@ -59,6 +72,47 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
     )
 
     setLoading(false)
+  }
+
+  async function handleVerified() {
+    const email = pendingEmail
+    if (!email) return
+
+    // The address is proven; the account was created a moment ago with this same
+    // password, so signing in here saves the reader retyping it.
+    const { data, error: signInError } = await authClient.signIn.email({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      setPendingEmail(null)
+      setError(authErrorMessage(signInError, t, t("signInFailed")))
+      return
+    }
+
+    toast.success(t("verifyEmailSuccess"))
+    router.push(landingPathFor(data?.user))
+    router.refresh()
+  }
+
+  if (pendingEmail) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("verifyEmailTitle")}</CardTitle>
+          <CardDescription>
+            {t("verifyEmailDescription", { email: pendingEmail })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4 pb-6">
+          <EmailVerificationForm
+            email={pendingEmail}
+            onVerified={handleVerified}
+          />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

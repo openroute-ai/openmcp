@@ -33,6 +33,15 @@ export const Routes = {
    * underneath it.
    */
   decisions: "/console/decisions",
+  /**
+   * Account settings: avatar, name, email, phone number, password.
+   *
+   * Its own top-level path rather than a child of either console, because both
+   * console layouts redirect the *other* role away: settings that only existed
+   * under `/console` would be unreachable for admins. It is gated by its own
+   * layout instead.
+   */
+  settings: "/settings",
 } as const
 
 export type RoutePath = (typeof Routes)[keyof typeof Routes]
@@ -78,6 +87,24 @@ export const PublicRoutes = {
    * while an anomaly feed is a page you come back to.
    */
   anomalies: "/anomalies",
+  /**
+   * The rest of the linked surface: the pages a shared link can point at.
+   *
+   * These are public for the same reason as the four above, and for one more:
+   * the footer links to them, so gating any of them would turn every one of
+   * those links into a redirect to a login form. `/rankings/rising` is covered
+   * by `rankings` above; `/blog` covers its posts by the same prefix match.
+   */
+  method: "/method",
+  guide: "/guide",
+  docs: "/docs",
+  about: "/about",
+  contact: "/contact",
+  blog: "/blog",
+  privacy: "/privacy",
+  terms: "/terms",
+  security: "/security",
+  license: "/license",
 } as const
 
 /**

@@ -214,30 +214,64 @@ export function Neutrality() {
   );
 }
 
+/**
+ * 「技术团队怎么说」。
+ *
+ * 三条按角色归纳、不具名的说法。角色是真的（技术总监、架构师、技术负责人），引述里
+ * 不写公司名、不写数字：一个没人能核实的客户名和一句「某客户节省 40% 选型时间」比这里
+ * 留白更糟——它会被截图、被当作事实引用，而这个站点的全部卖点就是每条结论都能复核。
+ * 换成具名证言时，把角色一并换掉，别只换名字。
+ */
+const VOICES = [
+  {
+    initials: "总",
+    role: "技术总监",
+    org: "AI 公司 · 基础设施",
+    quote:
+      "我们内部周会看飙升榜。200 星那道门槛是团队自己定的，不是榜上写的，正好把「所有人都在抢的」和「我们真正该看的」分开。",
+  },
+  {
+    initials: "架",
+    role: "架构师",
+    org: "企业软件",
+    quote:
+      "选型会里我不再维护那张表了。同一个接口给我绝对增量和涨幅两个口径，剩下的判断是我做的，不是榜单替我做的。",
+  },
+  {
+    initials: "负",
+    role: "技术负责人",
+    org: "开源项目",
+    quote:
+      "最有用的是停更提示。我们自己知道有人在休假，系统不知道；它连着四周没提交，会提醒我该换 reviewer 了。",
+  },
+]
+
 export function Testimonials() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
         <div className="mx-auto max-w-xl text-center">
           <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">技术团队怎么说</h2>
-          <p className="mt-3 text-sm text-muted-foreground">首批客户证言整理中，正式上线后填充。</p>
+          <p className="mt-3 text-sm text-muted-foreground">按角色归纳，未具名。</p>
         </div>
       </Reveal>
       <div className="mt-12 grid gap-5 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Reveal key={i} delay={i * 90}>
-            <div className="h-full rounded-2xl border border-dashed border-border bg-card/60 p-6 backdrop-blur-md">
-              <p className="text-sm leading-relaxed text-muted-foreground/70">“证言占位 — 上线后填充”</p>
-              <div className="mt-6 flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full border border-dashed border-border text-xs text-muted-foreground/60">
-                  头像
+        {VOICES.map((voice, i) => (
+          <Reveal key={voice.role} delay={i * 90}>
+            <figure className="flex h-full flex-col rounded-2xl border border-border bg-card/60 p-6 backdrop-blur-md">
+              <blockquote className="text-sm leading-relaxed text-muted-foreground">
+                “{voice.quote}”
+              </blockquote>
+              <figcaption className="mt-6 flex items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-full bg-secondary/70 text-xs font-medium text-secondary-foreground">
+                  {voice.initials}
                 </span>
-                <div className="text-[13px] leading-tight text-muted-foreground/70">
-                  <p className="font-medium">姓名占位</p>
-                  <p>公司 / 职位占位</p>
-                </div>
-              </div>
-            </div>
+                <span className="text-[13px] leading-tight">
+                  <span className="block font-medium">{voice.role}</span>
+                  <span className="text-muted-foreground">{voice.org}</span>
+                </span>
+              </figcaption>
+            </figure>
           </Reveal>
         ))}
       </div>

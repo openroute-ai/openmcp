@@ -28,13 +28,13 @@ export const dynamic = "force-static"
 export const metadata: Metadata = {
   title: "常见问题 — OpenMCP 雷达",
   description:
-    "数据来源、为什么没有综合评分、结论如何复现、涨跌颜色约定、与 SCA 工具的区别，全部一次回答。榜单与异动数据免费公开。",
+    "数据从哪来、多久更新一次、怎么复核一条记录。",
   alternates: { canonical: "/faq" },
   openGraph: {
     type: "article",
     title: "常见问题 — OpenMCP 雷达",
     description:
-      "数据来源、为什么没有综合评分、结论如何复现、涨跌颜色约定、与 SCA 工具的区别，全部一次回答。",
+      "数据从哪来、多久更新一次、怎么复核一条记录。",
     url: "https://radar.openmcp.cn/faq",
   },
 }
@@ -45,7 +45,7 @@ export default function PublicFaqPage() {
       <div className="mx-auto max-w-3xl px-4 py-10">
         <PublicPageHeader
           title="常见问题"
-          description="这里回答的是读者最常问的几件事。榜单与异动数据全部免费公开，不设付费墙。"
+          description="被问得最多的几个问题。"
         >
           <LocaleLink
             href="/#faq"

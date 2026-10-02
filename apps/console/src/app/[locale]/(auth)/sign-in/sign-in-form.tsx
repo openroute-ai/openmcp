@@ -14,6 +14,7 @@ import { LocaleLink, useLocaleRouter } from "@/i18n/navigation"
 import { authClient } from "@/lib/auth-client"
 import { SmsSliderCaptcha } from "@workspace/sms-captcha/client"
 import { AuthDivider, GitHubButton } from "@/components/github-button"
+import { EmailVerificationForm } from "@/components/auth/email-verification-form"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -56,6 +57,10 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
 
+  // An address that has an account but was never proven: better-auth refuses the
+  // sign-in, and the fix is a code rather than a different password.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+
   const validPhone = PHONE_REGEX.test(phone)
 
   useEffect(() => {
@@ -82,6 +87,10 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           router.refresh()
         },
         onError: (ctx) => {
+          if (ctx.error?.code === "EMAIL_NOT_VERIFIED") {
+            setUnverifiedEmail(email)
+            return
+          }
           setError(authErrorMessage(ctx.error, t, t("signInFailed")))
         },
       }
@@ -148,7 +157,50 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
     }
   }
 
-  const canSendCode = countdown === 0 && !sending && validPhone && !codeSent
+  // Resend is held down by the countdown alone: `codeSent` only opens the code
+  // field. Gating on it too left the button disabled forever after the first
+  // send, which made the countdown above pointless.
+  const canSendCode = countdown === 0 && !sending && validPhone
+
+  if (unverifiedEmail) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("verifyEmailTitle")}</CardTitle>
+          <CardDescription>
+            {t("verifyEmailDescription", { email: unverifiedEmail })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4 pb-6">
+          <EmailVerificationForm
+            email={unverifiedEmail}
+            onBack={() => {
+              setUnverifiedEmail(null)
+              setError(null)
+            }}
+            onVerified={async () => {
+              // The reason sign-in failed is now gone, so the same credentials
+              // are retried rather than asked for again.
+              const { data, error: retryError } = await authClient.signIn.email({
+                email: unverifiedEmail,
+                password,
+              })
+
+              if (retryError) {
+                setUnverifiedEmail(null)
+                setError(authErrorMessage(retryError, t, t("signInFailed")))
+                return
+              }
+
+              toast.success(t("verifyEmailSuccess"))
+              router.push(landingPathFor(data?.user))
+              router.refresh()
+            }}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -257,6 +309,9 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
                   onChange={(e) => {
                     setPhone(e.target.value.replace(/\D/g, ""))
                     setCodeSent(false)
+                    // A new number is a new request; the previous number's
+                    // cooldown must not hold its resend button down.
+                    setCountdown(0)
                     setPhoneError(null)
                   }}
                   disabled={sending || loading}
@@ -286,7 +341,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={!canSendCode && !sending}
+                  disabled={!canSendCode}
                   onClick={() => {
                     if (!validPhone) {
                       setPhoneError(t("phoneInvalid"))

@@ -34,7 +34,12 @@ export const createMailTranslator = (
   namespace?: string
 ): MailTranslator => {
   const t = createTranslator({
-    locale,
+    // `MailLocale` is `string` on purpose — this package is framework-agnostic
+    // and must not depend on a host app's `AppConfig`. A host that augments
+    // `next-intl` with a literal locale union narrows `createTranslator`'s
+    // parameter to it, so the cast resolves against whichever program compiles
+    // this file: `string` standalone, the app's union inside the app.
+    locale: locale as Parameters<typeof createTranslator>[0]['locale'],
     messages: messages as Parameters<typeof createTranslator>[0]['messages'],
     ...(namespace ? { namespace } : {}),
   })

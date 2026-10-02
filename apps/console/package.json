@@ -36,6 +36,7 @@
     "@trpc/tanstack-react-query": "^11.19.0",
     "@upstash/redis": "^1.35.3",
     "@vercel/postgres": "^0.10.0",
+    "@workspace/mail": "workspace:*",
     "@workspace/sms-captcha": "workspace:^",
     "@workspace/ui": "workspace:*",
     "ai": "^7.0.0",

@@ -5,14 +5,23 @@
  * 而这个站点的主张是信息全部免费公开。留一个能立刻加上的联系方式，比留一条要走
  * 三轮的对接流程更符合同一套说法。
  *
- * 二维码图片由运营直接覆盖 `public/images/contact-wechat.png`（微信号二维码导出成
- * PNG 即可），微信号写在这里：二维码扫不出来的时候还能复制文字，两处指向同一个号。
+ * 二维码图片由运营直接覆盖 `public/images/contact-wechat.webp`（微信号二维码导出成
+ * WebP 即可，文件名要与图片实际格式一致，否则浏览器按扩展名宣告的 MIME 与字节不符），
+ * 微信号写在这里：二维码扫不出来的时候还能复制文字，两处指向同一个号。
  * 换号只改这一个文件。
  */
 
 export const CONTACT = {
-  /** 微信号。弹窗里展示，剪贴板里复制的也是它。 */
-  wechatId: "your-wx-id",
+  /** 微信号。展示和剪贴板里复制的都是它。 */
+  wechatId: "OpenRouteAI",
   /** 二维码图片路径，文件放在 `apps/console/public/images/` 下。 */
-  qrSrc: "/images/contact-wechat.png",
+  qrSrc: "/images/contact-wechat.webp",
+  /**
+   * 邮箱，空字符串表示这个渠道不开。
+   *
+   * 没有可用地址时页面和弹窗都只显示微信：留一个没人监听的占位地址比不显示更糟，
+   * 读者会照着它写信然后等不到回音。填上之后 `/contact` 页与「联系团队」弹窗会同时
+   * 出现这一行。
+   */
+  email: "service@openroute.cn",
 } as const
