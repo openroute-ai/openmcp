@@ -105,7 +105,7 @@ export function createBuildRankingsTask(
 function formatPeriod(period: YearWeek | YearMonth): string {
   return "week" in period
     ? `W${String(period.week).padStart(2, "0")}`
-    : `-${String(period.month).padStart(2, "0")}`
+    : `${period.year}-${String(period.month).padStart(2, "0")}`
 }
 
 /**
