@@ -168,8 +168,7 @@ function HeroAnomalyFeed({ anomalies }: { anomalies: AnomalyWithRepo[] }) {
         })}
       </ul>
 
-      <div className="mt-2.5 flex items-center justify-between text-xs text-muted-foreground">
-        <span>每条异动都带这次判定用的数。</span>
+      <div className="mt-2.5 flex items-center justify-end text-xs text-muted-foreground">
         <LocaleLink
           href="/anomalies"
           className="inline-flex items-center gap-1 hover:text-foreground"
@@ -262,11 +261,7 @@ export function Hero({
             浏览应用分类
           </LocaleLink>
         </div>
-
         <p className="mt-4 text-xs text-muted-foreground">免费，无需账号</p>
-
-        <HeroAnomalyFeed anomalies={anomalies} />
-
         <AgentCommand origin={origin} />
       </div>
 
@@ -283,6 +278,7 @@ export function Hero({
           <span>无自定义评分公式</span>
           <span>无 AI 判定</span>
         </div>
+        <HeroAnomalyFeed anomalies={anomalies} />
       </div>
     </section>
   )

@@ -103,7 +103,10 @@ export function VitalsStrip({ vital }: { vital: Vital }) {
   return (
     <dl className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-5">
       {READINGS.map(({ label, value, Icon, tone }) => (
-        <div key={label} className="grid gap-0.5 bg-background px-3 py-2.5">
+        <div
+          key={label}
+          className="grid min-h-[56px] content-center gap-0.5 bg-background px-3 py-2.5"
+        >
           <dt className="flex items-center gap-1 text-xs text-muted-foreground">
             <Icon size={12} aria-hidden />
             {label}

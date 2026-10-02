@@ -138,9 +138,9 @@ export async function readTimeline(
     events.push({
       at: observation.observedAt,
       kind: "license",
-      title: `观测到许可证 ${observation.license}`,
+      title: `许可证：${observation.license}`,
       // 时刻意说明这不是变更时间。见 `repoLicenseHistory.observedAt` 的注释。
-      detail: "观测时间，不是变更时间",
+      detail: "",
     })
   }
 
