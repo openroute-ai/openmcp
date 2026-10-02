@@ -30,6 +30,47 @@ export async function getSessionUser(): Promise<RoleBearing | null> {
 }
 
 /**
+ * The signed-in account with the fields account settings actually write.
+ *
+ * `getSessionUser` is deliberately structural — the gates only need `role`, and
+ * widening it would make every layout depend on the shape of the user table. The
+ * settings page and its routes are the opposite: they read and write `name`,
+ * `email`, `image` and the two phone columns, so they ask for those explicitly
+ * here rather than casting the narrow type at four call sites.
+ *
+ * Returns null both for "no session" and "expired session", as `getSessionUser`
+ * does; the callers treat the two the same.
+ */
+export interface SessionUser {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image: string | null
+  phoneNumber: string | null
+  phoneNumberVerified: boolean
+}
+
+export async function getFullSessionUser(): Promise<SessionUser | null> {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) return null
+
+  const { user } = session
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    image: user.image ?? null,
+    // Optional on better-auth's user type without the phone plugin; present as a
+    // real column here (`src/db/schema.ts`), so a missing one is null rather
+    // than a crash.
+    phoneNumber: user.phoneNumber ?? null,
+    phoneNumberVerified: user.phoneNumberVerified ?? false,
+  }
+}
+
+/**
  * Redirects within the app, keeping the reader's locale.
  *
  * The plain `next/navigation` redirect would drop a `/zh` reader onto the

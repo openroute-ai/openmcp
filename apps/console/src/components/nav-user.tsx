@@ -19,13 +19,14 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
-import { useLocaleRouter } from "@/i18n/navigation"
+import { LocaleLink, useLocaleRouter } from "@/i18n/navigation"
 import { useTranslations } from "next-intl"
 
 import { authClient } from "@/lib/auth-client"
 import {
   IconDotsVertical,
   IconLogout,
+  IconSettings,
 } from "@tabler/icons-react"
 
 export function NavUser({
@@ -106,6 +107,16 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {/* Settings live at `/settings` rather than under either console,
+                so this is the one entry both sidebars can share — see the note on
+                `Routes.settings`. */}
+            <DropdownMenuItem asChild>
+              <LocaleLink href="/settings">
+                <IconSettings />
+                {t("settings")}
+              </LocaleLink>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

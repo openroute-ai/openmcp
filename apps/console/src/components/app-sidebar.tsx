@@ -29,6 +29,7 @@ import {
   IconUsers,
   IconUsersGroup,
   IconDeviceDesktop,
+  IconSettings,
 } from "@tabler/icons-react"
 
 // The label is a message key rather than text, so the sidebar translates with
@@ -104,6 +105,15 @@ const navMain: NavMainItem[] = [
     key: "sessions",
     url: "/dashboard/sessions",
     icon: <IconDeviceDesktop />,
+    group: "groupManagement",
+  },
+  // Last, because it is about the reader rather than about anyone else: the
+  // rows above are the operator's view of other accounts, this one is the
+  // operator's own.
+  {
+    key: "settings",
+    url: "/settings",
+    icon: <IconSettings />,
     group: "groupManagement",
   },
 ]

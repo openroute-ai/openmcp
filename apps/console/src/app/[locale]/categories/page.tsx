@@ -34,7 +34,7 @@ export default async function PublicCategoriesPage() {
       <div className="mx-auto max-w-6xl px-4 py-10">
         <PublicPageHeader
           title="应用分类"
-          description="按人工策展的标签浏览公开项目。标签只收录可用于导航的分类，不含运营内部标记。"
+          description="按标签浏览公开项目。"
         >
           <p className="text-xs text-muted-foreground">
             共 {projectTotal} 个公开项目 · {tags.length} 个分类

@@ -168,10 +168,7 @@ export default async function PublicRankingsPage({
       deltaLabel: periods[index]!.deltaLabel,
       periodLabel: periods[index]!.label,
       items: (rankings?.trending ?? []).map(toItem),
-      emptyLabel:
-        index === 0
-          ? "这个周期还没有任何数据。项目需要先被采集过一次，榜单才会有数字。"
-          : "上一个周期没有记录。榜单只公布被完整采集过的周期。",
+      emptyLabel: index === 0 ? "这一期还没有数据。" : "上一期没有记录。",
     })
   )
 
@@ -182,7 +179,7 @@ export default async function PublicRankingsPage({
       <div className="mx-auto max-w-6xl px-4 py-10">
         <PublicPageHeader
           title="公开榜单"
-          description="按区间内的星标绝对增量排序，不用百分比：小基数项目的百分比会骗人。每条数据都能点开看原始时间轴。"
+          description="本周和上周星标增量最高的项目。"
         >
           <div className="flex flex-wrap items-center gap-2">
             {RANGES.map((r) => (
@@ -219,11 +216,11 @@ export default async function PublicRankingsPage({
         )}
 
         <p className="mt-8 text-xs text-muted-foreground">
-          榜单每期只列前 {PAGE_LIMIT} 个。想取全量数据可以直接读 JSON：
-          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono">
+          页面每期列前 {PAGE_LIMIT} 个，全量数据在{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
             /api/rankings/{range}.json
           </code>
-          ，排序与这里一致。
+          ，排序一致。
         </p>
       </div>
     </PublicShell>

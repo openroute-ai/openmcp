@@ -104,8 +104,8 @@ export function DeepDives() {
               ))}
             </ul>
             <p className="mt-6 rounded-xl border border-border bg-card p-4 text-[13px] leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">我们不做加权汇总，也不公开权重。</span>
-              每项数据都有采集时间与来源，点开即见原始时间轴——结论可以复现，也可以被你自己推翻。
+              <span className="font-medium text-foreground">不给综合分。</span>
+              每项数据都带采集时间与来源，点开就是原始时间轴。你可以自己复核，也可以推翻。
             </p>
           </Reveal>
         </div>

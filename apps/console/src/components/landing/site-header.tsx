@@ -61,18 +61,24 @@ function subscribeToAnnounce(listener: () => void) {
 }
 
 /**
- * The destinations a visitor actually has: back here, the rankings, the category
- * index, and the FAQ. They are routes rather than `#anchors` because all four are
+ * The destinations a visitor actually has: the anomaly feed, the two rankings and
+ * the category index. They are routes rather than `#anchors` because all four are
  * real pages that stand on their own — they are public and readable without an
  * account, and are linked from shared articles and by agents. Anchoring the
  * header into this page's own sections would have left the header dead
  * everywhere else.
+ *
+ * The four are the public pages' own `PublicShell` nav, and that is deliberate:
+ * someone who follows one of these links lands on a page whose header offers the
+ * same list, so the two chrome bars read as one site instead of two. `FAQ` used to
+ * sit here and does not any more — it is a landing-page section (`#faq`) that also
+ * has a standalone route, and the route is where the header already sends people.
  */
 const NAV_LINKS = [
-  { label: "首页", href: "/" },
-  { label: "榜单", href: "/rankings" },
+  { label: "异动", href: "/anomalies" },
+  { label: "公开榜单", href: "/rankings" },
+  { label: "飙升榜", href: "/rankings/rising" },
   { label: "分类", href: "/categories" },
-  { label: "FAQ", href: "/faq" },
 ] as const;
 
 function AnnounceBar() {

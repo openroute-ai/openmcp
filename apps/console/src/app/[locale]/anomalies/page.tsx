@@ -50,13 +50,13 @@ const FILTERS = [
 export const metadata: Metadata = {
   title: "异动 — OpenMCP 雷达",
   description:
-    "增速断崖、异常加速、维护停滞、推送停滞、许可证变更。每条异动附原始周数据与判定阈值，免费公开。",
+    "最近一周发生变化的开源项目：涨得快、跌得快、停更、换了许可证。",
   alternates: { canonical: "/anomalies" },
   openGraph: {
     type: "website",
     title: "异动 — OpenMCP 雷达",
     description:
-      "增速断崖、异常加速、维护停滞、推送停滞、许可证变更。每条异动附原始周数据与判定阈值。",
+      "最近一周发生变化的开源项目。",
     url: "https://radar.openmcp.cn/anomalies",
   },
 }
@@ -94,7 +94,7 @@ export default async function PublicAnomaliesPage({
       <div className="mx-auto max-w-6xl px-4 py-10">
         <PublicPageHeader
           title="异动"
-          description="按严重程度与绝对幅度排序。每一行都带触发它的那几个数，不需要相信我们的措辞。"
+          description="最近一周发生变化的项目。"
         >
           <nav className="flex flex-wrap gap-1.5 text-sm">
             {FILTERS.map((filter) => {

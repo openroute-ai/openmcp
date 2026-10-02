@@ -9,7 +9,13 @@ import {
 } from "@workspace/sms-captcha/server"
 import { db } from "@/db/client"
 import { schema as consoleSchema } from "@/db/schema"
+import {
+  EMAIL_CODE_TTL_SECONDS,
+  generateEmailCode,
+  issueEmailCode,
+} from "@/lib/auth/email-code"
 import { getRateLimitStorage } from "@/lib/redis"
+import { isMailConfigured, mailLocaleFrom, sendEmail } from "@/lib/mail"
 import { smsCaptchaConfig } from "@/lib/sms-captcha"
 import { sendSmsCode } from "@/lib/sms"
 
@@ -47,6 +53,106 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    // An address is only an address until someone reads the mail at it.
+    // Requiring verification means sign-up returns no session and sign-in
+    // refuses until the code below has been entered, so the console has no
+    // accounts that exist solely because a form was submitted.
+    //
+    // A side effect worth knowing: better-auth then answers a duplicate
+    // sign-up with a generic response rather than "that address is taken",
+    // because otherwise this flag would turn the sign-up form into a way to
+    // enumerate accounts.
+    requireEmailVerification: true,
+    // A phone-only account holds a synthetic, unreachable address. Changing it
+    // to a real one has to apply immediately for the address to be usable, with
+    // the code sent to the new address deciding whether it stays. An address
+    // that is already real is not changed the same way: it can reset the
+    // password, so the change is confirmed from the old inbox instead, which a
+    // borrowed session cannot read.
+    // https://www.better-auth.com/docs/authentication/email-password#change-email
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: true,
+      sendChangeEmailConfirmation: async (
+        {
+          user,
+          newEmail,
+          url,
+        }: {
+          user: { name: string; email: string }
+          newEmail: string
+          url: string
+        },
+        request?: Request
+      ) => {
+        if (!isMailConfigured()) {
+          console.warn(
+            `[mail:test] confirm email change for ${user.email} -> ${newEmail}: ${url}`
+          )
+          return
+        }
+
+        const sent = await sendEmail({
+          to: user.email,
+          template: "changeEmailConfirmation",
+          locale: mailLocaleFrom(request),
+          context: { name: user.name, newEmail, url },
+        })
+
+        if (!sent) {
+          console.error(
+            "[console] failed to send change-email confirmation to",
+            user.email
+          )
+        }
+      },
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    expiresIn: EMAIL_CODE_TTL_SECONDS,
+    /**
+     * Sends the six-digit code rather than the library's link.
+     *
+     * The link would also work — `requireEmailVerification` accepts either — but
+     * a reader who registered on a phone has the mail open on the same device
+     * and should not have to leave the app to finish signing up. The code is
+     * checked by `POST /api/auth/email-code/verify`, which is why it is stored
+     * here rather than in better-auth's own token table.
+     */
+    sendVerificationEmail: async ({ user }, request) => {
+      const email = user.email
+      const code = generateEmailCode()
+      await issueEmailCode(email, code)
+
+      // No mail transport configured: log the code rather than swallow it. A
+      // developer running this locally has to be able to finish the flow, and
+      // a silent send failure would leave them stuck at "check your inbox" with
+      // nothing in it.
+      if (!isMailConfigured()) {
+        console.warn(
+          `[mail:test] verification code for ${email}: ${code}`
+        )
+        return
+      }
+
+      const sent = await sendEmail({
+        to: email,
+        template: "verifyEmailCode",
+        locale: mailLocaleFrom(request),
+        context: {
+          name: user.name,
+          code,
+          expiresInMinutes: Math.round(EMAIL_CODE_TTL_SECONDS / 60),
+        },
+      })
+
+      if (!sent) {
+        // The code is already stored, so a retry from the form works once the
+        // resend cooldown lapses; nothing else needs undoing.
+        console.error("[console] failed to send verification email to", email)
+      }
+    },
   },
   user: {
     // Carries the platform role on the session so the client can gate

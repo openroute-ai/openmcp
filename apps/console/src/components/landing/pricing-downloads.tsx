@@ -28,6 +28,18 @@ interface Tier {
   contact?: boolean;
 }
 
+/**
+ * 「更多资源」三条，指向已经存在的页面。
+ *
+ * 这三个标签以前是三个 `href="#"`：文字看起来完整，点下去没有反应。它们最终各自对上一个
+ * 真实页面，所以链接本身保留，只把落点补上。
+ */
+const MORE_RESOURCES = [
+  { label: "开源选型指南", href: "/guide" },
+  { label: "本周飙升榜", href: "/rankings/rising" },
+  { label: "API 文档", href: "/docs" },
+];
+
 const TIERS: Tier[] = [
   {
     name: "免费",
@@ -35,7 +47,7 @@ const TIERS: Tier[] = [
     suffix: "",
     desc: "个人永久使用，不限次数",
     features: [
-      "全部榜单与异动，免费公开",
+      "全部榜单与异动",
       "生命体征与证据时间轴",
       "stargazer 时间序列查询",
       "社区实测记录",
@@ -140,7 +152,7 @@ export function Pricing() {
       </div>
       <Reveal className="mt-6 text-center">
         <div className="space-y-2 text-center">
-          <p className="text-xs text-muted-foreground">榜单、异动、生命体征、证据时间轴全部免费公开，不设付费墙</p>
+          <p className="text-xs text-muted-foreground">榜单、异动、生命体征、证据时间轴都免费</p>
           <p className="text-xs text-muted-foreground/80">付费计划支持 14 天无理由退款 · 年付享 8 折</p>
         </div>
       </Reveal>
@@ -150,12 +162,24 @@ export function Pricing() {
 
 export function ReportDownload() {
   const [email, setEmail] = useState("");
-  const [done, setDone] = useState(false);
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">(
+    "idle"
+  );
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) return;
-    setDone(true);
+    if (!email.includes("@") || status === "sending") return;
+    setStatus("sending");
+    try {
+      const response = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source: "landing-report" }),
+      });
+      setStatus(response.ok ? "done" : "error");
+    } catch {
+      setStatus("error");
+    }
   };
 
   return (
@@ -172,9 +196,9 @@ export function ReportDownload() {
           <p className="mt-3 text-sm text-muted-foreground">
             对比 12 个项目 · 逐项原始量 · 含原始时间轴与证据来源
           </p>
-          {done ? (
+          {status === "done" ? (
             <p className="mx-auto mt-8 max-w-md rounded-xl border border-border bg-card px-5 py-4 text-sm text-foreground">
-              已收到！报告下载链接将发送到 <span className="font-medium">{email}</span>。
+              已订阅！报告入口与本周周刊已发送到 <span className="font-medium">{email}</span>。
             </p>
           ) : (
             <form onSubmit={submit} className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
@@ -191,18 +215,28 @@ export function ReportDownload() {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setStatus("idle");
+                  }}
+                  disabled={status === "sending"}
                   placeholder="name@company.com"
-                  className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                  className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary disabled:opacity-60"
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+                disabled={status === "sending"}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                立即下载 <span aria-hidden>→</span>
+                {status === "sending" ? "发送中…" : "订阅并获取"} <span aria-hidden>→</span>
               </button>
             </form>
+          )}
+          {status === "error" && (
+            <p className="mt-3 text-xs text-destructive">
+              提交失败，请稍后重试，或直接到「关于我们」页面联系我们。
+            </p>
           )}
           <p className="mt-4 text-xs text-muted-foreground/80">
             提交即表示同意接收选型周刊，可随时退订。
@@ -211,13 +245,13 @@ export function ReportDownload() {
             <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
               更多资源
             </span>
-            {["开源选型指南", "本周飙升榜", "API 文档"].map((r) => (
+            {MORE_RESOURCES.map((r) => (
               <a
-                key={r}
-                href="#"
+                key={r.href}
+                href={r.href}
                 className="font-medium text-secondary-foreground transition-colors hover:text-foreground"
               >
-                {r}
+                {r.label}
               </a>
             ))}
           </div>
@@ -266,7 +300,7 @@ export function FinalCta() {
               下一次技术选型，先来看它是不是在变坏。
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              榜单与异动全部免费公开 · 无需信用卡
+              免费，无需信用卡
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <a

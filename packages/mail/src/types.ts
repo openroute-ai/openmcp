@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { ChangeEmailConfirmation } from './templates/change-email-confirmation'
 import { ContactMessage } from './templates/contact-message'
 import { ForgotPassword } from './templates/forgot-password'
 import { LiteLLMBudgetUpdateFailed } from './templates/litellm-budget-update-failed'
@@ -6,6 +7,7 @@ import { OrganizationInvitation } from './templates/organization-invitation'
 import { SubscribeNewsletter } from './templates/subscribe-newsletter'
 import { SyncErrorNotification } from './templates/sync-error-notification'
 import { VerifyEmail } from './templates/verify-email'
+import { VerifyEmailCode } from './templates/verify-email-code'
 import { WechatBudgetUpdateFailed } from './templates/wechat-budget-update-failed'
 import { WechatWebhookFailed } from './templates/wechat-webhook-failed'
 
@@ -33,6 +35,8 @@ export type MailMessages = Record<string, unknown>
 const templateRegistry = {
   forgotPassword: ForgotPassword,
   verifyEmail: VerifyEmail,
+  verifyEmailCode: VerifyEmailCode,
+  changeEmailConfirmation: ChangeEmailConfirmation,
   organizationInvitation: OrganizationInvitation,
   subscribeNewsletter: SubscribeNewsletter,
   contactMessage: ContactMessage,

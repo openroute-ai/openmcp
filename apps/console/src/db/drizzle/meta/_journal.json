@@ -85,6 +85,13 @@
       "when": 1790864559480,
       "tag": "0019_anomaly_magnitude",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790903835290,
+      "tag": "0020_dry_black_cat",
+      "breakpoints": true
     }
   ]
 }

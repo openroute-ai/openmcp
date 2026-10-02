@@ -22,7 +22,7 @@ export default defineConfig({
   // `@workspace/db/schema` wholesale, and drizzle-kit walks every export of
   // the entry module, so it would generate migrations for the shared blog,
   // workflow, persona and marketplace tables as well. The entry file spells
-  // out the twenty-five tables console owns.
+  // out the tables console owns, one by one.
   schema: "./src/db/drizzle-schema.ts",
   out: "./src/db/drizzle",
   dialect: "postgresql",

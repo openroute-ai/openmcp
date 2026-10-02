@@ -38,6 +38,10 @@ npm-debug.log*
 # Misc
 .DS_Store
 *.pem
+# Windows / OneDrive marks downloaded files with an NTFS alternate-data-stream
+# sidecar. On a non-NTFS checkout it lands as a literal `name:Zone.Identifier`
+# file, which a `git add -A` would otherwise commit.
+*:Zone.Identifier
 
 # AI
 .claude/

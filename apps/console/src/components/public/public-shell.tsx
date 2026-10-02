@@ -1,7 +1,7 @@
 import {
   IconArrowLeft,
   IconChartBar,
-  IconHelpCircle,
+  IconChartLine,
   IconRadar,
   IconTags,
 } from "@tabler/icons-react"
@@ -10,8 +10,9 @@ import { ThemeToggle } from "@/components/landing/theme"
 import { LocaleLink } from "@/i18n/navigation"
 
 /**
- * The chrome around the public radar pages: anomalies, rankings, categories,
- * detail.
+ * The chrome around the public radar pages: anomalies, the two rankings,
+ * categories, detail, and the long-form pages that hang off the footer
+ * (method, guide, docs, about, contact, blog and the four legal routes).
  *
  * Separate from the landing's `SiteHeader` because that one's links are anchors
  * into the marketing page's own sections (`#pricing`, `#method`). Reusing it here
@@ -32,11 +33,20 @@ import { LocaleLink } from "@/i18n/navigation"
  * make the rankings the product's face, and a site whose front page is a
  * leaderboard is a site that only reports growth.
  */
+/**
+ * The four destinations, and they are the same four the landing page's header
+ * offers.
+ *
+ * Someone who follows one of these links lands on a page whose header shows the
+ * same list, so the two bars read as one site instead of two. `常见问题` used to
+ * be here and now lives in the footer: it is the one destination that arrives
+ * after a reader has already decided they care, not one they use to get here.
+ */
 const NAV = [
   { href: "/anomalies", label: "异动", icon: IconRadar },
   { href: "/rankings", label: "公开榜单", icon: IconChartBar },
-  { href: "/categories", label: "应用分类", icon: IconTags },
-  { href: "/faq", label: "常见问题", icon: IconHelpCircle },
+  { href: "/rankings/rising", label: "飙升榜", icon: IconChartLine },
+  { href: "/categories", label: "分类", icon: IconTags },
 ] as const
 
 function PublicHeader() {
@@ -85,8 +95,8 @@ function PublicFooter() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground">
-        <span>OpenMCP 雷达 — 榜单、分类、详情全部免费公开</span>
-        <span>无自定义评分公式 · 无 AI 判定</span>
+        <span>OpenMCP 雷达</span>
+        <span>数据每周更新</span>
       </div>
     </footer>
   )

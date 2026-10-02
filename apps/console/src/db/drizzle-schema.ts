@@ -7,6 +7,7 @@ import {
   decisionCandidates,
   hallOfFame,
   hallOfFameToProjects,
+  newsletterSubscription,
   packages,
   projectSkills,
   projects,
@@ -80,6 +81,14 @@ export { userRepos }
  * 混进任何一组里让"这一组是 GitHub 域的表"这句话不再成立。
  */
 export { decisionBoards, decisionCandidates }
+
+/**
+ * 订阅选型周刊的邮箱。
+ *
+ * 与 auth 那一组分开具名，因为它是「谁留下了邮箱」而不是身份：邮箱可以属于一个
+ * 已登录用户，也可以属于一个还没注册的访客，`user_id` 因此可空。
+ */
+export { newsletterSubscription }
 
 /** console's own GitHub tables; see `src/db/schema/github.ts`. */
 export {

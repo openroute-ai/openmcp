@@ -112,7 +112,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://radar.openmcp.cn"),
   title: "OpenMCP 雷达 — 开源项目异动监控",
   description:
-    "记录每个 stargazer 的到达时间，据此判断一个开源项目正在变好还是变坏。增速断崖、维护停滞、许可证变更，全部免费公开，每条结论可点开看原始时间轴。",
+    "记录每个 stargazer 的到达时间，据此判断一个开源项目正在变好还是变坏。每条结论可点开看原始时间轴。",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -120,7 +120,7 @@ export const metadata: Metadata = {
     locale: "zh_CN",
     title: "OpenMCP 雷达 — 开源项目异动监控",
     description:
-      "别人告诉你这个项目多受欢迎，我们告诉你它正在变好还是变坏。异动、证据链、时间序列，全部免费公开。",
+      "别人告诉你这个项目多受欢迎，我告诉你它正在变好还是变坏。",
     url: "https://radar.openmcp.cn",
   },
   twitter: { card: "summary_large_image" },

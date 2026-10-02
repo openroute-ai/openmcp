@@ -49,6 +49,18 @@ export interface PublicProjectItem {
   /** Movement over the ranked period, absent where the list is not a ranking. */
   delta?: number
   /**
+   * Growth as a fraction of the count before the period, on lists that rank on
+   * the ratio rather than the absolute gain.
+   *
+   * Present together with `growthBase`: a percentage on its own is the one
+   * number on this site that can be true and useless at the same time (4 → 8
+   * stars is +100%), so the denominator travels with it and is rendered on the
+   * same row. Absent where the list ranks on absolute gain.
+   */
+  relativeGrowth?: number | null
+  /** The count before the period — the denominator of `relativeGrowth`. */
+  growthBase?: number
+  /**
    * The project's most severe open anomaly, when it has one.
    *
    * Rendered on the row rather than behind a click (§5.9.3): the row is the
@@ -70,6 +82,8 @@ export interface PublicProjectGroup {
   periodLabel?: string
   /** What the delta column counts, e.g. `本周增量`. */
   deltaLabel?: string
+  /** What `growthBase` is, e.g. `上周 3,876 星`. Absent when there is no ratio. */
+  growthBaseLabel?: string
   items: PublicProjectItem[]
   /** Shown when the period has no rows at all. */
   emptyLabel: string
@@ -250,12 +264,19 @@ function ProjectRows({ group }: { group: PublicProjectGroup }) {
                 {item.stars.toLocaleString("en-US")}
                 <IconStar className="mb-0.5 ml-1 inline size-3" aria-hidden />
               </span>
+              {item.relativeGrowth != null ? (
+                <span className="text-xs font-semibold text-radar-up tabular-nums">
+                  {formatPercent(item.relativeGrowth)}
+                </span>
+              ) : null}
               {item.delta !== undefined ? (
                 <span
                   className={
-                    item.delta >= 0
-                      ? "text-xs font-semibold text-radar-up tabular-nums"
-                      : "text-xs font-semibold text-radar-down tabular-nums"
+                    item.relativeGrowth == null
+                      ? item.delta >= 0
+                        ? "text-xs font-semibold text-radar-up tabular-nums"
+                        : "text-xs font-semibold text-radar-down tabular-nums"
+                      : "text-xs text-muted-foreground tabular-nums"
                   }
                 >
                   <span className="inline-flex items-center gap-1">
@@ -266,6 +287,11 @@ function ProjectRows({ group }: { group: PublicProjectGroup }) {
                     )}
                     {signed(item.delta)}
                   </span>
+                </span>
+              ) : null}
+              {item.growthBase != null && group.growthBaseLabel ? (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {group.growthBaseLabel} {item.growthBase.toLocaleString("en-US")} 星
                 </span>
               ) : null}
             </span>
@@ -318,21 +344,33 @@ function ProjectCards({ group }: { group: PublicProjectGroup }) {
 
           <TagRow tags={item.tags} />
 
-          <span className="mt-auto flex items-center justify-between pt-1 text-sm tabular-nums">
+          <span className="mt-auto grid justify-items-end gap-1 pt-1 text-right text-sm tabular-nums">
             <span>
               {item.stars.toLocaleString("en-US")}
               <IconStar className="mb-0.5 ml-1 inline size-3" aria-hidden />
             </span>
+            {item.relativeGrowth != null ? (
+              <span className="text-xs font-semibold text-radar-up">
+                {formatPercent(item.relativeGrowth)}
+              </span>
+            ) : null}
             {item.delta !== undefined ? (
               <span
                 className={
-                  item.delta >= 0
-                    ? "text-xs font-semibold text-radar-up"
-                    : "text-xs font-semibold text-radar-down"
+                  item.relativeGrowth == null
+                    ? item.delta >= 0
+                      ? "text-xs font-semibold text-radar-up"
+                      : "text-xs font-semibold text-radar-down"
+                    : "text-xs text-muted-foreground"
                 }
               >
                 {group.deltaLabel ? `${group.deltaLabel} ` : ""}
                 {signed(item.delta)}
+              </span>
+            ) : null}
+            {item.growthBase != null && group.growthBaseLabel ? (
+              <span className="text-xs text-muted-foreground">
+                {group.growthBaseLabel} {item.growthBase.toLocaleString("en-US")} 星
               </span>
             ) : null}
           </span>
@@ -390,4 +428,15 @@ function TagRow({ tags }: { tags: string[] }) {
 /** Formats a gain with its sign, the way a reader scans a delta column. */
 function signed(value: number): string {
   return `${value > 0 ? "+" : ""}${value}`
+}
+
+/**
+ * Formats a growth ratio with its sign.
+ *
+ * `growthBase` is rendered next to it on the same row (see
+ * {@link PublicProjectItem.relativeGrowth}), because a signed percentage is the one
+ * number here that can be both correct and useless on its own.
+ */
+function formatPercent(value: number): string {
+  return `${value > 0 ? "+" : ""}${Math.round(value * 100)}%`
 }
