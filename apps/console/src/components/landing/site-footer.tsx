@@ -2,7 +2,7 @@
 
 import { IconBrandGithub } from "@tabler/icons-react";
 
-import { SiteMark } from "@/components/brand/site-mark";
+import { RadarLogo } from "@/components/brand/radar-logo";
 import { LocaleLink } from "@/i18n/navigation";
 import { SITE_HOST, SITE_NAME, SITE_TAGLINE } from "@/lib/config/site";
 
@@ -65,7 +65,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2.5">
-              <SiteMark className="size-8 shrink-0" />
+              <RadarLogo className="size-8" />
               <span className="font-display text-base font-semibold">{SITE_NAME}</span>
             </div>
             <p className="mt-4 max-w-[30ch] text-sm leading-relaxed text-muted-foreground">

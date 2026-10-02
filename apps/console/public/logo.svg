@@ -1,43 +1,93 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <title>AI雷达</title>
-  <!--
-    Radar: a sweep pointing north-east, the arcs trailing behind it, one blip
-    caught on the outer ring.
-    Colours are the theme's primary (oklch 0.518 0.253 323.949) and primary
-    foreground (oklch 0.977 0.017 320.058), converted out of OKLCH and gamut
-    mapped so a rasteriser that cannot parse oklch() does not fall back to
-    black. Pinned rather than themed with prefers-color-scheme: the header and
-    footer render this as an img, and CSS inside a referenced SVG cannot see the
-    host page's dark class. A filled tile reads the same on both, so there is
-    nothing to switch.
-    Canonical file. favicon.ico, logo-192.png, logo-512.png,
-    apple-touch-icon.png and og.png are rendered from it; edit this file and
-    re-render them, never hand-edit a raster.
-  -->
-  <rect width="24" height="24" rx="5.5" fill="#a600b4" />
-  <!--
-    The glyph is translated, not redrawn around the centre. A radar fan is
-    inherently up-and-left weighted, so drawing it concentrically leaves the
-    bottom-right of the tile visibly empty and the mark reads as clipped at
-    16px. 0.52 / 3.3 is the offset that puts the glyph's measured bounding box
-    on the tile's centre (24 units, so half the stroke is already in the number).
-  -->
-  <g transform="translate(0.52 3.3)">
-    <g
-      fill="none"
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AI雷达 — the filled tile the favicon, the OG image and the manifest icons are
+  rendered from.
+
+  Colours are the theme's primary (oklch 0.518 0.253 323.949) and primary
+  foreground (oklch 0.977 0.017 320.058), converted out of OKLCH and gamut
+  mapped so a rasteriser that cannot parse oklch() does not fall back to black.
+  The app has no brand palette of its own (see theme.css), so the theme's primary
+  *is* the brand colour — pinning it here means a rebrand is one token in
+  packages/ui/src/styles/globals.css, not an edit per call site.
+
+  Pinned to the light-theme values rather than switched on prefers-color-scheme:
+  the header and footer render this as an img, and CSS inside a referenced SVG
+  cannot see the host page's dark class. A filled tile reads the same on both,
+  so there is   nothing to switch. The inline logo in the UI
+  (src/components/brand/radar-logo.tsx) has no such constraint and fills from the
+  live theme instead, which is why the two can drift.
+
+  Canonical file. favicon.ico, logo-192.png, logo-512.png, apple-touch-icon.png
+  and og.png are rendered from it; edit this file and re-render them, never
+  hand-edit a raster.
+-->
+<svg
+  width="32"
+  height="32"
+  viewBox="0 0 32 32"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Background with rounded corners -->
+  <rect width="32" height="32" rx="6" fill="#a600b4" />
+
+  <!-- Workflow nodes and connections -->
+  <g fill="#fdf4ff">
+    <!-- Main center node (larger) -->
+    <circle cx="16" cy="16" r="4" opacity="0.9" />
+
+    <!-- Top-left node -->
+    <circle cx="10" cy="10" r="2.5" opacity="0.8" />
+
+    <!-- Top-right node -->
+    <circle cx="22" cy="10" r="2.5" opacity="0.8" />
+
+    <!-- Bottom-left node -->
+    <circle cx="10" cy="22" r="2.5" opacity="0.8" />
+
+    <!-- Bottom-right node -->
+    <circle cx="22" cy="22" r="2.5" opacity="0.8" />
+
+    <!-- Connection lines from center to nodes -->
+    <line
+      x1="16"
+      y1="16"
+      x2="10"
+      y2="10"
       stroke="#fdf4ff"
-      stroke-width="1.7"
+      stroke-width="1.5"
       stroke-linecap="round"
-    >
-      <!-- the sweep, from the centre out to the leading edge -->
-      <path d="M12 12 17.9 6.1" />
-      <!-- inner arc: r 3.6, from 45deg to 170deg behind the sweep -->
-      <path d="M14.55 9.45A3.6 3.6 0 0 0 8.45 11.37" />
-      <!-- outer arc: r 7, the same sweep of angle -->
-      <path d="M16.95 7.05A7 7 0 0 0 5.11 10.78" />
-    </g>
-    <circle cx="12" cy="12" r="1.3" fill="#fdf4ff" />
-    <!-- the blip: the one thing the radar exists to report -->
-    <circle cx="9.04" cy="5.66" r="1.3" fill="#fdf4ff" />
+      opacity="0.6"
+    />
+    <line
+      x1="16"
+      y1="16"
+      x2="22"
+      y2="10"
+      stroke="#fdf4ff"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      opacity="0.6"
+    />
+    <line
+      x1="16"
+      y1="16"
+      x2="10"
+      y2="22"
+      stroke="#fdf4ff"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      opacity="0.6"
+    />
+    <line
+      x1="16"
+      y1="16"
+      x2="22"
+      y2="22"
+      stroke="#fdf4ff"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      opacity="0.6"
+    />
   </g>
 </svg>
