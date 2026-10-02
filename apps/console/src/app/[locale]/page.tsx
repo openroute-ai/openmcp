@@ -72,6 +72,14 @@ export default async function Home() {
   // database blip is not a reason to 500 the marketing site.
   const anomalies = await listOpenAnomalies(db, { limit: 6 }).catch(() => [])
 
+  // §5.9.4 要求 hero 的 feed 标注采集时间。在服务端算一次、以字符串传下去：
+  // `Hero` 是 client 组件，让它自己 `new Date()` 会在服务端和客户端各算一次、
+  // 差几秒，触发 hydration mismatch。
+  const collectedAt = new Date().toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    hour12: false,
+  })
+
   // An empty feed is a state, not a gap: `Hero` renders nothing in its place and
   // `AnomalyQuietNote` states the reason one band lower ("these repos are
   // healthy"), because an empty box inside the hero reads as a failed load.
@@ -94,7 +102,7 @@ export default async function Home() {
       <AnnounceBar />
       <SiteNav cta={{ href: landingPathFor(user), signedIn: user !== null }} />
       <main>
-        <Hero origin={origin} anomalies={anomalies} />
+        <Hero origin={origin} anomalies={anomalies} collectedAt={collectedAt} />
         {anomalies.length === 0 ? <AnomalyQuietNote /> : null}
         <PainPoints />
         <Solutions />

@@ -38,14 +38,6 @@ import type { AnomalyWithRepo } from "@/lib/radar/anomalies"
  * 异动类型都带图标 + 文案，颜色只作冗余强化，不承担信息本身。
  */
 
-/** 首屏那一块的时间标注。§5.9.4 要求「必须标注采集时间」，所以它就在 feed 里。 */
-function collectedAtLabel(): string {
-  return new Date().toLocaleString("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    hour12: false,
-  })
-}
-
 /**
  * 一行异动：图标 + 类型 + 仓库 + 幅度。
  *
@@ -119,7 +111,13 @@ export function AnomalyQuietNote() {
   )
 }
 
-function HeroAnomalyFeed({ anomalies }: { anomalies: AnomalyWithRepo[] }) {
+function HeroAnomalyFeed({
+  anomalies,
+  collectedAt,
+}: {
+  anomalies: AnomalyWithRepo[]
+  collectedAt: string
+}) {
   if (anomalies.length === 0) {
     // 空态交给 {@link AnomalyQuietNote}，它在首屏之外的位置。
     return null
@@ -133,7 +131,7 @@ function HeroAnomalyFeed({ anomalies }: { anomalies: AnomalyWithRepo[] }) {
           实时异动
         </span>
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          数据截至 {collectedAtLabel()}
+          数据截至 {collectedAt}
         </span>
       </div>
 
@@ -229,9 +227,18 @@ function AgentCommand({ origin }: { origin: string }) {
 export function Hero({
   origin,
   anomalies,
+  collectedAt,
 }: {
   origin: string
   anomalies: AnomalyWithRepo[]
+  /**
+   * 「数据截至」的时间，§5.9.4 要求标注采集时间。
+   *
+   * 必须在服务端算好再传进来：这里是 "use client"，`new Date()` 在服务端和
+   * 客户端各算一次必然差几秒，React 会因文本对不上而丢弃整棵树重新在客户端
+   * 渲染。字符串随 props 过来，两端渲染的就一定是同一个。
+   */
+  collectedAt: string
 }) {
   return (
     <section id="top" className="relative overflow-hidden">
@@ -265,7 +272,7 @@ export function Hero({
 
         <p className="mt-4 text-xs text-muted-foreground">免费，无需账号</p>
 
-        <HeroAnomalyFeed anomalies={anomalies} />
+        <HeroAnomalyFeed anomalies={anomalies} collectedAt={collectedAt} />
 
         <AgentCommand origin={origin} />
       </div>

@@ -4,7 +4,7 @@ import * as React from "react"
 import { Toaster } from "@workspace/ui/components/sonner"
 
 /**
- * Theming, without a script tag in the React tree.
+ * Theming, without a script tag React has to create on the client.
  *
  * This app used `next-themes`, whose `ThemeProvider` renders its no-flash
  * script with `createElement("script", ...)`. React 19 and Next 16 refuse to
@@ -15,11 +15,13 @@ import { Toaster } from "@workspace/ui/components/sonner"
  *   React components are never executed when rendering on the client.
  *
  * The script is only useful once, in the server-rendered HTML, before the
- * first paint. `THEME_SCRIPT` below is rendered by the root layout into
- * `<head>`, which is server output, and the provider only maintains state
- * afterwards. The class it applies is the one Tailwind's `dark:` variant keys
- * off, and the storage key is unchanged, so a visitor who already picked a
- * theme keeps it.
+ * first paint. `ThemeScript` below is rendered by the root layout into
+ * `<head>` — server output, parsed and run before React loads — and renders
+ * itself out of the tree once the document has it, so no later client render
+ * ever creates a `<script>`. The provider only maintains state afterwards.
+ * The class it applies is the one Tailwind's `dark:` variant keys off, and
+ * the storage key is unchanged, so a visitor who already picked a theme
+ * keeps it.
  *
  * `apps/web` still uses `next-themes`; the shared `Toaster` reads it, and this
  * app passes the theme in as a prop instead.
@@ -55,13 +57,43 @@ export const THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("${STORA
 /**
  * The script element for the document head, rendered by the root layout.
  *
- * A server component's `<script>` is part of the HTML response and runs during
- * parsing, which is what has to happen here. `next/script`'s
- * `beforeInteractive` would do the same thing, but it is only supported in
- * `pages/_document`, and reaching for it in the App Router is a lint error.
+ * On the server, and on the client's first (hydration) render, this is a
+ * `<script>` in the HTML that runs while the document parses — the only
+ * moment the script is useful, since `ThemeProvider`'s effect keeps the class
+ * correct from then on.
+ *
+ * React 19 must never *create* one in a client render, though. It builds a
+ * client-rendered `<script>` through a detached node so that it cannot run,
+ * and logs an error when it does:
+ *
+ *   Encountered a script tag while rendering React component. Scripts inside
+ *   React components are never executed when rendering on the client.
+ *
+ * Two things reach that path here: the root layout lives under the `[locale]`
+ * segment, so switching locales remounts it, and a hydration failure
+ * anywhere regenerates the whole root. `hasMounted` flips in an effect after
+ * the first commit — never during render, so StrictMode's double render sees
+ * the same result twice — and every later mount renders nothing instead.
  */
+let hasMounted = false
+
 export function ThemeScript() {
-  return <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+  const [isFirstMount] = React.useState(() => !hasMounted)
+
+  React.useEffect(() => {
+    hasMounted = true
+  }, [])
+
+  if (!isFirstMount) {
+    return null
+  }
+
+  return (
+    <script
+      id="theme-script"
+      dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }}
+    />
+  )
 }
 
 /*
