@@ -1,14 +1,6 @@
-import {
-  IconArrowLeft,
-  IconChartBar,
-  IconChartLine,
-  IconRadar,
-  IconTags,
-} from "@tabler/icons-react"
-
-import { SiteMark } from "@/components/brand/site-mark"
-import { ThemeToggle } from "@/components/landing/theme"
-import { LocaleLink } from "@/i18n/navigation"
+import { SiteNav } from "@/components/nav/site-nav"
+import { getSessionUser } from "@/lib/auth/session"
+import { landingPathFor } from "@/lib/auth/role"
 import { SITE_NAME } from "@/lib/config/site"
 
 /**
@@ -16,80 +8,29 @@ import { SITE_NAME } from "@/lib/config/site"
  * categories, detail, and the long-form pages that hang off the footer
  * (method, guide, docs, about, contact, blog and the four legal routes).
  *
- * Separate from the landing's `SiteHeader` because that one's links are anchors
- * into the marketing page's own sections (`#pricing`, `#method`). Reusing it here
- * would put a header full of links that resolve to nothing on every one of these
- * routes, which is worse than no header.
+ * The nav is the same component the landing page renders, and the banner above
+ * it is not: the announce bar is a campaign for the landing page's own copy, so
+ * a reader who arrived from the rankings is never shown an ad for a download they
+ * were not offered. Everything else — the mark, the five links, the account
+ * action, the mobile menu — is shared, so following one of these links lands on a
+ * page whose nav looks exactly like the one they clicked, and the two chrome
+ * bars read as one site instead of two.
+ *
+ * The shell resolves the session itself rather than asking each page to pass the
+ * account action in: a dozen pages would otherwise each import the auth module
+ * and repeat the same two-line mapping, and the landing page already resolves it
+ * the same way. `getSessionUser` returns null without a database round trip when
+ * there is no cookie, which is the case for every crawler and every shared link.
+ *
+ * Reading a request header is what makes a page dynamic, so a route that wants to
+ * be prerendered cannot use this shell — it would get the anonymous answer baked
+ * in. `/faq` is the one that was prerendered and now is not.
  *
  * Chinese only, like the rest of the public surface. These pages are reached by
  * shared links and by agents fetching a URL, not by a reader choosing a locale,
  * and the landing has no translated copy either — adding a `next-intl` namespace
  * to one of two Chinese surfaces would make the split worse, not better.
  */
-
-/**
- * Anomalies first.
- *
- * The order is the argument: this site reports declines, so the feed of things
- * going wrong is the first thing in the nav. Putting it after the rankings would
- * make the rankings the product's face, and a site whose front page is a
- * leaderboard is a site that only reports growth.
- */
-/**
- * The four destinations, and they are the same four the landing page's header
- * offers.
- *
- * Someone who follows one of these links lands on a page whose header shows the
- * same list, so the two bars read as one site instead of two. `常见问题` used to
- * be here and now lives in the footer: it is the one destination that arrives
- * after a reader has already decided they care, not one they use to get here.
- */
-const NAV = [
-  { href: "/anomalies", label: "异动", icon: IconRadar },
-  { href: "/rankings", label: "公开榜单", icon: IconChartBar },
-  { href: "/rankings/rising", label: "飙升榜", icon: IconChartLine },
-  { href: "/categories", label: "分类", icon: IconTags },
-] as const
-
-function PublicHeader() {
-  return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-        <LocaleLink
-          href="/"
-          className="flex items-center gap-2 text-sm font-semibold tracking-tight"
-        >
-          <SiteMark className="size-7 shrink-0" />
-          <span className="hidden sm:inline">{SITE_NAME}</span>
-        </LocaleLink>
-
-        <nav className="flex items-center gap-1 text-sm">
-          {NAV.map(({ href, label, icon: Icon }) => (
-            <LocaleLink
-              key={href}
-              href={href}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <Icon size={15} />
-              {label}
-            </LocaleLink>
-          ))}
-        </nav>
-
-        <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle />
-          <LocaleLink
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <IconArrowLeft size={15} />
-            返回首页
-          </LocaleLink>
-        </div>
-      </div>
-    </header>
-  )
-}
 
 function PublicFooter() {
   return (
@@ -102,10 +43,12 @@ function PublicFooter() {
   )
 }
 
-export function PublicShell({ children }: { children: React.ReactNode }) {
+export async function PublicShell({ children }: { children: React.ReactNode }) {
+  const user = await getSessionUser()
+
   return (
     <div className="flex min-h-dvh flex-col">
-      <PublicHeader />
+      <SiteNav cta={{ href: landingPathFor(user), signedIn: user !== null }} />
       <main className="flex-1">{children}</main>
       <PublicFooter />
     </div>

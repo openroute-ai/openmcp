@@ -69,6 +69,15 @@ export const PublicRoutes = {
   landing: "/",
   /** The week / month / rising-stars rankings, with a `range` query. */
   rankings: "/rankings",
+  /**
+   * The rising-stars board, as its own entry.
+   *
+   * `isPublicPath` already covers it by prefix under `rankings`, so this adds no
+   * access; it is here because the header links to it as a destination of its
+   * own, and a nav typed against this list cannot name a path the list does not
+   * have.
+   */
+  rising: "/rankings/rising",
   /** Tag navigation, and one tag's projects. */
   categories: "/categories",
   /** A single project's public detail, by id. */
@@ -92,8 +101,8 @@ export const PublicRoutes = {
    *
    * These are public for the same reason as the four above, and for one more:
    * the footer links to them, so gating any of them would turn every one of
-   * those links into a redirect to a login form. `/rankings/rising` is covered
-   * by `rankings` above; `/blog` covers its posts by the same prefix match.
+   * those links into a redirect to a login form. `/blog` covers its posts by
+   * the same prefix match.
    */
   method: "/method",
   guide: "/guide",
@@ -106,6 +115,16 @@ export const PublicRoutes = {
   security: "/security",
   license: "/license",
 } as const
+
+/**
+ * One of the public surface's paths.
+ *
+ * Separate from {@link RoutePath} because the two sets are used by different
+ * callers and conflating them would let a nav item point at a sign-in form:
+ * `RoutePath` is what the gates and the post-login redirects name, while
+ * everything a header links to comes from `PublicRoutes`.
+ */
+export type PublicRoutePath = (typeof PublicRoutes)[keyof typeof PublicRoutes]
 
 /**
  * True when a path is public, with or without a locale prefix.

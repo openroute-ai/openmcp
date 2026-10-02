@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { headers } from "next/headers"
 
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/config/site"
+import { AnnounceBar } from "@/components/landing/announce-bar"
 import { DeepDives } from "@/components/landing/deep-dives"
 import {
   Comparison,
@@ -17,7 +18,7 @@ import {
 } from "@/components/landing/pricing-downloads"
 import { Hero, AnomalyQuietNote } from "@/components/landing/hero"
 import { SiteFooter } from "@/components/landing/site-footer"
-import { SiteHeader } from "@/components/landing/site-header"
+import { SiteNav } from "@/components/nav/site-nav"
 import {
   PainPoints,
   Solutions,
@@ -85,9 +86,13 @@ export default async function Home() {
       <noscript>
         <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
       </noscript>
-      <SiteHeader
-        cta={{ href: landingPathFor(user), signedIn: user !== null }}
-      />
+      {/* The announce bar belongs to this page alone: it advertises the report
+          the hero below offers, and every other page shares the nav instead of
+          the campaign that sits above it. It comes before the nav rather than
+          after so it scrolls away and leaves the sticky bar behind, which is
+          what the nav's own `top-0` assumes. */}
+      <AnnounceBar />
+      <SiteNav cta={{ href: landingPathFor(user), signedIn: user !== null }} />
       <main>
         <Hero origin={origin} anomalies={anomalies} />
         {anomalies.length === 0 ? <AnomalyQuietNote /> : null}
