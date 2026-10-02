@@ -6,7 +6,7 @@
  * data does not have, plus the overrides a human may have applied.
  */
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import {
   projects,
@@ -325,3 +325,40 @@ export async function getProjectsByIds(
     with: { repo: true },
   })
 }
+
+
+export async function listUnreviewedProjects(
+  db: Db,
+  options: { limit?: number } = {}
+): Promise<
+  Array<{
+    id: string
+    name: string
+    owner: string
+    description: string | null
+    readme: string | null
+    categoryId: string | null
+    categoryConfidence: number | null
+    categoryEvidence: string | null
+  }>
+> {
+  const limit = options.limit ?? 50
+  const rows = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      owner: projects.owner,
+      description: projects.description,
+      readme: repos.readmeContent,
+      categoryId: projects.categoryId,
+      categoryConfidence: projects.categoryConfidence,
+      categoryEvidence: projects.categoryEvidence,
+    })
+    .from(projects)
+    .leftJoin(repos, eq(repos.id, projects.repoId))
+    .where(isNull(projects.categoryReviewedAt))
+    .orderBy(sql`${projects.categoryConfidence} asc nulls last`, asc(projects.updatedAt))
+    .limit(limit)
+  return rows
+}
+

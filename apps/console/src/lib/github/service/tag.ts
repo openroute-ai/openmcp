@@ -10,7 +10,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import { projectsToTags, tags, TAGS_EXCLUDED_FROM_RANKINGS } from "@/db/schema"
+import { MAX_TAGS_PER_PROJECT, projectsToTags, tags, TAGS_EXCLUDED_FROM_RANKINGS } from "@/db/schema"
 import type { Db } from "@/lib/github/service/repo"
 
 type TagRow = typeof tags.$inferSelect
@@ -101,16 +101,17 @@ export async function getTagsByCodes(
 /**
  * Replaces a project's tags with exactly the given set.
  *
- * Written as a delete-then-insert inside a transaction so a concurrent read
- * never observes a project with no tags, and so a failure part-way through
- * cannot leave a partial set behind.
+ * Capped at {@link MAX_TAGS_PER_PROJECT} because a reader is meant to
+ * take in a project's tags at a glance, and more than three become noise
+ * rather than signal. The limit is enforced here — a caller, including an
+ * AI classifier, cannot bypass it.
  */
 export async function setProjectTags(
   db: Db,
   projectId: string,
   tagCodes: string[]
 ): Promise<void> {
-  const wanted = [...new Set(tagCodes)]
+  const wanted = [...new Set(tagCodes)].slice(0, MAX_TAGS_PER_PROJECT)
 
   await db.transaction(async (tx) => {
     await tx

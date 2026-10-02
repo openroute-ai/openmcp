@@ -92,6 +92,13 @@
       "when": 1790903835290,
       "tag": "0020_dry_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790942274911,
+      "tag": "0021_stiff_shadowcat",
+      "breakpoints": true
     }
   ]
 }

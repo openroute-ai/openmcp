@@ -199,6 +199,76 @@ export const repos = pgTable(
   ]
 )
 
+/**
+ * The category taxonomy, curated by an admin.
+ *
+ * One category per project, stored as a column on {@link projects} rather than
+ * as a row in a join table: "exactly one" is then a fact about the schema
+ * instead of a rule a writer has to remember, and there is no way for two
+ * concurrent classifications to both land.
+ *
+ * Deliberately **not** seeded. A taxonomy that ships with plausible-looking
+ * defaults is one nobody edits, because every default looks deliberate. An
+ * operator adds the categories that match what this deployment actually tracks,
+ * and only then does the classifier have a closed vocabulary to choose from —
+ * an empty table means the classifier has nothing to say and says nothing,
+ * which is the honest outcome rather than a guess at the operator's taxonomy.
+ *
+ * `isActive` retires a category without deleting it. Deleting one would drop
+ * the assignment column to NULL across every project filed under it, and
+ * `ON DELETE SET NULL` is a quieter way to lose a decision than a rename is.
+ * A retired category stays readable, so a reviewer can still see what a project
+ * used to be filed under and why.
+ */
+export const categories = pgTable(
+  "categories",
+  {
+    id: text("id").primaryKey(),
+    /**
+     * Stable slug, and the value the classifier is allowed to answer with.
+     *
+     * A slug rather than the display name because the name is the part an
+     * operator edits: renaming "MCP 服务器" must not invalidate the
+     * `category_id` of every project filed under it.
+     */
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** Whether the classifier may still choose this category. */
+    isActive: boolean("is_active").notNull().default(true),
+    /** Presentation order in the admin list; not alphabetical, so an operator can group. */
+    sortOrder: smallint("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    index("categories_is_active_idx").on(table.isActive),
+    index("categories_sort_order_idx").on(table.sortOrder),
+  ]
+)
+
+/**
+ * How many capabilities a project may carry, and how few.
+ *
+ * A floor as well as a ceiling because the number means something: a project
+ * with no capabilities is unclassified, and one with fifty has not been
+ * narrowed down at all. The band is what makes "3-5" a reviewable claim about a
+ * project rather than a count of whatever the model happened to emit, so the
+ * classifier prompt states it and the service enforces it.
+ */
+export const MIN_CAPABILITIES_PER_PROJECT = 3
+export const MAX_CAPABILITIES_PER_PROJECT = 5
+
+/**
+ * How many tags a project may carry.
+ *
+ * A ceiling only. Tags come from the repository's own GitHub topics, which are
+ * however many the owner set, so the number here is the editor's statement
+ * about how much a reader is meant to take in at a glance rather than a
+ * property of the data.
+ */
+export const MAX_TAGS_PER_PROJECT = 3
+
 export const projects = pgTable(
   "projects",
   {
@@ -224,6 +294,33 @@ export const projects = pgTable(
     repoId: text("repo_id")
       .notNull()
       .references(() => repos.id, { onDelete: "cascade" }),
+    /**
+     * The one category this project belongs to, or NULL while unclassified.
+     *
+     * `SET NULL` rather than `CASCADE`: deleting a category should not delete
+     * the projects filed under it, it should return them to the unclassified
+     * state where the classifier and an operator can both see them again.
+     */
+    categoryId: text("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * The classifier's own confidence in {@link categoryId}, and the sentence
+     * it cited for the decision.
+     *
+     * Same review contract as `tags.confidence` and
+     * `projects_to_capabilities.confidence`: the model proposes, an operator
+     * confirms. `category_reviewed_at` being NULL is the work queue, not an
+     * error — a category applied with no review yet is a pending suggestion
+     * that is still worth showing, because the low-confidence unreviewed rows
+     * are exactly what a reviewer should be looking at.
+     *
+     * A project an operator filed by hand has no score, hence nullable: there
+     * is no model opinion to record.
+     */
+    categoryConfidence: doublePrecision("category_confidence"),
+    categoryEvidence: text("category_evidence"),
+    categoryReviewedAt: timestamp("category_reviewed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
   },
@@ -232,6 +329,9 @@ export const projects = pgTable(
     index("projects_repo_id_idx").on(table.repoId),
     index("projects_status_idx").on(table.status),
     index("projects_type_idx").on(table.type),
+    // "every project in this category", which is the only direction the
+    // taxonomy is read in once it exists.
+    index("projects_category_id_idx").on(table.categoryId),
   ]
 )
 
@@ -1207,11 +1307,19 @@ export const snapshotsRelations = relations(snapshots, ({ one }) => ({
 
 export const projectsRelations = relations(projects, ({ many, one }) => ({
   repo: one(repos, { fields: [projects.repoId], references: [repos.id] }),
+  category: one(categories, {
+    fields: [projects.categoryId],
+    references: [categories.id],
+  }),
   packages: many(packages),
   skills: many(projectSkills),
   projectsToTags: many(projectsToTags),
   projectsToCapabilities: many(projectsToCapabilities),
   hallOfFameToProjects: many(hallOfFameToProjects),
+}))
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  projects: many(projects),
 }))
 
 export const projectsToTagsRelations = relations(projectsToTags, ({ one }) => ({

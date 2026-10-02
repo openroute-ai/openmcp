@@ -3,6 +3,7 @@ import {
   apiKeys,
   bundles,
   capabilities,
+  categories,
   decisionBoards,
   decisionCandidates,
   hallOfFame,
@@ -94,6 +95,7 @@ export { newsletterSubscription }
 export {
   bundles,
   capabilities,
+  categories,
   hallOfFame,
   hallOfFameToProjects,
   packages,
