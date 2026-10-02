@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/pg-core'
+import { check } from 'drizzle-orm/pg-core/checks'
 import { createId, user } from './auth-schema'
 import { authors, categories } from './workflow-schema'
 
@@ -376,12 +377,49 @@ export const skillEntitlements = pgTable(
     orderId: text('order_id'),
     amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
     currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
+    /**
+     * 授权状态。退款走 `revoked` 而不是删除行：删除会让买单记录消失，
+     * 买家页面与对账都无法解释"这笔钱去了哪"。
+     */
+    status: varchar('status', { length: 20, enum: ['active', 'revoked'] })
+      .default('active')
+      .notNull(),
+    revokedAt: timestamp('revoked_at'),
+    revocationReason: text('revocation_reason'),
+    /** 已退还到买家平台余额的金额（部分退款预留）。 */
+    refundedAmount: decimal('refunded_amount', { precision: 10, scale: 2 }),
+    refundedAt: timestamp('refunded_at'),
+    /**
+     * 执行退款的管理员。退款是真金白银的支出，没有"谁批的"就无法追责，
+     * 也不能在买家投诉时回答"这笔钱是谁退的"。P4 的通用审计日志上线前，
+     * 这个字段就是退款的最小审计凭据。
+     */
+    refundedBy: text('refunded_by'),
     createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   },
   (table) => [
     unique('skill_entitlement_user_skill_unique').on(table.userId, table.skillId),
     index('skill_entitlements_user_idx').on(table.userId),
     index('skill_entitlements_skill_idx').on(table.skillId),
+    index('skill_entitlements_status_idx').on(table.status),
+    // Enum 值在 Drizzle 里只是 TS 侧的联合类型，编译期拦不住手写的 SQL、
+    // 脚本或未来某个绕过 schema 的写入。`status` 直接决定买家有没有访问权，
+    // 所以在数据库侧也要拦住拼错的取值——否则 `'revoke'` 这种值会被当成
+    // 非 `active` 静默当成已退款。
+    check('skill_entitlements_status_check', sql`${table.status} in ('active', 'revoked')`),
+    // 被撤销的行必须有时间戳。这条不是形式主义：`revoked_at` 是"退款何时
+    // 发生"的唯一时间来源，缺了它就无法判断 19 日自动确认该不该跑、也无法
+    // 回答买家的"什么时候退的"。
+    check(
+      'skill_entitlements_default_active_check',
+      sql`${table.status} = 'active' or ${table.revokedAt} is not null`
+    ),
+    // 部分退款时 `refunded_amount` 不得超过原金额，否则下一次退款会算出
+    // 负数余额并给买家反向扣款。
+    check(
+      'skill_entitlements_refunded_not_over_amount_check',
+      sql`${table.refundedAmount} is null or ${table.refundedAmount} <= ${table.amount}`
+    ),
   ]
 )
 
@@ -929,6 +967,103 @@ export const gatewaySpendRecords = pgTable(
 export type GatewaySpendRecord = typeof gatewaySpendRecords.$inferSelect
 export type NewGatewaySpendRecord = typeof gatewaySpendRecords.$inferInsert
 
+/**
+ * 月度结算单：一位创作者一个自然月一条。
+ *
+ * 时间线：次月 5 日出账（生成账单）→ 创作者确认（逾期未确认则自动确认）
+ * → 20 日财务线下打款并回填凭证号。三段都由这张表的状态机承载，
+ * 打款本身是线下动作，所以 `payout_reference` 是必填的人工凭据，
+ * 系统只负责"谁在什么时候付了多少"这条审计链。
+ *
+ * 负账单是这套流程里唯一会"不能付"的状态：退款产生的 clawback
+ * 让当月净额可能为负，此时不确认也不打款，`net + carryover < 0`
+ * 的缺口留在 `settlement` 里滚入下个月继续抵扣。
+ */
+export const providerStatements = pgTable(
+  'provider_statements',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => authors.id, { onDelete: 'cascade' }),
+    /** 结算月份 `YYYY-MM`，即这些收入实际发生的月份。 */
+    period: varchar('period', { length: 7 }).notNull(),
+    currency: varchar('currency', { length: 3 }).default('CNY').notNull(),
+    /** 当月收入行合计（含 clawback 负数行）。 */
+    grossAmount: decimal('gross_amount', { precision: 10, scale: 2 }).default('0').notNull(),
+    platformFee: decimal('platform_fee', { precision: 10, scale: 2 }).default('0').notNull(),
+    netAmount: decimal('net_amount', { precision: 10, scale: 2 }).default('0').notNull(),
+    /** 从上月滚入的负数缺口，恒为 0 或负数。 */
+    carryoverAmount: decimal('carryover_amount', { precision: 10, scale: 2 }).default('0').notNull(),
+    /** net + carryover；为负时不打款，缺口滚入下月。 */
+    settlement: decimal('settlement', { precision: 10, scale: 2 }).default('0').notNull(),
+    /** 本次实际应付金额，负账单恒为 0。 */
+    payableAmount: decimal('payable_amount', { precision: 10, scale: 2 }).default('0').notNull(),
+    /**
+     * `pending` 已出账待确认 · `confirmed` 已确认待打款 ·
+     * `paid` 已打款 · `rolled` 负账单，滚入下月抵扣。
+     */
+    status: varchar('status', {
+      length: 20,
+      enum: ['pending', 'confirmed', 'paid', 'rolled'],
+    })
+      .default('pending')
+      .notNull(),
+    generatedAt: timestamp('generated_at').default(sql`now()`).notNull(),
+    confirmedAt: timestamp('confirmed_at'),
+    /** `confirmed` 且非创作者本人确认时，记录是谁代确认的。 */
+    confirmedBy: text('confirmed_by'),
+    paidAt: timestamp('paid_at'),
+    paidBy: text('paid_by'),
+    /** 线下打款凭证号（银行流水号 / 微信转账单号等）。 */
+    payoutReference: text('payout_reference'),
+    /** 收款通道与账号，出账时从 provider profile 快照，避免事后改账户影响对账。 */
+    payoutChannel: varchar('payout_channel', { length: 20 }),
+    payoutAccount: text('payout_account'),
+    adminNote: text('admin_note'),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    // 一人一月一条：生成账单时靠它幂等，重跑 cron 不会产生第二张。
+    // 带上 currency 是因为出账按 `(authorId, currency)` 分组聚合，而金额列
+    // 没有存币种——跨币种求和会得到一个无意义的数字。实践中一个作者同月
+    // 只会命中一种币种，多出来的那张独立成账比静默合并更安全。
+    unique('provider_statements_author_period_currency_unique').on(
+      table.authorId,
+      table.period,
+      table.currency
+    ),
+    index('provider_statements_author_idx').on(table.authorId),
+    index('provider_statements_status_idx').on(table.status),
+    index('provider_statements_period_idx').on(table.period),
+    // `status` 是这套结算的状态机载体，拼错一个字母会让账单卡在既不显示
+    // 待打款、也不显示已打款的状态里——财务看不到它，钱就一直压着。
+    check(
+      'provider_statements_status_check',
+      sql`${table.status} in ('pending', 'confirmed', 'paid', 'rolled')`
+    ),
+    // 负账单（`rolled`）不得有应付金额：它是"这期不付、缺口滚下月"的唯一
+    // 标记，若同时存在正的 `payable_amount`，财务按金额打款就会给创作者
+    // 打钱，同时又在下月扣掉同一笔缺口。
+    check(
+      'provider_statements_rolled_not_payable_check',
+      sql`${table.status} <> 'rolled' or ${table.payableAmount} = 0`
+    ),
+    // carryover 只能来自上一期的负数缺口，不能是正数。正的 carryover 会让
+    // 账单凭空多出一笔钱。
+    check(
+      'provider_statements_carryover_sign_check',
+      sql`${table.carryoverAmount} <= 0`
+    ),
+  ]
+)
+
+export type ProviderStatement = typeof providerStatements.$inferSelect
+export type NewProviderStatement = typeof providerStatements.$inferInsert
+
 export const providerEarnings = pgTable(
   'provider_earnings',
   {
@@ -953,6 +1088,22 @@ export const providerEarnings = pgTable(
       onDelete: 'cascade',
     }),
     entitlementId: text('entitlement_id'),
+    /**
+     * 被哪张结算单结算过。出账时把当月未归属的收入行挂到账单上，
+     * 之后这张账单打款完成时，这批行一起置 `paid`。
+     */
+    statementId: text('statement_id').references(() => providerStatements.id, {
+      onDelete: 'set null',
+    }),
+    /**
+     * `sale` 正常销售分成；`clawback` 退款冲回（金额为负）。
+     * 退款不删原始收入行，而是补一条负数行，两边都能在账单里对上。
+     */
+    kind: varchar('kind', { length: 20, enum: ['sale', 'clawback'] })
+      .default('sale')
+      .notNull(),
+    /** clawback 行指回被冲回的那条销售行。 */
+    reversesEarningId: text('reverses_earning_id'),
     grossAmount: decimal('gross_amount', { precision: 10, scale: 2 }).notNull(),
     platformFee: decimal('platform_fee', { precision: 10, scale: 2 }).notNull(),
     netAmount: decimal('net_amount', { precision: 10, scale: 2 }).notNull(),
@@ -970,7 +1121,24 @@ export const providerEarnings = pgTable(
     index('provider_earnings_skill_idx').on(table.skillId),
     index('provider_earnings_status_idx').on(table.status),
     index('provider_earnings_created_at_idx').on(table.createdAt),
+    // 出账扫描的是「未归属 + 落在结算月内」，这两列必须各自可用。
+    index('provider_earnings_statement_idx').on(table.statementId),
     unique('provider_earnings_gateway_record_unique').on(table.gatewayRecordId),
+    // 一条销售行最多被冲回一次，退款接口重复调用时靠它挡住第二次 clawback。
+    unique('provider_earnings_reverses_earning_unique').on(table.reversesEarningId),
+    check('provider_earnings_kind_check', sql`${table.kind} in ('sale', 'clawback')`),
+    // clawback 必须是负数。退款冲回写成正数时，当月账单会把创作者的钱算多
+    // （净收入被抬高），财务照单打款等于平台倒贴——这条是最后一道闸。
+    check(
+      'provider_earnings_clawback_negative_check',
+      sql`${table.kind} <> 'clawback' or ${table.netAmount} <= 0`
+    ),
+    // 只有 clawback 才指回被冲回的行；`sale` 上的 `reverses_earning_id`
+    // 会让唯一约束误判——它占了这个位置之后，真正的 clawback 就插不进去了。
+    check(
+      'provider_earnings_reverses_only_clawback_check',
+      sql`${table.kind} <> 'clawback' or ${table.reversesEarningId} is not null`
+    ),
   ]
 )
 

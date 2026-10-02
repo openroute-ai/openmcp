@@ -21,6 +21,7 @@ import { recommendCatalogAssets } from '@/web/catalog/recommend'
 import { searchCatalog } from '@/web/catalog/search'
 import type { CatalogKind } from '@/web/catalog/types'
 import type { StoreAuthResult } from './auth'
+import { resolveA2a, resolveMcp } from './resolve'
 import { createDeviceCode } from './oauth'
 
 export const STORE_MCP_TOOLS = [
@@ -145,20 +146,6 @@ async function resolveSkill(idOrSlug: string) {
   const byId = await db.select().from(skills).where(eq(skills.id, idOrSlug)).limit(1)
   if (byId[0]) return byId[0]
   const bySlug = await db.select().from(skills).where(eq(skills.slug, idOrSlug)).limit(1)
-  return bySlug[0] ?? null
-}
-
-async function resolveMcp(idOrSlug: string) {
-  const byId = await db.select().from(mcpServers).where(eq(mcpServers.id, idOrSlug)).limit(1)
-  if (byId[0]) return byId[0]
-  const bySlug = await db.select().from(mcpServers).where(eq(mcpServers.slug, idOrSlug)).limit(1)
-  return bySlug[0] ?? null
-}
-
-async function resolveA2a(idOrSlug: string) {
-  const byId = await db.select().from(a2aAgents).where(eq(a2aAgents.id, idOrSlug)).limit(1)
-  if (byId[0]) return byId[0]
-  const bySlug = await db.select().from(a2aAgents).where(eq(a2aAgents.slug, idOrSlug)).limit(1)
   return bySlug[0] ?? null
 }
 

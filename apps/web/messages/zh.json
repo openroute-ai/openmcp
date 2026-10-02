@@ -1250,7 +1250,8 @@
       "tabs": {
         "skills": "技能销售",
         "gateway": "网关调用收益",
-        "payouts": "提现申请"
+        "payouts": "提现申请",
+        "statements": "月度账单"
       },
       "stats": {
         "calls30": "近30天调用",
@@ -1320,6 +1321,35 @@
         "requested": "提现申请已提交",
         "requestFailed": "申请提现失败",
         "payAccountRequired": "请先绑定微信 / 支付宝收款账户"
+      },
+      "statements": {
+        "tab": "月度账单",
+        "title": "月度账单",
+        "description": "次月 5 日出账、19 日确认截止、20 日线下打款。逾期未确认将自动确认。",
+        "summaryPending": "待确认",
+        "summaryConfirmed": "待打款",
+        "summaryPaid": "已打款",
+        "summaryRolled": "待抵扣",
+        "tablePeriod": "结算月份",
+        "tableNet": "当月净收入",
+        "tableCarryover": "上月抵扣",
+        "tableSettlement": "本期结算",
+        "tableStatus": "状态",
+        "tableAction": "操作",
+        "tableEmpty": "暂无账单，每月 5 日出账",
+        "statusPending": "待确认",
+        "statusConfirmed": "待打款",
+        "statusPaid": "已打款",
+        "statusRolled": "负数，已滚入下月抵扣",
+        "confirm": "确认账单",
+        "confirming": "提交中…",
+        "rollHint": "本期结算为负（退款冲回超过收入），不确认也不打款，缺口将在下月抵扣",
+        "deadlineHint": "{date} 前可确认，逾期系统自动确认",
+        "deadlinePassed": "已过确认截止日，系统已自动确认",
+        "toastConfirmed": "账单已确认",
+        "toastConfirmFailed": "确认账单失败",
+        "detailTitle": "账单明细",
+        "detailEmpty": "暂无明细"
       }
     },
     "organization": {

@@ -4,6 +4,7 @@ import { isValidAssetName } from "@/lib/gateway/names"
 import { ASSET_AUTH_VALUES } from "@/lib/registry-labels"
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/routers/trpc"
 import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPublish } from "@/web/providers/author"
+import { signOAuthState } from "@/lib/agent-install/oauth-state"
 import { a2aGatewayAccess } from './gateway'
 import { a2aAgentsDataAccess } from './index'
 
@@ -274,7 +275,13 @@ export const a2aAgentsRouter = createTRPCRouter({
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:30021'
         const redirectUri = `${baseUrl}/api/oauth/callback/a2a`
 
-        const state = Buffer.from(JSON.stringify({ agentName, authorId })).toString('base64url')
+        // 与 MCP 侧同一个理由：回调是公开 GET 路由，`state` 必须签名。
+        const signed = signOAuthState({ assetName: agentName, authorId })
+        if (!signed.ok) {
+          console.error('[a2a/startOAuth] cannot sign state:', signed.reason)
+          return failResult(new Error(signed.reason), 'startOAuth.state_sign_failed')
+        }
+        const state = signed.state
         const scopeParam = input.scopes?.join(' ') || ''
         const authUrl = new URL(input.authorizationUrl)
         authUrl.searchParams.set('client_id', input.clientId)

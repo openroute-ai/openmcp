@@ -2,51 +2,13 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from "@/lib/db"
 import { repos, skills } from "@workspace/db"
 import { parseGithubRepoUrl } from "@/lib/gateway/names"
-import { consoleApiConfigured, ingestRepo } from '@/lib/console/client'
+import { consoleApiConfigured, ingestRepoByUrl } from '@/lib/console/client'
 import { filesFromSkillRow, runSkillSecurityScan } from "@/lib/security-scan"
 import { mapSkillRow } from '@/web/assets/map-asset'
 
 function toSlug(referenceId: string): string {
   return referenceId.replace(/\//g, '-').replace(/#/g, '--')
 }
-
-/**
- * The `repos` columns console's ingest schema accepts.
- *
- * Selected rather than `select()` so the README blobs never cross the process
- * boundary: they are the bulk of the table, are not part of `RepoInfo`, and
- * console's schema is `strict()` so an extra column is a 400.
- */
-const consoleRepoColumns = {
-  id: repos.id,
-  owner: repos.owner,
-  name: repos.name,
-  ownerId: repos.ownerId,
-  description: repos.description,
-  homepage: repos.homepage,
-  createdAt: repos.createdAt,
-  pushedAt: repos.pushedAt,
-  defaultBranch: repos.defaultBranch,
-  stars: repos.stars,
-  topics: repos.topics,
-  archived: repos.archived,
-  commitCount: repos.commitCount,
-  lastCommit: repos.lastCommit,
-  mentionableUsersCount: repos.mentionableUsersCount,
-  watchersCount: repos.watchersCount,
-  licenseSpdxId: repos.licenseSpdxId,
-  pullRequestsCount: repos.pullRequestsCount,
-  releasesCount: repos.releasesCount,
-  languages: repos.languages,
-  forks: repos.forks,
-  openGraphImageUrl: repos.openGraphImageUrl,
-  usesCustomOpenGraphImage: repos.usesCustomOpenGraphImage,
-  latestReleaseName: repos.latestReleaseName,
-  latestReleaseTagName: repos.latestReleaseTagName,
-  latestReleasePublishedAt: repos.latestReleasePublishedAt,
-  latestReleaseUrl: repos.latestReleaseUrl,
-  latestReleaseDescription: repos.latestReleaseDescription,
-} as const
 
 export const skillsGatewayAccess = {
   listMine: async (authorId: string) => {
@@ -91,7 +53,6 @@ export const skillsGatewayAccess = {
       .from(repos)
       .where(and(eq(repos.owner, parsed.owner), eq(repos.name, parsed.name)))
       .limit(1)
-    if (!repo) return { ready: false, found: false, fullName: parsed.fullName }
 
     const skillRows = await db
       .select({
@@ -121,10 +82,14 @@ export const skillsGatewayAccess = {
 
     const skill = skillRows[0] ?? byRef[0] ?? null
     return {
-      ready: Boolean(repo.readmeContent || repo.readmeContentZh || skill),
-      found: true,
+      // A skill row is enough on its own. console pushes the skill document
+      // without this app ever writing a local `repos` row, so requiring one
+      // would leave every repository registered from the web app unready until
+      // the crawler happened to see it too.
+      ready: Boolean(repo?.readmeContent || repo?.readmeContentZh || skill),
+      found: Boolean(repo || skill),
       fullName: parsed.fullName,
-      repo,
+      repo: repo ?? null,
       skill,
     }
   },
@@ -147,36 +112,47 @@ export const skillsGatewayAccess = {
     const parsed = parseGithubRepoUrl(repoUrl)
     if (!parsed) return { ready: false, registered: false, message: 'Invalid GitHub URL' }
 
-    const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
-    if (!check.ready) {
+    // console is the only side with GitHub credentials and the only writer of
+    // the repository/project/skill tables, so with it unconfigured there is
+    // nothing this app can do except report what the crawler already stored.
+    if (!consoleApiConfigured()) {
+      const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
       return {
-        ready: false,
+        ready: check.ready,
         registered: false,
-        message: `仓库 ${parsed.fullName} 尚未被索引，请稍后重试或改用 ZIP 上传`,
+        message: check.ready
+          ? `${parsed.fullName} 已就绪`
+          : `仓库 ${parsed.fullName} 尚未被索引，请稍后重试或改用 ZIP 上传`,
       }
     }
 
-    if (!consoleApiConfigured()) {
-      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪` }
-    }
-
-    const [repo] = await db
-      .select(consoleRepoColumns)
-      .from(repos)
-      .where(and(eq(repos.owner, parsed.owner), eq(repos.name, parsed.name)))
-      .limit(1)
-    if (!repo) {
-      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪` }
-    }
-
     try {
-      await ingestRepo(repo)
-      return { ready: true, registered: true, message: `${parsed.fullName} 已同步至 console` }
+      // console fetches, creates the project, syncs the skill documents and
+      // pushes them back to this app before it answers, so a ready check right
+      // afterwards sees the skill rather than an empty poll window.
+      const result = await ingestRepoByUrl(repoUrl, 'skill')
+      const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
+      return {
+        ready: check.ready,
+        registered: true,
+        message: check.ready
+          ? `${parsed.fullName} 已就绪`
+          : result.delivered
+            ? `仓库 ${parsed.fullName} 已登记，技能正在入库，请稍后重试`
+            : `仓库 ${parsed.fullName} 已登记，但技能推送未完成，请稍后重试`,
+      }
     } catch (error) {
-      // console being down must not block a creator: the repository is already
-      // indexed locally, so the listing can still be created from it.
+      // A console outage must not block a creator: if the crawler already
+      // indexed the repository, the listing can still be created from it.
       console.error('[skills] console ingest failed', parsed.fullName, error)
-      return { ready: true, registered: false, message: `${parsed.fullName} 已就绪（console 同步失败，稍后重试）` }
+      const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
+      return {
+        ready: check.ready,
+        registered: false,
+        message: check.ready
+          ? `${parsed.fullName} 已就绪（console 同步失败，稍后重试）`
+          : `仓库 ${parsed.fullName} 登记失败：${error instanceof Error ? error.message : '未知错误'}`,
+      }
     }
   },
 
@@ -290,9 +266,10 @@ export const skillsGatewayAccess = {
     // upstream sync domain starts tracking it and pushes updated skill
     // documents back through the webhook. Best effort by design: the listing
     // is already written, and a console outage must not roll back a creator's
-    // submission.
-    if (repo && consoleApiConfigured()) {
-      void ingestRepo(repo).catch((error: unknown) => {
+    // submission. The web app holds no GitHub credentials, so the repository
+    // goes over as a URL and console does the fetch itself.
+    if (consoleApiConfigured()) {
+      void ingestRepoByUrl(input.repoUrl, 'skill').catch((error: unknown) => {
         console.error('[skills] console ingest failed', parsed.fullName, error)
       })
     }

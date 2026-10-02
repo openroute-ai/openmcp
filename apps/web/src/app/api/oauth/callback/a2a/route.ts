@@ -1,9 +1,11 @@
 import { a2aAgents } from '@workspace/db'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getA2aGateway, isLiteLLMConfigured } from '@workspace/litellm'
 import { decryptSecret } from '@/lib/gateway/secrets'
+import { verifyOAuthState } from '@/lib/agent-install/oauth-state'
 import { db } from '@/lib/db'
+import { notDeleted } from '@/web/assets/visibility'
 
 /**
  * OAuth callback for A2A assets held on our behalf.
@@ -38,18 +40,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
     }
 
-    // `state` is base64url JSON written by `startOAuth`.
-    let stateData: { agentName: string; authorId: string }
-    try {
-      stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
-    } catch {
+    // 签名校验理由同 MCP 回调：不验签就等于允许任何人把任意 code 写到别人资产上。
+    const verified = verifyOAuthState(state)
+    if (!verified.ok) {
+      console.warn('[oauth-callback-a2a] rejected state:', verified.reason)
       return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     }
+    const stateData = {
+      agentName: verified.payload.assetName,
+      authorId: verified.payload.authorId,
+    }
 
+    // 签名只证明 state 是我们签的，不证明资产还在。仍要查库挡住 tombstone
+    // 和归属不符的情况。
     const [asset] = await db
       .select()
       .from(a2aAgents)
-      .where(eq(a2aAgents.agentName, stateData.agentName))
+      .where(
+        and(
+          eq(a2aAgents.agentName, stateData.agentName),
+          notDeleted(a2aAgents),
+          eq(a2aAgents.authorId, stateData.authorId)
+        )
+      )
       .limit(1)
 
     if (!asset) {
@@ -145,7 +158,7 @@ export async function GET(request: NextRequest) {
     await db
       .update(a2aAgents)
       .set({ metadata, updatedAt: new Date() })
-      .where(eq(a2aAgents.id, asset.id))
+      .where(and(eq(a2aAgents.id, asset.id), notDeleted(a2aAgents)))
 
     console.log('[oauth-callback-a2a] OAuth flow completed successfully for:', stateData.agentName)
 

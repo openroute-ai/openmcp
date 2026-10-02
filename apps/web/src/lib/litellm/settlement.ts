@@ -357,6 +357,10 @@ async function creditGatewayEarnings(
         authorId: record.authorId,
         buyerUserId: record.userId,
         gatewayRecordId: record.id,
+        // Gateway usage is never reversed, but `kind` is stated explicitly
+        // rather than left to the column default so both earnings writers read
+        // the same way.
+        kind: 'sale',
         grossAmount: gross.toFixed(2),
         platformFee: fee.toFixed(2),
         netAmount: net.toFixed(2),

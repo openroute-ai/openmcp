@@ -6,7 +6,6 @@ import {
   authors,
   providerEarnings,
   providerPayoutRequests,
-  providerProfiles,
   skills,
 } from "@workspace/db"
 
@@ -35,6 +34,7 @@ export async function creditProviderEarning(params: {
     buyerUserId: params.buyerUserId,
     skillId: params.skillId,
     entitlementId: params.entitlementId,
+    kind: 'sale',
     grossAmount: round2(gross),
     platformFee: round2(fee),
     netAmount: round2(net),
@@ -88,48 +88,22 @@ export async function listMyEarnings(authorId: string, limit = 50) {
   }
 }
 
+/**
+ * 老的一键提现入口，**已停用**。
+ *
+ * 现在走月度账单：次月 5 日出账、19 日确认截止、20 日线下打款
+ * （见 `providers/statements.ts`）。两条路径并存会付两次钱：
+ * 月度出账扫的是 `statement_id IS NULL` 的 `payable` 行，而这笔提现会把
+ * 收入行翻成 `paid`。虽然出账现在也过滤 `payable`（已付过的行不会再被聚合成
+ * 账单），但仍留着这个入口就意味着同一笔钱可以先被提现、再在账单里出现一次
+ * 负向调整，账面对不上。
+ *
+ * 表和读取函数保留，是为了让历史上已经 `approved`/`pending` 的提现单能被财务
+ * 处理完；只关掉新建入口，不动存量。
+ */
 export async function requestPayout(params: { userId: string; authorId: string; amount?: number }) {
-  const earnings = await listMyEarnings(params.authorId, 1)
-  const payable = earnings.summary.payable
-  if (payable <= 0) throw new Error('暂无可提现余额')
-
-  const amount = params.amount != null ? params.amount : payable
-  if (amount <= 0 || amount > payable + 1e-9) throw new Error('提现金额无效')
-
-  const [profile] = await db
-    .select()
-    .from(providerProfiles)
-    .where(eq(providerProfiles.authorId, params.authorId))
-    .limit(1)
-  if (!profile || profile.payChannelStatus !== 'ready') {
-    throw new Error('请先绑定收款账户')
-  }
-  const meta = (profile.metadata ?? {}) as {
-    payoutAccounts?: Record<string, { account?: string; accountName?: string }>
-  }
-  const channel = profile.payChannelType === 'wechat' || profile.payChannelType === 'alipay' ? profile.payChannelType : null
-  const account = channel ? meta.payoutAccounts?.[channel]?.account : null
-  if (!channel || !account) throw new Error('收款账号不完整，请重新绑定')
-
-  const [pending] = await db
-    .select({ id: providerPayoutRequests.id })
-    .from(providerPayoutRequests)
-    .where(and(eq(providerPayoutRequests.authorId, params.authorId), eq(providerPayoutRequests.status, 'pending')))
-    .limit(1)
-  if (pending) throw new Error('已有待处理的提现申请')
-
-  const id = createId()
-  await db.insert(providerPayoutRequests).values({
-    id,
-    authorId: params.authorId,
-    userId: params.userId,
-    amount: round2(amount),
-    currency: 'CNY',
-    status: 'pending',
-    payoutChannel: channel,
-    payoutAccount: account,
-  })
-  return { id, amount: round2(amount), channel, account }
+  void params
+  throw new Error('提现已改为按月结算：每月 5 日出账、20 日打款，请前往"我的收益"查看账单')
 }
 
 export async function listMyPayoutRequests(authorId: string) {

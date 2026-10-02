@@ -4,6 +4,7 @@ import type { MetadataRoute } from 'next'
 import { routing } from '@/i18n/routing'
 import { db } from '@/lib/db'
 import { getBaseUrl } from '@/lib/urls/urls'
+import { marketVisible } from '@/web/assets/visibility'
 
 export const revalidate = 3600
 
@@ -79,11 +80,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       db
         .select({ slug: a2aAgents.slug, id: a2aAgents.id, updatedAt: a2aAgents.updatedAt, publishedAt: a2aAgents.publishedAt })
         .from(a2aAgents)
-        .where(eq(a2aAgents.status, 'published')),
+        .where(marketVisible(a2aAgents)),
       db
         .select({ slug: mcpServers.slug, id: mcpServers.id, updatedAt: mcpServers.updatedAt, publishedAt: mcpServers.publishedAt })
         .from(mcpServers)
-        .where(eq(mcpServers.status, 'published')),
+        .where(marketVisible(mcpServers)),
       db
         .select({ slug: categories.slug, updatedAt: categories.updatedAt, createdAt: categories.createdAt })
         .from(categories),

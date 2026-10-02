@@ -3,6 +3,7 @@ import z from 'zod'
 import { db } from "@/lib/db"
 import { authors, categories, mcpServers } from "@workspace/db"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
+import { notDeleted } from "@/web/assets/visibility"
 
 export const adminMcpServersRouter = createTRPCRouter({
   /**
@@ -25,7 +26,9 @@ export const adminMcpServersRouter = createTRPCRouter({
         const { page, limit, search, status, transport, priceType, certified } = input
         const offset = (page - 1) * limit
 
-        const whereConditions = []
+        // 软删除的行不再进入后台列表：平台上已经没有这个资产，审核员
+        // 也不该对它做审核动作。
+        const whereConditions = [notDeleted(mcpServers)]
 
         if (search) {
           whereConditions.push(
@@ -154,13 +157,13 @@ export const adminMcpServersRouter = createTRPCRouter({
         rejectedResult,
         certifiedResult,
       ] = await Promise.all([
-        db.select({ count: count() }).from(mcpServers),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.status, 'submitted')),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.status, 'published')),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.status, 'draft')),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.status, 'archived')),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.status, 'rejected')),
-        db.select({ count: count() }).from(mcpServers).where(eq(mcpServers.certified, true)),
+        db.select({ count: count() }).from(mcpServers).where(notDeleted(mcpServers)),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.status, 'submitted'))),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.status, 'published'))),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.status, 'draft'))),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.status, 'archived'))),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.status, 'rejected'))),
+        db.select({ count: count() }).from(mcpServers).where(and(notDeleted(mcpServers), eq(mcpServers.certified, true))),
       ])
 
       return {
@@ -206,7 +209,7 @@ export const adminMcpServersRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const [server] = await db.select().from(mcpServers).where(eq(mcpServers.id, input.id)).limit(1)
+        const [server] = await db.select().from(mcpServers).where(and(eq(mcpServers.id, input.id), notDeleted(mcpServers))).limit(1)
 
         if (!server) {
           return {
@@ -259,7 +262,7 @@ export const adminMcpServersRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const [server] = await db.select().from(mcpServers).where(eq(mcpServers.id, input.id)).limit(1)
+        const [server] = await db.select().from(mcpServers).where(and(eq(mcpServers.id, input.id), notDeleted(mcpServers))).limit(1)
 
         if (!server) {
           return {
@@ -305,7 +308,7 @@ export const adminMcpServersRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const [server] = await db.select().from(mcpServers).where(eq(mcpServers.id, input.id)).limit(1)
+        const [server] = await db.select().from(mcpServers).where(and(eq(mcpServers.id, input.id), notDeleted(mcpServers))).limit(1)
 
         if (!server) {
           return {
