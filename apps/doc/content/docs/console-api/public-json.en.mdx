@@ -1,0 +1,183 @@
+---
+title: "Public JSON endpoints"
+---
+
+{/* markdownlint-disable MD041 */}
+
+These four endpoints need **no credential**, and **cannot write**. They are the console's only anonymous surface: an endpoint with no authentication must not be able to write. Each one is served by the same function, with the same defaults, as an HTML page — so the two cannot disagree about which rows are public.
+
+Same reference on the console site: `https://vercelai.cn/docs`. The same field tables, written for agents, are in `https://vercelai.cn/llms-full.txt`.
+
+<Callout>
+  These four endpoints have **no rate limit** and no service-level promise
+  beyond field stability. For the full dataset, query the database; do not page.
+</Callout>
+
+## `GET /api/rankings/week.json`
+
+The top 100 repositories by absolute stargazer gain in an ISO week, with a second ordering by relative growth. Defaults to the most recent complete week.
+
+**Query parameters**
+
+| Parameter | Type   | Meaning                                                           |
+| --------- | ------ | ----------------------------------------------------------------- |
+| `year`    | number | Four-digit ISO-week year. Defaults to the current one.            |
+| `week`    | number | ISO week number, 1–53. Defaults to the most recent complete week. |
+
+**Response**
+
+```json
+{
+  "period": "week",
+  "year": 2026,
+  "week": 38,
+  "trending": [/* RankedProject[] */],
+  "byRelativeGrowth": [/* RankedProject[] */]
+}
+```
+
+`trending` and `byRelativeGrowth` are the **same rows in two orders**: the first by absolute gain `delta`, the second by `relativeGrowth`, both capped at 100. There is **no `limit` parameter** — 100 is a property of the computation, not of the request, and a parameter that could only raise it would let a caller hold a response open.
+
+**A ranked row**
+
+| Field                         | Type           | Meaning                                                                                                |
+| ----------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| `fullName`                    | string         | `owner/name`, the natural key                                                                          |
+| `name`                        | string         | Repository name, without the owner                                                                     |
+| `description`                 | string         | Project description                                                                                    |
+| `stars`                       | number         | Cumulative stars at the end of the period                                                              |
+| `delta`                       | number         | Stars gained in the period. May be negative                                                            |
+| `relativeGrowth`              | number \| null | Gain ÷ opening stars. `null` when the opening count is 0, not `Infinity`                               |
+| `tags`                        | string[]       | Category codes normalised from repository topics                                                       |
+| `ownerId`                     | number         | GitHub's numeric owner id                                                                              |
+| `createdAt`                   | string         | Repository creation time, ISO 8601                                                                     |
+| `logo` / `iconUrl` / `avatar` | string \| null | Marks for rendering, in that priority. All three being `null` is normal; fall back to initials         |
+| `anomaly`                     | object \| null | The most severe unresolved anomaly for that repository this period, with `kind` / `severity` / `title` |
+
+**Errors**
+
+| Status | Condition                                                                           |
+| ------ | ----------------------------------------------------------------------------------- |
+| `400`  | `week` is not an integer in 1–53, or `year` is not four digits                      |
+| `404`  | No record exists for that week. Both arrays are empty; this is not an empty ranking |
+
+**Caching**: `Cache-Control: public, max-age=0, s-maxage=3600` — one hour at the CDN, none in the client.
+
+## `GET /api/rankings/month.json`
+
+Identical to the weekly ranking with a calendar month as the period. Defaults to the most recent complete month.
+
+**Query parameters**: `year` (four digits), `month` (1–12).
+
+**Response**: `{ "period": "month", "year": …, "month": …, "trending": […], "byRelativeGrowth": […] }`
+
+**Errors**: `400` when `month` is not 1–12; `404` when the month has no record.
+
+<Callout>
+  Both rankings cap at 100 rows, while the **page shows 12**. That is not a
+  contradiction: twelve is a conclusion a person can hold in their head, and a
+  full dump hands the decision back to the reader. The two numbers serve two
+  readers.
+</Callout>
+
+## `GET /api/rankings/rising-stars.json`
+
+The projects that gained the most stargazers in one calendar year. Intended for a year in review. To ask "who is being discovered _now_", use `relativeGrowth` on the weekly ranking instead — by the time a year has passed, everyone's opening base is large.
+
+**Query parameter**: `year` (four digits; defaults to the last complete calendar year, in the application's timezone).
+
+**Response**
+
+```json
+{
+  "date": "2026-01-08T00:00:00.000Z",
+  "count": 42,
+  "projects": [
+    {
+      "name": "…",
+      "slug": "…",
+      "full_name": "owner/repo",
+      "description": "…",
+      "stars": 12000,
+      "delta": 8400,
+      "monthly": [120, 95, 0, null, 210, 180, 160, 150, 140, 130, 900, 6100],
+      "tags": ["mcp", "agent"],
+      "owner_id": 12345,
+      "created_at": "2024-03-01T12:00:00.000Z",
+      "icon": "https://…",
+      "url": "https://…"
+    }
+  ],
+  "tags": [{ "name": "…", "code": "…" }]
+}
+```
+
+<Callout>
+  The field naming here keeps the shape of the published artefact: `full_name`
+  and `created_at` are snake_case where the periodic rankings are camelCase.
+  That is deliberate — a report cited in an article is cited by field name, and
+  renaming a field breaks every citation at once.
+</Callout>
+
+`monthly` has 12 entries, **December first**, so index 0 is December. A month with no record is `null`, which is not the same as `0`: `0` means "we sampled that month and nothing arrived".
+
+**Errors**: `400` when `year` is not four digits; `404` when no projects were selected that year.
+
+## `GET /api/anomalies.json`
+
+Repositories that matched a judgement rule, newest detection first. This is the only anomaly endpoint an agent reads.
+
+**Query parameters**
+
+| Parameter | Type   | Meaning                                                                              |
+| --------- | ------ | ------------------------------------------------------------------------------------ |
+| `limit`   | number | Row count. Default and maximum are both 100                                          |
+| `kind`    | enum   | `star_cliff`, `star_acceleration`, `release_stall`, `commit_stall`, `license_change` |
+| `since`   | string | ISO 8601 timestamp; only detections after it                                         |
+| `include` | `good` | Also return healthy acceleration rows                                                |
+
+`kind` **must** match the enum. An unknown value is a `400`, not a silent "everything except" — the latter reads like a filter and behaves as an inversion.
+
+By default only alerts are returned: someone asking "what anomalies are there" wants to hear what is going wrong. Healthy acceleration rows require an explicit `include=good`.
+
+**Response**
+
+```json
+{
+  "anomalies": [
+    {
+      "id": "…",
+      "repo": "owner/repo",
+      "owner": "owner",
+      "name": "repo",
+      "stars": 12345,
+      "kind": "star_cliff",
+      "severity": "down",
+      "title": "recent weekly gains 52 → 48 → 31",
+      "magnitude": 21,
+      "period": "2026-09-14T00:00:00.000Z",
+      "detectedAt": "2026-09-19T02:14:00.000Z",
+      "metric": {
+        "…": "the full reading that fired: base, latest value, threshold"
+      },
+      "evidence": { "series": [{ "label": "…", "value": 0 }], "notes": ["…"] }
+    }
+  ],
+  "count": 1,
+  "generatedAt": "2026-09-19T02:14:05.000Z"
+}
+```
+
+`severity` is one of `down` / `risk` / `notice` / `good`. `good` is used **only** by `star_acceleration`, and it exists so that this site can demonstrate it does not over-alarm — a feed that only ever reports bad news cannot show that.
+
+`magnitude` is the sort key, and what it means depends on `kind`: for a cliff it is stars lost, for an acceleration it is the excess over threshold, for a stall it is days, for a licence change it is `0`. Read it together with `kind`.
+
+`metric` and `evidence` exist so a caller can check _why_ something was flagged **without reading the judgement code**.
+
+**Errors**: `400` when `kind` is not in the enum, or `since` is not a parseable ISO 8601 timestamp.
+
+**Why only `open` rows appear**: a row judged to be a false positive stays in the database but leaves this feed. That is what keeps the false-positive rate computable — this feed shrinks when we are wrong and stays put when we are right.
+
+## Stability
+
+These four endpoints promise that fields are **added, never removed or repurposed**. A new field is not a breaking change, so callers must ignore fields they do not recognise. There is no other promise: no authentication, no rate limit, no SDK, no availability guarantee.

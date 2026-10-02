@@ -1,0 +1,120 @@
+---
+title: "Console API"
+---
+
+{/* markdownlint-disable MD041 */}
+
+<Callout type="info">
+  这一组文档描述的是 **AI 雷达控制台**（console）自己提供的 HTTP 接口，与本站的
+  MCP / A2A 协议文档是两份不同的东西。MCP 与 A2A
+  是协议规范；这一组是某个具体部署的服务端点。
+</Callout>
+
+## 这是什么
+
+控制台是一个持续采集公开仓库数据的服务：它记录每个 stargazer 的到达时间，判定规则跑出的结论（异动）和周期榜单就是它的产品面。这一组文档描述它对外暴露的全部接口，一共 21 个路由，分成五种调用者：
+
+| 调用者     | 接口                              | 鉴权                               | 文档                                            |
+| ---------- | --------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| 任何人     | 榜单与异动流的 4 个匿名 JSON 端点 | 无                                 | [公开 JSON](./public-json)                      |
+| 外部采集器 | 仓库写入（`RepoInfo` 或仅 URL）   | `Bearer CONSOLE_API_TOKEN`         | [写入 API](./ingest)                            |
+| 调度器     | 定时任务与单任务触发              | `Bearer CRON_SECRET`               | [调度器](./scheduler)                           |
+| Web 端     | 技能拉取与订阅邮件                | `Bearer SKILLS_WEBHOOK_TOKEN` / 无 | [技能导出](./skills-sync)、[订阅](./newsletter) |
+| 浏览器     | 账号、会话、短信与邮件验证码      | 会话 cookie / 一次性 token         | [认证](./authentication)、[账号](./account)     |
+| 控制台前端 | 13 个 tRPC 路由组                 | 会话 + 角色                        | [tRPC](./trpc)                                  |
+
+## Base URL
+
+所有示例的 base URL 都是控制台站点的域名 https://vercelai.cn：
+
+```bash
+export CONSOLE_ORIGIN=https://vercelai.cn
+curl "$CONSOLE_ORIGIN/api/rankings/week.json"
+```
+
+用 `curl` 时不需要处理 CORS：这几个端点是给机器读的，返回 `Content-Type: application/json`，不要求凭据。
+
+## 路由总览
+
+以下是全部 21 个路由，按路径排列。带 🔒 的需要凭据：
+
+| 方法           | 路径                              | 鉴权                      | 用途                             |
+| -------------- | --------------------------------- | ------------------------- | -------------------------------- |
+| `GET`          | `/api/anomalies.json`             | —                         | 公开异动流                       |
+| `GET`          | `/api/rankings/week.json`         | —                         | ISO 周榜                         |
+| `GET`          | `/api/rankings/month.json`        | —                         | 月榜                             |
+| `GET`          | `/api/rankings/rising-stars.json` | —                         | 年度飙升榜                       |
+| `POST`         | `/api/internal/repos`             | 🔒 `CONSOLE_API_TOKEN`    | 仓库数据写入 / 按 URL 策展       |
+| `GET` / `POST` | `/api/cron/github`                | 🔒 `CRON_SECRET`          | 调度入口：跑完所有到期的周期任务 |
+| `POST`         | `/api/webhook/{task}`             | 🔒 `CRON_SECRET`          | 单个任务立即执行                 |
+| `GET`          | `/api/skills-sync/export`         | 🔒 `SKILLS_WEBHOOK_TOKEN` | 分页拉取待交付的技能             |
+| `POST`         | `/api/newsletter/subscribe`       | —                         | 订阅选型周刊                     |
+| `GET`          | `/api/newsletter/unsubscribe`     | 签名 token                | 退订                             |
+| `GET` / `POST` | `/api/auth/*`                     | 会话 cookie               | Better Auth 的全部端点           |
+| `POST`         | `/api/auth/email-code/send`       | —                         | 重发邮箱验证码                   |
+| `POST`         | `/api/auth/email-code/verify`     | —                         | 校验邮箱验证码                   |
+| `GET` / `POST` | `/api/auth/sms-captcha/challenge` | —                         | 取滑块验证码挑战                 |
+| `GET`          | `/api/auth/sms-captcha/image`     | —                         | 背景图 / 拼图                    |
+| `POST`         | `/api/auth/sms-captcha/verify`    | —                         | 校验滑块，返回一次性 token       |
+| `POST`         | `/api/user/avatar`                | 会话                      | 上传头像，返回 URL               |
+| `POST`         | `/api/user/password`              | 会话                      | 设置或修改密码                   |
+| `POST`         | `/api/user/phone/code`            | 会话 + 滑块 token         | 发送绑定手机号的验证码           |
+| `POST`         | `/api/user/phone/bind`            | 会话                      | 绑定已验证的手机号               |
+| `GET` / `POST` | `/api/trpc/{procedure}`           | 会话 + 角色               | 控制台前端自己的接口             |
+
+## 鉴权的三种形态
+
+控制台里没有统一的 API key 机制，取而代之的是三条互不相同的路，选哪条取决于调用者是谁：
+
+### 共享密钥
+
+`Authorization: Bearer <secret>`，常量时间比较。这是写入 API、调度器与技能导出的全部机制——它们各自有一个独立的密钥：
+
+| 环境变量                     | 保护什么                                                | 没有配置时   |
+| ---------------------------- | ------------------------------------------------------- | ------------ |
+| `CONSOLE_API_TOKEN`          | `POST /api/internal/repos`                              | 返回 **404** |
+| `CRON_SECRET`                | `GET/POST /api/cron/github`、`POST /api/webhook/{task}` | 返回 **404** |
+| `SKILLS_WEBHOOK_TOKEN`       | `GET /api/skills-sync/export`                           | 返回 **404** |
+| `GITHUB_DATA_WEBHOOK_SECRET` | 出站技能 webhook 的签名                                 | 不推送       |
+
+<Callout>
+  没有配置密钥时接口返回 `404` 而不是
+  `401`。这是刻意的：一个未配置的实例不应该向任何人确认「这里有一个需要鉴权的写接口」——确认接口存在本身就是一个可以被动收集的信息。**不要**把这个
+  404 当成路径写错了而反复重试，它意味着服务端缺配置。
+</Callout>
+
+密钥没有过期时间、没有作用域、不能单独吊销。吊销靠轮换环境变量并重启实例。因为这些接口都是机器对机器的，持有密钥的调用方本来就已经是可信的内部系统，多一层作用域只会让运维更难而不会更安全。
+
+### 会话 cookie
+
+`/api/auth/*`、`/api/user/*` 与 `/api/trpc/*` 由 [Better Auth](https://www.better-auth.com) 签发的会话 cookie 鉴权。浏览器里是 `HttpOnly` cookie；脚本调用时用 `credentials: "include"`，跨域还需要把 origin 放进 `BETTER_AUTH_TRUSTED_ORIGINS`。
+
+### 一次性 token
+
+短信相关接口不走会话，也不共享密钥：
+
+- 滑块验证码换取的 token 放在请求头 `X-Temp-Captcha-Token`，**一次性**，消费后立即失效。
+- 退订链接里的 token 是对邮箱地址签名的 HMAC，同一个地址重复点击是幂等的。
+
+## 错误格式
+
+除匿名 JSON 端点外，所有接口的错误体都是 `{"error": "<machine_code>"}`。`error` 是稳定的机器码，`message`（如果出现）是给人看的，可能随时改。**请按 `error` 分支，不要匹配 `message` 的文本。**
+
+匿名 JSON 端点的 400 同样是 `{"error": "<说明文字>"}`，但那里是给人读的英文说明，没有稳定的机器码——那四个端点没有业务错误，只有参数错误。
+
+## 版本与兼容性
+
+没有版本前缀。路径上的 `.json` 后缀（`/api/rankings/week.json`）只是为了让浏览器直接打开时能看到 JSON，不是内容协商，也不代表任何版本承诺。
+
+这些接口的稳定性承诺只有一条，且只对匿名 JSON 端点成立：**字段只增不改不删**。新增字段不构成破坏性变更，因此调用方应当忽略不认识的字段。写入 API、调度器与技能导出的响应形状**没有**这样的承诺——它们服务于特定的内部调用方，改形状时调用方一起改。
+
+## 相关的机器可读入口
+
+控制台自己提供两个给 agent 读的文本入口，与站内这四个端点的字段表同源：
+
+- <code>https://vercelai.cn/llms.txt</code> ——
+  全站页面索引，每个页面一句可引用的描述
+- <code>https://vercelai.cn/llms-full.txt</code> —— 判定规则全文、FAQ 原文、公开
+  API 的完整字段表
+
+其中判定规则的每个数字都读自控制台自己的 `THRESHOLDS`，因此与线上行为不会脱节：改了下界，两处一起改。

@@ -1,0 +1,74 @@
+---
+title: "Newsletter"
+---
+
+{/* markdownlint-disable MD041 */}
+
+Subscription and unsubscription for the weekly. **Neither endpoint needs a credential**, because they serve a form on a public landing page and a link inside an email: requiring an account first would lock out every visitor who has not registered.
+
+## `POST /api/newsletter/subscribe`
+
+**Auth**: none. `Content-Type: application/json`
+
+**Body**
+
+| Field    | Type   | Required | Meaning                                                                                                |
+| -------- | ------ | -------- | ------------------------------------------------------------------------------------------------------ |
+| `email`  | string | ✅       | Trimmed and lowercased. At most 254 characters                                                         |
+| `source` | string |          | Where the submit came from. **Allowlisted**: currently only `landing-report`; anything else is dropped |
+
+`source` is an allowlist rather than a pass-through because it is stored and may later appear in an email link — a public endpoint accepting an arbitrary string is a way to file someone else's input downstream.
+
+**Response**: `{ "ok": true }`
+
+Subscription is an **upsert**: a returning address re-subscribes rather than failing on the unique index. `onConflictDoUpdate` makes that atomic, so two concurrent submits cannot both miss the lookup and then collide on insert.
+
+**Side effect**: a welcome email goes out immediately, carrying a live link to the report it announced (the rising-stars page). "You are subscribed" is therefore not an empty phrase.
+
+<Callout>
+  A failed email send does **not** fail the request — the address is already
+  recorded. On a deployment without mail configured the address is still stored
+  and the welcome copy is written to the server log, so a local run can still
+  watch the flow complete.
+</Callout>
+
+**Errors**
+
+| Status | `error`           | Condition                                           |
+| ------ | ----------------- | --------------------------------------------------- |
+| `400`  | `invalid_request` | Body is not valid JSON, or `email` is not a string  |
+| `400`  | `invalid_email`   | `email` is empty, over 254 characters, or malformed |
+
+## `GET /api/newsletter/unsubscribe`
+
+**Auth**: a signed token in the URL.
+
+```html
+<a href="/api/newsletter/unsubscribe?email=someone%40example.com&token=<hmac>">
+  Unsubscribe
+</a>
+```
+
+`token` is an HMAC over the normalised email address, keyed with `BETTER_AUTH_SECRET`. That is what lets this endpoint be public without becoming "know an address and unsubscribe someone else for them".
+
+It is a **GET, not a POST**, because a recipient who clicks should see the result — they should not have to sign in or click a confirmation first.
+
+It is **idempotent**: an address that is not in the database, or is already unsubscribed, counts as success. What the recipient cares about is "I will not receive these", and clicking the same link twice should not produce an error.
+
+**Response**: an HTML page, not JSON.
+
+| Status | Page           |
+| ------ | -------------- |
+| `200`  | "Unsubscribed" |
+| `400`  | "Invalid link" |
+
+<Callout>
+  When the welcome email carries no unsubscribe link: with `BETTER_AUTH_SECRET`
+  unset no token can be signed, so the mail is still sent without a footer link
+  and the server logs a warning. `BETTER_AUTH_SECRET` is required by better-auth
+  itself, so a real deployment will not hit this.
+</Callout>
+
+## Relationship to the scheduler
+
+The weekly itself is sent by the scheduler (see [Scheduler](./scheduler)), not at subscribe time. These two endpoints only maintain the list.

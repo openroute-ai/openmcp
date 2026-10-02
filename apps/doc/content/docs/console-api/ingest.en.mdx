@@ -1,0 +1,135 @@
+---
+title: "Ingest API"
+---
+
+{/* markdownlint-disable MD041 */}
+
+`POST /api/internal/repos` is the console's only machine-to-machine write. It accepts two body shapes, **discriminated by shape** rather than by a tag: a collector that already holds GitHub data pushes it, and a caller that has only a repository URL (the web app, on behalf of someone who pasted one) asks the console to go and fetch it.
+
+<Callout>
+  Requires `Authorization: Bearer $CONSOLE_API_TOKEN`. With `CONSOLE_API_TOKEN`
+  unset the route returns **404**, not 401 — an unconfigured instance should not
+  confirm to anyone that a guarded write endpoint exists there.
+</Callout>
+
+## `POST /api/internal/repos`
+
+**Auth**: `Authorization: Bearer <CONSOLE_API_TOKEN>`
+
+**Body form one: a `RepoInfo`**
+
+The complete repository object, the same shape the console's own `fetchRepoInfo` produces. For an external collector that has already made the calls: it pushes, and this app does not re-query GitHub.
+
+The schema is `strict`: an undeclared field is a `400`. That is deliberate — it turns "I thought I sent this field" into a loud failure instead of a silent loss.
+
+| Field                      | Type           | Required | Meaning                                            |
+| -------------------------- | -------------- | -------- | -------------------------------------------------- |
+| `name`                     | string         | ✅       | Repository name                                    |
+| `fullName`                 | string         | ✅       | `owner/name`                                       |
+| `owner`                    | string         | ✅       | Owner name                                         |
+| `ownerId`                  | number         | ✅       | Owner's numeric id, integer                        |
+| `createdAt`                | string         | ✅       | ISO 8601                                           |
+| `pushedAt`                 | string         | ✅       | ISO 8601                                           |
+| `lastCommit`               | string         | ✅       | ISO 8601                                           |
+| `description`              | string         |          | Defaults to `""`                                   |
+| `homepage`                 | string         |          | Defaults to `""`                                   |
+| `defaultBranch`            | string         |          | Defaults to `""`                                   |
+| `stars`                    | number         |          | Defaults to `0`, non-negative integer              |
+| `topics`                   | string[]       |          | Defaults to `[]`                                   |
+| `archived`                 | boolean        |          | Defaults to `false`                                |
+| `commitCount`              | number         |          | Defaults to `0`, non-negative integer              |
+| `mentionableUsersCount`    | number         |          | Defaults to `0`, non-negative integer              |
+| `watchersCount`            | number         |          | Defaults to `0`, non-negative integer              |
+| `licenseSpdxId`            | string         |          | Defaults to `""`                                   |
+| `pullRequestsCount`        | number         |          | Defaults to `0`, non-negative integer              |
+| `openIssuesCount`          | number         |          | Defaults to `0`, non-negative integer              |
+| `releasesCount`            | number         |          | Defaults to `0`, non-negative integer              |
+| `languages`                | string[]       |          | Defaults to `[]`                                   |
+| `forks`                    | number         |          | Defaults to `0`, non-negative integer              |
+| `openGraphImageUrl`        | string         |          | Defaults to `""`                                   |
+| `usesCustomOpenGraphImage` | boolean        |          | Defaults to `false`                                |
+| `latestReleaseName`        | string         |          | Defaults to `""`                                   |
+| `latestReleaseTagName`     | string         |          | Defaults to `""`                                   |
+| `latestReleasePublishedAt` | string \| null |          | `null` or omitted when the repo has never released |
+| `latestReleaseUrl`         | string         |          | Defaults to `""`                                   |
+| `latestReleaseDescription` | string         |          | Defaults to `""`                                   |
+
+<Callout type="warn">
+  The ISO 8601 strings must actually parse into dates. This does **not** use
+  `z.coerce.date()`: that accepts `null` (as the epoch) and numeric strings,
+  both of which would quietly store a wrong date.
+</Callout>
+
+**Response** (the `RepoInfo` form)
+
+```json
+{
+  "ok": true,
+  "repo": { "id": "…", "full_name": "owner/repo", "stars": 12345 }
+}
+```
+
+The write is an **upsert**: a new repository inserts a row, and a known one gets a **partial update** that leaves the fields other tasks own — the README, its translation, the icon, the OSS image URLs — untouched.
+
+**Body form two: `{ url, type? }`**
+
+For a caller holding no GitHub data. The console does the whole thing inline: fetch the repository, create the project, sync its skills, push them to the web service, then respond.
+
+| Field   | Type   | Required | Meaning                                                                    |
+| ------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `url`   | string | ✅       | A GitHub repository URL, at most 500 characters                            |
+| `type`  | enum   |          | `application`, `skill`, `client`, `server`, `persona`. Defaults to `skill` |
+| `owner` | string |          | Accepted and **ignored**; the URL is authoritative                         |
+| `name`  | string |          | Accepted and **ignored**                                                   |
+
+`owner` and `name` are accepted and ignored so a caller that used to send all three keeps working, rather than being rejected for a redundant field.
+
+<Callout>
+  This form **waits**: the fetch, the translation and the webhook push are all
+  inside it. The function is declared for the 300-second ceiling, and a large
+  repository can take a while. The caller is usually waiting on a person, so
+  this work cannot be left to the next scheduled sweep.
+</Callout>
+
+**Response** (the URL form)
+
+```json
+{
+  "ok": true,
+  "status": "created",
+  "repo": { "full_name": "owner/repo" },
+  "project": { "…": "the Project row" },
+  "skills": {
+    "count": 3,
+    "translated": 2,
+    "empty": false,
+    "found": 3,
+    "pushed": 3,
+    "failed": 0,
+    "results": []
+  },
+  "delivered": true
+}
+```
+
+| Field       | Meaning                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`    | `created` or `existing`                                                                                                                              |
+| `delivered` | **The only flag a caller needs**: every stored skill reached the web service, so the skill it asked for is available there now                       |
+| `skills`    | Without `SKILLS_WEBHOOK_URL` there is no `delivered`: the skills are stored for the scheduler to deliver, but this request cannot claim they arrived |
+
+When `status` is `existing` and `type` is `skill`, the route **repeats** the skill sync. That is the only case where it runs twice: the project-creation call returns early for an existing project, and a caller that asked for the skill _now_ must not be told "existing" and then wait for the scheduler. The repeat is idempotent.
+
+**Errors**
+
+| Status | `error`                              | Condition                                                                                                                                                                                                                      |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `400`  | prose                                | Body is not valid JSON                                                                                                                                                                                                         |
+| `400`  | a field path                         | The body is neither a `RepoInfo` nor `{url}`. The message names the **first offending field** — `RepoInfo` is the stricter schema, so it reports what the collector actually got wrong instead of a misleading `url: required` |
+| `400`  | `"…" is not a GitHub repository URL` | `url` does not parse                                                                                                                                                                                                           |
+| `401`  | `unauthorized`                       | Bearer secret mismatch                                                                                                                                                                                                         |
+| `404`  | `not found`                          | `CONSOLE_API_TOKEN` is not configured                                                                                                                                                                                          |
+| `502`  | prose                                | The fetch or curation failed                                                                                                                                                                                                   |
+| `503`  | prose                                | No GitHub token on the server. An operator misconfiguration, not a bad request                                                                                                                                                 |
+
+**Outbound webhook**: after a successful URL-form ingest, every skill of that project is pushed to `SKILLS_WEBHOOK_URL` with `Authorization: Bearer $SKILLS_WEBHOOK_TOKEN` and a body signed with `GITHUB_DATA_WEBHOOK_SECRET`. A rejected delivery is recorded on the row for the retry queue rather than dropped here.

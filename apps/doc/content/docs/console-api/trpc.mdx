@@ -1,0 +1,203 @@
+---
+title: "tRPC 接口"
+---
+
+{/* markdownlint-disable MD041 */}
+
+控制台前端自己的接口，tRPC over HTTP。它**不是**给外部集成用的：这一层是为浏览器里的控制台界面服务的，没有版本承诺、没有 SDK、形状随界面一起变。需要机器对机器调用请看[写入 API](./ingest)与[技能导出](./skills-sync)。
+
+<Callout>
+  **没有任何一个 tRPC 程序是公开的。**
+  每一个都要么要求会话，要么要求管理员角色。这是刻意的：门槛按「越不严越容易忘」的顺序叠加——先会话，再角色，而且后者建立在前者之上，不会反过来。
+</Callout>
+
+## 传输
+
+`GET` / `POST /api/trpc/{procedure}`，路径里的 `procedure` 是 `路由.程序`。tRPC 自己定义了 batching 与超链接格式，**不要手写**：用 tRPC 的客户端（`@trpc/client`）或直接照它的 HTTP 约定发。
+
+`GET` 用于 query，`POST` 用于 mutation 与 batching。两者都读会话。
+
+## 鉴权级别
+
+| 级别       | 含义                     |
+| ---------- | ------------------------ |
+| **会话**   | 任何已登录账号，角色不限 |
+| **管理员** | 会话 + `role: "admin"`   |
+
+角色检查写在**过程本身**上，不是 `/dashboard` 布局里。布局的作用只是不让非管理员看到一个每个查询都会失败的界面；但页面可以被绕过布局拿到（预取、直接请求、客户端导航），唯一跳不过去的检查是长在过程上的那个。
+
+角色不足返回 `FORBIDDEN`（403）而不是 `UNAUTHORIZED`（401）：调用方已经认证了，报「未认证」会告诉一个已登录的非管理员「这个资源存在、只是会话不被接受」，而这个应用的任何部分都不需要这个区分。
+
+## 路由总表
+
+`.` 分隔「路由.过程」。`q` = query（`GET`），其余 = mutation（`POST`）。
+
+### `repos` —— 仓库
+
+| 过程                        | 级别   |
+| --------------------------- | ------ |
+| `repos.list` q              | 会话   |
+| `repos.byId` q              | 会话   |
+| `repos.create`              | 会话   |
+| `repos.updateOwnSubmission` | 会话   |
+| `repos.update`              | 管理员 |
+| `repos.refresh`             | 管理员 |
+| `repos.delete`              | 管理员 |
+
+「提交自己的仓库」与「改任何仓库」分开，是这一组里最要紧的区分：前者让任何人能贡献，后者的错误影响整个目录。
+
+### `decisions` —— 人工判定
+
+判定队列：待确认的异动、误报裁决、候选仓库。全部要求会话——这一层是判断的来源，不该是管理员专属。
+
+| 过程                        | 级别 |
+| --------------------------- | ---- |
+| `decisions.list` q          | 会话 |
+| `decisions.read` q          | 会话 |
+| `decisions.create`          | 会话 |
+| `decisions.update`          | 会话 |
+| `decisions.decide`          | 会话 |
+| `decisions.addCandidate`    | 会话 |
+| `decisions.updateCandidate` | 会话 |
+| `decisions.removeCandidate` | 会话 |
+| `decisions.searchRepos` q   | 会话 |
+
+### `apiKeys` —— 开放 API 的凭据
+
+| 过程             | 级别   |
+| ---------------- | ------ |
+| `apiKeys.create` | 管理员 |
+| `apiKeys.list` q | 管理员 |
+| `apiKeys.revoke` | 管理员 |
+| `apiKeys.rotate` | 管理员 |
+
+签发走这里而不是写入 API，因为凭据的**明文只在签发那一刻出现一次**，之后数据库里只有摘要。轮换会生成新的明文并吊销旧的。
+
+### `authors` —— 作者
+
+| 过程              | 级别   |
+| ----------------- | ------ |
+| `authors.list` q  | 管理员 |
+| `authors.byId` q  | 管理员 |
+| `authors.refresh` | 管理员 |
+| `authors.update`  | 管理员 |
+
+### `overview` —— 总览
+
+| 过程                  | 级别   |
+| --------------------- | ------ |
+| `overview.snapshot` q | 管理员 |
+
+### `projects` —— 项目
+
+| 过程                     | 级别   |
+| ------------------------ | ------ |
+| `projects.create`        | 管理员 |
+| `projects.parseUrl` q    | 管理员 |
+| `projects.list` q        | 管理员 |
+| `projects.byId` q        | 管理员 |
+| `projects.update`        | 管理员 |
+| `projects.addPackage`    | 管理员 |
+| `projects.removePackage` | 管理员 |
+| `projects.setTags`       | 管理员 |
+| `projects.remove`        | 管理员 |
+| `projects.sync`          | 管理员 |
+
+### `rankings` —— 榜单
+
+| 过程                                     | 级别   |
+| ---------------------------------------- | ------ |
+| `rankings.periods` q                     | 管理员 |
+| `rankings.weekly` q                      | 管理员 |
+| `rankings.monthly` q                     | 管理员 |
+| `rankings.risingStars` q                 | 管理员 |
+| `rankings.risingStarYears` q             | 管理员 |
+| `rankings.risingStarDefaultCategories` q | 管理员 |
+| `rankings.risingStarCategories` q        | 管理员 |
+| `rankings.setRisingStarCategories`       | 管理员 |
+| `rankings.buildRisingStars`              | 管理员 |
+
+这些程序读的是与[公开 JSON 接口](./public-json)**同一张表、同一个 service**，区别只在条数与筛选：页面只公布前 12，匿名接口给前 100，这一层给界面需要的完整视图。
+
+### `sessions` —— 账号与会话
+
+| 过程              | 级别   |
+| ----------------- | ------ |
+| `sessions.list` q | 管理员 |
+| `sessions.byId` q | 管理员 |
+| `sessions.revoke` | 管理员 |
+
+放在一起是因为它们回答同一个问题：一个会话行离开它所属的账号就答不出「这是谁」，一个账号页面离开它的会话就答不出「这个还在线吗」。
+
+### `skills` —— 技能
+
+| 过程            | 级别   |
+| --------------- | ------ |
+| `skills.list` q | 管理员 |
+| `skills.byId` q | 管理员 |
+| `skills.push`   | 管理员 |
+
+### `sync` —— 同步队列
+
+| 过程          | 级别   |
+| ------------- | ------ |
+| `sync.list` q | 管理员 |
+| `sync.retry`  | 管理员 |
+
+### `tags` —— 标签
+
+| 过程          | 级别   |
+| ------------- | ------ |
+| `tags.list` q | 管理员 |
+| `tags.upsert` | 管理员 |
+| `tags.remove` | 管理员 |
+
+标签的自动分类结果在这里等待人工确认：分类器提议，运营确认，置信度与它引用的那一句 README 一起存下来，所以复核的人判断的是理由而不是结论。
+
+### `tasks` —— 任务与执行记录
+
+| 过程                 | 级别   |
+| -------------------- | ------ |
+| `tasks.list` q       | 管理员 |
+| `tasks.executions` q | 管理员 |
+| `tasks.byId` q       | 管理员 |
+| `tasks.execution` q  | 管理员 |
+| `tasks.setEnabled`   | 管理员 |
+| `tasks.runNow`       | 管理员 |
+
+`tasks.runNow` 走的是与 `POST /api/webhook/{task}` 相同的执行路径、同样的锁、同样的过期回收。
+
+### `users` —— 账号
+
+| 过程            | 级别   |
+| --------------- | ------ |
+| `users.list` q  | 管理员 |
+| `users.byId` q  | 管理员 |
+| `users.setRole` | 管理员 |
+
+## 错误
+
+tRPC 的错误带标准 `code`（`UNAUTHORIZED`、`FORBIDDEN`、`NOT_FOUND`、`BAD_REQUEST`、`INTERNAL_SERVER_ERROR` 等），以及一个可选的 `appCode`：应用自己的机器码。
+
+当前定义的 `appCode`：
+
+| 常量                       | 值              | 含义                                       |
+| -------------------------- | --------------- | ------------------------------------------ |
+| `ERROR_CODES.taskNotFound` | `task.notFound` | 列出任务之后、点「立即执行」之前，任务没了 |
+
+**未知码不是错误**：调用方应当退回到读 `message`。这样新增一个跳过原因在界面上退化成一句英文，而不是把 `task.notFound` 这种代码本身渲染出来。
+
+## 跳过码
+
+任务的「跳过」和「失败」是两件事，跳过时服务端给的是 `reasonCode` 而不是错误：
+
+| 常量                              | 值                          |
+| --------------------------------- | --------------------------- |
+| `SKIP_CODES.taskDisabled`         | `task.disabled`             |
+| `SKIP_CODES.taskAlreadyRunning`   | `task.alreadyRunning`       |
+| `SKIP_CODES.alreadyRanThisMinute` | `task.alreadyRanThisMinute` |
+| `SKIP_CODES.noDataForPeriod`      | `task.noDataForPeriod`      |
+| `SKIP_CODES.noDataForYear`        | `task.noDataForYear`        |
+| `SKIP_CODES.missingNotifyWebhook` | `task.missingNotifyWebhook` |
+
+一套码同时服务于界面与[调度器](./scheduler)的 webhook 响应，因此两边对「为什么没跑」的判断是同一个。

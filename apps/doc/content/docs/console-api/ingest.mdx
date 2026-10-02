@@ -1,0 +1,138 @@
+---
+title: "写入 API"
+---
+
+{/* markdownlint-disable MD041 */}
+
+`POST /api/internal/repos` 是控制台唯一的机器对机器写入口。它接受两种请求体，**按形状区分**，不需要额外的判别字段：已经持有 GitHub 数据的采集器直接推送，一个只需要给出仓库地址的调用方（比如用户粘贴了一个仓库地址的 Web 端）让控制台自己去取。
+
+<Callout>
+  需要 `Authorization: Bearer $CONSOLE_API_TOKEN`。未配置 `CONSOLE_API_TOKEN`
+  时返回 **404**，不是
+  401——一个未配置的实例不应该向任何人确认这里存在一个需要鉴权的写接口。
+</Callout>
+
+## `POST /api/internal/repos`
+
+**鉴权**：`Authorization: Bearer <CONSOLE_API_TOKEN>`
+
+**Body 形式一：`RepoInfo`**
+
+完整的仓库信息对象，与控制台自己调用 `fetchRepoInfo` 得到的形状一致。用于已经抓到数据的外部采集器——它推送过来，控制台就不必再调一次 GitHub API。
+
+请求体是 `strict` 的：多一个未声明的字段就返回 `400`。这不是刁难，而是让「我以为推送了这个字段」变成一次响亮的失败而不是一次静默的丢失。
+
+| 字段                       | 类型           | 必填 | 说明                       |
+| -------------------------- | -------------- | ---- | -------------------------- |
+| `name`                     | string         | ✅   | 仓库名                     |
+| `fullName`                 | string         | ✅   | `owner/name`               |
+| `owner`                    | string         | ✅   | owner 名                   |
+| `ownerId`                  | number         | ✅   | owner 的数字 id，整数      |
+| `createdAt`                | string         | ✅   | ISO 8601                   |
+| `pushedAt`                 | string         | ✅   | ISO 8601                   |
+| `lastCommit`               | string         | ✅   | ISO 8601                   |
+| `description`              | string         |      | 默认 `""`                  |
+| `homepage`                 | string         |      | 默认 `""`                  |
+| `defaultBranch`            | string         |      | 默认 `""`                  |
+| `stars`                    | number         |      | 默认 `0`，非负整数         |
+| `topics`                   | string[]       |      | 默认 `[]`                  |
+| `archived`                 | boolean        |      | 默认 `false`               |
+| `commitCount`              | number         |      | 默认 `0`，非负整数         |
+| `mentionableUsersCount`    | number         |      | 默认 `0`，非负整数         |
+| `watchersCount`            | number         |      | 默认 `0`，非负整数         |
+| `licenseSpdxId`            | string         |      | 默认 `""`                  |
+| `pullRequestsCount`        | number         |      | 默认 `0`，非负整数         |
+| `openIssuesCount`          | number         |      | 默认 `0`，非负整数         |
+| `releasesCount`            | number         |      | 默认 `0`，非负整数         |
+| `languages`                | string[]       |      | 默认 `[]`                  |
+| `forks`                    | number         |      | 默认 `0`，非负整数         |
+| `openGraphImageUrl`        | string         |      | 默认 `""`                  |
+| `usesCustomOpenGraphImage` | boolean        |      | 默认 `false`               |
+| `latestReleaseName`        | string         |      | 默认 `""`                  |
+| `latestReleaseTagName`     | string         |      | 默认 `""`                  |
+| `latestReleasePublishedAt` | string \| null |      | 从未发布过则 `null` 或省略 |
+| `latestReleaseUrl`         | string         |      | 默认 `""`                  |
+| `latestReleaseDescription` | string         |      | 默认 `""`                  |
+
+<Callout type="warn">
+  ISO 8601 字符串必须真的能被解析成日期。这里**不是**用的
+  `z.coerce.date()`：它接受 `null`（解释为
+  epoch）和数字字符串，两者都会把一个错误的日期悄悄存进去。
+</Callout>
+
+**响应**（`RepoInfo` 形式）
+
+```json
+{
+  "ok": true,
+  "repo": {
+    "id": "…",
+    "full_name": "owner/repo",
+    "stars": 12345
+  }
+}
+```
+
+写入是 **upsert**：新仓库插入一行；已存在的仓库做**部分更新**，只覆盖本接口拥有的字段，README、README 翻译、图标与 OSS 图片 URL 这些由别的任务拥有的字段保持不动。
+
+**Body 形式二：`{ url, type? }`**
+
+调用方手上没有 GitHub 数据，只有一个仓库地址。控制台会同步完成：取仓库、建项目、同步技能、推送到 Web 服务，然后才响应。
+
+| 字段    | 类型   | 必填 | 说明                                                                |
+| ------- | ------ | ---- | ------------------------------------------------------------------- |
+| `url`   | string | ✅   | GitHub 仓库地址，最长 500 字符                                      |
+| `type`  | enum   |      | `application`、`skill`、`client`、`server`、`persona`。缺省 `skill` |
+| `owner` | string |      | 接受但**忽略**，URL 是权威的                                        |
+| `name`  | string |      | 接受但**忽略**，同上                                                |
+
+`owner` / `name` 被接受并忽略，是为了让原先同时发三个字段的调用方继续工作，而不是因为一个冗余字段被拒绝。
+
+<Callout>
+  这个形式会**同步等待**：取仓库、翻译、推送 webhook
+  全在里面。声明的函数时长上限是 300
+  秒，大仓库可能很久。调用方通常是在等一个用户，所以这次工作不能留给下一次定时扫描。
+</Callout>
+
+**响应**（URL 形式）
+
+```json
+{
+  "ok": true,
+  "status": "created",
+  "repo": { "full_name": "owner/repo" },
+  "project": { "…": "Project 行" },
+  "skills": {
+    "count": 3,
+    "translated": 2,
+    "empty": false,
+    "found": 3,
+    "pushed": 3,
+    "failed": 0,
+    "results": []
+  },
+  "delivered": true
+}
+```
+
+| 字段        | 含义                                                                                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`    | `created` 或 `existing`                                                                                                                                    |
+| `delivered` | **调用方唯一需要的标志**：全部已存技能都到达了 Web 服务，所以它要的技能在那里可以用了                                                                      |
+| `skills`    | 没有配置 `SKILLS_WEBHOOK_URL` 时只有 `count` / `translated` / `empty` 三个键，此时没有 `delivered`——技能已存下、留给调度任务投递，但这次请求不能声称它到了 |
+
+`status: "existing"` 且 `type: "skill"` 时，接口会**再跑一次**技能同步。这是唯一一次同步跑两遍：项目创建函数遇到已存在的项目会提前返回而不重跑，但一个「现在就要技能」的调用方如果拿到 `existing` 然后干等调度器，就白等了。重跑是幂等的。
+
+**错误**
+
+| 状态码 | `error`                              | 条件                                                                                                                                                               |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `400`  | 原文                                 | body 不是合法 JSON                                                                                                                                                 |
+| `400`  | 字段路径                             | body 既不符合 `RepoInfo` 也不符合 `{url}`。消息指出**第一个出错的字段**——`RepoInfo` 更严格，所以报的是采集器真正搞错的那个字段，而不是一句误导性的 `url: required` |
+| `400`  | `"…" is not a GitHub repository URL` | `url` 解析不出仓库                                                                                                                                                 |
+| `401`  | `unauthorized`                       | Bearer 密钥不匹配                                                                                                                                                  |
+| `404`  | `not found`                          | 服务端没配置 `CONSOLE_API_TOKEN`                                                                                                                                   |
+| `502`  | 原文                                 | 取仓库或策展失败                                                                                                                                                   |
+| `503`  | 原文                                 | 服务端缺 GitHub token。这是运维配置问题，不是请求问题                                                                                                              |
+
+**出站 webhook**：URL 形式在同步完成后会把该项目所有技能推送到 `SKILLS_WEBHOOK_URL`，带 `Authorization: Bearer $SKILLS_WEBHOOK_TOKEN` 和用 `GITHUB_DATA_WEBHOOK_SECRET` 签名的请求体。被拒绝的投递会记在行上，由重试队列接手，而不是在这里丢掉。

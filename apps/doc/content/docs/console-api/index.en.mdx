@@ -1,0 +1,122 @@
+---
+title: "Console API"
+---
+
+{/* markdownlint-disable MD041 */}
+
+<Callout type="info">
+  This section documents the HTTP endpoints served by the **AI Radar console** —
+  a concrete application, not a protocol specification. The MCP and A2A sections
+  of this site are specifications; this one is the service that runs them.
+</Callout>
+
+## What this is
+
+The console is a service that continuously collects public repository data. It records the arrival time of every stargazer, and the judgements its rule set produces — the anomaly feed — plus the periodic rankings are the product surface. This section documents every endpoint that application serves: 21 routes across six kinds of caller.
+
+| Caller               | Endpoints                               | Auth                                 | Page                                                      |
+| -------------------- | --------------------------------------- | ------------------------------------ | --------------------------------------------------------- |
+| Anyone               | 4 anonymous JSON endpoints              | none                                 | [Public JSON](./public-json)                              |
+| External collectors  | Repository ingest                       | `Bearer CONSOLE_API_TOKEN`           | [Ingest](./ingest)                                        |
+| Schedulers           | Scheduled tasks, single-task trigger    | `Bearer CRON_SECRET`                 | [Scheduler](./scheduler)                                  |
+| The web app          | Skill pull, newsletter                  | `Bearer SKILLS_WEBHOOK_TOKEN` / none | [Skill export](./skills-sync), [Newsletter](./newsletter) |
+| Browsers             | Accounts, sessions, SMS and email codes | session cookie / one-time token      | [Authentication](./authentication), [Account](./account)  |
+| The console frontend | 13 tRPC router groups                   | session + role                       | [tRPC](./trpc)                                            |
+
+## Base URL
+
+Every example below is relative to the console's own origin, https://vercelai.cn:
+
+```bash
+export CONSOLE_ORIGIN=https://vercelai.cn
+curl "$CONSOLE_ORIGIN/api/rankings/week.json"
+```
+
+There is no CORS to handle with `curl`: these endpoints exist for machines, and they answer with `Content-Type: application/json` and no credential requirement.
+
+## Route index
+
+All 21 routes, ordered by path. 🔒 means a credential is required.
+
+| Method         | Path                              | Auth                      | Purpose                                 |
+| -------------- | --------------------------------- | ------------------------- | --------------------------------------- |
+| `GET`          | `/api/anomalies.json`             | —                         | The public anomaly feed                 |
+| `GET`          | `/api/rankings/week.json`         | —                         | ISO weekly ranking                      |
+| `GET`          | `/api/rankings/month.json`        | —                         | Monthly ranking                         |
+| `GET`          | `/api/rankings/rising-stars.json` | —                         | The yearly rising-stars report          |
+| `POST`         | `/api/internal/repos`             | 🔒 `CONSOLE_API_TOKEN`    | Ingest repo data, or curate by URL      |
+| `GET` / `POST` | `/api/cron/github`                | 🔒 `CRON_SECRET`          | The scheduler: run everything due       |
+| `POST`         | `/api/webhook/{task}`             | 🔒 `CRON_SECRET`          | Run one named task now                  |
+| `GET`          | `/api/skills-sync/export`         | 🔒 `SKILLS_WEBHOOK_TOKEN` | Page through undelivered skills         |
+| `POST`         | `/api/newsletter/subscribe`       | —                         | Subscribe to the weekly                 |
+| `GET`          | `/api/newsletter/unsubscribe`     | signed token              | Unsubscribe                             |
+| `GET` / `POST` | `/api/auth/*`                     | session cookie            | Every Better Auth endpoint              |
+| `POST`         | `/api/auth/email-code/send`       | —                         | Resend an email verification code       |
+| `POST`         | `/api/auth/email-code/verify`     | —                         | Verify an email code                    |
+| `GET` / `POST` | `/api/auth/sms-captcha/challenge` | —                         | Issue a slider challenge                |
+| `GET`          | `/api/auth/sms-captcha/image`     | —                         | Background or puzzle image              |
+| `POST`         | `/api/auth/sms-captcha/verify`    | —                         | Verify the slider, get a one-time token |
+| `POST`         | `/api/user/avatar`                | session                   | Upload an avatar, get its URL           |
+| `POST`         | `/api/user/password`              | session                   | Set or change the password              |
+| `POST`         | `/api/user/phone/code`            | session + slider token    | Send the bind-a-phone code              |
+| `POST`         | `/api/user/phone/bind`            | session                   | Bind the verified number                |
+| `GET` / `POST` | `/api/trpc/{procedure}`           | session + role            | The console frontend's own API          |
+
+## Three shapes of authentication
+
+There is no unified API-key mechanism. There are three unrelated paths, and which one applies depends on who is calling.
+
+### Shared secrets
+
+`Authorization: Bearer <secret>`, compared in constant time. This is the entire mechanism behind the ingest, the scheduler and the skill export. Each has its own secret:
+
+| Variable                     | Guards                                                  | When unset        |
+| ---------------------------- | ------------------------------------------------------- | ----------------- |
+| `CONSOLE_API_TOKEN`          | `POST /api/internal/repos`                              | Returns **404**   |
+| `CRON_SECRET`                | `GET/POST /api/cron/github`, `POST /api/webhook/{task}` | Returns **404**   |
+| `SKILLS_WEBHOOK_TOKEN`       | `GET /api/skills-sync/export`                           | Returns **404**   |
+| `GITHUB_DATA_WEBHOOK_SECRET` | Signing outbound skill webhooks                         | Nothing is pushed |
+
+<Callout>
+  An unset secret produces `404`, not `401`. This is deliberate: an unconfigured
+  instance should not confirm to anyone that a guarded write endpoint exists
+  there, and confirming that is itself collectable information. **Do not** read
+  this 404 as a wrong path and retry — it means the server is missing
+  configuration.
+</Callout>
+
+These secrets do not expire, carry no scopes, and cannot be revoked individually: rotation means changing the environment variable and restarting. That is acceptable because every one of these endpoints is machine-to-machine, and the holder of the secret is by definition a trusted internal system — a scope layer there would complicate operations without adding a boundary.
+
+### Session cookies
+
+`/api/auth/*`, `/api/user/*` and `/api/trpc/*` are guarded by the session cookie issued by [Better Auth](https://www.better-auth.com). In a browser this is an `HttpOnly` cookie; scripted callers use `credentials: "include"` and must add their origin to `BETTER_AUTH_TRUSTED_ORIGINS` for cross-origin requests.
+
+### One-time tokens
+
+The SMS paths use neither a session nor a shared secret:
+
+- The slider challenge yields a token in the `X-Temp-Captcha-Token` request header. It is **single-use** and consumed on the request that presents it.
+- The unsubscribe link carries an HMAC over the email address. Opening it twice is idempotent.
+
+## Error format
+
+Outside the anonymous JSON endpoints, every error body is `{"error": "<machine_code>"}`. `error` is a stable machine code; `message`, where it appears, is human-facing copy and can change at any time. **Branch on `error`, never on the text of `message`.**
+
+The 400s from the anonymous JSON endpoints are also `{"error": "<prose>"}`, but there the string is English prose with no stable code — those four endpoints have no business errors, only parameter errors.
+
+## Versioning and compatibility
+
+There is no version prefix. The `.json` suffix on `/api/rankings/week.json` is there so that opening the URL in a browser yields JSON; it is not content negotiation and implies no version.
+
+Exactly one stability promise exists, and it covers only the anonymous JSON endpoints: **fields are added, never removed or repurposed.** A new field is not a breaking change, so callers must ignore fields they do not recognise. The ingest, scheduler and skill-export response shapes carry **no** such promise — they serve specific internal callers who change together.
+
+## Machine-readable entry points
+
+The console publishes two text files for agents, generated from the same data as this section:
+
+- <code>https://vercelai.cn/llms.txt</code> — an index of every page, with one
+  quotable sentence each
+- <code>https://vercelai.cn/llms-full.txt</code> — the full judgement rules, the
+  FAQ verbatim, and the complete public-API field tables
+
+Every number in those rules is interpolated from the console's own `THRESHOLDS`, so they cannot drift from production behaviour: change the bound, both change.

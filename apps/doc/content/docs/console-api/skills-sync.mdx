@@ -1,0 +1,114 @@
+---
+title: "技能导出"
+---
+
+{/* markdownlint-disable MD041 */}
+
+控制台在同步每个技能时会把内容推送到 Web 端，这是主路径。这一页描述的是**拉取方向**：给一个宁愿自己翻页、而不是被动收回调的消费者。两个方向返回的是**同一份 payload**，所以消费者可以在两者之间切换而不需要转换任何东西。
+
+<Callout>
+  `GET /api/skills-sync/export` 需要 `Authorization: Bearer
+  $SKILLS_WEBHOOK_TOKEN`。未配置该变量时返回 **404**，不是 401。
+</Callout>
+
+## `GET /api/skills-sync/export`
+
+**鉴权**：`Authorization: Bearer <SKILLS_WEBHOOK_TOKEN>`
+
+**查询参数**
+
+| 参数     | 类型   | 说明                                                            |
+| -------- | ------ | --------------------------------------------------------------- |
+| `limit`  | number | 每页条数，默认 `100`，最大 `500`。不是 1–500 的整数就返回 `400` |
+| `cursor` | string | ISO 8601 时间戳。省略或空 = 从头开始。给了但解析不了 = `400`    |
+
+**分页用游标，不用 offset**，因为一个走查途中被确认同步的技能不能移动分页边界。游标是「这个技能最后一次被确认同步的时刻」。
+
+**响应**
+
+```json
+{
+  "skills": [
+    {
+      "event_type": "skill_updated",
+      "timestamp": "2026-09-19T02:14:00.000Z",
+      "data": {
+        "repo_full_name": "owner/repo",
+        "repo_name": "repo",
+        "repo_owner": "owner",
+        "skill_dir": ".claude/skills/foo",
+        "name": "foo",
+        "name_zh": "富",
+        "description": "…",
+        "description_zh": "…",
+        "readme": "…",
+        "readme_zh": "…",
+        "version": "1.2.0",
+        "category_id": null,
+        "features": null,
+        "scenario": null,
+        "license": null,
+        "tools": null
+      }
+    }
+  ],
+  "next_cursor": "2026-09-18T00:00:00.000Z"
+}
+```
+
+`data` 里的 `name_zh`、`description_zh`、`readme_zh` 与 `version` 可能为 `null`——没有中文翻译的技能是常态，不是错误。`category_id`、`features`、`scenario`、`license`、`tools` 目前恒为 `null`：这些字段由 Web 端自己维护，控制台不生产它们。
+
+**`next_cursor` 的语义**：只有当**多取一行**确认了后面确实还有东西时游标才前进。一页刚好取满不构成「还有更多」的证据。
+
+**这个端点是只读的。** 标记「已导出」会让导出本身变成隐藏工作的东西，而确认交付是**接收方**的事——接收方确认之后，`synced_to_web_at` 才前进，这个技能在下次走查里就不再出现。
+
+### 已知限制：全部未确认时游标会中止
+
+只返回「从未确认同步」的技能时（`synced_to_web_at IS NULL`），这一页最后一行的时间戳是 `NULL`，因此 `next_cursor` 为 `null`，走查在第一页之后就没有续页可用。**在技能数量超过一页的部署上，只靠这一个游标无法走完全部未确认技能。** 这不是调用方用法的问题，而是排序里 `NULL` 排在已确认时间之后导致的：如果第一页已经全是未确认技能，后面剩下的也全是未确认技能，游标无处可去。
+
+可行的做法是按 `limit=500` 拉一页、把这一页的技能全部确认交付、然后再从头拉一次，反复直到某次返回空数组。用完即弃的消费者（一次同步完就退出）不受影响。
+
+**错误**
+
+| 状态码 | `error`                                      | 条件                              |
+| ------ | -------------------------------------------- | --------------------------------- |
+| `400`  | `limit must be an integer between 1 and 500` | `limit` 不合法                    |
+| `400`  | `cursor must be an ISO 8601 timestamp`       | `cursor` 给了但解析不了           |
+| `401`  | `unauthorized`                               | 密钥不匹配                        |
+| `404`  | `not found`                                  | 服务端没配 `SKILLS_WEBHOOK_TOKEN` |
+
+## 出站 webhook（推送方向）
+
+控制台在技能同步完成后主动推送，是主路径。收件方是 Web 端，URL 是 `SKILLS_WEBHOOK_URL`。
+
+**请求头**
+
+| 头                    | 内容                                                  |
+| --------------------- | ----------------------------------------------------- |
+| `Authorization`       | `Bearer $SKILLS_WEBHOOK_TOKEN`                        |
+| `x-webhook-timestamp` | Unix 秒时间戳，签名覆盖它                             |
+| `x-webhook-signature` | `sha256=<hex>`，HMAC-SHA256 over `<timestamp>.<body>` |
+
+**验签**：
+
+```ts
+const timestamp = req.headers.get("x-webhook-timestamp")
+const signature = req.headers.get("x-webhook-signature")
+const raw = await req.text() // 必须是被传输的字节，不能重新序列化
+
+const expected = `sha256=${createHmac("sha256", secret)
+  .update(`${timestamp}.${raw}`)
+  .digest("hex")}`
+
+if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) reject()
+```
+
+签名同时覆盖时间戳，**这才是签名而不是校验和**：一小时后重放一个抓到的请求会算出不同的 HMAC 并被拒，所以一份泄漏的请求日志不是一份长期有效的凭据。同时校验时间戳与当前时间的差（比如不超过 5 分钟）可以再加一层。
+
+**投递失败**会记在技能行上，由调度任务的重试队列接手。`POST /api/internal/repos` 的 URL 形式会在响应里给出 `delivered`，含义是「这个项目所有已存技能都到达了 Web 服务」。
+
+<Callout>
+  两条路径的 payload 结构完全一致：拉取到的 `skills[]`
+  每个元素就是一次推送的整个请求体（含 `event_type` / `timestamp` /
+  `data`）。消费者可以把它们当同一种东西处理。
+</Callout>

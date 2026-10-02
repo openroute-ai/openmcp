@@ -1,0 +1,115 @@
+---
+title: "Skill export"
+---
+
+{/* markdownlint-disable MD041 */}
+
+The console pushes each skill to the web app as it is synced; that is the primary path. This page documents the **pull direction**, for a consumer that would rather fetch a page than receive a callback. Both directions return the **same payload**, so a consumer can switch between them without translating anything.
+
+<Callout>
+  `GET /api/skills-sync/export` requires `Authorization: Bearer
+  $SKILLS_WEBHOOK_TOKEN`. With that variable unset the route returns **404**,
+  not 401.
+</Callout>
+
+## `GET /api/skills-sync/export`
+
+**Auth**: `Authorization: Bearer <SKILLS_WEBHOOK_TOKEN>`
+
+**Query parameters**
+
+| Parameter | Type   | Meaning                                                                                                |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| `limit`   | number | Rows per page. Defaults to `100`, maximum `500`. Anything outside 1–500, or not an integer, is a `400` |
+| `cursor`  | string | An ISO 8601 timestamp. Omitted or empty starts the walk; present but unparseable is a `400`            |
+
+Pagination is by **cursor, not offset**, because a skill acknowledged in the middle of a walk must not shift the page boundary. The cursor is the moment a skill was last confirmed synced.
+
+**Response**
+
+```json
+{
+  "skills": [
+    {
+      "event_type": "skill_updated",
+      "timestamp": "2026-09-19T02:14:00.000Z",
+      "data": {
+        "repo_full_name": "owner/repo",
+        "repo_name": "repo",
+        "repo_owner": "owner",
+        "skill_dir": ".claude/skills/foo",
+        "name": "foo",
+        "name_zh": "…",
+        "description": "…",
+        "description_zh": "…",
+        "readme": "…",
+        "readme_zh": "…",
+        "version": "1.2.0",
+        "category_id": null,
+        "features": null,
+        "scenario": null,
+        "license": null,
+        "tools": null
+      }
+    }
+  ],
+  "next_cursor": "2026-09-18T00:00:00.000Z"
+}
+```
+
+`name_zh`, `description_zh`, `readme_zh` and `version` may be `null` — a skill without a Chinese translation is normal, not an error. `category_id`, `features`, `scenario`, `license` and `tools` are currently always `null`: the web app owns those fields and the console does not produce them.
+
+**`next_cursor` semantics**: the cursor only advances when one extra row was fetched and confirmed there is more. A page that comes back exactly full is not evidence that anything follows.
+
+**This endpoint is read-only on purpose.** Marking a skill as exported would make the export the thing that hides work, and the acknowledgement belongs to _whoever confirms delivery_. Once the receiver confirms, `synced_to_web_at` moves forward and the skill stops appearing in later walks.
+
+### Known limitation: an all-unconfirmed page ends the walk
+
+When only never-confirmed skills are returned (`synced_to_web_at IS NULL`), the last row of the page has a `NULL` timestamp, so `next_cursor` is `null` and the walk has no continuation after the first page. **On a deployment with more unconfirmed skills than one page holds, this single cursor cannot reach them all.** It is not a misuse: it follows from `NULL` sorting after confirmed times. If the first page is already entirely unconfirmed, everything after it is unconfirmed too, and there is nowhere for the cursor to point.
+
+What works: fetch `limit=500`, confirm delivery for that page, then fetch from the start again, repeating until one call returns an empty array. A consumer that syncs once and exits is unaffected.
+
+**Errors**
+
+| Status | `error`                                      | Condition                                 |
+| ------ | -------------------------------------------- | ----------------------------------------- |
+| `400`  | `limit must be an integer between 1 and 500` | `limit` is out of range or not an integer |
+| `400`  | `cursor must be an ISO 8601 timestamp`       | `cursor` present but unparseable          |
+| `401`  | `unauthorized`                               | Secret mismatch                           |
+| `404`  | `not found`                                  | `SKILLS_WEBHOOK_TOKEN` is not configured  |
+
+## The outbound webhook (push direction)
+
+The console pushes to `SKILLS_WEBHOOK_URL` after a skill sync completes. The receiver is the web app.
+
+**Request headers**
+
+| Header                | Value                                                 |
+| --------------------- | ----------------------------------------------------- |
+| `Authorization`       | `Bearer $SKILLS_WEBHOOK_TOKEN`                        |
+| `x-webhook-timestamp` | Unix seconds; the signature covers it                 |
+| `x-webhook-signature` | `sha256=<hex>`, HMAC-SHA256 over `<timestamp>.<body>` |
+
+**Verifying the signature**
+
+```ts
+const timestamp = req.headers.get("x-webhook-timestamp")
+const signature = req.headers.get("x-webhook-signature")
+const raw = await req.text() // the transmitted bytes; do not re-serialise
+
+const expected = `sha256=${createHmac("sha256", secret)
+  .update(`${timestamp}.${raw}`)
+  .digest("hex")}`
+
+if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) reject()
+```
+
+The signature covers the timestamp as well as the body, and **that is what makes it a signature rather than a checksum**: replaying a captured request an hour later recomputes a different HMAC and is rejected, so a leaked request log is not a standing credential. Also checking the gap between the timestamp and now (five minutes is enough) adds a second layer.
+
+A **failed delivery** is recorded on the skill row for the scheduler's retry queue. The URL form of `POST /api/internal/repos` reports `delivered` in its response, which means "every stored skill for this project reached the web service".
+
+<Callout>
+  The payload is structurally identical on both paths: each element of
+  `skills[]` is an entire push request body, `event_type` / `timestamp` / `data`
+  included. A consumer can handle pulled and pushed skills as the same thing.
+</Callout>

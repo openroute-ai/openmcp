@@ -1,0 +1,153 @@
+---
+title: "认证"
+---
+
+{/* markdownlint-disable MD041 */}
+
+账号与会话由 [Better Auth](https://better-auth.com) 提供，挂在 `/api/auth` 下。控制台没有自己实现密码、OAuth、会话或令牌——它只在这个框架之外补了三块：邮箱验证码（Better Auth 发码但不校验）、短信验证码与滑块、账号资料写入。
+
+<Callout>
+  这三个补充端点挂在 `/api/auth/*` 路径空间里，但**不是** Better Auth
+  自己的端点：它们由控制台实现，签名与响应格式都不同于框架。文档里分开写，因为它们的规则完全不同。
+</Callout>
+
+## 会话
+
+Better Auth 的会话以 cookie 形式下发。浏览器里它是 `HttpOnly` 的；脚本调用需要 `credentials: "include"`，且跨域时要把自己的 origin 放进 `BETTER_AUTH_TRUSTED_ORIGINS`（逗号分隔）。origin 不被信任的登录请求会被当作跨站请求拒绝——这正是 `BETTER_AUTH_URL` 与实际访问域名必须一致的原因。
+
+## 部署相关的开关
+
+| 变量                          | 作用                       | 不配置的后果                                          |
+| ----------------------------- | -------------------------- | ----------------------------------------------------- |
+| `BETTER_AUTH_URL`             | 框架认定的 base URL        | 登录失败，且报的是「origin 不可信」而不是任何明显错误 |
+| `BETTER_AUTH_SECRET`          | 签名密钥、会话、邮件 token | 框架自身要求；缺失时验证邮件没有退订链接              |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | 额外受信 origin，逗号分隔  | 跨域调用全部失败                                      |
+
+## 部署开关决定的行为
+
+这些不是可选项，是这个部署的既定选择：
+
+- **邮箱验证是必需的。** 注册不返回会话，邮箱未验证前登录会被拒绝。所以控制台里不存在「只是提交了表单」的账号。
+- **重复注册返回通用响应**，不告诉调用方「这个地址已被使用」。否则上面这条要求验证的设置会把注册表单变成一个枚举账号的工具。
+- **改邮箱立即生效**（`updateEmailWithoutVerification`），但会发确认邮件到新地址。理由：只靠手机号注册的账号持有一个合成的、收不到信的地址，把它换成真地址必须立刻生效才可用；而一个**本来就是真地址**的账号不能这样改——它能重置密码，所以换地址要从**旧**收件箱确认，借来的会话读不到那里。
+- **GitHub 登录在配了 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` 时可用**，没有配置时该 provider 不存在。
+- **速率限制在有存储（Redis）时开启**，窗口 60 秒、上限 100 次。没有存储时 Better Auth 不限流。
+- IP 头读 `x-forwarded-for` 与 `x-real-ip`。
+
+## `GET/POST /api/auth/*`
+
+Better Auth 的全部端点挂在 `/api/auth` 下，由 `toNextJsHandler(auth)` 直接暴露。常用的有：
+
+| 端点                             | 用途                                                                             |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| `/api/auth/sign-up/email`        | 邮箱注册。**不返回会话**，因为邮箱还没验证                                       |
+| `/api/auth/sign-in/email`        | 邮箱登录。邮箱未验证时返回 `EMAIL_NOT_VERIFIED`                                  |
+| `/api/auth/sign-in/phone-number` | 手机验证码登录。验证通过时若账号不存在则**自动注册**                             |
+| `/api/auth/sign-out`             | 结束会话                                                                         |
+| `/api/auth/get-session`          | 取当前会话，前端刷新用                                                           |
+| `/api/auth/update-user`          | 改 `name` / `image`。**不能改手机号**——插件会抛 `PHONE_NUMBER_CANNOT_BE_UPDATED` |
+| `/api/auth/change-email`         | 换邮箱，见上文                                                                   |
+| `/api/auth/callback/github`      | GitHub OAuth 回调                                                                |
+
+完整的端点列表与每个端点的入参请直接查 Better Auth 文档：控制台没有在框架之上包一层，抄一份清单进来只会成为第二份需要同步的东西。
+
+## `POST /api/auth/email-code/send`
+
+重发注册验证码。首封邮件由 Better Auth 在注册时自己发；这个端点处理「邮件没到」和「地址打错了想要一份对的」。
+
+**请求体**：`{ "email": "someone@example.com" }`
+
+**响应**：`{ "ok": true }`
+
+<Callout>
+  **有没有这个账号，响应完全一样。**
+  报「没有这个账号」会把它变成账号存在性查询工具，而上面那个「注册需要邮箱验证」的设置正是为了消掉这个查询口。同时只给**已有账号**的地址发信——否则这个端点就是一个「给任意地址发邮件」的邮件中继。
+</Callout>
+
+**错误**
+
+| 状态码 | `error`                                        | 条件                                                           |
+| ------ | ---------------------------------------------- | -------------------------------------------------------------- |
+| `400`  | `invalid_request` / `invalid_email`            | body 不是合法 JSON，或邮箱格式不对                             |
+| `429`  | `too_soon`，并带 `retryAfter`（秒，默认 `60`） | 重发冷却期内。冷却是**占位式**的：连着按两次按钮不会两次都通过 |
+
+## `POST /api/auth/email-code/verify`
+
+校验邮箱里的六位验证码，通过后把地址标记为已验证。这是框架里 `sendVerificationEmail` 的另一半：框架发出码但不保存副本，所以校验和写 `emailVerified` 都在这里。
+
+**不需要会话**——走到这一步的人还没有会话，这正是这一步的意义。验证码本身就是凭据：有效 10 分钟、单个地址绑定、最多 5 次尝试。
+
+**请求体**：`{ "email": "…", "code": "123456" }`
+
+**响应**：`{ "ok": true }`
+
+**错误**
+
+| 状态码 | `error`              | 条件                             |
+| ------ | -------------------- | -------------------------------- |
+| `400`  | `invalid_request`    | body 非法，或邮箱/验证码格式不对 |
+| `400`  | `email_not_verified` | 验证码不匹配或已过期             |
+| `404`  | `account_not_found`  | 验证码正确，但这个地址没有账号   |
+| `429`  | `too_many_attempts`  | 尝试次数超限                     |
+
+`404` 在这里是安全的：能走到这一步的人已经证明了能读到该地址的邮件，这与账号所有者知道的事情相同；而且这是客户端**需要的**答案——它据此把读者送去注册，而不是让他去设一个从未存在过的密码。
+
+## `POST /api/auth/sms-captcha/challenge`、`GET /api/auth/sms-captcha/image`、`POST /api/auth/sms-captcha/verify`
+
+滑块验证码，三步。存在的理由是让自动化调用方**付钱**：短信是要花钱的，而滑块是唯一要求它付出代价的那一步。
+
+### 1. 取挑战
+
+`POST`（或 `GET`，等价）→ **无需鉴权**
+
+```json
+{
+  "challengeId": "…",
+  "bgUrl": "/api/auth/sms-captcha/image?challengeId=…&type=bg",
+  "puzzleUrl": "/api/auth/sms-captcha/image?challengeId=…&type=puzzle",
+  "puzzleY": 187
+}
+```
+
+`puzzleY` 是拼图缺口在背景图里的纵坐标，客户端据此定位滑块。
+
+**错误**：`429` 每 IP 每分钟超过上限；`500` `CHALLENGE_FAILED`。
+
+### 2. 取图片
+
+`GET /api/auth/sms-captcha/image?challengeId=…&type=bg|puzzle` → JPEG，`Cache-Control: no-store`
+
+`type` 只接受 `bg` 或 `puzzle`，其它值 `400`。挑战不存在或已过期 `404`。
+
+### 3. 校验
+
+```json
+{ "challengeId": "…", "x": 342, "y": 187 }
+```
+
+`x` 是滑块落点的横坐标，容差默认 12 像素；`y` 目前**不参与判定**（服务端保存了它但校验只用 `x`）。
+
+成功：`{ "success": true, "token": "<32 hex>" }`
+
+这个 token 放进后续请求的头 `X-Temp-Captcha-Token`，**一次性**：消费后立即删除，有效期默认 120 秒。用同一个 token 发第二次短信会被拒。
+
+**错误**
+
+| 状态码 | `error`             | 条件                                               |
+| ------ | ------------------- | -------------------------------------------------- |
+| `400`  | `INVALID_REQUEST`   | 缺 `challengeId` 或 `x`                            |
+| `400`  | `INVALID_CHALLENGE` | 挑战不存在、已过期或已被用掉                       |
+| `400`  | `SLIDER_MISMATCH`   | 落点不在容差内。**挑战不失效**，可以重试到次数上限 |
+| `400`  | `TOO_MANY_ATTEMPTS` | 这个挑战的尝试次数用完（默认 5 次），挑战被删除    |
+| `429`  | `TOO_MANY_REQUESTS` | 每 IP 每分钟超过上限                               |
+| `500`  | `VERIFY_FAILED`     | —                                                  |
+
+## 短信登录与绑定的额外限流
+
+`POST /api/auth/sign-in/phone-number`（框架插件内）与 `POST /api/user/phone/code` 都站着同样三道守卫：
+
+1. **滑块 token**（`X-Temp-Captcha-Token`），先检查——它是唯一让自动化调用方付出代价的东西
+2. **每手机号每分钟 1 次、每小时 5 次**
+3. **每 IP 每小时 10 次**
+
+没有第 1 道，这个接口就是一个「花部署的钱给任意手机号发短信」的入口。

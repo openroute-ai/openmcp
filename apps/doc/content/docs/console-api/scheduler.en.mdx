@@ -1,0 +1,105 @@
+---
+title: "Scheduler"
+---
+
+{/* markdownlint-disable MD041 */}
+
+The console's scheduled collection runs behind one entrypoint: Vercel Cron wakes a single path, and the whole schedule is decided server-side. A task is not asked whether its own minute has arrived — that cannot work from a single daily wake-up — but which _period_ of work it is owed, and whether that period still has work in it.
+
+<Callout>
+  Both endpoints require `Authorization: Bearer $CRON_SECRET`. With
+  `CRON_SECRET` unset they return **404**, not 401: a scheduler that writes to
+  the database and pushes webhooks must never degrade into an open trigger.
+</Callout>
+
+## How a task is chosen
+
+- A task whose 04:00 slot has passed runs **for today**; one whose slot has not arrived catches up on the day it was missed. The period comes from the clock and the definition alone, so a task with no history is _due_ rather than invisible — a fresh deployment backfills instead of waiting for the next 1st of the month.
+- One period per task per wake-up, so the deepest task needs two wake-ups to settle.
+- When several periods are outstanding, the **oldest** goes first. A week whose report never ran finishes before the current one starts, and a task never skips an old period in favour of a newer one.
+- Each task has an **attempt cap** per period. A task that failed every attempt in a period waits for the next one rather than quietly passing this one off as done.
+- Tasks run **sequentially in seed order**, not in parallel and not alphabetically. Repository data feeds the rankings, and the rankings feed the notifications; running them at once, or out of order, would notify on half-written input. Each task also takes its own database lock, so a second instance arriving mid-tick does not duplicate work.
+
+## `GET /api/cron/github`
+
+**Auth**: `Authorization: Bearer <CRON_SECRET>`
+
+The scheduler entrypoint. It seeds the task definitions, recovers abandoned run locks, then runs everything outstanding. `POST` is identical to `GET` (Vercel Cron uses `GET`; manual and external callers use `POST`).
+
+**Response**
+
+```json
+{
+  "now": "2026-09-19T02:00:00.000Z",
+  "recovered": 0,
+  "registered": ["github-repos", "github-push-events", "…"],
+  "results": {
+    "github-repos": "completed",
+    "github-push-events": "already ran this period",
+    "weekly-rankings": "gave up after 3 attempts",
+    "monthly-rankings": "skipped: disabled",
+    "some-task": "unimplemented",
+    "another-task": "no implementation"
+  },
+  "periods": { "github-repos": "2026-09-14" }
+}
+```
+
+| Field        | Meaning                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recovered`  | How many stale run locks were freed. An instance killed mid-task leaves its lock set, and without this the whole tick would no-op until the staleness window elapsed |
+| `registered` | The registered task names                                                                                                                                            |
+| `results`    | One outcome per task, below                                                                                                                                          |
+| `periods`    | The period actually run, per task (a task's `period` looks like `2026-09-14`)                                                                                        |
+
+**Values in `results`**
+
+| Value                              | Meaning                                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `completed` / `failed` / `skipped` | The task's own outcome                                                                        |
+| `already ran this period`          | Already run for this period                                                                   |
+| `gave up after N attempts`         | Every attempt in this period failed. **This is a failure, not a success**                     |
+| `unimplemented`                    | A known gap in the migration; reported as such rather than as a broken task                   |
+| `no implementation`                | A definition exists but the registry has no implementation                                    |
+| `error: …`                         | The setup around a task failed. The task records its own failures; this does not end the tick |
+
+<Callout>
+  One wake-up may run the whole pipeline, so the function is declared for
+  Vercel's 300-second ceiling. An overrunning tick loses only the tasks it had
+  not reached, and **does not lose them**: a period nobody finished is still
+  outstanding, and the next wake-up picks it up.
+</Callout>
+
+## `POST /api/webhook/{task}`
+
+**Auth**: `Authorization: Bearer <CRON_SECRET>`
+
+Runs one named task immediately. This is for a deployment that wants an external scheduler in charge — a separate cron service, a workflow runner — because Vercel Cron keeps the console's own schedule and something is still needed to say "run this now".
+
+```bash
+curl -X POST "$CONSOLE_ORIGIN/api/webhook/github-repos" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+The task still runs under the same database lock, staleness recovery and execution row as a scheduled run, and respects the same once-per-minute guard — so an external scheduler overlapping Vercel Cron does not double a full sweep of the external APIs.
+
+**Response**
+
+| Status | Body                                                                                                | Condition                           |
+| ------ | --------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `200`  | `{ "task": "…", "status": "completed", "result": { … } }`                                           | It finished                         |
+| `409`  | `{ "task": "…", "status": "skipped", "reason": "task is disabled", "reasonCode": "task.disabled" }` | The task is disabled                |
+| `409`  | `{ …, "reason": "already ran this minute", "reasonCode": "task.alreadyRanThisMinute" }`             | It already ran in this minute       |
+| `409`  | `{ …, "status": "<other>", "reason": "…", "reasonCode": "…" }`                                      | The task returned a skip of its own |
+| `404`  | `{ "error": "unknown task: …" }`                                                                    | No such task name                   |
+| `404`  | `{ "task": "…", "status": "no implementation" }`                                                    | A definition with no implementation |
+| `404`  | `{ "error": "not found" }`                                                                          | `CRON_SECRET` is not configured     |
+| `401`  | `{ "error": "unauthorized" }`                                                                       | Secret mismatch                     |
+| `501`  | `{ "task": "…", "status": "unimplemented" }`                                                        | A known gap in the migration        |
+| `500`  | `{ "task": "…", "status": "failed", "error": "…" }`                                                 | The task failed                     |
+
+`reasonCode` shares one constant set with the console frontend (`SKIP_CODES`): `task.disabled`, `task.alreadyRunning`, `task.alreadyRanThisMinute`, `task.noDataForPeriod`, `task.noDataForYear`, `task.missingNotifyWebhook`. **Branch on `reasonCode`, never on the text of `reason`** — that prose is written in one language and does not become another when your interface does.
+
+## Concurrency
+
+Neither endpoint duplicates work: a per-task database lock, the once-per-minute guard, and stale-lock recovery (before every run). Concurrent calls therefore produce _one run and a skip for the rest_, not two executions.

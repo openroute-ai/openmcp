@@ -1,0 +1,207 @@
+---
+title: "tRPC endpoints"
+---
+
+{/* markdownlint-disable MD041 */}
+
+The console frontend's own API: tRPC over HTTP. It is **not** meant for external integrations. This layer exists for the console interface in the browser; there is no version promise, no SDK, and the shapes change together with the interface. For machine-to-machine use see [Ingest](./ingest) and [Skill export](./skills-sync).
+
+<Callout>
+  **Not one tRPC procedure is public.** Every one requires either a session or
+  the administrator role. The gates stack in the order "the looser one is the
+  easier one to forget": the session first, the role second, and the second is
+  built on top of the first rather than the other way round.
+</Callout>
+
+## Transport
+
+`GET` / `POST /api/trpc/{procedure}`, where `procedure` is `router.procedure`. tRPC defines its own batching and hyperlink formats — do not hand-roll them: use a tRPC client, or follow its HTTP conventions.
+
+`GET` carries queries, `POST` carries mutations and batches. Both read the session.
+
+## Authorization levels
+
+| Level             | Meaning                                  |
+| ----------------- | ---------------------------------------- |
+| **Session**       | Any signed-in account, whatever its role |
+| **Administrator** | Session + `role: "admin"`                |
+
+The role check lives on the **procedure**, not in the `/dashboard` layout. The layout exists so a non-admin is not shown a console whose every query fails, but a page can be reached without rendering its layout's guard — prefetched, fetched directly, or by a client-side navigation — and the only check that cannot be skipped is the one on the procedure itself.
+
+An insufficient role yields `FORBIDDEN` (403), not `UNAUTHORIZED` (401): the caller _is_ authenticated, and reporting otherwise would tell a signed-in non-admin that the resource exists and only the session is unacceptable. No part of this application acts on that distinction.
+
+## Router index
+
+`.` separates router from procedure. `q` marks a query (`GET`); everything else is a mutation (`POST`).
+
+### `repos` — repositories
+
+| Procedure                   | Level         |
+| --------------------------- | ------------- |
+| `repos.list` q              | Session       |
+| `repos.byId` q              | Session       |
+| `repos.create`              | Session       |
+| `repos.updateOwnSubmission` | Session       |
+| `repos.update`              | Administrator |
+| `repos.refresh`             | Administrator |
+| `repos.delete`              | Administrator |
+
+The distinction that matters most in this router is "submit your own repository" versus "edit any repository": the first lets anyone contribute, and a mistake in the second affects the whole catalogue.
+
+### `decisions` — human judgement
+
+The judgement queue: anomalies awaiting confirmation, false-positive rulings, candidate repositories. All require a session — this layer is where judgements come from, so it is deliberately not administrator-only.
+
+| Procedure                   | Level   |
+| --------------------------- | ------- |
+| `decisions.list` q          | Session |
+| `decisions.read` q          | Session |
+| `decisions.create`          | Session |
+| `decisions.update`          | Session |
+| `decisions.decide`          | Session |
+| `decisions.addCandidate`    | Session |
+| `decisions.updateCandidate` | Session |
+| `decisions.removeCandidate` | Session |
+| `decisions.searchRepos` q   | Session |
+
+### `apiKeys` — credentials for the open API
+
+| Procedure        | Level         |
+| ---------------- | ------------- |
+| `apiKeys.create` | Administrator |
+| `apiKeys.list` q | Administrator |
+| `apiKeys.revoke` | Administrator |
+| `apiKeys.rotate` | Administrator |
+
+Issuing happens here rather than in the ingest API for a specific reason: if anyone could issue a key to themselves, the first endpoint of the open API would be a self-granting door. "Who may hand out credentials" is a question about accounts, and this console's accounts are independent of the web app's, so no cross-app coordination is involved.
+
+The plaintext appears **only** in the response that creates or rotates it; the database keeps a digest. Rotation takes no `scopes` input — the new key copies the old one's, because the motive for rotating is to replace a leaked secret, not to change permissions, and combining the two would let a leaked key gain more access at the moment it is rotated.
+
+### `authors`
+
+| Procedure         | Level         |
+| ----------------- | ------------- |
+| `authors.list` q  | Administrator |
+| `authors.byId` q  | Administrator |
+| `authors.refresh` | Administrator |
+| `authors.update`  | Administrator |
+
+### `overview`
+
+| Procedure             | Level         |
+| --------------------- | ------------- |
+| `overview.snapshot` q | Administrator |
+
+### `projects`
+
+| Procedure                | Level         |
+| ------------------------ | ------------- |
+| `projects.create`        | Administrator |
+| `projects.parseUrl` q    | Administrator |
+| `projects.list` q        | Administrator |
+| `projects.byId` q        | Administrator |
+| `projects.update`        | Administrator |
+| `projects.addPackage`    | Administrator |
+| `projects.removePackage` | Administrator |
+| `projects.setTags`       | Administrator |
+| `projects.remove`        | Administrator |
+| `projects.sync`          | Administrator |
+
+### `rankings`
+
+| Procedure                                | Level         |
+| ---------------------------------------- | ------------- |
+| `rankings.periods` q                     | Administrator |
+| `rankings.weekly` q                      | Administrator |
+| `rankings.monthly` q                     | Administrator |
+| `rankings.risingStars` q                 | Administrator |
+| `rankings.risingStarYears` q             | Administrator |
+| `rankings.risingStarDefaultCategories` q | Administrator |
+| `rankings.risingStarCategories` q        | Administrator |
+| `rankings.setRisingStarCategories`       | Administrator |
+| `rankings.buildRisingStars`              | Administrator |
+
+These read **the same tables through the same service** as the [public JSON endpoints](./public-json); the only differences are row counts and filtering. The page publishes 12, the anonymous endpoint returns 100, and this layer returns whatever view the interface needs.
+
+### `sessions`
+
+| Procedure         | Level         |
+| ----------------- | ------------- |
+| `sessions.list` q | Administrator |
+| `sessions.byId` q | Administrator |
+| `sessions.revoke` | Administrator |
+
+Accounts and their sessions live under one gate because they answer one question: a session row without its account cannot say _who is this_, and an account page without its sessions cannot say _is this one still signed in_.
+
+### `skills`
+
+| Procedure       | Level         |
+| --------------- | ------------- |
+| `skills.list` q | Administrator |
+| `skills.byId` q | Administrator |
+| `skills.push`   | Administrator |
+
+### `sync` — the retry queue
+
+| Procedure     | Level         |
+| ------------- | ------------- |
+| `sync.list` q | Administrator |
+| `sync.retry`  | Administrator |
+
+### `tags`
+
+| Procedure     | Level         |
+| ------------- | ------------- |
+| `tags.list` q | Administrator |
+| `tags.upsert` | Administrator |
+| `tags.remove` | Administrator |
+
+The classifier's suggestions wait for human confirmation here: the model proposes, an operator confirms, and the confidence and the README sentence it cited are stored alongside, so a reviewer judges the reason rather than the conclusion.
+
+### `tasks` — tasks and execution history
+
+| Procedure            | Level         |
+| -------------------- | ------------- |
+| `tasks.list` q       | Administrator |
+| `tasks.executions` q | Administrator |
+| `tasks.byId` q       | Administrator |
+| `tasks.execution` q  | Administrator |
+| `tasks.setEnabled`   | Administrator |
+| `tasks.runNow`       | Administrator |
+
+`tasks.runNow` goes through the same execution path, the same lock and the same staleness recovery as `POST /api/webhook/{task}`.
+
+### `users`
+
+| Procedure       | Level         |
+| --------------- | ------------- |
+| `users.list` q  | Administrator |
+| `users.byId` q  | Administrator |
+| `users.setRole` | Administrator |
+
+## Errors
+
+tRPC errors carry the standard `code` (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `BAD_REQUEST`, `INTERNAL_SERVER_ERROR`, …) plus an optional `appCode`: a machine code belonging to this application.
+
+The one defined today:
+
+| Constant                   | Value           | Meaning                                                  |
+| -------------------------- | --------------- | -------------------------------------------------------- |
+| `ERROR_CODES.taskNotFound` | `task.notFound` | The task disappeared between listing it and clicking run |
+
+**An unrecognised code is not an error**: fall back to reading `message`. That way a new skip reason degrades to English in a toast instead of rendering `task.notFound` at the reader.
+
+## Skip codes
+
+A task being skipped is not the same as a task failing, so a skip carries `reasonCode` instead of an error:
+
+| Constant                          | Value                       |
+| --------------------------------- | --------------------------- |
+| `SKIP_CODES.taskDisabled`         | `task.disabled`             |
+| `SKIP_CODES.taskAlreadyRunning`   | `task.alreadyRunning`       |
+| `SKIP_CODES.alreadyRanThisMinute` | `task.alreadyRanThisMinute` |
+| `SKIP_CODES.noDataForPeriod`      | `task.noDataForPeriod`      |
+| `SKIP_CODES.noDataForYear`        | `task.noDataForYear`        |
+| `SKIP_CODES.missingNotifyWebhook` | `task.missingNotifyWebhook` |
+
+One set of codes serves both the interface and the [scheduler](./scheduler)'s webhook response, so the two agree on why something did not run.

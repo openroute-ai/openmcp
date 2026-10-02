@@ -1,0 +1,104 @@
+---
+title: "调度器"
+---
+
+{/* markdownlint-disable MD041 */}
+
+控制台的定时采集跑在一个入口上：Vercel Cron 只叫醒一条路径，整个时间表在服务端决定。任务不问「我那一分钟到了吗」——单次唤醒里那行不通——它问的是**这一期的工作欠着我吗，以及这一期里还有没有活**。
+
+<Callout>
+  两个端点都需要 `Authorization: Bearer $CRON_SECRET`。未配置 `CRON_SECRET`
+  时返回 **404**，不是 401：会写数据库、推 webhook
+  的调度器绝不能退化成公开触发器。
+</Callout>
+
+## 任务是怎么被挑出来的
+
+- 一个任务的 04:00 时段过了，就跑**今天**这一期；还没到，它在错过的那天补上。周期完全由时钟和任务定义算出，所以一个没有历史记录的任务是「欠着」而不是「看不见」——新部署会回填，而不是等到下个月 1 号。
+- 一次唤醒，每个任务只做**一期**，最深的那个任务需要两次唤醒才能落定。
+- 多期未完成时**从最老的一期开始**。一份从没跑过的周报会在当前周之前跑完；任务永远不为了更新的一期而跳过旧的一期。
+- 每个任务有**绝对次数上限**。一个期内每次尝试都失败的任务会等到下一期，而不是悄悄地把这一期当成做完了。
+- 任务按**种子顺序**串行执行，不是并行、也不是按名字。仓库数据喂给榜单，榜单喂给通知，并行或乱序会在半成品输入上发通知。每个任务还会取自己的数据库锁，所以中途到达的第二个实例不会重复干活。
+
+## `GET /api/cron/github`
+
+**鉴权**：`Authorization: Bearer <CRON_SECRET>`
+
+调度入口。种子化任务定义、回收被废弃的运行锁，然后跑所有到期的任务。`POST` 与 `GET` 完全等价（Vercel Cron 用 `GET`，手动或外部调用用 `POST`）。
+
+**响应**
+
+```json
+{
+  "now": "2026-09-19T02:00:00.000Z",
+  "recovered": 0,
+  "registered": ["github-repos", "github-push-events", "…"],
+  "results": {
+    "github-repos": "completed",
+    "github-push-events": "already ran this period",
+    "weekly-rankings": "gave up after 3 attempts",
+    "monthly-rankings": "skipped: disabled",
+    "some-task": "unimplemented",
+    "another-task": "no implementation"
+  },
+  "periods": { "github-repos": "2026-09-14" }
+}
+```
+
+| 字段         | 含义                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| `recovered`  | 本次回收的废弃运行锁数。一个被杀掉的任务会留下锁，没有这一步整个 tick 会一路空转到过期窗口过去 |
+| `registered` | 已注册的任务名                                                                                 |
+| `results`    | 每个任务的结局，见下表                                                                         |
+| `periods`    | 本次实际跑掉的周期（任务的 `period` 定义形如 `2026-09-14`）                                    |
+
+**`results` 里的取值**
+
+| 值                                 | 含义                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `completed` / `failed` / `skipped` | 任务自己的执行结果                                                    |
+| `already ran this period`          | 这一期已经跑过                                                        |
+| `gave up after N attempts`         | 这一期里每次尝试都失败了。**这是失败，不是成功**                      |
+| `unimplemented`                    | 已知的迁移缺口，会在摘要里读成这样而不是像一个坏掉的任务              |
+| `no implementation`                | 有定义但注册表里没有实现                                              |
+| `error: …`                         | 任务周围的准备步骤出错（任务自己会记录自己的失败），不会中断整个 tick |
+
+<Callout>
+  一次唤醒可能跑完整条流水线，所以这个函数的时长上限是 Vercel 允许的 300
+  秒。超时的 tick
+  只丢它还没走到的任务，而且**不会丢**：没人做完的一期仍然是欠着的，下一次唤醒会捡起来。
+</Callout>
+
+## `POST /api/webhook/{task}`
+
+**鉴权**：`Authorization: Bearer <CRON_SECRET>`
+
+立即执行一个指定任务。给想把调度权交给外部调度器（独立 cron 服务、工作流引擎）的部署用：Vercel Cron 管自己的时间表，但需要一条「现在就跑这个」的路径。
+
+```bash
+curl -X POST "$CONSOLE_ORIGIN/api/webhook/github-repos" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+任务仍然走同一套数据库锁、过期回收与执行记录，并且遵守**同一分钟只跑一次**的守卫——所以外部调度器与 Vercel Cron 重叠时不会把一整轮外部 API 调用跑两遍。
+
+**响应**
+
+| 状态码 | body                                                                                                | 条件                     |
+| ------ | --------------------------------------------------------------------------------------------------- | ------------------------ |
+| `200`  | `{ "task": "…", "status": "completed", "result": { … } }`                                           | 跑完了                   |
+| `409`  | `{ "task": "…", "status": "skipped", "reason": "task is disabled", "reasonCode": "task.disabled" }` | 任务被禁用               |
+| `409`  | `{ …, "reason": "already ran this minute", "reasonCode": "task.alreadyRanThisMinute" }`             | 这一分钟已经跑过         |
+| `409`  | `{ …, "status": "<其他>", "reason": "…", "reasonCode": "…" }`                                       | 任务自己返回了跳过       |
+| `404`  | `{ "error": "unknown task: …" }`                                                                    | 没有这个任务名           |
+| `404`  | `{ "task": "…", "status": "no implementation" }`                                                    | 有定义但没有实现         |
+| `404`  | `{ "error": "not found" }`                                                                          | 服务端没配 `CRON_SECRET` |
+| `401`  | `{ "error": "unauthorized" }`                                                                       | 密钥不匹配               |
+| `501`  | `{ "task": "…", "status": "unimplemented" }`                                                        | 已知的迁移缺口           |
+| `500`  | `{ "task": "…", "status": "failed", "error": "…" }`                                                 | 任务失败                 |
+
+`reasonCode` 与控制台前端共用同一套常量（`SKIP_CODES`）：`task.disabled`、`task.alreadyRunning`、`task.alreadyRanThisMinute`、`task.noDataForPeriod`、`task.noDataForYear`、`task.missingNotifyWebhook`。**按 `reasonCode` 分支，不要匹配 `reason` 的文本**——后者是用一种语言写下的，不会因为前端换了语言而变。
+
+## 并发
+
+两个端点都不会重复干活：任务级数据库锁 + 同一分钟守卫 + 过期锁回收（每次运行前先做）。这意味着并发调用的结果是**其中一个跑、其余跳过**，而不是两次执行。

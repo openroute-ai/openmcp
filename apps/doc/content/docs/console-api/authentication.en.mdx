@@ -1,0 +1,159 @@
+---
+title: "Authentication"
+---
+
+{/* markdownlint-disable MD041 */}
+
+Accounts and sessions come from [Better Auth](https://better-auth.com), mounted at `/api/auth`. The console implements no password, OAuth, session or token logic of its own — outside that framework it adds three things: email verification codes (Better Auth issues the code but never checks it), SMS codes with a slider captcha, and account-profile writes.
+
+<Callout>
+  These three supplementary endpoints live under the `/api/auth/*` path space
+  but are **not** Better Auth endpoints: the console implements them, and their
+  signing and response shapes differ from the framework's. They are documented
+  separately here because their rules are genuinely different.
+</Callout>
+
+## Sessions
+
+Better Auth issues the session as a cookie. In a browser it is `HttpOnly`; scripted callers need `credentials: "include"`, and cross-origin callers must add their origin to `BETTER_AUTH_TRUSTED_ORIGINS` (comma-separated). A sign-in request from an untrusted origin is rejected as cross-site — which is why `BETTER_AUTH_URL` and the domain actually being served must agree.
+
+## Deployment switches
+
+| Variable                      | What it does                           | If unset                                                                                      |
+| ----------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_URL`             | The base URL the framework believes in | Sign-in fails, reported as "untrusted origin" rather than anything obvious                    |
+| `BETTER_AUTH_SECRET`          | Signing key, sessions, email tokens    | Required by the framework itself; without it the newsletter email carries no unsubscribe link |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Extra trusted origins, comma-separated | Every cross-origin call fails                                                                 |
+
+## Choices this deployment makes
+
+These are not options; they are decisions:
+
+- **Email verification is required.** Sign-up returns no session and sign-in refuses until the code has been entered, so the console contains no account that exists merely because a form was submitted.
+- **A duplicate sign-up gets a generic response** rather than "that address is taken". Otherwise the requirement above turns the sign-up form into a tool for enumerating accounts.
+- **A changed email address takes effect immediately** (`updateEmailWithoutVerification`) and a confirmation is mailed to the new address. The reason: a phone-only account holds a synthetic, unreachable address, so replacing it has to apply at once for the address to be usable. An account that **already** holds a real address does not change the same way — it can reset its password, so the change is confirmed from the _old_ inbox, which a borrowed session cannot read.
+- **GitHub sign-in exists** when `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` are configured; without them the provider is absent.
+- **Rate limiting is on when storage (Redis) is available**: a 60-second window, 100 requests. Without storage Better Auth does not rate-limit.
+- Client IP is read from `x-forwarded-for` and `x-real-ip`.
+
+## `GET` / `POST /api/auth/*`
+
+Every Better Auth endpoint under `/api/auth`, exposed directly by `toNextJsHandler(auth)`. The ones that matter here:
+
+| Endpoint                         | Purpose                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/api/auth/sign-up/email`        | Email sign-up. **Returns no session**, because the address is unverified                                         |
+| `/api/auth/sign-in/email`        | Email sign-in. `EMAIL_NOT_VERIFIED` while the address is unverified                                              |
+| `/api/auth/sign-in/phone-number` | SMS sign-in. If the number has no account yet, this **registers one**                                            |
+| `/api/auth/sign-out`             | End the session                                                                                                  |
+| `/api/auth/get-session`          | Read the current session, for a client refresh                                                                   |
+| `/api/auth/update-user`          | Change `name` / `image`. **Cannot change the phone number** — the plugin throws `PHONE_NUMBER_CANNOT_BE_UPDATED` |
+| `/api/auth/change-email`         | Change the email address, as described above                                                                     |
+| `/api/auth/callback/github`      | GitHub OAuth callback                                                                                            |
+
+For the full endpoint list and each one's input, read the Better Auth documentation. The console does not wrap the framework, and a copied list here would only become a second thing to keep in step.
+
+## `POST /api/auth/email-code/send`
+
+Re-sends the sign-up verification code. The first one goes out by itself — Better Auth calls `sendVerificationEmail` during sign-up — and this route covers the two cases that is not enough for: the mail never arrived, or the address was mistyped and the reader wants a copy at the right one.
+
+**Body**: `{ "email": "someone@example.com" }`
+
+**Response**: `{ "ok": true }`
+
+<Callout>
+  **The response is identical whether or not the address has an account.**
+  Reporting "no such account" would make this an account-existence oracle, and
+  the "sign-up requires email verification" choice above exists precisely to
+  remove that oracle. It also only mails addresses that **already have an
+  account** — otherwise this endpoint would be a way to use the deployment as a
+  mail relay.
+</Callout>
+
+**Errors**
+
+| Status | `error`                                                 | Condition                                                                                                                   |
+| ------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `invalid_request` / `invalid_email`                     | Body is not valid JSON, or the address is malformed                                                                         |
+| `429`  | `too_soon`, with `retryAfter` in seconds (default `60`) | Inside the resend cooldown. The cooldown is **claimed, not checked**, so two buttons pressed together are not both told yes |
+
+## `POST /api/auth/email-code/verify`
+
+Checks the six-digit code from the verification mail and marks the address verified. This is the other half of `sendVerificationEmail`: the framework issues the code but keeps no copy, so the check lives here and writes `emailVerified` directly.
+
+It requires **no session** — the reader does not have one yet, which is the entire point of this step. The code is the credential: valid for 10 minutes, bound to one address, at most 5 attempts.
+
+**Body**: `{ "email": "…", "code": "123456" }`
+
+**Response**: `{ "ok": true }`
+
+**Errors**
+
+| Status | `error`              | Condition                                            |
+| ------ | -------------------- | ---------------------------------------------------- |
+| `400`  | `invalid_request`    | Body is invalid, or the address or code is malformed |
+| `400`  | `email_not_verified` | The code did not match, or has expired               |
+| `404`  | `account_not_found`  | The code was correct, but the address has no account |
+| `429`  | `too_many_attempts`  | Attempt limit exceeded                               |
+
+The `404` is safe here: whoever reached that line has proved they can read mail at the address, which is the same thing the account's owner knows — and it is the answer the client _needs_, so it can send the reader to sign-up instead of asking for a password that was never set.
+
+## The slider captcha: `POST /api/auth/sms-captcha/challenge`, `GET /api/auth/sms-captcha/image`, `POST /api/auth/sms-captcha/verify`
+
+Three steps. The reason it exists is to make an automated caller _pay_: an SMS costs money, and the slider is the only part that makes a bot pay it.
+
+### 1. Issue a challenge
+
+`POST` (or `GET`, identical) — no auth.
+
+```json
+{
+  "challengeId": "…",
+  "bgUrl": "/api/auth/sms-captcha/image?challengeId=…&type=bg",
+  "puzzleUrl": "/api/auth/sms-captcha/image?challengeId=…&type=puzzle",
+  "puzzleY": 187
+}
+```
+
+`puzzleY` is the gap's vertical position in the background image, so the client can place the slider.
+
+**Errors**: `429` over the per-IP per-minute limit; `500` `CHALLENGE_FAILED`.
+
+### 2. Fetch the images
+
+`GET /api/auth/sms-captcha/image?challengeId=…&type=bg|puzzle` → JPEG, `Cache-Control: no-store`.
+
+`type` accepts only `bg` or `puzzle`; anything else is a `400`. An unknown or expired challenge is a `404`.
+
+### 3. Verify
+
+```json
+{ "challengeId": "…", "x": 342, "y": 187 }
+```
+
+`x` is where the slider landed, within a tolerance of 12 pixels by default. `y` is stored but **not used in the decision**.
+
+Success: `{ "success": true, "token": "<32 hex chars>" }`
+
+Put that token in the `X-Temp-Captcha-Token` header of the follow-up request. It is **single-use**: presenting it deletes it, and a second SMS attempt with the same token is refused. It lives 120 seconds by default.
+
+**Errors**
+
+| Status | `error`             | Condition                                                                                        |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `400`  | `INVALID_REQUEST`   | `challengeId` or `x` missing                                                                     |
+| `400`  | `INVALID_CHALLENGE` | No such challenge, expired, or already used                                                      |
+| `400`  | `SLIDER_MISMATCH`   | The drop was outside the tolerance. **The challenge survives**, so retry up to the attempt limit |
+| `400`  | `TOO_MANY_ATTEMPTS` | The challenge's attempts (5 by default) are used up, and it is deleted                           |
+| `429`  | `TOO_MANY_REQUESTS` | Over the per-IP per-minute limit                                                                 |
+| `500`  | `VERIFY_FAILED`     | —                                                                                                |
+
+## Extra rate limits on SMS
+
+`POST /api/auth/sign-in/phone-number` (inside the framework plugin) and `POST /api/user/phone/code` stand behind the same three guards:
+
+1. **The slider token** (`X-Temp-Captcha-Token`), checked first — it is the only thing that makes an automated caller pay
+2. **One SMS per number per minute, five per hour**
+3. **Ten per IP per hour**
+
+Without the first, these endpoints are a way to spend the deployment's money texting arbitrary numbers.

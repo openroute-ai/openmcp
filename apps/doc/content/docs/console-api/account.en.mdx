@@ -1,0 +1,125 @@
+---
+title: "Account"
+---
+
+{/* markdownlint-disable MD041 */}
+
+Four endpoints. All require a **session**, and all touch only the **signed-in account's own** profile. Changing the password revokes other sessions; binding a phone number requires a code first; the avatar upload returns a URL and leaves the write of `image` to the framework.
+
+## `POST /api/user/password`
+
+**Auth**: session. `Content-Type: application/json`
+
+Sets or changes the password. It goes through the framework's server API rather than from the browser because the two kinds of account here need different endpoints: `changePassword` compares against a current password, and an **account created by phone sign-in has no password at all** — it needs `setPassword`, which is server-only and has no client call to make.
+
+**Body**
+
+| Field             | Type    | Required | Meaning                                                                 |
+| ----------------- | ------- | -------- | ----------------------------------------------------------------------- |
+| `newPassword`     | string  | ✅       | 8–128 characters                                                        |
+| `hasPassword`     | boolean |          | Passed in by the settings page; it **decides which endpoint is called** |
+| `currentPassword` | string  |          | Compared when `hasPassword: true`                                       |
+
+<Callout>
+  `hasPassword` is passed in rather than recomputed here: both endpoints are
+  safe to call either way (the second answers `PASSWORD_ALREADY_SET`), and
+  having one place answer that question is worth more than the branch.
+</Callout>
+
+`revokeOtherSessions` is **on**: changing a password is what someone does _because_ they think it leaked. Leaving the old sessions alive would answer that worry with the opposite of what was asked.
+
+**Response**: `{ "ok": true }`
+
+**Errors**
+
+| Status | `error`                                  | Condition                                                          |
+| ------ | ---------------------------------------- | ------------------------------------------------------------------ |
+| `400`  | `invalid_request`                        | Body is not valid JSON                                             |
+| `400`  | `password_too_short`                     | Length outside 8–128                                               |
+| `400`  | `wrong_password`                         | `currentPassword` does not match                                   |
+| `401`  | `unauthorized`                           | No session                                                         |
+| `409`  | `password_already_set`                   | The account already has a password but `setPassword` was called    |
+| `500`  | `password_change_failed` (with `detail`) | Anything else. `detail` is for diagnosis; do not match on its text |
+
+## `POST /api/user/phone/code`
+
+**Auth**: session.
+
+Sends the confirmation code for binding a phone number. The same three guards stand in front of it (slider, one per number per minute / five per hour, ten per IP per hour) — see [Authentication](./authentication).
+
+**Headers**: `X-Temp-Captcha-Token` (required, single-use)
+
+**Body**: `{ "phoneNumber": "13800138000" }` — non-digits are stripped, after which it must match `^1[3-9]\d{9}$`.
+
+The order is deliberate: the console checks whether the number is already claimed **before** paying for an SMS. A claimed number can never be bound, so sending a code is money spent to learn something already known. Answering `409` is not a leak — the sign-in flow answers the same question.
+
+**Response**: `{ "ok": true }`
+
+**Errors**
+
+| Status | `error`                             | Condition                                                                                 |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `400`  | `invalid_request` / `invalid_phone` | Body is invalid, or the number is malformed                                               |
+| `400`  | `captcha_required`                  | The slider token is missing or already used                                               |
+| `409`  | `phone_in_use`                      | The number belongs to another account                                                     |
+| `429`  | the limit's message                 | A number or IP frequency limit was hit                                                    |
+| `502`  | `send_failed`                       | The SMS provider call failed. **The code is already stored**, so a retry issues a new one |
+| `401`  | `unauthorized`                      | No session                                                                                |
+
+## `POST /api/user/phone/bind`
+
+**Auth**: session.
+
+Binds a verified number to the signed-in account.
+
+**Why it writes to the database directly**: Better Auth refuses the corresponding `/update-user` write — the phone-number plugin hooks that path and throws `PHONE_NUMBER_CANNOT_BE_UPDATED`, on the reasoning that a number is claimed _at sign-in_ rather than afterwards. This route is the afterwards.
+
+**Body**: `{ "phoneNumber": "13800138000", "code": "123456" }`
+
+**Response**: `{ "ok": true, "phoneNumber": "13800138000" }`
+
+**Concurrency is arbitrated by the unique index**: the lookup above and this write have a gap between them, two concurrent requests can both pass the lookup and both reach the write, and only the index on `user.phone_number` decides. Its error is reported as `phone_in_use` (`409`) rather than surfacing as a 500.
+
+The code here is a separate series from the sign-in code, with its own short life and an attempt limit of 5.
+
+**Errors**
+
+| Status | `error`             | Condition                                           |
+| ------ | ------------------- | --------------------------------------------------- |
+| `400`  | `invalid_request`   | Body is invalid, or the number or code is malformed |
+| `400`  | `invalid_code`      | The code did not match, or has expired              |
+| `409`  | `phone_in_use`      | The number belongs to another account               |
+| `429`  | `too_many_attempts` | Attempt limit exceeded                              |
+| `401`  | `unauthorized`      | No session                                          |
+
+## `POST /api/user/avatar`
+
+**Auth**: session. `multipart/form-data`
+
+Uploads an avatar and returns its public URL.
+
+**Body**: a `file` field, whose type must be `image/png`, `image/jpeg`, `image/webp` or `image/gif`, at most **2 MB**.
+
+**Response**: `{ "url": "https://…/avatar/1734….webp" }`
+
+**The URL is all that leaves this route.** `name` and `image` are written through the framework's `/update-user`: the client sets `image` to whatever comes back. If the upload succeeded and that write did not, the worst case is an orphaned object in the bucket, which the versioning policy already tolerates.
+
+The **declared** type is checked rather than sniffed from the bytes: an avatar is rendered as an `<img>`, and the type decides what the browser tries to decode. Anything outside the list is not stored.
+
+The object path is `mcp/authors/{userId}/avatar/{timestamp}.{ext}`. It deliberately does **not** use the repository path builder: that files assets under a repository name, and an avatar belongs to an account — reusing it would invent a repository to file it under.
+
+**Errors**
+
+| Status | `error`                             | Condition                                     |
+| ------ | ----------------------------------- | --------------------------------------------- |
+| `400`  | `invalid_request` / `file_required` | Not multipart, or the `file` field is missing |
+| `401`  | `unauthorized`                      | No session                                    |
+| `413`  | `too_large`                         | Over 2 MB                                     |
+| `415`  | `unsupported_type`                  | The MIME type is not on the list              |
+| `502`  | `upload_failed`                     | The object store call failed                  |
+| `503`  | `oss_not_configured`                | The deployment has no object storage          |
+
+<Callout>
+  `password_already_set`, `phone_in_use`, `wrong_password` and friends are
+  **stable machine codes**. Branch on `error`, never on text.
+</Callout>
