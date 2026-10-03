@@ -63,7 +63,7 @@ export default function ApiDocsPage() {
               href={siteUrl("/llms-full.txt")}
               className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
             >
-              llms-full.txt（给 AI 读的同一份）
+              llms-full.txt
             </a>
             <a
               href={docsUrl("/docs/console-api")}

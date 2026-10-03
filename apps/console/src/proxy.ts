@@ -68,6 +68,33 @@ function localize(path: string, localePrefix: string | null): string {
   return localePrefix ? `/${localePrefix}${path}` : path
 }
 
+/**
+ * A path the proxy must never see.
+ *
+ * `api` and the three `_next` prefixes are requests Next resolves on its own.
+ * `.*\.[^./]+$` is the rest: any path whose last segment carries a file
+ * extension. That is not a guess about which files exist, it is the shape of
+ * three kinds of route this app has, and the auth gate cannot be the thing that
+ * decides whether they are reachable:
+ *
+ *   - `app/robots.ts`, `app/sitemap.ts`, `app/manifest.ts` and the two
+ *     `llms*.txt` route handlers. They live *outside* `[locale]`, so they have
+ *     no locale spelling and no page to render — `isPublicPath` cannot name them
+ *     (it prefix-matches), and even if it did, `intlMiddleware` would rewrite
+ *     `/llms.txt` to `/zh/llms.txt`, which does not exist.
+ *   - Everything in `public/`. A crawler that followed the gate to
+ *     `/sign-in` got an HTML login page where an image or a manifest was
+ *     promised; so did every browser, which is why `/og.png` — the OG image of
+ *     the landing page — and `/logo.svg` — a manifest icon — answered with a 307
+ *     to a form.
+ *   - Any future file-based route, which this way needs no edit here.
+ *
+ * The one thing it lets past the gate that is a page is a dotted last segment,
+ * `/console/repos/vercel.ai`; nothing is reachable because of it. The console
+ * layouts resolve the session server-side and every router procedure is
+ * `protectedProcedure` or `adminProcedure`, so the gate was the outer of two
+ * doors, not the only one.
+ */
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.[^./]+$).*)"],
 }
