@@ -3,7 +3,7 @@ import {
   DocsDescription,
   DocsPage,
   DocsTitle,
-} from "fumadocs-ui/layouts/docs/page"
+} from "fumadocs-ui/layouts/notebook/page"
 import { createRelativeLink } from "fumadocs-ui/mdx"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -33,6 +33,10 @@ import { getMDXComponents } from "@/mdx-components"
  * MDX 在构建期编译（`fumadocs-mdx`），所以 `body` 是一个组件而不是一段等着
  * 现编译的源码：直接渲染它，并把组件表交给它。`a` 换成 `createRelativeLink`
  * 之后内容里可以写相对路径的链接（`./api-keys`），内容挪位置时链接跟着走。
+ *
+ * 这几个组件来自 `layouts/notebook/page` 而不是 `layouts/docs/page`：外壳换成了
+ * notebook 紧凑布局（见 `docs/layout.tsx`），两边的 `DocsPage` / `DocsTitle` /
+ * `DocsBody` 名字一样但不是同一份实现，混用会拿到别的布局的页面容器。
  *
  * **这里没有 `generateStaticParams`**，而 console 的其他页面也没有。locale 是
  * 动态段（`[locale]`，由 proxy 改写），它自己没有 params 可枚举，于是这一页
@@ -70,9 +74,13 @@ export async function generateMetadata({
 }
 
 /**
- * metadata 是纯文本，而 frontmatter 里的描述是 markdown（生成的端点页会写
- * `**强调**` 和 `` `代码` ``）——原样塞进 `<meta>` 只会把搜索摘要和分享卡片
- * 弄花。正文的强调由 `DescriptionMarkdown` 负责，这里只管去掉记号。
+ * metadata 是纯文本，而 frontmatter 里的 `description` 是给人看的一行字，写的人
+ * 迟早会写进 `**强调**` 或 `` `代码` ``——原样塞进 `<meta>` 只会把搜索摘要和分享
+ * 卡片弄花。正文的强调由 `DescriptionMarkdown` 负责，这里只管去掉记号。
+ *
+ * 这一行同时是页脚「上一页 / 下一页」的摘要（fumadocs 直接贴 frontmatter），所以
+ * 它得是**一句**能概括主题的话，而不是散文；散文在正文里，见
+ * `lib/openapi/document.ts` 里 `x-nav-description` 那段。
  */
 function plainDescription(markdown: string | undefined): string | undefined {
   return markdown?.replace(/\*\*?|`/g, "").replace(/\s+/g, " ").trim()

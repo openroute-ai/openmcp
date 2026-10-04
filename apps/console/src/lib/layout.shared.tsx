@@ -1,7 +1,7 @@
 import { ThemeSwitch } from "@/components/theme-switch"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME, siteUrl } from "@/lib/config/site"
-import type { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
+import type { DocsLayoutProps } from "fumadocs-ui/layouts/notebook"
 
 /**
  * `/docs` 布局的共享配置。
