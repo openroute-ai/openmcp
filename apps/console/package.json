@@ -19,7 +19,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:radar": "tsx src/db/seed-radar.ts",
     "db:role": "tsx src/db/role.ts",
-    "sync:run": "tsx src/lib/sync/cli.ts"
+    "sync:run": "tsx src/lib/sync/cli.ts",
+    "docs:openapi": "tsx scripts/generate-openapi-docs.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.0",
@@ -50,6 +51,10 @@
     "emoji-regex": "^10.5.0",
     "es-toolkit": "^1.40.0",
     "fs-extra": "^11.3.0",
+    "fumadocs-core": "16.15.15",
+    "fumadocs-mdx": "^15.4.5",
+    "fumadocs-openapi": "^12.2.0",
+    "fumadocs-ui": "16.15.15",
     "gray-matter": "^4.0.3",
     "ioredis": "^5.11.1",
     "is-absolute-url": "^1.0.0",
@@ -87,6 +92,7 @@
     "@types/ali-oss": "6.23.3",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
+    "@types/mdx": "^2.0.14",
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",

@@ -94,9 +94,9 @@ export const INDEXABLE_PAGES: IndexablePage[] = [
   },
   {
     path: "/docs",
-    title: "公开 API 文档",
+    title: "开放 API 文档",
     description:
-      "四个匿名 JSON 端点：周榜、月榜、年度飙升榜、异动流，含请求参数、返回字段与错误码。",
+      "VercelAI 雷达的开放 API：读取排行与仓库统计、登记仓库与发布项目、订阅推送，含鉴权方式、参数、返回字段与错误码。",
     priority: 0.8,
     changeFrequency: "monthly",
   },

@@ -1,4 +1,5 @@
 import createNextIntlPlugin from "next-intl/plugin"
+import { createMDX } from "fumadocs-mdx/next"
 
 /**
  * The intl plugin bundles the request config into the server build.
@@ -10,6 +11,15 @@ import createNextIntlPlugin from "next-intl/plugin"
  * https://next-intl.dev/docs/getting-started/app-router/with-i18n-routing#next-config
  */
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts")
+
+/**
+ * Compiles `content/docs` at build time. MDX is ESM-only, which is why this
+ * file is `next.config.mjs` rather than a TypeScript config.
+ *
+ * It also owns the `mdx`/`md` page extensions and the loaders for the content
+ * tree, so `content/docs` is compiled by the same pipeline as the app.
+ */
+const withMDX = createMDX()
 
 /**
  * `@workspace/db` was here and is not any more. Console has its own database
@@ -25,4 +35,7 @@ const nextConfig = {
   transpilePackages: ["@workspace/ui"],
 }
 
-export default withNextIntl(nextConfig)
+// MDX outermost, same order as `apps/web`: `withMDX` merges loaders into the
+// config object it is handed, so anything that rebuilds that object (next-intl
+// does) would otherwise drop the MDX loaders.
+export default withMDX(withNextIntl(nextConfig))

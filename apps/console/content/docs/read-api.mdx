@@ -1,0 +1,119 @@
+---
+title: "读取 API"
+description: "带 key 读仓库档案、区间统计与指定周期的排行：scope、参数、返回字段，以及 null 与不补洞该怎么读。"
+---
+
+这一页是 `/api/v1` 的读取面：仓库档案、区间统计、排行与周期目录。它们都需要
+`Authorization: Bearer <key>`，需要的 scope 是 `repos:read` 或 `rankings:read`
+——这两个在[自助签发](./api-keys)的范围内，勾上就有。
+
+## 先跑通一次
+
+```bash
+export CONSOLE_ORIGIN=https://vercelai.cn
+export CONSOLE_API_KEY='mcp_radar_xxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+
+curl "$CONSOLE_ORIGIN/api/v1/repos/V1StGXR8Z5jd/stats?cadence=weekly" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY"
+```
+
+`{id}` 有两种写法：`repos.id`（nanoid），或 `owner/name`——后者要 URL 编码成
+`owner%2Fname`，否则 `/` 会被当成路径分隔符。
+
+## 三条读数据的规则
+
+这三条决定了你怎么解析返回体，也是最容易接错的地方。
+
+<Callout type="info" title="null 是「没量过」，不是「量到 0」">
+  `total_stars` / `delta_stars` 等字段的 `null` 一律原样透传，服务端不转 0。
+  转成 0 会把「这个周期没有采集」变成「采集到 0」——在图上这两条曲线长得一样，
+  结论却相反。
+
+  窗口内没有采集的那些天**不补洞**，直接不出现。所以 `periods` 数组的长度不等于
+  区间里的天数。
+</Callout>
+
+<Callout type="info" title="`end` 是最新已存周期，不 clamp 到今天">
+  采集任务随时可能停。把区间终点补到今天，客户端会拿到一串空洞，而空洞和
+  「这几天真的没人 star」无法区分。`range.end` 是这个仓库**已经存下来的最后一期**，
+  要判断「数据是不是新的」，先看 `range.end` 离今天多远。
+</Callout>
+
+<Callout type="info" title="排行会回显你拿到的是哪一期">
+  `year` / `week`（或 `month`）都不传时，服务端取**最近一个完整周期**，并在响应的
+  `period` 里回显。不回显的话，「上周的榜」这个请求可能被悄悄答成另一期。
+  拿不准要哪一期，先 `GET /api/v1/rankings/periods` 列目录——它只列有数据的期。
+</Callout>
+
+## 仓库读取
+
+`GET /api/v1/repos` 列出这把 key 可见的仓库，过滤器与订阅（§6.6）是**同一套语义**：
+按固定顺序短路求值，`repoIds` 非空时完全绕过其余规则。
+
+可见范围是「公开可见 + 这把 key 自己提交的」，**不含任何用户的私有列表**。
+
+<Callout type="info" title="这一条还没有分页">
+  设计文档只给了过滤器，`limit` / `cursor` 目前只出现在统计端点（`/stats`）上。
+  所以仓库数量大的时候一次会全量返回——真要加分页，两条路由一起改。
+</Callout>
+
+| 字段                           | 含义                                                   |
+| ------------------------------ | ------------------------------------------------------ |
+| `classification.projectTypes`  | 该仓库所有已发布项目的 `type`，可能多个                |
+| `classification.categoryCode`  | 运营分类；**未策展时为 `null`**                        |
+| `classification.platformStatus` | `pending` / `tracked` / `curated` / `archived`         |
+| `classification.tags`          | 公开站 `/categories` 的唯一分类轴，来自 GitHub topics   |
+| `projectCount`                  | 已发布项目数。非零意味着被策展过                       |
+
+四条轴不是同一件事的四种叫法，所以逐条输出、不合并。特别注意：**未策展的仓库
+这四个字段必然是空值**，所以拿 `categoryCode IS NOT NULL` 做二次筛选会把所有
+未策展仓库悄悄丢掉。
+
+<Callout type="warn" title="按类型过滤会默认排除未策展仓库">
+  `includeUncurated` 的缺省值是**按条件推导**的：`projectTypes` / `categoryCodes` /
+  `platformTypes` 全空时为 `true`，按类型过滤时为 `false`。所以「按形态订阅」默认
+  拿不到未策展的候选仓库——想要更宽的范围要显式写 `true`。
+</Callout>
+
+## 周期边界一律按 Asia/Shanghai
+
+`period` 字段是该日历边界对应的瞬间，不是 UTC 零点。`date` / `yearWeek` /
+`yearMonth` 三个标签恒定输出、不适用的为 `null`，这样客户端不必按 `cadence` 分支解析：
+
+```json
+{
+  "cadence": "weekly",
+  "timezone": "Asia/Shanghai",
+  "periods": [
+    { "period": "2026-03-23T16:00:00.000Z", "yearWeek": "2026-W13", "date": null, "yearMonth": null },
+    { "period": "2026-03-30T16:00:00.000Z", "yearWeek": "2026-W14", "date": null, "yearMonth": null }
+  ]
+}
+```
+
+用本地日界而不是 UTC，是因为「周一涨了多少」是按读者所在的工作日说的，
+按 UTC 切会把一个工作日劈成两半。
+
+## 接口自描述
+
+`GET /api/v1/openapi.json` 返回这份契约本身，**需要有效凭据**——加门是为了不把它
+当成免费的接口发现服务。返回的 spec 不含任何实例专属信息。
+
+同一个部署另外提供一个免鉴权的副本 `GET /openapi.json`（站内文档与 `llms.txt`
+指向它）。两者内容同源，都由 `lib/openapi/document.ts` 聚合而成：
+
+```bash
+curl "$CONSOLE_ORIGIN/openapi.json" -o radar-openapi.json
+```
+
+要喂给 Postman、openapi-typescript 或任何 OpenAPI 工具，用这个文件。
+
+## 逐端点参考
+
+参数与每个状态码的完整说明在 `API 参考 → 读取 API`：
+
+- `GET /api/v1/repos`、`GET /api/v1/repos/{id}`、`GET /api/v1/repos/{id}/stats`
+- `GET /api/v1/rankings/weekly`、`/monthly`、`/periods`
+- `GET /api/v1/openapi.json`
+
+配额的算法、错误码表在[调用、限流与错误](./errors)。

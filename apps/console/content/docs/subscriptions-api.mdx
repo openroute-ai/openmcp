@@ -1,0 +1,133 @@
+---
+title: "订阅 API"
+description: "让 VercelAI 雷达把新数据推到你的地址：订阅范围、过滤器语义、水位线与重投、签名与幂等，以及为什么 secret 只给一次。"
+---
+
+订阅让你不用每天轮询：`callbackUrl` 收下，雷达在排行任务跑完之后把新数据推过来。
+
+<Callout type="info" title="订阅的全部方法共用一个 scope">
+  创建、列出、详情、改、删、轮换 secret、发探测事件，要的都是 `subscriptions:write`——
+  没有单独的只读订阅 scope。它**不在自助签发范围内**，需要管理员逐把 key 开，
+  理由是 `callbackUrl` 可以填任意 URL，等于给了「让雷达替你抓任意仓库」的原语。
+</Callout>
+
+## 三件先分清的事
+
+<Callout type="info" title="key 的 scope 管「能不能管订阅」，订阅的 scopes 管「推什么」">
+  `subscriptions:write` 只决定你能不能创建 / 改 / 停掉订阅。投递时读的是**订阅自己的**
+  scopes，**不借用调用方 key 的权限**。所以一把只带 `repos:read` 的 key 也能创建一条
+  要 `repos.stats` 的订阅。
+</Callout>
+
+<Callout type="info" title="`secret` 只返回一次">
+  创建响应的 `secret` 与轮换响应的新 `secret` 都是**一次性**的，之后任何接口都不再返回，
+  列表与详情里只有 `secretPrefix`（供人工比对，不是密钥）。数据库里只有它的派生值。
+  丢了只能轮换。
+</Callout>
+
+<Callout type="info" title="投递挂在排行任务之后">
+  推送严格发生在每日与周度排行两个任务都成功之后，所以收到的数据不会缺尚未闭合的周期。
+</Callout>
+
+## 创建
+
+```bash
+curl -X POST "$CONSOLE_ORIGIN/api/v1/subscriptions" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "我关注的形态",
+    "callbackUrl": "https://example.com/hooks/radar",
+    "scopes": ["repos.stats", "repos.metadata"],
+    "cadence": "daily",
+    "mode": "batch",
+    "filters": { "projectTypes": ["client", "skill"] }
+  }'
+```
+
+订阅的 scopes 是 `repos.stats` / `repos.rankings` / `repos.metadata` / `repos.user_repos`，
+与 key 的 scope 是两套命名，不要混着填。
+
+`mode` 有两个值：`batch`（默认）按水位线增量推；`snapshot` 每次推范围内全部最新一期，
+不带水位线。
+
+## 过滤器不是白名单
+
+求值顺序固定，语义等价于 OR，**先命中即短路**：
+
+1. `repoIds` 非空 → 完全绕过下面所有规则；
+2. 自己的提交 且 `includeOwnSubmissions`；
+3. 是平台项目 且 `includePlatformProjects` 且（`platformTypes` 为空或命中）；
+4. 有 project 行 且 `categoryCodes` 命中；
+5. 有 project 行 且 `projectTypes` 命中；
+6. 无 project 行 且 `includeUncurated`；
+7. 其他 → 不推。
+
+<Callout type="warn" title="按类型过滤默认丢掉未策展仓库">
+  `includeUncurated` 的缺省值按条件推导：`projectTypes` / `categoryCodes` /
+  `platformTypes` 全空时为 `true`，按类型过滤时为 `false`。
+  例子里只填了 `projectTypes`，所以没写 `includeUncurated` 就**收不到**
+  尚未被策展的候选仓库。想要更宽的范围，显式写 `"includeUncurated": true`。
+</Callout>
+
+## 水位线：为什么改了过滤器会重复推一次
+
+`batch` 模式下订阅记一条水位线，读「比它更新的那些周期」。投递成功才推进，失败不动——
+所以重试不会重复投递已经成功的那部分。
+
+但改了过滤器之后，新命中的仓库可能从未被推过，而它们的 `period` 早于水位线，
+按 `period > watermark` 取就永远取不到。服务端的处理是：在同一个事务里把
+`filtersVersion` 加一，并把水位线**回退**到「新命中集合的最早已存周期」，让新纳入的
+仓库至少被完整推一次。代价是已推过的数据可能重复一次——消费方靠 payload 里的
+`filtersVersion` 区分「新数据」与「补发」。
+
+`GET /api/v1/subscriptions/{id}` 会返回 `matchedRepos`。**它为 0 时水位线既不推进
+也不回退**，把水位线退到一个空集合的起点，等于让下一次投递重推全表。
+
+## 收下之后要验的三件事
+
+请求头与首次拉取回调**共用同一套签名格式**，消费方不需要实现两套：
+
+```http
+Content-Type: application/json
+X-Webhook-Id: evt_abc123          ← 幂等键，重试不变
+X-Webhook-Timestamp: 1774000000
+X-Webhook-Signature: sha256=<hex over "<timestamp>.<raw body>">
+X-Webhook-Event: repo.daily.stats.ready
+```
+
+1. **验签**：用**收到的原始字节**。重新 `JSON.stringify` 会改键序，验签必失败。
+2. **验新鲜度**：时间戳窗口 300 秒。只验 HMAC 的接收方会永远接受被录制的请求。
+3. **按 `eventId` 去重**：网络重试会让同一个事件到达两次，落一张幂等表。
+
+单个 payload 上限 2MB / 1000 个仓库，超限时按 `repoId` 字典序切分成多段顺序投递，
+`eventId` 带上分段序号。**只有最后一段成功才推进水位线**，所以第 1 段成功、第 2 段
+失败时只重发第 2 段，已成功的那段不会重复。
+
+## 失败会怎样
+
+| 情况               | 行为                                                       |
+| ------------------ | ---------------------------------------------------------- |
+| 投递失败           | `attempt + 1`，退避 `1s → 5s → 30s → 5min → 30min`，最多 8 次 |
+| 8 次仍失败         | 该 delivery 记 `failed`，但**水位线不动**，下一轮 cron 重新生成一批 |
+| 连续失败 ≥ 20 次   | 熔断：`enabled = false`、`disabledReason = "too_many_failures"`，队列保留 |
+
+失败期间数据不会丢——水位线不推进，所以恢复后这一段会补上。轮换 secret 之后旧 secret
+**立刻失效**，没有两个都有效的窗口，接收端必须同步更新，否则下一次投递会全部验签失败
+（然后触发上面的退避）。
+
+## 排障
+
+`GET /api/v1/subscriptions/{id}` 返回最近 20 条投递记录（`eventId` / `status` /
+`attempt` / `httpStatus` / `error`）与 `lastError`、`consecutiveFailures`。没有这段，
+订阅方唯一的手段就是「等明天看数据有没有更新」。
+
+改完过滤器想立刻确认回调地址可达、签名能过，用
+`POST /api/v1/subscriptions/{id}/test`：它发一条内容极小、含真实快照的探测事件，
+**不推进水位线**。鉴权与签名路径和正常投递完全一致，所以测试能验签通过，正常事件也能。
+
+## 逐端点参考
+
+`API 参考 → 订阅 API`：`POST /api/v1/subscriptions`、`GET /api/v1/subscriptions`、
+`GET|PATCH|DELETE /api/v1/subscriptions/{id}`、
+`POST /api/v1/subscriptions/{id}/rotate-secret`、`POST /api/v1/subscriptions/{id}/test`。

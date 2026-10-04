@@ -1,0 +1,113 @@
+---
+title: "API 接入指南"
+description: "三组接口的地图：读取、写入、订阅。要什么 scope、key 怎么签、第一个 curl 怎么跑。"
+---
+
+这一页假设你什么都不知道。三步之后你会有两个能用的 `curl`：一个读榜单，
+一个往 VercelAI 雷达里登记仓库。中途要查的细节都链到底下几页。下文的「雷达」
+指的就是 VercelAI 雷达。
+
+**每一个端点都要 `Authorization: Bearer <key>`。** 这套 API 没有免鉴权旁路。
+
+## 三组接口，先对号入座
+
+| 你想做的事                       | 用哪组接口                             | scope                                          |
+| -------------------------------- | -------------------------------------- | ---------------------------------------------- |
+| 读仓库档案、区间统计、排行、周期目录 | [读取 API](./read-api)                 | `repos:read` / `rankings:read`                  |
+| 登记仓库、发布项目               | [写入 API](./write-api)                | `repos:write` / `projects:write`                |
+| 让雷达把新数据推到你的地址       | [订阅 API](./subscriptions-api)        | `subscriptions:write`                            |
+
+## 第一步：签一把 key
+
+<Steps>
+  <Step>注册并**验证邮箱**。未验证的邮箱签不出 key。</Step>
+  <Step>
+    打开 [`/console/api-keys`](/console/api-keys)，填一个名字，勾上需要的 scope，点新建。
+  </Step>
+  <Step>
+    把 `mcp_radar_...` 那串明文复制走。**只显示这一次**，关掉对话框就再也拿不回来 ——
+    数据库里只有哈希。丢了只能轮换。
+  </Step>
+</Steps>
+
+| scope                 | 能做什么                                 | 自助签发 |
+| --------------------- | ---------------------------------------- | -------- |
+| `repos:read`          | 读仓库档案、区间统计                     | ✅       |
+| `rankings:read`       | 读排行、周期目录                         | ✅       |
+| `repos:write`         | 登记仓库                                 | ✅       |
+| `subscriptions:write` | 创建与管理订阅、轮换密钥                 | ❌ 管理员 |
+| `projects:write`      | 发布项目（对外可见）                     | ❌ 管理员 |
+
+档位、scope 语义、一把 key 能有几把、冷却时间都在 [API Key](./api-keys) 一页。
+
+## 第二步：跑通一次读取
+
+```bash
+export CONSOLE_ORIGIN=https://vercelai.cn
+export CONSOLE_API_KEY='mcp_radar_xxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+
+curl "$CONSOLE_ORIGIN/api/v1/rankings/weekly" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY"
+```
+
+返回本周榜：`trending` 是星标绝对增量，`byRelativeGrowth` 是相对增速，
+两条数组里的记录是同一种结构。响应带 `ETag` 与 `Cache-Control`，可以放心做条件请求。
+
+## 第三步：登记一个仓库
+
+```bash
+curl -X POST "$CONSOLE_ORIGIN/api/v1/repos" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"repo":"vercel/next.js"}'
+```
+
+`201` 表示雷达新登记了这个仓库，`200` 表示它早就在跟踪了（重发同一条是安全的）。
+两个写入接口的完整请求体与响应字段在 [写入 API](./write-api)。
+
+<Callout type="warn" title="「登记」不等于「发布」">
+  `POST /api/v1/repos` 只是让雷达开始跟踪一个仓库，**不会**把它放到公开站上。
+  要发布得调 `POST /api/v1/projects`，而那个接口的 `projects:write` scope 不在自助
+  申请范围内，需要管理员开通。
+</Callout>
+
+## 出错时你会看到什么
+
+失败响应一律是这个形状，`code` 是你该分支判断的东西，`message` 是给人看的：
+
+```json
+{ "error": { "code": "insufficient_scope", "message": "需要 repos:write 权限" } }
+```
+
+| 状态码 | 含义                                        | 你该做什么                |
+| ------ | ------------------------------------------- | ------------------------- |
+| `401`  | 没带 key，或这把 key 已吊销 / 过期          | 换一把有效的 key          |
+| `403`  | key 有效，但没有这个接口要的 scope          | 找管理员加 scope          |
+| `404`  | 资源不存在，或这把 key 查不到                | 检查路径与 key 有没有复制全 |
+| `429`  | 撞上分钟或每天的配额                        | 按 `Retry-After` 等待再试 |
+| `4xx`  | 请求本身有问题（字段、地址、JSON、查询参数） | 看 `error.detail`，改请求再发 |
+| `5xx`  | 雷达这边失败了                              | 可以重试；连续失败再找我们 |
+
+路由不存在与「key 查不到」故意用同一个响应：不确认一个 key 有没有某条路由，
+攻击者就能拿 401/404 的差别去枚举。
+
+逐条状态码和它的 `code` 在[调用、限流与错误](./errors)。
+
+## 每个端点都有一页交互式文档
+
+`API 参考` 按上面的三组分组，条目上带着方法和路径：参数、请求体、每个状态码的含义，
+以及按你填的字段现算出来的 `curl`。要喂给 Postman、openapi-typescript 或任何
+OpenAPI 工具，用同一份契约：
+
+```bash
+curl "$CONSOLE_ORIGIN/openapi.json" -o radar-openapi.json
+```
+
+带凭据的那一份在 `GET /api/v1/openapi.json`，内容与站内文档同源。
+
+## 这套 API 现在还没有什么
+
+<Callout type="info">
+  没有 SDK、没有版本承诺、没有沙箱、没有 webhook 签名验证工具——
+  这些都是决定，不是遗漏：写在这里比留白安全，留白会被读成「大概有」。
+</Callout>

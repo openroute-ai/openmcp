@@ -1,0 +1,102 @@
+---
+title: "调用、限流与错误"
+description: "请求怎么带认证、配额按什么算、每个状态码该分支到哪里。"
+---
+
+## 请求
+
+```http
+GET /api/v1/rankings/weekly HTTP/1.1
+Authorization: Bearer mcp_radar_xxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+scheme 大小写不敏感（`bearer` 也行），照 RFC 6750。每个端点都看这个头，没有例外。
+
+**成功**：`200`（或写入接口的 `201`），响应体是接口自己的 JSON。
+
+**失败**：所有需要凭据的接口都用同一个错误形状——
+
+```json
+{
+  "error": {
+    "code": "insufficient_scope",
+    "message": "需要 repos:write 权限",
+    "detail": "这把 key 持有: repos:read, rankings:read"
+  }
+}
+```
+
+`code` 是稳定的、给程序判断的；`message` 和 `detail` 是给人看的，可以改。
+**分支请写在 `code` 上。**
+
+## 状态码对照
+
+| 状态码 | `code`                | 含义                                             | 该做什么               |
+| ------ | --------------------- | ------------------------------------------------ | ---------------------- |
+| `400`  | `invalid_body`        | 不是合法 JSON、字段不符合 schema，或查询参数不合法 | 看 `detail`，改请求体  |
+| `400`  | `invalid_url`         | 地址不是可用的 GitHub 仓库地址（`url` 与 `repo` 都是） | 检查地址字段拼法 |
+| `400`  | `type_not_accepted`   | 登记端点收到了 `type` 字段                       | 改调 `/api/v1/projects` |
+| `401`  | `missing_credentials` | 没有 `Authorization` 头                          | 带上 key               |
+| `401`  | `key_revoked`         | 这把 key 已被吊销                                 | 换一把                 |
+| `401`  | `key_expired`         | 这把 key 已过期                                   | 换一把                 |
+| `403`  | `insufficient_scope`  | key 有效，但缺这个接口要的 scope                 | 找管理员加 scope       |
+| `404`  | `not_found`           | key 查不到；**或者这个资源不存在**              | 检查路径与 key 是否复制完整 |
+| `429`  | `rate_limited`        | 撞上分钟配额或当天配额                           | 按 `Retry-After` 等待   |
+| `502`  | `create_failed`       | 创建项目时我们这边失败                           | 可以重试               |
+| `503`  | `github_unavailable`  | 服务端没有配置 GitHub 凭据，取不到仓库数据       | 找我们，不是你的问题   |
+
+<Callout type="info" title="为什么查不到 key 是 404 而不是 401">
+  如果「key 不存在」回 401、「路由不存在」回 404，探测者就能靠状态码枚举出哪些路由
+  在这个部署里是开的。把两者都答成 `404 not_found`，对他们来说是同一件事。
+  代价是你的复制粘贴错误也会显示成 404——`detail` 不会给，但 `message` 会。
+
+  `GET /api/v1/repos/{id}` 上的「这个仓库不存在」也是同一个响应：确认一个 key 能看
+  到哪些仓库，等于确认它是谁的 key。
+</Callout>
+
+## 限流怎么算
+
+每把 key 有两个独立窗口，**两个都过才算过**：
+
+| 窗口   | 默认（`user` 档 / `service` 档） | 日界                     |
+| ------ | -------------------------------- | ------------------------ |
+| 每分钟 | 30 / 60 次                       | 滚动 60 秒               |
+| 每天   | 1000 / 5000 次                   | **UTC 零点**（不是本地零点） |
+
+配额跟着 key 走，管理员可以逐把改。每天窗口用 UTC 日界是刻意的：和 GitHub 额度的
+口径一致，你在两边看到的「今天还剩多少」是同一个数。
+
+每个响应都带当前窗口的读数：
+
+```http
+Ratelimit-Limit: 30
+Ratelimit-Remaining: 27
+Ratelimit-Reset: 1770000000
+Retry-After: 12
+```
+
+- `Ratelimit-Reset` 是**绝对时间**：配额恢复那一刻的 epoch 秒（不是倒计时）。
+  还要等多久，用它减去当前时间。
+- `Retry-After` 只在 `429` 上出现，是要等的秒数——分钟窗口时它很小，日窗口时可能是
+  几小时。
+- 两道窗口都过时，报更紧的那一道（`remaining` 小的那个）；撞限时则报触发的那道
+  窗口。
+
+**重试策略**：`429` 按 `Retry-After` 退避；`502` / `503` 可以指数退避重试；
+`400` / `403` / `404` 重试多少次都一样，改请求再发。
+
+## 两个会被忽略的细节
+
+<Callout type="warn" title="写入接口不幂等地「多试一次」">
+  `POST /api/v1/repos` 按仓库去重（返回 `200` + `created: false`），
+  `POST /api/v1/projects` 同理（返回 `status: "existing"`）。所以**可以**安全重发。
+  但每次调用都可能触发一次 GitHub 抓取，失败就退避，别写成无间隔的循环。
+</Callout>
+
+<Callout type="info" title="配额是按 key 算的，不是按 IP">
+  同一个账号的两把 key 各有各的窗口。反过来，一把 key 被多个服务共用时，它们共享
+  那 30 rpm——想让两套系统互不影响，就各签一把。
+</Callout>
+
+字段级的契约（请求体、响应体）在 `API 参考` 里逐端点给出；三组接口的地图在
+[接入指南](./index)。

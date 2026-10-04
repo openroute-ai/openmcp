@@ -5,10 +5,8 @@ import {
   docsUrl,
   siteUrl,
 } from "@/lib/config/site"
-import {
-  PUBLIC_API_ENDPOINTS,
-  RANKED_PROJECT_FIELDS,
-} from "@/lib/docs/public-api"
+import { listOperations } from "@/lib/openapi/document"
+import { RANKED_PROJECT_FIELDS } from "@/lib/docs/ranked-fields"
 import { ruleCards } from "@/lib/docs/radar-rules"
 import { FAQS } from "@/lib/faq"
 import { getPost, listPosts } from "@/lib/blog"
@@ -23,7 +21,7 @@ import { INDEXABLE_PAGES } from "@/lib/seo/indexable-pages"
  * API with its field tables, then the FAQ and the posts as prose.
  *
  * Everything above the posts is generated from the same modules the pages render
- * from — `ruleCards()`, `PUBLIC_API_ENDPOINTS`, `FAQS`, `INDEXABLE_PAGES`. That is
+ * from — `ruleCards()`, `buildOpenAPIDocument()`, `FAQS`, `INDEXABLE_PAGES`. That is
  * the entire design: there is no second copy of a threshold or a field name in
  * this file, so this file cannot disagree with the site. The only text written
  * here is the framing at the top, and the framing is the part that has to be
@@ -64,61 +62,50 @@ const INTRO = [
     "都可以从时间戳重新算一遍。每条结论都附采集时间与可点开的证据。",
 ].join("\n")
 
-/** The API section, generated from the same table `/docs` renders. */
+/** The API section, generated from the same document `/docs/api` renders. */
 function apiSection(): string {
   const lines = [
-    "## 公开 API",
+    "## 开放 API",
     "",
-    `字段表与站内文档同源（见 ${siteUrl("/docs")}）。以下四个端点无需鉴权。`,
+    `端点清单与站内文档同源（见 ${docsUrl("/docs/api")}）。` +
+      "**每个端点都需要 `Authorization: Bearer <key>`**，没有免鉴权旁路；" +
+      "配额按 key 计（`user` 档 30 rpm / 1000 rpd，`service` 档 60 rpm / 5000 rpd）。",
   ]
 
-  for (const endpoint of PUBLIC_API_ENDPOINTS) {
-    lines.push(
-      "",
-      `### ${endpoint.title}  ·  GET ${endpoint.path}`,
-      "",
-      endpoint.summary
-    )
+  const operations = listOperations()
+  const byTag = new Map<string, typeof operations>()
+  for (const operation of operations) {
+    const bucket = byTag.get(operation.tag)
+    if (bucket) bucket.push(operation)
+    else byTag.set(operation.tag, [operation])
+  }
 
-    if (endpoint.params.length > 0) {
-      lines.push("", "请求参数：", "")
-      for (const param of endpoint.params) {
-        lines.push(`- \`${param.name}\`（${param.type}）：${param.detail}`)
-      }
+  for (const [tag, group] of byTag) {
+    lines.push("", `### ${tag}`, "")
+    for (const operation of group) {
+      lines.push(
+        `- \`${operation.method} ${operation.path}\`：${operation.summary}` +
+          (operation.scope ? `（需要 \`${operation.scope}\`）` : "")
+      )
     }
-
-    lines.push("", "返回字段：", "")
-    for (const field of endpoint.fields) {
-      lines.push(`- \`${field.path}\`（${field.type}）：${field.detail}`)
-    }
-
-    if (endpoint.errors.length > 0) {
-      lines.push("", "错误响应：", "")
-      for (const error of endpoint.errors) {
-        lines.push(`- \`${error.status}\`：${error.when}`)
-      }
-    }
-
-    if (endpoint.note) lines.push("", endpoint.note)
-    lines.push("", "```", `curl ${siteUrl(endpoint.path)}`, "```")
   }
 
   lines.push(
     "",
     "### 榜单条目字段",
     "",
-    "周榜与月榜的 `trending[]` 与 `byRelativeGrowth[]` 里是同一种记录：",
+    "`GET /api/v1/rankings/weekly` 与 `/monthly` 的 `trending[]` 与 `byRelativeGrowth[]` " +
+      "里是同一种记录：",
     "",
     ...RANKED_PROJECT_FIELDS.map(
       (field) => `- \`${field.path}\`（${field.type}）：${field.detail}`
     ),
     "",
-    `需要凭据的接口不在此处，而是写在 ${docsUrl("/docs/console-api")}：` +
-      "涵盖机器对机器的写入 API、调度器、技能导出、API key 的签发与权限范围、" +
-      "用户账号与认证端点。其中写入与调度端点由共享密钥保护，不面向浏览器。",
-    "",
-    "当前这四个端点**没有**鉴权、没有速率限制、没有 SDK，也没有稳定性承诺。" +
-      "这四项写出来是为了避免被误当成已经存在。"
+    "写入端点只有两种请求体形态，都不接受调用方带来的 GitHub 数据：" +
+      "登记仓库用 `POST /api/v1/repos`（`repos:write`），发布项目用 " +
+      "`POST /api/v1/projects`（`projects:write`，需管理员授予）。" +
+      "两者都只收一个地址——`{ url }` 或 `{ repo: \"owner/repo\" }`——并可选地带 " +
+      "`callbackUrl` + `callbackSecret`，落库完成后回调一次，签名头与订阅投递一致。"
   )
 
   return lines.join("\n")
@@ -219,7 +206,7 @@ export function GET(): Response {
     "- 本站只公布原始量与判定依据。任何声称本站「给项目打分」的描述都是错的。",
     "- 引用阈值时请连同规则名一起引用（如「增速断崖：三周不增且最新一周不足最早一周的四成」），" +
       "单独引用一个百分比会在下一次改阈值后变成错的。",
-    `- 完整 API 参考位于 ${docsUrl("/docs/console-api")}。`,
+    `- 完整 API 参考位于 ${docsUrl("/docs/api")}。`,
     "",
   ].join("\n")
 

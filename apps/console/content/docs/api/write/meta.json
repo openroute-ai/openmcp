@@ -1,0 +1,5 @@
+{
+  "title": "写入 API",
+  "description": "需要 repos:write 或 projects:write：登记仓库、发布项目。",
+  "pages": ["registerRepo", "publishProject"]
+}

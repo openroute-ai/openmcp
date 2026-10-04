@@ -1,0 +1,13 @@
+{
+  "title": "订阅 API",
+  "description": "需要 subscriptions:write：创建订阅、改过滤器、暂停、轮换 secret、发探测事件。",
+  "pages": [
+    "createSubscription",
+    "listSubscriptions",
+    "getSubscription",
+    "updateSubscription",
+    "rotateSubscriptionSecret",
+    "testSubscription",
+    "deleteSubscription"
+  ]
+}

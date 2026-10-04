@@ -1,7 +1,7 @@
 import { INDEXABLE_PAGES } from "@/lib/seo/indexable-pages"
 import { SITE_NAME, SITE_TAGLINE, docsUrl, siteUrl } from "@/lib/config/site"
 import { listPosts } from "@/lib/blog"
-import { PUBLIC_API_ENDPOINTS } from "@/lib/docs/public-api"
+import { listOperations } from "@/lib/openapi/document"
 
 /**
  * `/llms.txt` — the index an answer engine reads before deciding what to fetch.
@@ -137,14 +137,16 @@ export function GET(): Response {
 
   lines.push(
     "",
-    "## API",
+    "## 开放 API",
     "",
-    ...PUBLIC_API_ENDPOINTS.map(
-      (endpoint) =>
-        `- [${endpoint.title}](${siteUrl(endpoint.path)}): ${endpoint.summary}`
+    ...listOperations().map(
+      (operation) =>
+        `- \`${operation.method} ${operation.path}\`: ${operation.summary}` +
+        (operation.scope ? `（需要 \`${operation.scope}\`）` : "")
     ),
     "",
-    `- [完整 API 参考](${docsUrl("/docs/console-api")}): 需要凭据的接口、鉴权方式、调度器与 API key 的权限范围。`,
+    `- [完整 API 参考](${docsUrl("/docs/api")}): 每个端点的参数、响应与错误码，逐端点一份交互式页面。`,
+    `- [接入说明](${docsUrl("/docs")}): 鉴权方式、API key 的权限范围、配额与调度器。`,
     "",
     "## 机器可读文件",
     "",

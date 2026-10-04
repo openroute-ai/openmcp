@@ -1,0 +1,12 @@
+{
+  "title": "API 文档",
+  "pages": [
+    "index",
+    "api-keys",
+    "read-api",
+    "write-api",
+    "subscriptions-api",
+    "errors",
+    "api"
+  ]
+}

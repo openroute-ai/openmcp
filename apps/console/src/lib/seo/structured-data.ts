@@ -159,24 +159,24 @@ export function articleNode(post: {
 }
 
 /**
- * The public JSON API, as a thing a reader can ask a question about.
+ * The open API, as a thing a reader can ask a question about.
  *
- * Declared on the API docs page so the endpoints are describable as a dataset
- * rather than only as prose: the four anonymous endpoints change on a schedule
- * this site publishes, and saying so in structured data is what lets an answer
- * engine answer "how fresh is this data" without fetching every response.
+ * Declared on the API docs page so the API is describable as a dataset rather
+ * than only as prose: every endpoint here reads a snapshot this site refreshes
+ * on a published schedule, and saying so in structured data is what lets an
+ * answer engine answer "how fresh is this data" without fetching every response.
  */
 export function apiDocsNode(): JsonLdNode {
   return {
     "@type": "TechArticle",
     "@id": `${siteUrl("/docs")}#api-docs`,
-    headline: `${SITE_NAME} 公开 API`,
+    headline: `${SITE_NAME} 开放 API`,
     description:
-      "四个匿名 JSON 端点：周榜、月榜、年度飙升榜与异动流，含请求参数与返回字段。",
+      "读取排行与仓库统计、登记仓库与发布项目、订阅推送，含鉴权方式、请求参数与返回字段。",
     inLanguage: "zh-CN",
     url: siteUrl("/docs"),
     isAccessibleForFree: true,
     proficiencyLevel: "Beginner",
-    dependencies: `${DOCS_ORIGIN}/docs/console-api`,
+    dependencies: `${DOCS_ORIGIN}/docs/api`,
   }
 }

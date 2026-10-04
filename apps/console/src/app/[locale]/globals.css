@@ -1,0 +1,20 @@
+/*
+ * The app's Tailwind entry, and the only file that imports the workspace theme.
+ *
+ * `layout.tsx` imports this instead of `@workspace/ui/globals.css` directly,
+ * because fumadocs' `lib/base.css` uses `@apply` and only resolves those
+ * utilities when it sits in the same compilation unit as the theme that
+ * defines them — see the same note at the top of `apps/doc/src/app/global.css`.
+ * Keeping one entry means the theme is imported exactly once, so no page pays
+ * for a second copy of it just because it also renders a docs page.
+ *
+ * The fumadocs styles are what `/docs` renders with: `shadcn.css` maps fumadocs'
+ * `--color-fd-*` tokens onto this app's shadcn theme (so the docs read as the
+ * same site rather than as an embedded theme), and `preset.css` brings the
+ * typography plugin, the shiki code theme and the layout utilities the docs
+ * components use. They are inert on every other page — they define no element
+ * styles outside `fd-*` / `prose` selectors.
+ */
+@import "@workspace/ui/globals.css";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
