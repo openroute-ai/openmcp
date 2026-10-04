@@ -37,23 +37,39 @@ stays at the app root, and `@/` resolves to `src/`.
 | `/api/rankings/*.json`    | Public ranking JSON (`week`, `month`, `rising-stars`) |
 | `/api/cron/github`        | The single scheduler entrypoint (Vercel Cron)         |
 | `/api/webhook/[task]`     | Inbound trigger for a named task                      |
-| `/api/internal/repos`     | Machine-to-machine repository ingest                  |
+| `/api/v1/repos`           | Machine-to-machine repository registration           |
+| `/api/v1/projects`        | Machine-to-machine project publishing                 |
 | `/api/skills-sync/export` | Cursor-paged skill export                             |
 
 ### Token-guarded routes
 
-`/api/cron/github`, `/api/webhook/[task]`, `/api/internal/repos` and
-`/api/skills-sync/export` all authenticate the same way — a `Bearer` header
-compared in constant time — and all **fail closed**: with no secret
-configured the route returns 404 rather than 401, so an unconfigured instance
-does not confirm that the route exists.
+`/api/cron/github`, `/api/webhook/[task]` and `/api/skills-sync/export`
+authenticate the same way — a `Bearer` header compared in constant time — and
+all **fail closed**: with no secret configured the route returns 404 rather
+than 401, so an unconfigured instance does not confirm that the route exists.
 
 | Route                     | Env var                | Notes                        |
 | ------------------------- | ---------------------- | ---------------------------- |
 | `/api/cron/github`        | `CRON_SECRET`          | Vercel Cron sends it         |
 | `/api/webhook/[task]`     | `CRON_SECRET`          | Same secret, inbound trigger |
-| `/api/internal/repos`     | `CONSOLE_API_TOKEN`    | `POST` a `RepoInfo`          |
 | `/api/skills-sync/export` | `SKILLS_WEBHOOK_TOKEN` | `?cursor=&limit=` paging     |
+
+### Scoped API keys
+
+`/api/v1/repos` and `/api/v1/projects` take a `Bearer` key that is looked up
+by hash in the `api_keys` table, not compared against an env secret. Each key
+carries its own scopes and its own `submitter_id`, so an integration can be
+granted or revoked on its own and a write can be attributed without trusting a
+header. A key without the scope a route asks for gets 403; a missing or unknown
+key gets 401.
+
+| Route                 | Scope            | What it may do                                   |
+| --------------------- | ---------------- | ------------------------------------------------ |
+| `POST /api/v1/repos`  | `repos:write`    | Register a repository. Never creates a project.  |
+| `POST /api/v1/projects` | `projects:write` | Create and publish a project from a repo URL. |
+
+Keys are minted and scoped from the admin tRPC router (`apiKeys.create`), never
+from a public form.
 
 ## Authentication
 
@@ -166,7 +182,6 @@ Copy `apps/console/.env.example` (or set these in your shell):
 | `REDIS_URL`                   | Redis URL for the auth rate limiter                   |
 | `GITHUB_ACCESS_TOKEN`         | Required by every GitHub call and the sync tasks      |
 | `CRON_SECRET`                 | Bearer for the scheduler and inbound webhook          |
-| `CONSOLE_API_TOKEN`           | Bearer for the repository ingest endpoint             |
 | `SKILLS_WEBHOOK_URL`          | Outbound webhook for synced skills                    |
 | `SKILLS_WEBHOOK_TOKEN`        | Outbound bearer, and the export endpoint's bearer     |
 

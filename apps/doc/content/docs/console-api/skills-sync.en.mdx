@@ -106,7 +106,7 @@ if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) reject()
 
 The signature covers the timestamp as well as the body, and **that is what makes it a signature rather than a checksum**: replaying a captured request an hour later recomputes a different HMAC and is rejected, so a leaked request log is not a standing credential. Also checking the gap between the timestamp and now (five minutes is enough) adds a second layer.
 
-A **failed delivery** is recorded on the skill row for the scheduler's retry queue. The URL form of `POST /api/internal/repos` reports `delivered` in its response, which means "every stored skill for this project reached the web service".
+A **failed delivery** is recorded on the skill row for the scheduler's retry queue. `POST /api/v1/projects` reports `delivered` in its response when `type: "skill"`, which means "every stored skill for this project reached the web service".
 
 <Callout>
   The payload is structurally identical on both paths: each element of

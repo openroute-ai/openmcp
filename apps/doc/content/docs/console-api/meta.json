@@ -1,12 +1,11 @@
 {
   "title": "Console API",
-  "description": "AI 雷达控制台的全部 HTTP 接口：公开 JSON、写入 API、调度器、技能导出、账号与认证",
+  "description": "AI 雷达控制台的全部 HTTP 接口：开放 API、写入 API、调度器、技能导出、账号与认证",
   "icon": "Radio",
   "root": true,
   "pages": [
     "index",
-    "public-json",
-    "ingest",
+    "projects",
     "scheduler",
     "skills-sync",
     "newsletter",

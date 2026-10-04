@@ -4,7 +4,7 @@ title: "tRPC endpoints"
 
 {/* markdownlint-disable MD041 */}
 
-The console frontend's own API: tRPC over HTTP. It is **not** meant for external integrations. This layer exists for the console interface in the browser; there is no version promise, no SDK, and the shapes change together with the interface. For machine-to-machine use see [Ingest](./ingest) and [Skill export](./skills-sync).
+The console frontend's own API: tRPC over HTTP. It is **not** meant for external integrations. This layer exists for the console interface in the browser; there is no version promise, no SDK, and the shapes change together with the interface. For machine-to-machine use see [Writes](./projects) and [Skill export](./skills-sync).
 
 <Callout>
   **Not one tRPC procedure is public.** Every one requires either a session or
@@ -121,7 +121,7 @@ The plaintext appears **only** in the response that creates or rotates it; the d
 | `rankings.setRisingStarCategories`       | Administrator |
 | `rankings.buildRisingStars`              | Administrator |
 
-These read **the same tables through the same service** as the [public JSON endpoints](./public-json); the only differences are row counts and filtering. The page publishes 12, the anonymous endpoint returns 100, and this layer returns whatever view the interface needs.
+These read **the same tables through the same service** as the open read endpoints (`GET /api/v1/repos`, `/api/v1/rankings/*`); the only differences are row counts and filtering. The page publishes 12, and this layer returns whatever view the interface needs.
 
 ### `sessions`
 

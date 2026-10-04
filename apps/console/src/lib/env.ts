@@ -59,7 +59,6 @@ const optionalNumber = z.preprocess(
 /** Reads a variable lazily so tests can stub `process.env` after import. */
 const envSchema = {
   GITHUB_ACCESS_TOKEN: optionalString,
-  CONSOLE_API_TOKEN: optionalString,
   CRON_SECRET: optionalString,
 
   GITHUB_DATA_WEBHOOK_URL: optionalList,
@@ -145,17 +144,6 @@ export function requireGitHubToken(): string {
     )
   }
   return token
-}
-
-/**
- * The bearer token for the machine-to-machine ingest API, if one is set.
- *
- * The ingest route fails closed on `undefined` rather than rejecting every
- * call: an instance with no token configured does not expose the route at
- * all, so an unauthenticated probe cannot confirm it exists.
- */
-export function apiToken(): string | undefined {
-  return syncEnv().CONSOLE_API_TOKEN
 }
 
 /**

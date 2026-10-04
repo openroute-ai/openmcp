@@ -651,8 +651,11 @@ openmcp 侧需支持：
 
 | 配置项 | 说明 |
 |---|---|
-| GITHUB_NEXTJS_API_BASE_URL | github-nextjs internal API 地址 |
-| GITHUB_NEXTJS_API_TOKEN | internal API 认证 token |
+| CONSOLE_API_BASE_URL | console 站点地址 |
+| CONSOLE_API_KEY | console 签发的 API Key，需带 `projects:write` |
+
+`POST /api/internal/repos` 与共享密钥 `CONSOLE_API_TOKEN` 已删除，登记与发布改为
+`POST /api/v1/repos`（`repos:write`）与 `POST /api/v1/projects`（`projects:write`）。
 
 ---
 

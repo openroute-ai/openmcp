@@ -1,12 +1,11 @@
 {
   "title": "Console API",
-  "description": "Every HTTP endpoint the AI Radar console serves: public JSON, the machine-to-machine ingest, the scheduler, the skill export, accounts and authentication",
+  "description": "Every HTTP endpoint the AI Radar console serves: the open API, the machine-to-machine ingest, the scheduler, the skill export, accounts and authentication",
   "icon": "Radio",
   "root": true,
   "pages": [
     "index",
-    "public-json",
-    "ingest",
+    "projects",
     "scheduler",
     "skills-sync",
     "newsletter",

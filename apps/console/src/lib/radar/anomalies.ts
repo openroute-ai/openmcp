@@ -14,6 +14,7 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm"
 import {
   type AnomalyKind,
+  type AnomalySeverity,
   type AnomalyStatus,
   type EvidencePayload,
   type MetricPayload,
@@ -57,7 +58,7 @@ export interface AnomalyWithRepo {
   id: string
   repoId: string
   kind: AnomalyKind
-  severity: string
+  severity: AnomalySeverity
   period: Date
   detectedAt: Date
   title: string

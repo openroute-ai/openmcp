@@ -4,7 +4,7 @@ title: "tRPC 接口"
 
 {/* markdownlint-disable MD041 */}
 
-控制台前端自己的接口，tRPC over HTTP。它**不是**给外部集成用的：这一层是为浏览器里的控制台界面服务的，没有版本承诺、没有 SDK、形状随界面一起变。需要机器对机器调用请看[写入 API](./ingest)与[技能导出](./skills-sync)。
+控制台前端自己的接口，tRPC over HTTP。它**不是**给外部集成用的：这一层是为浏览器里的控制台界面服务的，没有版本承诺、没有 SDK、形状随界面一起变。需要机器对机器调用请看[写入 API](./projects)与[技能导出](./skills-sync)。
 
 <Callout>
   **没有任何一个 tRPC 程序是公开的。**
@@ -117,7 +117,7 @@ title: "tRPC 接口"
 | `rankings.setRisingStarCategories`       | 管理员 |
 | `rankings.buildRisingStars`              | 管理员 |
 
-这些程序读的是与[公开 JSON 接口](./public-json)**同一张表、同一个 service**，区别只在条数与筛选：页面只公布前 12，匿名接口给前 100，这一层给界面需要的完整视图。
+这些程序读的是与开放读取接口（`GET /api/v1/repos`、`/api/v1/rankings/*`）**同一张表、同一个 service**，区别只在条数与筛选：页面只公布前 12，这一层给界面需要的完整视图。
 
 ### `sessions` —— 账号与会话
 

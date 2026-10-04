@@ -21,8 +21,7 @@
  * Auth: `Authorization: Bearer <CRON_SECRET>` (see `@/lib/cron/authorize`).
  *
  * Env:
- *   CONSOLE_API_BASE_URL - console's public origin; `GITHUB_NEXTJS_API_BASE_URL`
- *     is accepted as the pre-rename name.
+ *   CONSOLE_API_BASE_URL - console's public origin.
  *   SKILLS_WEBHOOK_TOKEN - bearer for `GET /api/skills-sync/export`. Must match
  *     console's `SKILLS_WEBHOOK_TOKEN`.
  *   CRON_SECRET - required outside development.

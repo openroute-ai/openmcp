@@ -184,7 +184,7 @@ OSSF Scorecard（OpenSSF / CNCF / Linux Foundation 背书）已提供 `Maintaine
 | Rising Stars | `src/lib/github/service/rising-stars.ts` + `rising_star_categories` | 已有 `tags` / `excluded` / `excludedTags` / `disabled` 配置 |
 | 分类法 | `tags`（`code` / `aliases` / `excludeFromRankings`）+ `projects_to_tags` | **目前全人工**，见 §5.3 |
 | 对外 JSON | `/api/rankings/{week,month,rising-stars}.json` | **公开无鉴权** — 数据出口已通 |
-| 机器入口 | `/api/internal/repos`（`CONSOLE_API_TOKEN`） | M2M 写入口，fail-closed |
+| 机器入口 | `/api/v1/repos`（`repos:write`）、`/api/v1/projects`（`projects:write`） | M2M 写入口，`api_keys` 逐 key scope |
 | 定时调度 | `/api/cron/github`（Vercel Cron `0,30 * * * *`）+ `src/lib/tasks/registry.ts`（14 个任务） | |
 | 中文翻译 | `src/lib/ai/translator.ts` | OpenAI → DeepSeek → Ollama fallback（`src/lib/env.ts:187`） |
 | 权限模型 | `src/lib/auth/role.ts` | `role === "admin"` 才进 `/dashboard` |
@@ -522,7 +522,7 @@ console → web 的数据流分两类，**方向必须单向**：
 | 分类与翻译 pipeline | `src/lib/ai/{provider,translator}.ts` |
 | 定时调度与任务注册 | `src/lib/tasks/registry.ts` + `/api/cron/github` |
 | fail-closed 鉴权 | `src/lib/cron/guard.ts` |
-| M2M 写入口 | `/api/internal/repos` |
+| M2M 写入口 | `/api/v1/repos`、`/api/v1/projects`（`api_keys` 逐 key scope） |
 | 公开 JSON 出口 | `/api/rankings/*.json` |
 | 分类法与人工打标 | `src/db/schema/github.ts` + `service/tag.ts` |
 | **身份 / 账号** | **雷达自建**（决策 #3 各自独立）—— 复用 `@workspace/auth` 的**库**，但独立 DB、独立 session |

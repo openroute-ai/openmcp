@@ -1,12 +1,14 @@
 /**
- * Integration tests for the rankings WebUI surfaces: the dashboard router and
- * the public JSON endpoints.
+ * Integration tests for the rankings WebUI surface: the dashboard router.
  *
- * The services they wrap are covered deeply by `rankings.integration.test.ts`
- * and `rising-stars.integration.test.ts`. What these tests protect is the
- * wiring: the right period reaches the right service, a reading surfaces the
- * seeded data, an explicit period wins over the default, and a malformed
- * period is a clear error rather than a silently different result.
+ * The services it wraps are covered deeply by `rankings.integration.test.ts` and
+ * `rising-stars.integration.test.ts`. What this protects is the wiring: the
+ * right period reaches the right service, a reading surfaces the seeded data,
+ * and an explicit period wins over the default.
+ *
+ * The four anonymous `*.json` routes that used to be covered here are gone — the
+ * open API under `/api/v1/rankings/*` is the only way to read rankings now — so
+ * their cases left with them.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
@@ -267,93 +269,6 @@ describe.skipIf(!hasDatabase)("rankings webui (integration)", () => {
       expect(result.period).toBe("week")
       // What week that is depends on today, so only the shape is asserted.
       expect(result.week).toBeGreaterThanOrEqual(1)
-    })
-  })
-
-  describe("public endpoints", () => {
-    type WeekRoute = typeof import("@/app/api/rankings/week.json/route")
-    type MonthRoute = typeof import("@/app/api/rankings/month.json/route")
-    type RisingRoute =
-      typeof import("@/app/api/rankings/rising-stars.json/route")
-    let weekRoute: WeekRoute
-    let monthRoute: MonthRoute
-    let risingRoute: RisingRoute
-
-    async function call(
-      route: WeekRoute | MonthRoute | RisingRoute,
-      path: string
-    ): Promise<Response> {
-      return route.GET(new Request(`https://console.test/api/rankings/${path}`))
-    }
-
-    beforeAll(async () => {
-      weekRoute = await import("@/app/api/rankings/week.json/route")
-      monthRoute = await import("@/app/api/rankings/month.json/route")
-      risingRoute = await import("@/app/api/rankings/rising-stars.json/route")
-    })
-
-    it("serves week.json with an explicit period", async () => {
-      const repo = await seed()
-      await seedWeeks(repo.repo.id, 100, 50)
-
-      const response = await call(weekRoute, "week.json?year=2026&week=10")
-
-      expect(response.status).toBe(200)
-      const body = (await response.json()) as {
-        period: string
-        trending: { fullName: string }[]
-      }
-      expect(body.period).toBe("week")
-      expect(body.trending[0]?.fullName).toBe(repo.fullName)
-    })
-
-    it("serves month.json with an explicit period", async () => {
-      const repo = await seed()
-      await record(repo.repo.id, 2025, 12, 1000)
-      await record(repo.repo.id, 2026, 1, 1000)
-      await record(repo.repo.id, 2026, 2, 1010)
-
-      const response = await call(monthRoute, "month.json?year=2026&month=2")
-
-      expect(response.status).toBe(200)
-      const body = (await response.json()) as {
-        period: string
-        trending: { delta: number }[]
-      }
-      expect(body.period).toBe("month")
-      expect(body.trending[0]?.delta).toBe(10)
-    })
-
-    it("serves rising-stars.json for a seeded year", async () => {
-      const repo = await seed()
-      await recordYear(repo.repo.id, 2025, 0, 100)
-
-      const response = await call(risingRoute, "rising-stars.json?year=2025")
-
-      expect(response.status).toBe(200)
-      const body = (await response.json()) as { count: number }
-      expect(body.count).toBe(1)
-    })
-
-    it("returns 404 when the period has no data", async () => {
-      const response = await call(weekRoute, "week.json?year=2026&week=10")
-      expect(response.status).toBe(404)
-    })
-
-    it("returns 400 for a malformed period", async () => {
-      const response = await call(weekRoute, "week.json?week=54")
-      expect(response.status).toBe(400)
-      expect(await response.json()).toEqual({
-        error: "week must be an integer between 1 and 53",
-      })
-    })
-
-    it("returns 400 for a malformed year", async () => {
-      const response = await call(monthRoute, "month.json?year=twenty")
-      expect(response.status).toBe(400)
-      expect(await response.json()).toEqual({
-        error: "year must be four digits",
-      })
     })
   })
 })

@@ -4,23 +4,32 @@
  *
  * console owns the repository, project, ranking and skill-document tables and
  * the tasks that keep them current. This app owns the marketplace: listings,
- * authors, purchases, wallets. The two agree on three endpoints, all of which
- * authenticate with a static bearer rather than a user session, because all of
- * them are machine-to-machine:
+ * authors, purchases, wallets. The three endpoints below are all
+ * machine-to-machine:
  *
- *   POST /api/internal/repos        register a repository by URL
+ *   POST /api/v1/projects           create a project for a URL (publishes it)
  *   GET  /api/skills-sync/export    page through synced skill documents
  *   POST /api/cron/github           run the console scheduler on demand
  *
- * Every one of them fails closed on console's side: with no token configured
- * the route reports 404 rather than 401. That is why nothing here treats a 404
- * as an error worth surfacing to a user - an unconfigured console is a normal
- * single-app deployment, and `consoleApiConfigured()` is the call sites' way
- * to ask before they try.
+ * The first one replaced `POST /api/internal/repos`, which authenticated on a
+ * single site-wide `CONSOLE_API_TOKEN` and created a project as a side effect of
+ * registering a repository. That endpoint is gone: registering and publishing
+ * are now separate endpoints on separate scopes, so the credential this app
+ * holds says exactly what it may do.
  *
- * `GITHUB_NEXTJS_API_*` is the name console had before it was renamed, and it
- * is still accepted so an existing deployment keeps working. Prefer the
- * `CONSOLE_API_*` pair.
+ * `CONSOLE_API_KEY` is therefore required, and it must carry `projects:write` -
+ * an operator issues it on console's `/dashboard/api-keys`. It replaces
+ * `CONSOLE_API_TOKEN` / `GITHUB_NEXTJS_API_TOKEN`, which are no longer read by
+ * either app.
+ *
+ * The skills export and the cron trigger keep their own tokens, because those
+ * are separate credentials with separate blast radii: holding the export token
+ * must not let a caller drive the scheduler. `SKILLS_WEBHOOK_TOKEN` and
+ * `CRON_SECRET` stay distinct here for that reason.
+ *
+ * An unconfigured console is a normal single-app deployment, so
+ * `consoleApiConfigured()` is how call sites ask before they try rather than
+ * letting a 404 surface as a user-facing error.
  */
 
 import type { SkillWebhookData } from '@/lib/skills/ingest-console-skill'
@@ -61,8 +70,14 @@ export type ConsoleIngestResult = {
     failed?: number
     results?: Array<{ skillDir: string; pushed: boolean; summary: string }>
   } | null
-  /** Every stored skill reached this app's webhook. */
-  delivered?: boolean
+  /**
+   * Every stored skill reached this app's webhook.
+   *
+   * `null` means console has no `SKILLS_WEBHOOK_URL` configured, which is a
+   * deployment fact rather than a failed delivery - and `undefined` is the older
+   * endpoints' way of saying the same thing.
+   */
+  delivered?: boolean | null
   message?: string
 }
 
@@ -80,22 +95,21 @@ export type ConsoleSyncResult = {
 }
 
 export function consoleBaseUrl(): string {
-  const raw = (
-    process.env.CONSOLE_API_BASE_URL ||
-    // console was `github-nextjs` before it was renamed; keep old deployments working.
-    process.env.GITHUB_NEXTJS_API_BASE_URL ||
-    ''
-  ).trim()
+  const raw = (process.env.CONSOLE_API_BASE_URL || '').trim()
   return raw.replace(/\/$/, '')
 }
 
-/** Bearer for `POST /api/internal/repos` (console reads `CONSOLE_API_TOKEN`). */
+/**
+ * Bearer for `POST /api/v1/projects`.
+ *
+ * Issued on console and scoped `projects:write`; see the file header for why
+ * this app needs publishing rights and no more. The old `CONSOLE_API_TOKEN` /
+ * `GITHUB_NEXTJS_API_TOKEN` pair is deliberately not accepted as a fallback:
+ * those credentials belonged to the deleted endpoint, and silently keeping them
+ * working would leave the old blast radius in place.
+ */
 export function consoleApiToken(): string | undefined {
-  return (
-    process.env.CONSOLE_API_TOKEN?.trim() ||
-    process.env.GITHUB_NEXTJS_API_TOKEN?.trim() ||
-    undefined
-  )
+  return process.env.CONSOLE_API_KEY?.trim() || undefined
 }
 
 /**
@@ -114,7 +128,7 @@ export function consoleCronSecret(): string | undefined {
   return process.env.CRON_SECRET?.trim() || undefined
 }
 
-/** True when `POST /api/internal/repos` can be called at all. */
+/** True when `POST /api/v1/projects` can be called at all. */
 export function consoleApiConfigured(): boolean {
   return Boolean(consoleBaseUrl() && consoleApiToken())
 }
@@ -151,11 +165,25 @@ async function request(path: string, init: RequestInit, timeoutMs = REQUEST_TIME
   })
 }
 
+/**
+ * Pull a human-readable reason out of a console error.
+ *
+ * Two shapes have to be read: `/api/v1` answers `{ error: { code, message } }`,
+ * while the two endpoints it shares this file with still answer a flat
+ * `{ error: "..." }`. Whichever arrives, the message wins over the status text -
+ * `insufficient_scope` explains a 403 in a way `console returned 403` never will.
+ */
 async function readError(res: Response): Promise<string> {
   const body = await res.text().catch(() => '')
   try {
     const parsed = JSON.parse(body) as { error?: unknown }
     if (typeof parsed.error === 'string') return parsed.error
+    if (parsed.error && typeof parsed.error === 'object') {
+      const { message, detail } = parsed.error as { message?: unknown; detail?: unknown }
+      if (typeof message === 'string') {
+        return typeof detail === 'string' ? `${message} (${detail})` : message
+      }
+    }
   } catch {
     // Not JSON - fall through to the raw body.
   }
@@ -163,7 +191,7 @@ async function readError(res: Response): Promise<string> {
 }
 
 /**
- * Ask console to take over a repository, naming it by URL.
+ * Ask console to curate a repository into a project, naming it by URL.
  *
  * console holds the GitHub credentials and owns the repository, project and
  * skill-document tables, so a bare URL is all this app has to send. console
@@ -171,10 +199,11 @@ async function readError(res: Response): Promise<string> {
  * documents, then push them back through the webhook this app ingests — and
  * its `delivered` flag says whether the skill reached us before it answered.
  *
- * This replaces the older "push the `RepoInfo` we happen to hold" ingest: this
- * app never writes its own `repos` table outside the crawler, so most
- * repositories a creator names have no local row to push, and the ones that do
- * would only be re-sending data console is about to fetch anyway.
+ * This is `POST /api/v1/projects` rather than console's `POST /api/v1/repos`
+ * on purpose. Registering a repository and publishing a project are different
+ * scopes there, and a creator pasting their own repository needs the second one:
+ * the listing they just created points at a project, and without it there is
+ * nothing for the public site to show.
  *
  * Throws {@link ConsoleApiError}; callers on a user-facing path should catch,
  * because a console outage must not fail a creator's submission.
@@ -189,7 +218,7 @@ export async function ingestRepoByUrl(
   }
 
   const res = await request(
-    '/api/internal/repos',
+    '/api/v1/projects',
     {
       method: 'POST',
       headers: {

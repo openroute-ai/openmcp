@@ -12,12 +12,12 @@ title: "Console API"
 
 ## What this is
 
-The console is a service that continuously collects public repository data. It records the arrival time of every stargazer, and the judgements its rule set produces — the anomaly feed — plus the periodic rankings are the product surface. This section documents every endpoint that application serves: 21 routes across six kinds of caller.
+The console is a service that continuously collects public repository data. It records the arrival time of every stargazer, and the judgements its rule set produces — the anomaly feed — plus the periodic rankings are the product surface. This section documents every endpoint that application serves: 17 routes across six kinds of caller.
 
 | Caller               | Endpoints                               | Auth                                 | Page                                                      |
 | -------------------- | --------------------------------------- | ------------------------------------ | --------------------------------------------------------- |
-| Anyone               | 4 anonymous JSON endpoints              | none                                 | [Public JSON](./public-json)                              |
-| External collectors  | Repository ingest                       | `Bearer CONSOLE_API_TOKEN`           | [Ingest](./ingest)                                        |
+| Any key holder       | Repo profiles, range stats, rankings    | `Bearer <api-key>` (per-key scopes)  | "API reference" in the console's own docs                |
+| External collectors  | Repository registration, publishing     | `Bearer <api-key>` (per-key scopes)   | [Writes](./projects)                                      |
 | Schedulers           | Scheduled tasks, single-task trigger    | `Bearer CRON_SECRET`                 | [Scheduler](./scheduler)                                  |
 | The web app          | Skill pull, newsletter                  | `Bearer SKILLS_WEBHOOK_TOKEN` / none | [Skill export](./skills-sync), [Newsletter](./newsletter) |
 | Browsers             | Accounts, sessions, SMS and email codes | session cookie / one-time token      | [Authentication](./authentication), [Account](./account)  |
@@ -29,22 +29,20 @@ Every example below is relative to the console's own origin, https://vercelai.cn
 
 ```bash
 export CONSOLE_ORIGIN=https://vercelai.cn
-curl "$CONSOLE_ORIGIN/api/rankings/week.json"
+curl "$CONSOLE_ORIGIN/api/v1/rankings/weekly" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY"
 ```
 
-There is no CORS to handle with `curl`: these endpoints exist for machines, and they answer with `Content-Type: application/json` and no credential requirement.
+There is no CORS to handle with `curl`: these endpoints exist for machines, and they answer with `Content-Type: application/json`. Every one of them wants a credential — there is no anonymous bypass.
 
 ## Route index
 
-All 21 routes, ordered by path. 🔒 means a credential is required.
+All 17 routes, ordered by path. 🔒 means a credential is required.
 
 | Method         | Path                              | Auth                      | Purpose                                 |
 | -------------- | --------------------------------- | ------------------------- | --------------------------------------- |
-| `GET`          | `/api/anomalies.json`             | —                         | The public anomaly feed                 |
-| `GET`          | `/api/rankings/week.json`         | —                         | ISO weekly ranking                      |
-| `GET`          | `/api/rankings/month.json`        | —                         | Monthly ranking                         |
-| `GET`          | `/api/rankings/rising-stars.json` | —                         | The yearly rising-stars report          |
-| `POST`         | `/api/internal/repos`             | 🔒 `CONSOLE_API_TOKEN`    | Ingest repo data, or curate by URL      |
+| `POST`         | `/api/v1/repos`                   | 🔒 `repos:write`          | Register a repo; publishes nothing      |
+| `POST`         | `/api/v1/projects`                | 🔒 `projects:write`       | Curate a URL into a published project    |
 | `GET` / `POST` | `/api/cron/github`                | 🔒 `CRON_SECRET`          | The scheduler: run everything due       |
 | `POST`         | `/api/webhook/{task}`             | 🔒 `CRON_SECRET`          | Run one named task now                  |
 | `GET`          | `/api/skills-sync/export`         | 🔒 `SKILLS_WEBHOOK_TOKEN` | Page through undelivered skills         |
@@ -64,15 +62,24 @@ All 21 routes, ordered by path. 🔒 means a credential is required.
 
 ## Three shapes of authentication
 
-There is no unified API-key mechanism. There are three unrelated paths, and which one applies depends on who is calling.
+There is no single authentication mechanism. There are four unrelated paths, and which one applies depends on who is calling.
+
+### Scoped API keys
+
+This is the path `/api/v1/*` takes. `Authorization: Bearer <api-key>`, where the key lives in the `api_keys` table and is **looked up by hash** rather than compared against an environment variable. What it buys over a shared secret is three things a shared secret structurally cannot do:
+
+- **Revoked on its own.** Delete the row and that integration stops working, without rotating a site-wide variable and restarting.
+- **Scoped.** `repos:write` and `projects:write` are different keys. `projects:write` means "put any repository on the public site", so it is deliberately in no self-service grant: only an admin can hand it out, explicitly, through `apiKeys.create`.
+- **Attributed.** The key's own `submitter_id` is recorded as who submitted the write. The caller never has to name itself in the body, and is not believed if it does.
+
+Rate limits are configured per key (`rpm` / `rpd`) because they protect the downstream: reading a ranking is cheap, while `POST /api/v1/repos` triggers a GitHub fetch. Their safe ceilings differ by an order of magnitude.
 
 ### Shared secrets
 
-`Authorization: Bearer <secret>`, compared in constant time. This is the entire mechanism behind the ingest, the scheduler and the skill export. Each has its own secret:
+`Authorization: Bearer <secret>`, compared in constant time. The scheduler and the skill export use this. Each has its own secret:
 
 | Variable                     | Guards                                                  | When unset        |
 | ---------------------------- | ------------------------------------------------------- | ----------------- |
-| `CONSOLE_API_TOKEN`          | `POST /api/internal/repos`                              | Returns **404**   |
 | `CRON_SECRET`                | `GET/POST /api/cron/github`, `POST /api/webhook/{task}` | Returns **404**   |
 | `SKILLS_WEBHOOK_TOKEN`       | `GET /api/skills-sync/export`                           | Returns **404**   |
 | `GITHUB_DATA_WEBHOOK_SECRET` | Signing outbound skill webhooks                         | Nothing is pushed |
@@ -85,7 +92,7 @@ There is no unified API-key mechanism. There are three unrelated paths, and whic
   configuration.
 </Callout>
 
-These secrets do not expire, carry no scopes, and cannot be revoked individually: rotation means changing the environment variable and restarting. That is acceptable because every one of these endpoints is machine-to-machine, and the holder of the secret is by definition a trusted internal system — a scope layer there would complicate operations without adding a boundary.
+These secrets do not expire, carry no scopes, and cannot be revoked individually: rotation means changing the environment variable and restarting. Both of these endpoints are fixed machine-to-machine internal integrations — the scheduler and the skill export — and the holder of the secret is by definition a trusted internal system. A per-key scope layer there would complicate operations without adding a boundary; a write endpoint that genuinely needs per-caller permissions takes the scoped API key above instead.
 
 ### Session cookies
 
@@ -100,15 +107,13 @@ The SMS paths use neither a session nor a shared secret:
 
 ## Error format
 
-Outside the anonymous JSON endpoints, every error body is `{"error": "<machine_code>"}`. `error` is a stable machine code; `message`, where it appears, is human-facing copy and can change at any time. **Branch on `error`, never on the text of `message`.**
-
-The 400s from the anonymous JSON endpoints are also `{"error": "<prose>"}`, but there the string is English prose with no stable code — those four endpoints have no business errors, only parameter errors.
+The error shape depends on the auth layer. `/api/v1/*` returns `{"error": {"code", "message", "detail"?}}`; everything else returns `{"error": "<machine_code>"}`. The stable machine code in either shape (`error.code` / `error` itself) is the **only** thing to branch on — `message` and `detail` are human-facing copy and can change at any time. **Branch on the code, never on the text.**
 
 ## Versioning and compatibility
 
-There is no version prefix. The `.json` suffix on `/api/rankings/week.json` is there so that opening the URL in a browser yields JSON; it is not content negotiation and implies no version.
+There is no version prefix. Every machine-to-machine read lives under `/api/v1/*`, and there is no anonymous JSON endpoint outside it.
 
-Exactly one stability promise exists, and it covers only the anonymous JSON endpoints: **fields are added, never removed or repurposed.** A new field is not a breaking change, so callers must ignore fields they do not recognise. The ingest, scheduler and skill-export response shapes carry **no** such promise — they serve specific internal callers who change together.
+Exactly one stability promise exists: **fields are added, never removed or repurposed.** A new field is not a breaking change, so callers must ignore fields they do not recognise. The scheduler and skill-export response shapes carry **no** such promise — they serve specific integrations that change together.
 
 ## Machine-readable entry points
 

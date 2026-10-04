@@ -1,0 +1,192 @@
+---
+title: "Write API"
+---
+
+{/* markdownlint-disable MD041 */}
+
+`/api/v1/repos` and `/api/v1/projects` are the console's only two machine-to-machine write endpoints. Both authenticate with an **API key** held in the `api_keys` table, scoped per key: each one can be revoked on its own, and each one can be granted exactly the permissions it needs.
+
+## Two endpoints, two scopes
+
+| Endpoint                 | Scope            | Writes                                     | Public site sees it |
+| ------------------------ | ---------------- | ------------------------------------------ | ------------------- |
+| `POST /api/v1/repos`     | `repos:write`    | `repos`, `user_repos`                      | No                  |
+| `POST /api/v1/projects` | `projects:write` | `projects`, README, skill documents        | **Yes**             |
+
+That line is not a naming preference. Creating a row in `projects` *is* publishing: the public read path looks at nothing else. A key that should only register repositories but can also call `POST /api/v1/projects` has the power to push any repository onto the public site. So the two are separate scopes, and an admin decides per key which one it gets.
+
+<Callout type="warn">
+  `projects:write` is deliberately **not** in any self-service grant. Publishing is an operational action, not something a user does to their own data, so only an admin can hand it out, explicitly, through `apiKeys.create`.
+</Callout>
+
+## Authentication
+
+```
+Authorization: Bearer <api-key>
+```
+
+Responses carry the rate-limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`).
+
+| Status  | `error`         | Condition                                                        |
+| ------- | --------------- | ---------------------------------------------------------------- |
+| `401`   | `unauthorized`  | Missing, malformed or unrecognised key                           |
+| `403`   | `forbidden`     | The key is valid but lacks the scope this endpoint requires      |
+
+A key's own `submitter_id` is recorded as the attribution for the write, so a caller never has to — and is never believed to — name itself in the body.
+
+## `POST /api/v1/repos`
+
+**Registers a repository so radar starts tracking it. It publishes nothing.**
+
+Accepts two body shapes, **discriminated by shape** rather than by a tag.
+
+### Body form one: `RepoInfo`
+
+A complete repository object, the same shape the console gets from its own `fetchRepoInfo`. This is for an external collector that already holds GitHub data: it pushes that, and the console does not have to call the GitHub API again.
+
+The body is `strict`: one undeclared field returns `400`. That is not pedantry, it turns "I thought I pushed this field" into a loud failure instead of a silent loss.
+
+| Field                       | Type           | Required | Meaning                                            |
+| --------------------------- | -------------- | -------- | -------------------------------------------------- |
+| `name`                      | string         | ✅       | Repository name                                    |
+| `fullName`                  | string         | ✅       | `owner/name`                                       |
+| `owner`                     | string         | ✅       | Owner name                                         |
+| `ownerId`                   | number         | ✅       | Owner's numeric id, an integer                     |
+| `createdAt`                 | string         | ✅       | ISO 8601                                           |
+| `pushedAt`                  | string         | ✅       | ISO 8601                                           |
+| `lastCommit`                | string         | ✅       | ISO 8601                                           |
+| `description`               | string         |          | Defaults to `""`                                   |
+| `homepage`                  | string         |          | Defaults to `""`                                   |
+| `defaultBranch`             | string         |          | Defaults to `""`                                   |
+| `stars`                     | number         |          | Defaults to `0`, non-negative                      |
+| `topics`                    | string[]       |          | Defaults to `[]`                                   |
+| `archived`                  | boolean        |          | Defaults to `false`                                |
+| `commitCount`               | number         |          | Defaults to `0`, non-negative                      |
+| `mentionableUsersCount`     | number         |          | Defaults to `0`, non-negative                      |
+| `watchersCount`             | number         |          | Defaults to `0`, non-negative                      |
+| `licenseSpdxId`             | string         |          | Defaults to `""`                                   |
+| `pullRequestsCount`         | number         |          | Defaults to `0`, non-negative                      |
+| `openIssuesCount`           | number         |          | Defaults to `0`, non-negative                      |
+| `releasesCount`             | number         |          | Defaults to `0`, non-negative                      |
+| `languages`                 | string[]       |          | Defaults to `[]`                                   |
+| `forks`                     | number         |          | Defaults to `0`, non-negative                      |
+| `openGraphImageUrl`         | string         |          | Defaults to `""`                                   |
+| `usesCustomOpenGraphImage`  | boolean        |          | Defaults to `false`                                |
+| `latestReleaseName`         | string         |          | Defaults to `""`                                   |
+| `latestReleaseTagName`      | string         |          | Defaults to `""`                                   |
+| `latestReleasePublishedAt`  | string \| null |          | `null` or absent if never published                |
+| `latestReleaseUrl`          | string         |          | Defaults to `""`                                   |
+| `latestReleaseDescription`  | string         |          | Defaults to `""`                                   |
+
+<Callout type="warn">
+  An ISO 8601 string must actually parse as a date. This deliberately does
+  **not** use `z.coerce.date()`: it accepts `null` (read as epoch) and numeric
+  strings, both of which would quietly store a wrong date.
+</Callout>
+
+The write is an **upsert**: a new repository inserts a row, and a known one gets a **partial update** that leaves the fields other tasks own — the README, its translation, the icon, the OSS image URLs — untouched.
+
+### Body form two: `{ url }`
+
+For a caller holding no GitHub data, only a repository URL. The console goes and fetches it.
+
+| Field  | Type   | Required | Meaning            |
+| ------ | ------ | -------- | ------------------ |
+| `url`  | string | ✅       | A GitHub repository URL |
+
+<Callout type="warn">
+  This endpoint does **not** accept `type`. A body carrying one returns
+  `400 type_not_accepted` and points at `POST /api/v1/projects`.
+</Callout>
+
+  Accepting a type field on a *registration* endpoint would turn "and it published as a side effect" back into the default — which is exactly what `POST /api/internal/repos` was split up to stop. For a project, use the other endpoint.
+
+A repository that already exists is not re-fetched: the console looks it up once by `owner/name` and reuses the stored row, saving a GraphQL request.
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "repo": { "id": "…", "full_name": "owner/repo", "stars": 12345 },
+  "created": true,
+  "projectCount": 0
+}
+```
+
+| Field          | Meaning                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `created`      | `true` if a row was inserted, `false` if a known one was refreshed — the same thing the `201` / `200` status distinguishes                         |
+| `projectCount` | How many projects already point at this repository. **This endpoint creates none**, so it is non-zero only when the repository was curated before — which is how you tell "I registered something new" from "my `type` was silently dropped" |
+
+**Errors**
+
+| Status | `error`             | Condition                                                                |
+| ------ | ------------------- | ------------------------------------------------------------------------ |
+| `400`  | `invalid_body`      | Body is not valid JSON, or matches neither `RepoInfo` nor `{ url }`      |
+| `400`  | `type_not_accepted` | Body carried a `type`                                                    |
+| `400`  | `invalid_url`       | `url` is not a GitHub repository URL                                     |
+| `502`  | `create_failed`     | Fetching or storing the repository failed                                |
+| `503`  | `github_unavailable` | The server has no GitHub token. That is an operator misconfiguration, not a bad request |
+
+The `detail` on `400 invalid_body` names the **first offending field**. `RepoInfo` is the stricter of the two shapes, so it reports the field the caller actually got wrong rather than a misleading `url: required`.
+
+## `POST /api/v1/projects`
+
+**Curates a repository into a project — that is, publishes it.**
+
+Idempotent: deduped by repository. A URL that was already curated returns the existing project with `status: "existing"` and never creates a second row.
+
+| Field  | Type   | Required | Meaning                                                                    |
+| ------ | ------ | -------- | -------------------------------------------------------------------------- |
+| `url`  | string | ✅       | A GitHub repository URL                                                    |
+| `type` | enum   |          | `application`, `skill`, `client`, `server`, `persona`. Defaults to `application` |
+
+<Callout>
+  This form **waits**: the fetch, the translation, the skill sync and the webhook
+  push are all inside it. The function is declared for the 300-second ceiling,
+  and a large repository can take a while. The caller is usually waiting on a
+  person, so this work cannot be left to the next scheduled sweep.
+</Callout>
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "status": "created",
+  "repo": { "full_name": "owner/repo" },
+  "project": { "…": "Project row" },
+  "readme": { "…": "README row" },
+  "skills": { "count": 3, "translated": 2, "empty": false },
+  "authorLinked": true,
+  "delivered": true,
+  "delivery": { "found": 3, "pushed": 3, "failed": 0 }
+}
+```
+
+| Field         | Meaning                                                                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`      | `created` (`201`) or `existing` (`200`)                                                                                                           |
+| `delivered`   | **The only flag a caller needs**: every stored skill reached the web service, so the skill it asked for is available there. `null` means no downstream is configured, which is not a failure of this call |
+| `skills`      | How many skill documents this call synced, and how many were translated                                                                            |
+| `delivery`    | The push breakdown. Absent entirely when no downstream is configured                                                                               |
+
+With `type: "skill"` and `status: "existing"` the endpoint runs the skill sync **again**. This is the one case where it runs twice: the project-creation function returns early for a project it already made and does not re-sync, but a caller that asked for the skill *now* would otherwise be handed `existing` and then sit waiting for the scheduler. The repeat is idempotent.
+
+`delivered` only has a value when `type === "skill"`. No other type has skill documents to deliver, so no delivery is attempted — and the response does not hand back a `true` about zero skills that the caller could have no way to interpret.
+
+**Errors**
+
+| Status | `error`              | Condition                                                                |
+| ------ | -------------------- | ------------------------------------------------------------------------ |
+| `400`  | `invalid_body`       | Body is not valid JSON, or does not match `{ url, type? }`                |
+| `400`  | `invalid_url`        | `url` is not a GitHub repository URL                                     |
+| `502`  | `create_failed`      | Curation failed                                                          |
+| `503`  | `github_unavailable` | The server has no GitHub token. That is an operator misconfiguration, not a bad request |
+
+**Outbound webhook**: when `type: "skill"`, a completed call pushes every skill of the project to `SKILLS_WEBHOOK_URL` with `Authorization: Bearer $SKILLS_WEBHOOK_TOKEN` and a body signed with `GITHUB_DATA_WEBHOOK_SECRET`. A rejected delivery is recorded on the row for the retry queue to pick up rather than being dropped here.
+
+## Removed endpoint
+
+`POST /api/internal/repos` is gone. It authenticated on a site-wide shared `CONSOLE_API_TOKEN` (no scopes, no attribution, not revocable) and called `createProjectFromRepo` from its URL branch, so every caller published on its behalf. Split by shape onto the two endpoints above: send a `RepoInfo`, or only want registration, to `/api/v1/repos`; to publish, use `/api/v1/projects`.

@@ -105,7 +105,7 @@ if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) reject()
 
 签名同时覆盖时间戳，**这才是签名而不是校验和**：一小时后重放一个抓到的请求会算出不同的 HMAC 并被拒，所以一份泄漏的请求日志不是一份长期有效的凭据。同时校验时间戳与当前时间的差（比如不超过 5 分钟）可以再加一层。
 
-**投递失败**会记在技能行上，由调度任务的重试队列接手。`POST /api/internal/repos` 的 URL 形式会在响应里给出 `delivered`，含义是「这个项目所有已存技能都到达了 Web 服务」。
+**投递失败**会记在技能行上，由调度任务的重试队列接手。`POST /api/v1/projects` 在 `type: "skill"` 时会在响应里给出 `delivered`，含义是「这个项目所有已存技能都到达了 Web 服务」。
 
 <Callout>
   两条路径的 payload 结构完全一致：拉取到的 `skills[]`
