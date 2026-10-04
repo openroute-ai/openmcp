@@ -29,6 +29,7 @@ import {
   IconUsers,
   IconUsersGroup,
   IconDeviceDesktop,
+  IconKey,
   IconSettings,
 } from "@tabler/icons-react"
 
@@ -105,6 +106,16 @@ const navMain: NavMainItem[] = [
     key: "sessions",
     url: "/dashboard/sessions",
     icon: <IconDeviceDesktop />,
+    group: "groupManagement",
+  },
+  // Beside sessions rather than after users: both are per-account records, and
+  // this is the page an operator opens when someone reports "my key stopped
+  // working" or "I never got a key" — which is a lookup, so it belongs with the
+  // other "look something up by account" page.
+  {
+    key: "apiKeys",
+    url: "/dashboard/api-keys",
+    icon: <IconKey />,
     group: "groupManagement",
   },
   // Last, because it is about the reader rather than about anyone else: the

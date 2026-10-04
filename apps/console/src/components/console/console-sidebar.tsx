@@ -18,6 +18,7 @@ import {
 import {
   IconCode,
   IconInnerShadowTop,
+  IconKey,
   IconScale,
   IconSettings,
 } from "@tabler/icons-react"
@@ -28,6 +29,10 @@ import {
 const navMain: NavMainItem[] = [
   { key: "repos", url: "/console", icon: <IconCode /> },
   { key: "decisions", url: "/console/decisions", icon: <IconScale /> },
+  // After repos rather than after decisions, because a key's main use is
+  // submitting repositories, and the four entries above are all "things you
+  // made" while this is "the credential you use to make more of them".
+  { key: "apiKeys", url: "/console/api-keys", icon: <IconKey /> },
   // Also in the account menu at the foot of the sidebar. Here as well because
   // it is per-account data like the other two, and that is what this list holds.
   { key: "settings", url: "/settings", icon: <IconSettings /> },
