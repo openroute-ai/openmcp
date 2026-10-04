@@ -18,6 +18,7 @@ import {
   isApiScope,
   readApiKeyPrefix,
   type ApiScope,
+  type ApiTier,
 } from "@/lib/api/scopes"
 import {
   setApiRateLimiterForTests,
@@ -91,6 +92,8 @@ afterEach(() => {
 type Row = {
   id: string
   scopes: ApiScope[]
+  userId: string | null
+  tier: ApiTier
   submitterId: string | null
   rateLimitRpm: number
   rateLimitRpd: number
@@ -102,6 +105,8 @@ function activeRow(overrides: Partial<Row> = {}): Row {
   return {
     id: "key-1",
     scopes: [...API_SCOPES],
+    userId: null,
+    tier: "service",
     submitterId: "user-7",
     rateLimitRpm: 60,
     rateLimitRpd: 5000,

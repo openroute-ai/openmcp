@@ -14,9 +14,13 @@ import {
 import * as githubSchema from "./schema/github"
 import { repos } from "./schema/github"
 import { apiKeys } from "./schema/api-keys"
+import { apiRequestAudit } from "./schema/api-request-audit"
+import { subscriptions } from "./schema/subscriptions"
 
 export * from "./schema/github"
 export * from "./schema/api-keys"
+export * from "./schema/api-request-audit"
+export * from "./schema/subscriptions"
 
 /**
  * `repos` and the `*Stats` tables exist in both the shared schema and console's
@@ -343,10 +347,19 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   repos: many(userRepos),
-  // 与 `apiKeyRelations` 的两个 `one` 分别配对；一条用户行既是签发者也可能
-  // 是提交者，所以两边都是 many。
+  // 与 `apiKeyRelations` 的三个 `one` 分别配对。一条用户行可能同时是主人、
+  // 签发者和提交者，所以三个方向都是 many。
+  ownedApiKeys: many(apiKeys, { relationName: "apiKeysOwner" }),
   issuedApiKeys: many(apiKeys, { relationName: "apiKeysCreatedBy" }),
   submittedAsApiKeys: many(apiKeys, { relationName: "apiKeysSubmitter" }),
+  // 审计行按 `user_id` 关联，但**没有**外键：`ON DELETE CASCADE` 的对价。
+  apiAuditEntries: many(apiRequestAudit, {
+    relationName: "apiRequestAuditOwner",
+  }),
+  // console 用户自己创建的订阅。key 创建的那些走 `apiKeyRelations`。
+  subscriptions: many(subscriptions, {
+    relationName: "subscriptionUser",
+  }),
 }))
 
 export const sessionRelations = relations(session, ({ one }) => ({

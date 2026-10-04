@@ -13,6 +13,7 @@ import { createClassifyProjectsTask } from "@/lib/tasks/tasks/classify-projects"
 import { createDetectAnomaliesTask } from "@/lib/tasks/tasks/detect-anomalies"
 import { createDiscoverSkillReposTask } from "@/lib/tasks/tasks/discover-skill-repos"
 import { createNotifyDailyTask } from "@/lib/tasks/tasks/notify-daily"
+import { createNotifySubscriptionsTask } from "@/lib/tasks/tasks/notify-subscriptions"
 import { createPushSkillsTask } from "@/lib/tasks/tasks/push-skills"
 import { createRefreshAuthorsTask } from "@/lib/tasks/tasks/refresh-authors"
 import { createSnapshotStarsTask } from "@/lib/tasks/tasks/snapshot-stars"
@@ -58,6 +59,9 @@ export function installTaskRegistry(): Map<string, Task> {
     createNotifyDailyTask(),
     createTriggerRankingsFinishedTask("week"),
     createTriggerRankingsFinishedTask("month"),
+    // 订阅投递排在两个排行任务之后：`TASK_SEEDS` 的顺序即依赖顺序，而需求要求
+    // 「排行全部落库之后再推」，否则接收方拿到的是缺周期的榜单（设计文档 §6.3）。
+    createNotifySubscriptionsTask(),
     createSyncSkillReposTask(),
     createDiscoverSkillReposTask(),
     createBuildRisingStarsTask(),

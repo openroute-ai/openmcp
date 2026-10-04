@@ -121,6 +121,17 @@ export const TASK_SEEDS: TaskSeed[] = [
     isMonthly: true,
   },
   {
+    // 排在两个排行任务之后，也就是这个列表里**最后**播种的那个。09:30 晚于周排行的
+    // 08:00 与月排行的 03:00，所以「排行落库之后再推」在调度上也成立，而不只是
+    // 数组顺序。订阅自己的 cadence 在投递时各自读对应那张表，所以一天跑一次就够：
+    // 周订阅读到的是最新已存的一周，而不是等到「周一 09:30」才触发（§6.3）。
+    name: "notify-subscriptions",
+    description: "Deliver queued subscription webhooks and retry failed deliveries",
+    cronExpression: "30 9 * * *",
+    taskType: "daily",
+    isDaily: true,
+  },
+  {
     name: "sync-skill-repos",
     description: "Fetch and translate every skill project's SKILL.md files",
     cronExpression: "0 10 * * *",

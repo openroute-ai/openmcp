@@ -28,6 +28,18 @@ export const SIGNATURE_SECRET_HEADER = "x-webhook-signature"
 /** Header carrying the plain token, for receivers that predate signing. */
 export const TOKEN_HEADER = "authorization"
 
+/**
+ * Header carrying the idempotency key (design doc §3.5).
+ *
+ * Unchanged across retries of one delivery, which is the whole point: a receiver
+ * dedupes on it, so a value that changed per attempt would turn every retry
+ * into a duplicate row.
+ */
+export const ID_HEADER = "x-webhook-id"
+
+/** Header carrying the event name, so a receiver can route without parsing the body. */
+export const EVENT_HEADER = "x-webhook-event"
+
 export interface WebhookResult {
   url: string
   success: boolean
@@ -49,6 +61,13 @@ export interface SendOptions {
   fetchImpl?: typeof fetch
   /** Injected so a replay window can be tested without waiting. */
   now?: () => Date
+  /**
+   * {@link ID_HEADER}. Retries must reuse the value, so it belongs to the
+   * caller's payload rather than being derived here.
+   */
+  eventId?: string
+  /** {@link EVENT_HEADER}. */
+  event?: string
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -156,6 +175,8 @@ export async function sendWebhook(
     timeoutMs = DEFAULT_TIMEOUT_MS,
     fetchImpl = fetch,
     now = () => new Date(),
+    eventId,
+    event,
   } = options
 
   const body = JSON.stringify(payload)
@@ -172,6 +193,15 @@ export async function sendWebhook(
       }
       if (token) {
         headers[TOKEN_HEADER] = `Bearer ${token}`
+      }
+      // Added after the signing headers on purpose: these two cannot invalidate
+      // the signature, whereas letting a caller overwrite `x-webhook-signature`
+      // would let it ship an unsigned or wrongly-signed body.
+      if (eventId) {
+        headers[ID_HEADER] = eventId
+      }
+      if (event) {
+        headers[EVENT_HEADER] = event
       }
 
       const response = await fetchImpl(url, {

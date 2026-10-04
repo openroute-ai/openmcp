@@ -10,7 +10,15 @@
  * branch logic, and a fake `lookup` would let any of them regress silently.
  */
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 import { db, pool } from "@/db/client"
 import { apiKeys } from "@/db/schema/api-keys"
 import { user } from "@/db/schema"
@@ -88,6 +96,20 @@ async function authenticate(token: string, scope?: ApiScope) {
   return authenticateApiKey(request(token), { scope })
 }
 
+/**
+ * A no-owner, service-tier create input.
+ *
+ * `create` now requires `userId` and `tier` explicitly rather than defaulting
+ * them, and that is deliberate: an admin form should have to state which of the
+ * two it is doing. These tests are all about the *unowned* case, so they state it
+ * here once instead of at twenty call sites -- and a reader who finds this
+ * helper immediately sees that the assertions below are about service keys, not
+ * user keys. The user-key path has its own `describe` block.
+ */
+function serviceKey(name: string, scopes: ApiScope[] = ["repos:read"]) {
+  return { name, scopes, userId: null, tier: "service" as const }
+}
+
 describe.skipIf(!hasDatabase)("api keys (integration)", () => {
   const caller = createCaller(fakeAdminContext(db))
 
@@ -123,10 +145,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
   describe("create", () => {
     it("returns a plaintext exactly once and stores only its hash", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "integration",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("integration"))
 
       expect(issued.secret.startsWith(API_KEY_PLAINTEXT_PREFIX)).toBe(true)
 
@@ -143,14 +162,8 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("gives two keys different plaintexts and different prefixes", async () => {
-      const first = await caller.apiKeys.create({
-        name: "a",
-        scopes: ["repos:read"],
-      })
-      const second = await caller.apiKeys.create({
-        name: "b",
-        scopes: ["repos:read"],
-      })
+      const first = await caller.apiKeys.create(serviceKey("a"))
+      const second = await caller.apiKeys.create(serviceKey("b"))
 
       expect(first.secret).not.toBe(second.secret)
       expect(first.prefix).not.toBe(second.prefix)
@@ -159,8 +172,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     it("rejects a submitter that is not an account", async () => {
       await expect(
         caller.apiKeys.create({
-          name: "bad submitter",
-          scopes: ["repos:read"],
+          ...serviceKey("bad submitter"),
           submitterId: "no-such-user",
         })
       ).rejects.toThrow(/no-such-user/)
@@ -168,25 +180,18 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
     it("refuses a non-admin", async () => {
       const asUser = createCaller(fakeUserContext(db))
-      await expect(
-        asUser.apiKeys.create({ name: "x", scopes: ["repos:read"] })
-      ).rejects.toThrow()
+      await expect(asUser.apiKeys.create(serviceKey("x"))).rejects.toThrow()
     })
 
     it("refuses an anonymous caller", async () => {
       const asNobody = createCaller(fakeAnonymousContext(db))
-      await expect(
-        asNobody.apiKeys.create({ name: "x", scopes: ["repos:read"] })
-      ).rejects.toThrow()
+      await expect(asNobody.apiKeys.create(serviceKey("x"))).rejects.toThrow()
     })
   })
 
   describe("authenticate with a real key", () => {
     it("accepts the plaintext it returned", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "usable",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("usable"))
 
       const result = await authenticate(issued.secret, "repos:read")
 
@@ -197,7 +202,9 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("does not answer for an unknown plaintext", async () => {
-      const result = await authenticate(`${API_KEY_PLAINTEXT_PREFIX}zzzz_unknown`)
+      const result = await authenticate(
+        `${API_KEY_PLAINTEXT_PREFIX}zzzz_unknown`
+      )
 
       expect(result.ok).toBe(false)
       if (result.ok) return
@@ -205,10 +212,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("does not answer for a plaintext that differs in one character", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "near miss",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("near miss"))
       const tampered = `${issued.secret.slice(0, -1)}${
         issued.secret.endsWith("a") ? "b" : "a"
       }`
@@ -219,10 +223,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("honours a scope the key does not hold", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "read only",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("read only"))
 
       const result = await authenticate(issued.secret, "repos:write")
 
@@ -233,8 +234,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
     it("refuses an expired key", async () => {
       const issued = await caller.apiKeys.create({
-        name: "already expired",
-        scopes: ["repos:read"],
+        ...serviceKey("already expired"),
         expiresAt: new Date(Date.now() - 1000),
       })
 
@@ -247,8 +247,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
     it("accepts a key whose expiry is in the future", async () => {
       const issued = await caller.apiKeys.create({
-        name: "not yet expired",
-        scopes: ["repos:read"],
+        ...serviceKey("not yet expired"),
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       })
 
@@ -257,10 +256,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("stops authenticating the moment it is revoked", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "to revoke",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("to revoke"))
       expect((await authenticate(issued.secret)).ok).toBe(true)
 
       await caller.apiKeys.revoke({ id: issued.id, reason: "test" })
@@ -274,10 +270,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("keeps the first revocation reason when revoked twice", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "double revoke",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("double revoke"))
 
       await caller.apiKeys.revoke({ id: issued.id, reason: "first" })
       await caller.apiKeys.revoke({ id: issued.id, reason: "second" })
@@ -293,8 +286,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     it("records the submitter for later attribution", async () => {
       // The submitter is `user-1`, which is the id `fakeAdminContext` carries.
       const issued = await caller.apiKeys.create({
-        name: "with submitter",
-        scopes: ["repos:write"],
+        ...serviceKey("with submitter", ["repos:write"]),
         submitterId: "user-1",
       })
 
@@ -308,10 +300,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
   describe("rotate", () => {
     it("kills the old plaintext and hands back a working new one", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "to rotate",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("to rotate"))
 
       const rotation = await caller.apiKeys.rotate({ id: issued.id })
 
@@ -328,10 +317,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("records the old key's revocation reason as `rotated`", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "rotation reason",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("rotation reason"))
       await caller.apiKeys.rotate({ id: issued.id })
 
       const [row] = await db
@@ -343,11 +329,10 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("refuses to rotate an already-revoked key", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "rotate after revoke",
-        scopes: ["repos:read"],
-      })
-      await caller.apiKeys.revoke({ id: issued.id })
+      const issued = await caller.apiKeys.create(
+        serviceKey("rotate after revoke")
+      )
+      await caller.apiKeys.revoke({ id: issued.id, reason: "test" })
 
       await expect(caller.apiKeys.rotate({ id: issued.id })).rejects.toThrow(
         /already revoked/
@@ -363,15 +348,9 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
 
   describe("list", () => {
     it("hides revoked keys by default", async () => {
-      const live = await caller.apiKeys.create({
-        name: "live",
-        scopes: ["repos:read"],
-      })
-      const dead = await caller.apiKeys.create({
-        name: "dead",
-        scopes: ["repos:read"],
-      })
-      await caller.apiKeys.revoke({ id: dead.id })
+      const live = await caller.apiKeys.create(serviceKey("live"))
+      const dead = await caller.apiKeys.create(serviceKey("dead"))
+      await caller.apiKeys.revoke({ id: dead.id, reason: "test" })
 
       const rows = await caller.apiKeys.list({ onlyActive: true })
 
@@ -380,10 +359,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("shows revoked keys when asked, since that is the question an operator has", async () => {
-      const dead = await caller.apiKeys.create({
-        name: "gone",
-        scopes: ["repos:read"],
-      })
+      const dead = await caller.apiKeys.create(serviceKey("gone"))
       await caller.apiKeys.revoke({ id: dead.id, reason: "leaked" })
 
       const rows = await caller.apiKeys.list({ onlyActive: false })
@@ -394,10 +370,7 @@ describe.skipIf(!hasDatabase)("api keys (integration)", () => {
     })
 
     it("never returns anything that could reconstruct the key", async () => {
-      const issued = await caller.apiKeys.create({
-        name: "listed",
-        scopes: ["repos:read"],
-      })
+      const issued = await caller.apiKeys.create(serviceKey("listed"))
 
       const rows = await caller.apiKeys.list({ onlyActive: false })
       const serialised = JSON.stringify(rows)

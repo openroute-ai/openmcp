@@ -1,6 +1,7 @@
 import {
   account,
   apiKeys,
+  apiRequestAudit,
   bundles,
   capabilities,
   categories,
@@ -32,11 +33,13 @@ import {
    * 详见 `schema/github.ts` 里 `snapshots` 的注释。
    */
   snapshots,
+  subscriptions,
   tags,
   taskDefinitions,
   taskExecutions,
   taskStatus,
   user,
+  webhookDeliveries,
   userRepos,
   verification,
 } from "./schema"
@@ -62,8 +65,24 @@ import {
 /** better-auth core + the `phoneNumber` plugin's identity columns. */
 export { account, session, user, verification }
 
-/** 开放 API 的调用凭据；见 `src/db/schema/api-keys.ts`。 */
-export { apiKeys }
+/**
+ * 开放 API 的调用凭据与它的审计日志；见 `src/db/schema/api-keys.ts` 与
+ * `src/db/schema/api-request-audit.ts`。
+ *
+ * 两张表具名导出而不是 `export *`，理由是这个文件顶上那段说的：不具名的话
+ * drizzle-kit 不会知道要管它们，而 `push` 会提出把一张只在 TypeScript 里存在的
+ * 表删掉。
+ */
+export { apiKeys, apiRequestAudit }
+
+/**
+ * 订阅与投递队列（设计文档 §6.1）。
+ *
+ * 同样单独具名：`subscriptions` 同时引用 `api_keys` 与 `user`，`webhook_deliveries`
+ * 引用 `subscriptions`，两张都属于"跨了两个域"的那一组，理由与下面 `userRepos` 相同。
+ * `subscriptions` 里那条 CHECK（归属恰好一个非空）也由 drizzle-kit 从这里读到。
+ */
+export { subscriptions, webhookDeliveries }
 
 /**
  * 谁提交了哪个仓库。

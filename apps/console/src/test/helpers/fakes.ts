@@ -99,6 +99,40 @@ export function fakeTRPCContext(
   } as unknown as TRPCContext
 }
 
+/**
+ * A context for a *specific* account, for the ownership tests.
+ *
+ * The self-service procedures are all about "is this key mine": `revokeMine`,
+ * `rotateMine` and `surrender` each take a `keyId` and must refuse one belonging
+ * to somebody else. That assertion is only meaningful if the caller's id and the
+ * key's owner differ, and `fakeUserContext` hard-codes `user-1` — so without this
+ * a test written with it could only ever prove "I can revoke my own key", and
+ * the negative case would have no way to exist.
+ *
+ * `emailVerified` defaults to true so a test only has to state it when it is
+ * asserting the unverified refusal, which is the rarer intent of the two.
+ */
+export function fakeAccountContext(
+  db: unknown,
+  userId: string,
+  overrides: { role?: string | null; emailVerified?: boolean } = {}
+): TRPCContext {
+  return fakeTRPCContext(db, overrides.role ?? "user", {
+    session: {
+      id: "session-1",
+      user: {
+        id: userId,
+        name: `Test ${userId}`,
+        email: `${userId}@example.com`,
+        emailVerified: overrides.emailVerified ?? true,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+        role: overrides.role ?? "user",
+      },
+    },
+  })
+}
+
 /** A context for an operator, which is the audience `/dashboard` is for. */
 export function fakeAdminContext(db: unknown, extra = {}) {
   return fakeTRPCContext(db, ADMIN_ROLE, extra)

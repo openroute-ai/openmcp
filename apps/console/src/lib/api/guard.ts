@@ -9,18 +9,31 @@
  * 的 fail-closed 行为一致——一个没配凭据的实例不该通过状态码差别告诉探测者这条
  * 路由存在。"没有这个 key"和"这条路由不存在"对攻击者是同一件事。
  */
-import { and, isNull, or, sql } from "drizzle-orm"
+import { and, eq, isNull, or, sql } from "drizzle-orm"
 import { db } from "@/db/client"
 import { apiKeys } from "@/db/schema/api-keys"
-import { findApiKeyByPlaintext, normalizeScopes, touchApiKeyUsage } from "./keys"
+import {
+  findApiKeyByPlaintext,
+  normalizeScopes,
+  touchApiKeyUsage,
+} from "./keys"
 import { getApiRateLimiter } from "./rate-limit"
-import type { ApiScope } from "./scopes"
+import type { ApiScope, ApiTier } from "./scopes"
 
 export type ApiKeyPrincipal = {
   keyId: string
   scopes: ReadonlySet<ApiScope>
   /** 这把 key 提交仓库时 `user_repos` 记谁。见 `apiKeys.submitterId`。 */
   submitterId: string | null
+  /**
+   * 归属人。service key 为 `null`。
+   *
+   * 加进来的原因不是"页面要显示它"，而是 §2.12：审计记录里的 `user_id` 必须来自
+   * **鉴权时**的这一行，而不是任何请求参数。一把无主的 key 调用时写进去的
+   * `user_id` 是 `null`，而有主的 key 无论调用方怎么自称都只会记它的主人。
+   */
+  userId: string | null
+  tier: ApiTier
 }
 
 export type AuthFailure = {
@@ -45,8 +58,17 @@ export function apiError(
   extra: { headers?: Record<string, string>; detail?: string } = {}
 ): Response {
   return Response.json(
-    { error: { code, message, ...(extra.detail ? { detail: extra.detail } : {}) } },
-    { status, headers: { "content-type": JSON_ERROR_CONTENT_TYPE, ...extra.headers } }
+    {
+      error: {
+        code,
+        message,
+        ...(extra.detail ? { detail: extra.detail } : {}),
+      },
+    },
+    {
+      status,
+      headers: { "content-type": JSON_ERROR_CONTENT_TYPE, ...extra.headers },
+    }
   )
 }
 
@@ -88,8 +110,7 @@ export async function consumeRateLimit(
   }
 
   // 一天里的秒数取自 UTC，与每日窗口的日界同一个时钟。
-  const secondsIntoUtcDay =
-    Math.floor(Date.now() / 1000) % (24 * 60 * 60)
+  const secondsIntoUtcDay = Math.floor(Date.now() / 1000) % (24 * 60 * 60)
   const secondsUntilUtcMidnight = 24 * 60 * 60 - secondsIntoUtcDay
 
   const perDay = await limiter.consume(
@@ -188,12 +209,17 @@ export async function authenticateApiKey(
   if (options.scope && !scopes.has(options.scope)) {
     return {
       ok: false,
-      response: apiError(403, "insufficient_scope", `需要 ${options.scope} 权限`, {
-        headers: {
-          "www-authenticate": `Bearer error="insufficient_scope", scope="${options.scope}"`,
-        },
-        detail: `这把 key 持有: ${[...scopes].join(", ") || "（无）"}`,
-      }),
+      response: apiError(
+        403,
+        "insufficient_scope",
+        `需要 ${options.scope} 权限`,
+        {
+          headers: {
+            "www-authenticate": `Bearer error="insufficient_scope", scope="${options.scope}"`,
+          },
+          detail: `这把 key 持有: ${[...scopes].join(", ") || "（无）"}`,
+        }
+      ),
     }
   }
 
@@ -214,6 +240,8 @@ export async function authenticateApiKey(
       keyId: row.id,
       scopes,
       submitterId: row.submitterId,
+      userId: row.userId,
+      tier: row.tier,
     },
     rateLimitHeaders: rateLimited.headers,
   }
@@ -225,13 +253,23 @@ export async function authenticateApiKey(
  * 与鉴权分开，因为这里**不**做吊销/过期判定——一个管理界面需要看见已吊销的
  * key 才能解释"它为什么不见了"。漏了这个区别，最有用的那部分记录反而看不见。
  */
-export async function listKeys(options: { onlyActive?: boolean } = {}) {
-  const filter = options.onlyActive
-    ? and(
-        isNull(apiKeys.revokedAt),
-        or(isNull(apiKeys.expiresAt), sql`${apiKeys.expiresAt} > now()`)
-      )
-    : undefined
+export async function listKeys(
+  options: { onlyActive?: boolean; userId?: string } = {}
+) {
+  // `userId` 在 SQL 里过滤，不在拿到行之后过滤。后者对 `/console` 的功能没影响，
+  // 但它是"只显示我自己的"这种按钮最常见的实现错误：过滤写对了，可它发生在一个
+  // 已经把全站 key 都读进内存的查询之后，一次 N+1 或一个过量响应体就把它废掉了。
+  const filters = [
+    ...(options.onlyActive
+      ? [
+          and(
+            isNull(apiKeys.revokedAt),
+            or(isNull(apiKeys.expiresAt), sql`${apiKeys.expiresAt} > now()`)
+          ),
+        ]
+      : []),
+    ...(options.userId ? [eq(apiKeys.userId, options.userId)] : []),
+  ]
 
   const rows = await db
     .select({
@@ -239,6 +277,8 @@ export async function listKeys(options: { onlyActive?: boolean } = {}) {
       name: apiKeys.name,
       prefix: apiKeys.prefix,
       scopes: apiKeys.scopes,
+      userId: apiKeys.userId,
+      tier: apiKeys.tier,
       createdBy: apiKeys.createdBy,
       submitterId: apiKeys.submitterId,
       rateLimitRpm: apiKeys.rateLimitRpm,
@@ -247,10 +287,11 @@ export async function listKeys(options: { onlyActive?: boolean } = {}) {
       revokedAt: apiKeys.revokedAt,
       revokedReason: apiKeys.revokedReason,
       lastUsedAt: apiKeys.lastUsedAt,
+      lastRotatedAt: apiKeys.lastRotatedAt,
       createdAt: apiKeys.createdAt,
     })
     .from(apiKeys)
-    .where(filter)
+    .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(sql`${apiKeys.createdAt} DESC`)
 
   return rows.map((row) => ({ ...row, scopes: normalizeScopes(row.scopes) }))
