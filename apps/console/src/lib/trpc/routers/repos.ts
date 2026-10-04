@@ -12,7 +12,6 @@ import {
   getRepoById,
   setRepoCreatedBy,
   upsertRepo,
-  type Db,
 } from "@/lib/github/service/repo"
 import {
   listMonthlyStats,
@@ -23,6 +22,7 @@ import {
 import { lastNWeeks } from "@/lib/github/snapshot-dates"
 import { createConsoleLogger } from "@/lib/tasks/runner"
 import { projects, repos, USER_REPO_STATUSES } from "@/db/schema"
+import { countProjectsForRepo } from "@/lib/github/service/project"
 import {
   countRepoSubmitters,
   getUserRepo,
@@ -39,15 +39,6 @@ const CHART_MONTHS = 12
 
 /** How many weeks of star history the chart shows. */
 const CHART_WEEKS = 12
-
-/** How many projects point at a repository. */
-async function countProjectsForRepo(db: Db, id: string): Promise<number> {
-  const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(projects)
-    .where(eq(projects.repoId, id))
-  return row?.value ?? 0
-}
 
 /**
  * The repository registry.

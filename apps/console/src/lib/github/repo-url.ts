@@ -43,14 +43,47 @@ export function parseGithubRepoUrl(
   }
 
   if (!match) {
-    match = raw.match(/^([^/\s?#]+)\/([^/\s?#]+)$/)
+    // A bare `owner/repo` is the one shape every other form reduces to, so it
+    // gets its own function and this one only adds the URL/SSH spellings.
+    return parseRepoSlug(raw)
   }
-
-  if (!match) return null
 
   const owner = match[1]?.replace(/\/+$/, "") ?? ""
   const name = (match[2]?.replace(/\.git$/i, "") ?? "").replace(/\/+$/, "")
 
+  if (!owner || !name) return null
+  if (!SAFE_SEGMENT_RE.test(owner) || !SAFE_SEGMENT_RE.test(name)) return null
+  if (owner === "." || name === "." || owner === ".." || name === "..") {
+    return null
+  }
+
+  const fullName = `${owner}/${name}`
+  return {
+    owner,
+    name,
+    fullName,
+    url: `https://github.com/${fullName}`,
+  }
+}
+
+/**
+ * Only the bare `owner/repo` spelling, optionally with `.git`.
+ *
+ * Separate from {@link parseGithubRepoUrl} because the write API offers it as a
+ * distinct request shape, and a field that accepts everything teaches its reader
+ * nothing: a caller who puts a URL in `repo` has misunderstood the contract, and
+ * the useful answer is a 400 that says so rather than silently accepting it.
+ */
+export function parseRepoSlug(
+  input: string | null | undefined
+): ParsedGitHubRepo | null {
+  if (!input) return null
+  const raw = input.trim()
+  const match = raw.match(/^([^/\s?#]+)\/([^/\s?#]+)$/)
+  if (!match) return null
+
+  const owner = match[1] ?? ""
+  const name = (match[2] ?? "").replace(/\.git$/i, "")
   if (!owner || !name) return null
   if (!SAFE_SEGMENT_RE.test(owner) || !SAFE_SEGMENT_RE.test(name)) return null
   if (owner === "." || name === "." || owner === ".." || name === "..") {

@@ -160,6 +160,21 @@ export async function getProjectByFullName(
   })
 }
 
+/**
+ * 一个仓库下有几个 project。
+ *
+ * "登记"与"发布"的区别就落在这个数上：`POST /api/v1/repos` 之后它必须是 0，
+ * `POST /api/v1/projects` 之后它是 1。放在这里而不是各自内联，是因为两处
+ * 都要用它，而一个"这个仓库被策展过几次"的答案不该有两份 SQL。
+ */
+export async function countProjectsForRepo(db: Db, id: string): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(projects)
+    .where(eq(projects.repoId, id))
+  return row?.value ?? 0
+}
+
 export async function getProjectByRepoId(
   db: Db,
   repoId: string

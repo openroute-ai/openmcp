@@ -21,7 +21,8 @@
  * `lib/github/snapshot-dates.ts`.
  */
 
-import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm"
+import { and, asc, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import {
   repoDailyStats,
   repoMonthlyStats,
@@ -125,7 +126,7 @@ type StatsTable =
  * as each table's own row, which no single type can accept as a union, and the
  * counters are all the same shape — so the columns are described by name instead.
  */
-type StatsCounterRow = { period: Date } & {
+export type StatsCounterRow = { period: Date } & {
   [column: string]: Date | number | string | null
 }
 
@@ -381,6 +382,264 @@ export async function listRecentDailyStats(
     .limit(count)
 
   return rows.reverse()
+}
+
+/** One window of one repository's history, as the range reader pages through it. */
+export interface StatsRangeQuery {
+  /** Inclusive. */
+  start?: Date
+  /** Inclusive. */
+  end?: Date
+  /** Rows strictly older than this: the cursor's meaning. */
+  before?: Date
+  limit?: number
+}
+
+/** A page of history, oldest first, plus whether the window had more behind it. */
+export interface StatsRangePage {
+  rows: StatsCounterRow[]
+  /** The window holds more rows than were returned. */
+  hasMore: boolean
+}
+
+const RANGE_DEFAULT_LIMIT = 500
+/** As the API documents; the range endpoint's ceiling. */
+const RANGE_MAX_LIMIT = 1000
+
+/**
+ * One window of a repository's history at one cadence.
+ *
+ * Newest-first is what the query asks the database for, because a `LIMIT` keeps
+ * the rows it is handed first and the cursor walks backwards from the newest
+ * period. What the caller receives is oldest-first, because every other reader
+ * here hands back a chronological series and a chart that draws its newest point
+ * first is a chart that needs reversing at the call site instead.
+ *
+ * Rows are **not** filled in. A day nobody sampled is absent from the result, and
+ * the counters a collector never wrote stay NULL: "not measured" and "measured
+ * as zero" are different answers and collapsing them into one makes a stalled
+ * collector look like a repository that stopped growing.
+ */
+export async function listStatsRange(
+  db: Db,
+  repoId: string,
+  cadence: StatsCadence,
+  query: StatsRangeQuery = {}
+): Promise<StatsRangePage> {
+  const table = TABLES[cadence]
+  const limit = Math.min(
+    Math.max(1, query.limit ?? RANGE_DEFAULT_LIMIT),
+    RANGE_MAX_LIMIT
+  )
+
+  const bounds = [
+    eq(table.repoId, repoId),
+    ...(query.start ? [sql`${table.period} >= ${query.start}`] : []),
+    ...(query.end ? [sql`${table.period} <= ${query.end}`] : []),
+    // The cursor is exclusive, so walking it never returns the boundary row twice.
+    ...(query.before ? [sql`${table.period} < ${query.before}`] : []),
+  ]
+
+  // One extra row is the whole has-more question: if the window had another
+  // period in it, the limit-th row is not the last one.
+  const rows = (await db
+    .select()
+    .from(table)
+    .where(and(...bounds))
+    .orderBy(desc(table.period))
+    .limit(limit + 1)) as StatsCounterRow[]
+
+  const hasMore = rows.length > limit
+  return { rows: rows.slice(0, limit).reverse(), hasMore }
+}
+
+/** How many periods the window holds, which is not how many are being returned. */
+export async function countStatsPeriods(
+  db: Db,
+  repoId: string,
+  cadence: StatsCadence,
+  query: Pick<StatsRangeQuery, "start" | "end" | "before"> = {}
+): Promise<number> {
+  const table = TABLES[cadence]
+  const bounds = [
+    eq(table.repoId, repoId),
+    ...(query.start ? [sql`${table.period} >= ${query.start}`] : []),
+    ...(query.end ? [sql`${table.period} <= ${query.end}`] : []),
+    ...(query.before ? [sql`${table.period} < ${query.before}`] : []),
+  ]
+
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(table)
+    .where(and(...bounds))
+
+  return row?.value ?? 0
+}
+
+/**
+ * The most recent period this repository has a row for.
+ *
+ * "The last one stored", never yesterday's. A collector that has been down for a
+ * week still has a real history, and defaulting a window's end to the calendar
+ * today would report a week of nothing as though it had been measured.
+ */
+export async function latestStatsPeriod(
+  db: Db,
+  repoId: string,
+  cadence: StatsCadence
+): Promise<Date | undefined> {
+  const table = TABLES[cadence]
+  const rows = await db
+    .select({ period: table.period })
+    .from(table)
+    .where(eq(table.repoId, repoId))
+    .orderBy(desc(table.period))
+    .limit(1)
+
+  return rows[0]?.period
+}
+
+/** The earliest period with a row. The rewind target when filters change. */
+export async function earliestStatsPeriod(
+  db: Db,
+  repoId: string,
+  cadence: StatsCadence
+): Promise<Date | undefined> {
+  const table = TABLES[cadence]
+  const rows = await db
+    .select({ period: table.period })
+    .from(table)
+    .where(eq(table.repoId, repoId))
+    .orderBy(asc(table.period))
+    .limit(1)
+
+  return rows[0]?.period
+}
+
+/**
+ * Every counter row written after `since`, for a set of repositories.
+ *
+ * The batch reader the subscription queue needs (§6.4). It exists instead of
+ * looping {@link listStatsRange} per repository because a subscription may cover a
+ * thousand repositories: a thousand round trips is a queue that cannot finish inside
+ * a task's time budget, and the failure mode is silent -- the delivery just takes
+ * longer and longer until it stops happening at all.
+ *
+ * `since` is **exclusive**, which is what makes the watermark safe: the row at the
+ * watermark has already been delivered, so re-reading it would duplicate it, and the
+ * receiver dedupes on `eventId` rather than on repository-period pairs.
+ *
+ * Rows come back oldest first so a payload assembled from them is chronological, and
+ * grouped by repository so the caller can slice it without re-sorting.
+ */
+export async function listStatsSince(
+  db: Db,
+  cadence: StatsCadence,
+  since: Date | null,
+  repoIds: string[]
+): Promise<StatsCounterRow[]> {
+  if (repoIds.length === 0) return []
+  const table = TABLES[cadence]
+
+  return (await db
+    .select()
+    .from(table)
+    .where(
+      and(
+        inArray(table.repoId, repoIds),
+        since ? sql`${table.period} > ${since}` : undefined
+      )
+    )
+    .orderBy(asc(table.period), asc(table.repoId))) as StatsCounterRow[]
+}
+
+/**
+ * 每个仓库的最新一期。
+ *
+ * `snapshot` 模式订阅要的形状（§6.4）：范围内**全部**最新一期，不带水位线。一条 SQL
+ * 而不是逐仓库 `latestStatsPeriod` —— snapshot 订阅可能覆盖一千个仓库，而它换来的正是
+ * 「每次一条」这件事。
+ *
+ * 相关子查询里重复了一遍 `in` 列表，所以调用方的仓库数不该太大；真正的分段上限在
+ * payload 层（1000 个仓库 / 2 MB），那也是这里唯一需要保证的上限。
+ */
+export async function latestStatsPerRepo(
+  db: Db,
+  cadence: StatsCadence,
+  repoIds: string[]
+): Promise<StatsCounterRow[]> {
+  if (repoIds.length === 0) return []
+  const table = TABLES[cadence]
+  // 同一个表要出现两次，所以内层必须起别名；`alias` 渲染成 `"table" "latest"`，
+  // 而不是重复一遍表名——后者是 Postgres 里的语法错误，不是"能跑但慢"。
+  const inner = alias(table, "latest_period")
+
+  return (await db
+    .select()
+    .from(table)
+    .where(
+      and(
+        inArray(table.repoId, repoIds),
+        sql`${table.period} = (
+          select max(${inner.period}) from ${inner}
+          where ${inner.repoId} = ${table.repoId}
+        )`
+      )
+    )
+    .orderBy(asc(table.repoId))) as StatsCounterRow[]
+}
+
+/**
+ * 集合里最新的那一期，也就是一批投递的水位线目标（§6.4 第 4 步）。
+ *
+ * `null` 表示这一批没有任何新数据可推，调用方据此**不**生成 delivery：推进一个没有
+ * 数据的批次等于凭空多发一次空事件，而接收方要为此单独写一个分支去忽略它。
+ */
+export async function latestPeriodForRepos(
+  db: Db,
+  cadence: StatsCadence,
+  repoIds: string[]
+): Promise<Date | null> {
+  if (repoIds.length === 0) return null
+  const table = TABLES[cadence]
+
+  const rows = await db
+    .select({ period: table.period })
+    .from(table)
+    .where(inArray(table.repoId, repoIds))
+    .orderBy(desc(table.period))
+    .limit(1)
+
+  return rows[0]?.period ?? null
+}
+
+/**
+ * The earliest period with a row anywhere in this set.
+ *
+ * The watermark rewind target when a filter change widens the match set (§6.4).
+ * Taken across the whole set rather than per repository and minimised, because the
+ * watermark is a single value: rewinding to one repository's first row would push
+ * data the subscriber already has for every other repository in the set.
+ *
+ * `null` when the set is empty, which is the "matched nothing" case the caller has
+ * to treat as "do not move the watermark at all".
+ */
+export async function earliestPeriodForRepos(
+  db: Db,
+  cadence: StatsCadence,
+  repoIds: string[]
+): Promise<Date | null> {
+  if (repoIds.length === 0) return null
+  const table = TABLES[cadence]
+
+  const rows = await db
+    .select({ period: table.period })
+    .from(table)
+    .where(inArray(table.repoId, repoIds))
+    .orderBy(asc(table.period))
+    .limit(1)
+
+  return rows[0]?.period ?? null
 }
 
 /** The instants of every monthly period that holds data anywhere, newest first. */
