@@ -1,18 +1,6 @@
 ---
 title: 创建订阅
-description: >-
-  让 VercelAI 雷达每天把新数据推到你的地址上。投递**严格挂在两个排行任务都成功之后**，所以收到的数据不会缺尚未闭合的周期。
-
-
-  三件事要先分清：
-
-
-  - key 的 `subscriptions:write` 管「能不能创建/管理订阅」；订阅自己的 `scopes` 管「推什么」。投递时按订阅的
-  scope 读库，**不借用调用方 key 的权限**。
-
-  - `secret` 只在这次响应里出现一次，之后任何接口都不再返回；派发时用它做 HMAC 签名。
-
-  - 过滤器不是白名单语义而是「先命中即短路」，规则见 §6.6。
+description: "让雷达每天把新数据推到你的地址。"
 full: true
 _openapi:
   preload:
@@ -45,7 +33,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions","method":"post"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions","method":"post"}]} showDescription />
     </>
   );
 }

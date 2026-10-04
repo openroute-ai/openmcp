@@ -1,12 +1,6 @@
 ---
 title: 仓库区间统计
-description: |-
-  日 / 周 / 月三种粒度的区间统计，默认最近 90 天。
-
-  两条必须知道的行为（§1.3 / §4.1）：
-
-  - **不补洞**：窗口内没有采集的那些天直接不出现，不是 0。`null` 的含义是「这个周期没有采集」，转成 0 会变成「采集到 0」。
-  - `end` 是该仓库**最新已存周期**，不 clamp 到今天。
+description: "日 / 周 / 月粒度的区间统计，窗口内不补洞。"
 full: true
 _openapi:
   preload:
@@ -33,7 +27,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos/{id}/stats","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos/{id}/stats","method":"get"}]} showDescription />
     </>
   );
 }

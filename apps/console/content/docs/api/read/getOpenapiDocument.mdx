@@ -1,11 +1,6 @@
 ---
 title: 接口自描述
-description: >-
-  这份契约本身，**需要有效凭据**——加门是为了不把它当成免费的接口发现服务。返回的 spec 不含任何实例专属信息。
-
-
-  同一个部署另外提供一个免鉴权的副本 `GET /openapi.json`（站内文档与 `llms.txt` 指向它）。两者内容同源，都由
-  `lib/openapi/document.ts` 聚合而成。
+description: "需要凭据的 OpenAPI 3.1 契约副本。"
 full: true
 _openapi:
   preload:
@@ -31,7 +26,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/openapi.json","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/openapi.json","method":"get"}]} showDescription />
     </>
   );
 }

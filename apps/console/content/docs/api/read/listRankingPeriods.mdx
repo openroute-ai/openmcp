@@ -1,12 +1,6 @@
 ---
 title: 可用周期目录
-description: |-
-  先列目录、再逐期取排行，就不必猜哪些期存在。两种读法用同一组参数覆盖：
-
-  - 给了 `year`：返回该年**有数据**的期，升序；
-  - 不给 `year`：倒序返回最近若干期（默认 120）。
-
-  **只列有数据的期**——列出一个没有行的周，等于把客户端送去拿一个必然 404 的请求。
+description: "先看哪些周 / 月有数据，再逐期取排行。"
 full: true
 _openapi:
   preload:
@@ -33,7 +27,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/periods","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/periods","method":"get"}]} showDescription />
     </>
   );
 }

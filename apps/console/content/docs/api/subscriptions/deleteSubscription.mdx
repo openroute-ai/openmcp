@@ -1,6 +1,6 @@
 ---
 title: 删除订阅
-description: 删除订阅，并清空它待投递的队列。已经投递出去的数据不会回收。
+description: "删订阅，并清空待投递队列。"
 full: true
 _openapi:
   preload:
@@ -21,7 +21,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}","method":"delete"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}","method":"delete"}]} showDescription />
     </>
   );
 }

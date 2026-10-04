@@ -1,9 +1,6 @@
 ---
 title: 发布项目
-description: '把一个仓库策展成 project，也就是放到公开站上。地址同样有两种写法：`{ url }` 或 `{ repo:
-  "owner/repo" }`，加可选的 `type`（缺省 `application`）与回调参数。`projects:write`
-  不在自助签发范围内，需要管理员逐把 key 开。按仓库去重，返回 `status: "existing"`。最长 300 秒（要拉
-  README、翻译技能文档并投递）。'
+description: "把仓库策展成 project，放到公开站上。"
 full: true
 _openapi:
   preload:
@@ -27,7 +24,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/projects","method":"post"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/projects","method":"post"}]} showDescription />
     </>
   );
 }

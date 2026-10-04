@@ -1,14 +1,6 @@
 ---
 title: 订阅详情
-description: >-
-  单个订阅 + 当前命中多少仓库 + 最近 20 条投递记录（`eventId` / `status` / `attempt` / `httpStatus`
-  / `error`）。
-
-
-  没有这段的话，订阅方唯一的排障手段就是「等明天看数据有没有更新」（§6.8）。
-
-
-  `matchedRepos` 为 0 时，水位线既不推进也不回退：把水位线退到一个空集合的起点，等于让下一次投递重推全表（§6.4）。
+description: "单个订阅的命中数与最近 20 次投递。"
 full: true
 _openapi:
   preload:
@@ -37,7 +29,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}","method":"get"}]} showDescription />
     </>
   );
 }

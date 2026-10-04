@@ -14,7 +14,9 @@
  */
 import type {
   Document,
+  HttpMethods,
   OpenAPIV3_2,
+  OperationObject,
   ParameterObject,
   PathItemObject,
   ReferenceObject,
@@ -60,8 +62,40 @@ type Content = NonNullable<ResponseObject["content"]>
 /**
  * 3.1.0，而不是包装库默认的 3.2.0：这份文档只用到 3.1 的特性，而 3.1 是当前被
  * 工具链支持得最广的版本。
+ *
+ * `paths` 收窄成 `ContractPathItem`，好让 `x-nav-description` 在这份文档上仍然
+ * 读得出来（`Document` 那一侧是 `PathItemObject`，索引一个 `x-` 键会报错）。
  */
-type ContractDocument = Omit<Document, "openapi"> & { openapi: "3.1.0" }
+type ContractDocument = Omit<Document, "openapi" | "paths"> & {
+  openapi: "3.1.0"
+  paths?: Record<string, ContractPathItem>
+}
+
+/**
+ * operation 上多一个 `x-nav-description`：**一句话概要**。
+ *
+ * OpenAPI 允许 `x-` 开头的 vendor extension，这里用它把「导航用的概要」与
+ * operation 自己的 `description` 分开：
+ *
+ * - `description` 是给通读这一页的人看的散文（行为、陷阱、`§x.y` 出处），它渲染在
+ *   正文里，也原样出现在 `/openapi.json` 与 `llms-full.txt`；
+ * - `x-nav-description` 是给扫一眼的人看的：frontmatter `description`、页脚的
+ *   「上一页 / 下一页」摘要、`<meta description>` 都取它（见
+ *   `scripts/generate-openapi-docs.ts`）。页脚那一行只有单行宽度，塞不进散文。
+ *
+ * 之所以贴在 operation 上而不是另开一张 operationId → 文案的表：散文挪了段落、
+ * 概要忘了改，页脚就会说错这一页讲什么，而这种错没人看得出来——它只是读着有点
+ * 不对劲。改文案时两行挨在一起，那件事就不会发生。
+ *
+ * `PathItemObject` 自带的 `T` 泛型本来就是给 extension 留的，但 `paths` 那张表
+ * 用的是它的默认 `{}`（多一个键就是 TS 报错），所以这里自己声明一份，不去改
+ * fumadocs 的类型。
+ */
+type ContractOperation = OperationObject & { "x-nav-description"?: string }
+
+type ContractPathItem = Omit<PathItemObject, HttpMethods> & {
+  [method in HttpMethods]?: ContractOperation
+}
 
 const ref = (path: string): ReferenceObject => ({ $ref: path })
 
@@ -282,12 +316,13 @@ function subscriptionFailures(
 }
 
 
-const paths: Record<string, PathItemObject> = {
+const paths: Record<string, ContractPathItem> = {
   "/api/v1/repos/{id}": {
     get: {
       tags: ["读取 API"],
       operationId: "getRepo",
       summary: "仓库档案",
+      "x-nav-description": "单个仓库的档案，加上最近一期的日 / 周 / 月统计。",
       description:
         "单个仓库的档案，加上最近一期的日 / 周 / 月统计。最近一期取的是**已经存下来的" +
         "最后一期**，不是昨天：采集任务随时可能停，按日历今天取会返回一串空洞，而空洞" +
@@ -306,6 +341,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "getRepoStats",
       summary: "仓库区间统计",
+      "x-nav-description": "日 / 周 / 月粒度的区间统计，窗口内不补洞。",
       description:
         "日 / 周 / 月三种粒度的区间统计，默认最近 90 天。\n\n两条必须知道的行为（§1.3 / §4.1）：" +
         "\n\n- **不补洞**：窗口内没有采集的那些天直接不出现，不是 0。`null` 的含义是" +
@@ -349,6 +385,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "getWeeklyRankings",
       summary: "指定周排行",
+      "x-nav-description": "按 year / week 取指定周的榜单，缺省最近一个完整周。",
       description:
         "`year` / `week` 都不传时取**最近一个完整周期**，响应里的 `period` 会回显" +
         "它——不回显的话，调用方无从知道自己拿到的到底是哪一期，而「静默地排了另一周」" +
@@ -378,6 +415,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "getMonthlyRankings",
       summary: "指定月排行",
+      "x-nav-description": "同一套逻辑，周期换成月。",
       description:
         "与周榜同一套逻辑，周期换成月。参数与缺省规则见 `/api/v1/rankings/weekly`。",
       parameters: [
@@ -403,6 +441,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "listRankingPeriods",
       summary: "可用周期目录",
+      "x-nav-description": "先看哪些周 / 月有数据，再逐期取排行。",
       description:
         "先列目录、再逐期取排行，就不必猜哪些期存在。两种读法用同一组参数覆盖：" +
         "\n\n- 给了 `year`：返回该年**有数据**的期，升序；" +
@@ -434,6 +473,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "createSubscription",
       summary: "创建订阅",
+      "x-nav-description": "让雷达每天把新数据推到你的地址。",
       description:
         "让 VercelAI 雷达每天把新数据推到你的地址上。投递**严格挂在两个排行任务都成功之后**，" +
         "所以收到的数据不会缺尚未闭合的周期。\n\n三件事要先分清：\n\n" +
@@ -458,6 +498,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "listSubscriptions",
       summary: "列出订阅",
+      "x-nav-description": "只列这把 key 自己的订阅。",
       description:
         "只返回**这把 key 自己**的订阅——归属是租户隔离的全部实现，没有别的过滤条件" +
         "（§6.7）。响应里没有 `secret`，只有 `secretPrefix`。",
@@ -473,6 +514,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "getSubscription",
       summary: "订阅详情",
+      "x-nav-description": "单个订阅的命中数与最近 20 次投递。",
       description:
         "单个订阅 + 当前命中多少仓库 + 最近 20 条投递记录（`eventId` / `status` / " +
         "`attempt` / `httpStatus` / `error`）。\n\n没有这段的话，订阅方唯一的排障手段" +
@@ -490,6 +532,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "updateSubscription",
       summary: "改订阅",
+      "x-nav-description": "改过滤器 / scopes，或暂停恢复。",
       description:
         "改过滤器 / scopes、暂停或恢复。\n\n**改动过滤器时水位线会回退**：服务端在同一个" +
         "事务里把 `filtersVersion` 加一，并把水位线退到「新命中集合的最早已存周期」，让" +
@@ -511,6 +554,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "deleteSubscription",
       summary: "删除订阅",
+      "x-nav-description": "删订阅，并清空待投递队列。",
       description:
         "删除订阅，并清空它待投递的队列。已经投递出去的数据不会回收。",
       parameters: [subscriptionIdParam],
@@ -526,6 +570,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "rotateSubscriptionSecret",
       summary: "轮换回调 secret",
+      "x-nav-description": "换一把新 secret，旧的立刻失效。",
       description:
         "生成新 secret 并**立刻**让旧的失效，没有「两个都有效」的窗口。新 secret " +
         "同样只返回一次。\n\n轮换之后接收端必须同步更新，否则下一次投递会全部验签失败" +
@@ -544,6 +589,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["订阅 API"],
       operationId: "testSubscription",
       summary: "发一条探测 payload",
+      "x-nav-description": "立刻发一条探测事件，验证回调与签名。",
       description:
         "立刻发一条 `subscription.test` 事件（内容极小，含一份真实的当前快照），" +
         "用来验证回调地址可达、签名能过。\n\n**它不推进水位线**——补数据要等正常投递。" +
@@ -561,6 +607,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "getOpenapiDocument",
       summary: "接口自描述",
+      "x-nav-description": "需要凭据的 OpenAPI 3.1 契约副本。",
       description:
         "这份契约本身，**需要有效凭据**——加门是为了不把它当成免费的接口发现服务。" +
         "返回的 spec 不含任何实例专属信息。\n\n同一个部署另外提供一个免鉴权的副本 " +
@@ -591,6 +638,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["读取 API"],
       operationId: "listRepos",
       summary: "列出仓库",
+      "x-nav-description": "列出这把 key 看得见的仓库及其命中原因。",
       description:
         "列出这把 key 可见的仓库，过滤器与订阅（§6.6）是**同一套语义**：判定按固定" +
         "顺序短路求值，`repoIds` 非空时完全绕过其余规则。响应带上分类四轴，调用方可以" +
@@ -629,6 +677,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["写入 API"],
       operationId: "registerRepo",
       summary: "登记仓库",
+      "x-nav-description": "让雷达开始跟踪一个仓库，不发布。",
       description:
         "让雷达开始跟踪一个仓库，**不发布**。请求体只有两种形态，都是「给我一个地址」：" +
         "`{ url }`（一整个 GitHub 地址）或 `{ repo }`（裸 `owner/repo`），两者都可选地带 " +
@@ -669,6 +718,7 @@ const paths: Record<string, PathItemObject> = {
       tags: ["写入 API"],
       operationId: "publishProject",
       summary: "发布项目",
+      "x-nav-description": "把仓库策展成 project，放到公开站上。",
       description:
         "把一个仓库策展成 project，也就是放到公开站上。地址同样有两种写法：`{ url }` 或 " +
         "`{ repo: \"owner/repo\" }`，加可选的 `type`（缺省 `application`）与回调参数。" +
@@ -894,4 +944,38 @@ export function operationRef(operationId: string): OperationRef | undefined {
     operationRefs = refs
   }
   return operationRefs.get(operationId)
+}
+
+/**
+ * operationId → `x-nav-description`，也就是导航用的一句话概要。
+ *
+ * 谁在用：只有 `scripts/generate-openapi-docs.ts`，把它写进逐端点页面的
+ * frontmatter `description`（页脚的上一页 / 下一页、`<meta description>` 都读
+ * 那个字段）。散文走 operation 自己的 `description`，见 `ContractOperation`
+ * 上面那段为什么两者要分开。
+ *
+ * 缺一个就抛错，而不是给个空串：漏写的那一页，页脚会退化成「下一页」三个字，
+ * 看上去像没写文案，而真正的原因是这条 operation 少了一个键。
+ */
+export function navDescriptions(): Map<string, string> {
+  const out = new Map<string, string>()
+  const { paths } = buildOpenAPIDocument()
+
+  for (const [path, item] of Object.entries(paths ?? {})) {
+    if (!item) continue
+    for (const method of HTTP_METHODS) {
+      const operation = item[method]
+      if (!operation) continue
+
+      const id = operation.operationId
+      const nav = operation["x-nav-description"]
+      if (!id || !nav) {
+        throw new Error(`${method.toUpperCase()} ${path} 缺少 x-nav-description`)
+      }
+
+      out.set(id, nav)
+    }
+  }
+
+  return out
 }

@@ -1,12 +1,6 @@
 ---
 title: 指定周排行
-description: >-
-  `year` / `week` 都不传时取**最近一个完整周期**，响应里的 `period`
-  会回显它——不回显的话，调用方无从知道自己拿到的到底是哪一期，而「静默地排了另一周」正是这条路要避免的（§5.1）。
-
-
-  榜单部分沿用现有的 `Rankings`（`trending` + `byRelativeGrowth`），并额外带上 `period` 回显。响应带
-  `ETag` 与 `Cache-Control`，可以放心地条件请求。
+description: "按 year / week 取指定周的榜单，缺省最近一个完整周。"
 full: true
 _openapi:
   preload:
@@ -33,7 +27,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/weekly","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/weekly","method":"get"}]} showDescription />
     </>
   );
 }

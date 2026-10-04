@@ -1,9 +1,6 @@
 ---
 title: 发一条探测 payload
-description: |-
-  立刻发一条 `subscription.test` 事件（内容极小，含一份真实的当前快照），用来验证回调地址可达、签名能过。
-
-  **它不推进水位线**——补数据要等正常投递。鉴权与签名路径和正常投递完全一致，所以测试能验签通过，正常事件也能。
+description: "立刻发一条探测事件，验证回调与签名。"
 full: true
 _openapi:
   preload:
@@ -27,7 +24,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}/test","method":"post"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/subscriptions/{id}/test","method":"post"}]} showDescription />
     </>
   );
 }

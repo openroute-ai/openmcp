@@ -1,12 +1,6 @@
 ---
 title: 仓库档案
-description: >-
-  单个仓库的档案，加上最近一期的日 / 周 /
-  月统计。最近一期取的是**已经存下来的最后一期**，不是昨天：采集任务随时可能停，按日历今天取会返回一串空洞，而空洞在图上和「这几天真的没人
-  star」无法区分（§4.1）。
-
-
-  可见性与列表一致：公开可见，或这把 key 自己提交的。
+description: "单个仓库的档案，加上最近一期的日 / 周 / 月统计。"
 full: true
 _openapi:
   preload:
@@ -33,7 +27,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos/{id}","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos/{id}","method":"get"}]} showDescription />
     </>
   );
 }

@@ -1,6 +1,6 @@
 ---
 title: 指定月排行
-description: 与周榜同一套逻辑，周期换成月。参数与缺省规则见 `/api/v1/rankings/weekly`。
+description: "同一套逻辑，周期换成月。"
 full: true
 _openapi:
   preload:
@@ -21,7 +21,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/monthly","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/rankings/monthly","method":"get"}]} showDescription />
     </>
   );
 }

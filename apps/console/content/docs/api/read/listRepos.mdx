@@ -1,14 +1,6 @@
 ---
 title: 列出仓库
-description: >-
-  列出这把 key 可见的仓库，过滤器与订阅（§6.6）是**同一套语义**：判定按固定顺序短路求值，`repoIds`
-  非空时完全绕过其余规则。响应带上分类四轴，调用方可以自己验一遍「为什么这个仓库命中了」。
-
-
-  可见范围是「公开可见 + 这把 key 自己提交的」，不含任何用户的私有列表。
-
-
-  **这一条没有分页参数**——设计文档 §6.6 只给了过滤器，`limit` / `cursor` 只出现在统计端点（§4.1）。
+description: "列出这把 key 看得见的仓库及其命中原因。"
 full: true
 _openapi:
   preload:
@@ -37,7 +29,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos","method":"get"}]} />
+      <OpenAPIPage document="radar" operations={[{"path":"/api/v1/repos","method":"get"}]} showDescription />
     </>
   );
 }
