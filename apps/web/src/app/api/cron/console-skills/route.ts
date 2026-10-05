@@ -38,7 +38,7 @@ import { filesFromSkillRow, runSkillSecurityScan } from '@/lib/security-scan'
 import { db } from '@/lib/db'
 import { skills } from '@workspace/db'
 import { eq } from 'drizzle-orm'
-import { ingestConsoleSkill, type SkillWebhookData } from '@/lib/skills/ingest-console-skill'
+import { ingestConsoleSkill } from '@/lib/skills/ingest-console-skill'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -88,7 +88,8 @@ export async function GET(request: Request) {
       const page = await fetchConsoleSkills({ limit, cursor })
       pages += 1
 
-      for (const skill of page.skills as SkillWebhookData[]) {
+      for (const envelope of page.skills) {
+        const skill = envelope.data
         try {
           const result = await ingestConsoleSkill(skill, { skipAsyncScan: true })
           ingested += 1

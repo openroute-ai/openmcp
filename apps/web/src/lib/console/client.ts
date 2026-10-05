@@ -128,8 +128,20 @@ export type ConsoleSubmitResult =
   | ({ mode: 'publish' } & ConsoleIngestResult)
   | ({ mode: 'register' } & ConsoleRepoRegistration)
 
+/**
+ * One skill as `GET /api/skills-sync/export` serves it: an event envelope whose
+ * `data` is the same body the webhook POSTs, so both channels carry identical
+ * bytes. Typing the page as the inner data instead let the caller unwrap it
+ * wrong and silently ingest `undefined` for every field.
+ */
+export type ConsoleSkillEnvelope = {
+  event_type: string
+  timestamp: string
+  data: SkillWebhookData
+}
+
 export type ConsoleSkillsPage = {
-  skills: SkillWebhookData[]
+  skills: ConsoleSkillEnvelope[]
   next_cursor: string | null
 }
 
