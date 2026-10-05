@@ -63,6 +63,12 @@ export class AliyunOSSClient {
 
     const response = await fetch(url, { redirect: "follow" })
     if (!response.ok) {
+      // Rate limiting and transient CDN failures are common when mirroring
+      // public Open Graph images; treat them as non-fatal so refresh does not
+      // surface an error to the operator.
+      if (response.status === 429 || response.status === 403) {
+        return undefined
+      }
       throw new Error(
         `Could not download ${url}: ${response.status} ${response.statusText}`
       )
