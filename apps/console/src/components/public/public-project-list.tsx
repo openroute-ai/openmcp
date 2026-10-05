@@ -111,13 +111,8 @@ export interface PublicProjectGroup {
 /**
  * The row's anomaly badge.
  *
- * Icon plus label plus border, never colour alone — §5.9.2. A reader who has
- * learned "red means bad" everywhere else would read this site's red (which
- * means growing) backwards, so the label is what carries the meaning and the
- * colour only repeats it.
- *
- * `down` is green here for the same reason: a falling project is the good news
- * on a site whose job is to tell you which projects to stop betting on.
+ * Icon plus label plus border, never colour alone — §5.9.2. The label is what
+ * carries the meaning; the colour only repeats it.
  */
 function AnomalyBadge({
   anomaly,

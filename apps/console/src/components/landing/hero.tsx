@@ -34,7 +34,7 @@ import type { AnomalyWithRepo } from "@/lib/radar/anomalies"
  * 取数在服务端而不是客户端 fetch：这块 feed 的全部说服力在于「这是我们此刻看到的」，
  * 而 hydration 之后才填进来的列表，在读者眼里就是一个演示数据在加载。
  *
- * 颜色约定见本节最下面那条说明带：涨是红、跌是绿，与全球 web 相反。所以每行的
+ * 颜色约定见本节最下面那条说明带：涨是绿、跌是红。所以每行的
  * 异动类型都带图标 + 文案，颜色只作冗余强化，不承担信息本身。
  */
 
@@ -288,11 +288,11 @@ export function Hero({
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-6 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <IconTrendingUp size={13} className="text-radar-up" />
-            <span className="text-radar-up">红</span> = 涨 / 加速
+            <span className="text-radar-up">绿</span> = 涨 / 加速
           </span>
           <span className="flex items-center gap-1.5">
             <IconTrendingDown size={13} className="text-radar-down" />
-            <span className="text-radar-down">绿</span> = 跌 / 衰退
+            <span className="text-radar-down">红</span> = 跌 / 衰退
           </span>
           <span>无自定义评分公式</span>
           <span>无 AI 判定</span>

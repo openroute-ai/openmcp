@@ -71,10 +71,9 @@ function resolvePeriod(
 }
 
 /**
- * Star movement, coloured the way the Chinese market reads it: red is up, green
- * is down. The console's own `--radar-*` tokens, registered in the shared
- * stylesheet but valued locally, so web keeps its palette and the radar gets a
- * red that survives a dark background.
+ * Star movement in the site's own convention: green is up, red is down. The
+ * console's `--radar-*` tokens, registered in the shared stylesheet but valued
+ * locally, so web keeps its palette.
  */
 const DELTA_TONE = {
   up: "text-radar-up",

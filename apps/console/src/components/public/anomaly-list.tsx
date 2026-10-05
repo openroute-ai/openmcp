@@ -10,10 +10,10 @@
  * Two rules from the design doc are load-bearing rather than cosmetic:
  *
  * **Alerts do not rely on colour.** §5.9.2 requires shape plus text plus a border
- * for anything risk-coloured, because the down direction is *green* here and a
- * reader who has learned "red means bad" from everywhere else on the web will
- * read this page backwards. Every flag carries an icon and a label; the colour is
- * redundant reinforcement, never the message.
+ * for anything risk-coloured, so that a reader who cannot separate the two hues —
+ * or who is looking at a printout — still gets the whole claim. Every flag
+ * carries an icon and a label; the colour is redundant reinforcement, never the
+ * message.
  *
  **The evidence is on the row, not behind a click.** Red line 2 in §5.4 is that
  * no anomaly may be shown without the numbers behind it, so the series is rendered

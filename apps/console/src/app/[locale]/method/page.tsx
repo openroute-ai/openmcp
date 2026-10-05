@@ -100,8 +100,8 @@ export default function MethodPage() {
           </h2>
           <ul className="grid gap-2 text-sm leading-relaxed text-muted-foreground">
             <li className="list-disc pl-1">
-              红 = 涨 / 加速，绿 = 跌 /
-              衰退。风险类不用颜色表示，用图标和标签文字。
+              绿 = 涨 / 加速，红 = 跌 /
+              衰退。颜色只表示涨跌方向，风险等级另用图标和标签文字表达。
             </li>
             <li className="list-disc pl-1">
               每条规则都有绝对量下限，只有相对量的项目不进榜。

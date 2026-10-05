@@ -28,10 +28,11 @@ import type { Vital, VitalSnapshot } from "@/lib/radar/vitals"
 /**
  * One reading's presentation.
  *
- * `good` is about the polarity of the colour, not about how good the news is:
- * a rising star factor is red here (§5.9.2) and a project that has not pushed in
- * 200 days is green. Getting this backwards is the single most likely way for a
- * reader from any other site to misread this page.
+ * `good` is about the polarity of the colour, not about how good the news is: a
+ * rising star factor is green here and a project that has not pushed in 200 days
+ * is red. The direction and the news are separate questions — a stalled project
+ * is exactly the one a reader most needs to notice — so this names the hue
+ * ("good" / "bad") and leaves the judgement to the caller.
  */
 interface Reading {
   label: string

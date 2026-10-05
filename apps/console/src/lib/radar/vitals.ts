@@ -18,7 +18,7 @@ import {
 } from "@/lib/github/service/stats"
 import type { Db } from "@/lib/github/service/repo"
 
-/** 一个体征的方向。红涨绿跌的方向由调用方按语境决定，这里只描述量本身。 */
+/** 一个体征的方向。只描述量本身，不描述好坏——哪一端算好由调用方决定。 */
 export type VitalDirection = "up" | "down" | "flat" | "unknown"
 
 /**
