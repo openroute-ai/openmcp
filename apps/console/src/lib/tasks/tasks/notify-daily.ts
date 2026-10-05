@@ -12,7 +12,7 @@
  */
 
 import { buildRankingsForWeek } from "@/lib/github/service/rankings"
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
+import { lastCompletePeriod } from "@/lib/github/snapshot-dates"
 import { syncEnv } from "@/lib/env"
 import type { Task } from "@/lib/tasks/runner"
 import { hasAccepted, sendWebhook, summarise } from "@/lib/webhook/client"

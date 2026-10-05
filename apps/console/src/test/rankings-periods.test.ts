@@ -6,11 +6,13 @@
  * the wrong seven days, and nothing about the output looks wrong.
  */
 import { describe, expect, it } from "vitest"
-import { previousIsoWeek } from "@/lib/github/snapshot-dates"
+import {
+  lastCompletePeriod,
+  previousIsoWeek,
+} from "@/lib/github/snapshot-dates"
 import { defaultYear, resolveWeek, resolveWeekInput } from "@/lib/rankings-web"
 import {
   createBuildRankingsTask,
-  lastCompletePeriod,
   periodFileName,
   type RankingsStore,
 } from "@/lib/tasks/tasks/build-rankings"

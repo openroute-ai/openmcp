@@ -26,10 +26,13 @@ import {
 import { fakeContext } from "@/test/helpers/fakes"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
-import { periodFromMonth, periodFromWeek } from "@/lib/github/snapshot-dates"
+import {
+  lastCompletePeriod,
+  periodFromMonth,
+  periodFromWeek,
+} from "@/lib/github/snapshot-dates"
 import { upsertStatsRow } from "@/lib/github/service/stats"
 
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import type { WebhookResult } from "@/lib/webhook/client"
 

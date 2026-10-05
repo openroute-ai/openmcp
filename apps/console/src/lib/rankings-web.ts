@@ -12,8 +12,11 @@
  * how a dashboard ends up showing stale data as if it were live.
  */
 
-import type { YearMonth, YearWeek } from "@/lib/github/snapshot-dates"
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
+import {
+  lastCompletePeriod,
+  type YearMonth,
+  type YearWeek,
+} from "@/lib/github/snapshot-dates"
 import { zonedYear } from "@/lib/time"
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string }

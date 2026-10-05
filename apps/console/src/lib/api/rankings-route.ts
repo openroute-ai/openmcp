@@ -24,8 +24,11 @@ import {
 } from "@/lib/api/guard"
 import { rankingsPayload, rankingsSchema } from "@/lib/api/contract"
 import { buildRankingsForMonth, buildRankingsForWeek } from "@/lib/github/service/rankings"
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
-import type { YearMonth, YearWeek } from "@/lib/github/snapshot-dates"
+import {
+  lastCompletePeriod,
+  type YearMonth,
+  type YearWeek,
+} from "@/lib/github/snapshot-dates"
 
 /** Reads the database on every call. */
 export const dynamic = "force-dynamic"

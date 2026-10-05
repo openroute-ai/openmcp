@@ -1142,8 +1142,7 @@ async function main() {
   const { periodFromMonth, periodFromWeek } =
     await import("../lib/github/snapshot-dates")
   const { zonedCivilDate } = await import("../lib/time")
-  const { lastCompletePeriod } =
-    await import("../lib/tasks/tasks/build-rankings")
+  const { lastCompletePeriod } = await import("../lib/github/snapshot-dates")
 
   const now = new Date()
   const today = zonedCivilDate(now)

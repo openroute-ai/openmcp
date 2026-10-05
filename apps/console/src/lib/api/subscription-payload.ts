@@ -39,10 +39,12 @@ import {
   listStatsSince,
   type StatsCounterRow,
 } from "@/lib/github/service/stats"
-import type { StatsCadence } from "@/lib/github/snapshot-dates"
+import {
+  lastCompletePeriod,
+  type StatsCadence,
+} from "@/lib/github/snapshot-dates"
 import type { Db } from "@/lib/github/service/repo"
 import { APP_TIMEZONE } from "@/lib/time"
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
 
 /** 单个 delivery 的仓库数上限（§6.5）。 */
 export const MAX_REPOS_PER_PAYLOAD = 1000

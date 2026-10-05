@@ -25,7 +25,7 @@ import {
   buildRankingsForWeek,
   type Rankings,
 } from "@/lib/github/service/rankings"
-import { lastCompletePeriod } from "@/lib/tasks/tasks/build-rankings"
+import { lastCompletePeriod } from "@/lib/github/snapshot-dates"
 import type { Task } from "@/lib/tasks/runner"
 import { hasAccepted, sendWebhook, summarise } from "@/lib/webhook/client"
 import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
