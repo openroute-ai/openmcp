@@ -302,6 +302,56 @@ export interface PublicProjectDetail extends PublicProjectSummary {
   weeks: WeeklyArrivals[]
 }
 
+/** The four fields a page title and description are built from. */
+export interface PublicProjectIdentity {
+  owner: string
+  name: string
+  fullName: string
+  description: string | null
+}
+
+/**
+ * Just enough of a project to name it: what `generateMetadata` needs and nothing
+ * else.
+ *
+ * This exists because {@link getPublicProjectDetail} is the wrong read for a page
+ * title. It fans out to three more queries (tags, daily arrivals, weekly
+ * arrivals) to render a 90-day chart and a weekly chart, and Next.js runs
+ * `generateMetadata` and the page component as separate passes over the same
+ * request — it memoises `fetch`, not arbitrary database reads, so calling the
+ * detail read from both meant the chart was fetched twice for one page view and
+ * the pool was asked for connections twice over. On a cold or remote database
+ * that is the difference between a slow page and a `timeout exceeded when trying
+ * to connect`.
+ *
+ * So metadata reads four columns and stops. Everything below is still fetched
+ * exactly once, by the component that actually renders it.
+ */
+export async function getPublicProjectIdentity(
+  db: Db,
+  owner: string,
+  name: string
+): Promise<PublicProjectIdentity | undefined> {
+  const rows = await db
+    .select({
+      owner: projects.owner,
+      name: projects.name,
+      description: projects.description,
+    })
+    .from(projects)
+    .where(
+      and(eq(projects.owner, owner), eq(projects.name, name), PUBLIC_WHERE)
+    )
+
+  const row = rows[0]
+  if (!row) return undefined
+
+  return {
+    ...row,
+    fullName: fullNameOf(row),
+  }
+}
+
 /**
  * An author as the public pages show them.
  *

@@ -15,6 +15,7 @@ import { LocaleLink } from "@/i18n/navigation"
 import {
   getPublicAuthor,
   getPublicProjectDetail,
+  getPublicProjectIdentity,
   listRelatedPublicProjects,
 } from "@/lib/public/radar"
 import { readTimeline } from "@/lib/radar/timeline"
@@ -41,7 +42,10 @@ export async function generateMetadata({
   params: Promise<{ owner: string; name: string }>
 }): Promise<Metadata> {
   const { owner, name } = await params
-  const project = await getPublicProjectDetail(db, owner, name)
+  // The identity read, not the detail read: the title needs four columns, and
+  // asking for the charts here meant every page view fetched the 90-day series
+  // twice — once for metadata, once for the body. See `getPublicProjectIdentity`.
+  const project = await getPublicProjectIdentity(db, owner, name)
 
   if (!project) return { title: "项目不存在" }
 
@@ -53,7 +57,7 @@ export async function generateMetadata({
     openGraph: {
       type: "website",
       title: siteTitle(`${project.fullName}`),
-      description: project.description,
+      description: project.description ?? undefined,
     },
   }
 }
