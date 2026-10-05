@@ -18,6 +18,13 @@ import {
   type CivilDate,
 } from "@/lib/time"
 
+/**
+ * Re-exported because it appears in this module's exported signatures. A caller
+ * that has to reach into `@/lib/time` to name the argument type of
+ * {@link periodFromDay} is a sign the type belongs here instead.
+ */
+export type { CivilDate }
+
 const MS_PER_DAY = 86_400_000
 
 export interface YearWeek {
@@ -384,6 +391,22 @@ export function periodFromMonth(
     { year: yearMonth.year, month: yearMonth.month, day: 1 },
     timeZone
   )
+}
+
+/**
+ * The instant a named calendar day opens.
+ *
+ * The third of the three named-period openers, and the one the daily stats
+ * table is keyed by. It exists rather than being spelled at each call site
+ * because a day boundary is the one period where "the ISO week the civil date
+ * falls in" and "the civil date" are not the same question — getting it wrong
+ * shifts a day rather than a week, which is much harder to notice in a chart.
+ */
+export function periodFromDay(
+  civil: CivilDate,
+  timeZone: string = APP_TIMEZONE
+): Date {
+  return periodStart("day", civil, timeZone)
 }
 
 /**

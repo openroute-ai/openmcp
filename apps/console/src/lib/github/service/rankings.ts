@@ -26,21 +26,25 @@ import {
   projects,
   projectsToTags,
   repoAnomalies,
+  repoDailyStats,
   repoMonthlyStats,
   repos,
   repoWeeklyStats,
   tags,
 } from "@/db/schema"
 import {
+  periodFromDay,
   periodFromMonth,
   periodFromWeek,
   previousIsoWeek,
+  type CivilDate,
   type YearMonth,
   type YearWeek,
 } from "@/lib/github/snapshot-dates"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { NO_DESCRIPTION } from "@/lib/github/service/project"
 import type { Db } from "@/lib/github/service/repo"
+import { civilOf } from "@/lib/time"
 
 /** One project as it appears in a ranking. */
 export interface RankedProject {
@@ -103,6 +107,43 @@ export interface Rankings {
   byRelativeGrowth: RankedProject[]
 }
 
+/**
+ * One calendar day's board, as a day rather than as a ranking period.
+ *
+ * A separate interface rather than a third `Rankings.period` member because
+ * `Rankings` is the shape `/api/v1/rankings/*` publishes and
+ * `rankingsSchema` pins `period` to `week | month`. Widening that union to
+ * carry a period the authenticated API does not serve would make the contract
+ * describe a value no client of it can receive.
+ */
+export interface DailyRankings {
+  period: "day"
+  /** The Asia/Shanghai calendar day, as `YYYY-MM-DD`. */
+  day: string
+  trending: RankedProject[]
+  byRelativeGrowth: RankedProject[]
+  /**
+   * How many projects carried both a row for this day and one for the day
+   * before it — the denominator behind both lists.
+   *
+   * Carried on the board because a daily list can be a partial write, and a
+   * caller reading three entries cannot otherwise tell "the top three of the
+   * day" from "the three entries a partial run happened to produce". The
+   * weekly and monthly boards do not need it: their writer runs once per
+   * completed period, so the newest row is always the whole period.
+   */
+  projectsMeasured: number
+}
+
+/** The part of a board that says which period it is about. */
+type BoardHeader = {
+  period: "day" | "week" | "month"
+  year?: number
+  week?: number
+  month?: number
+  day?: string
+}
+
 export interface BuildOptions {
   /** How many entries each list keeps. */
   limit?: number
@@ -144,9 +185,11 @@ export async function buildRankingsForWeek(
   }
 
   return assemble(db, {
-    period: "week",
-    year: yearWeek.year,
-    week: yearWeek.week,
+    header: {
+      period: "week",
+      year: yearWeek.year,
+      week: yearWeek.week,
+    },
     measured,
     limit: options.limit ?? DEFAULT_LIMIT,
   })
@@ -165,12 +208,85 @@ export async function buildRankingsForMonth(
   )
 
   return assemble(db, {
-    period: "month",
-    year: yearMonth.year,
-    month: yearMonth.month,
+    header: {
+      period: "month",
+      year: yearMonth.year,
+      month: yearMonth.month,
+    },
     measured,
     limit: options.limit ?? DEFAULT_LIMIT,
   })
+}
+
+/**
+ * One calendar day's board.
+ *
+ * The daily stats table was already collected — the public project chart reads
+ * 90 days of it — so this is the same measure-then-assemble pipeline as the
+ * weekly and monthly boards pointed at a finer table rather than a fourth
+ * implementation of "which projects gained the most".
+ *
+ * A day is a genuinely noisier unit than a week: most repositories gain nothing
+ * on any given day, and the top of the list is dominated by whichever ones
+ * happened to get a link. That is why the public page and the build task publish
+ * weekly and monthly boards, and why this one exists for an agent that asked
+ * for "yesterday" rather than as a page a human is pointed at.
+ */
+export async function buildRankingsForDay(
+  db: Db,
+  day: CivilDate,
+  options: BuildOptions = {}
+): Promise<DailyRankings> {
+  const start = periodFromDay(day)
+  // The previous day is derived from the instant, not by subtracting from the
+  // calendar fields: day 1 of a month has no day 0, and a month boundary is
+  // exactly where a naive subtraction lands in the previous month.
+  const previous = periodFromDay(
+    civilOf(new Date(start.getTime() - 86_400_000))
+  )
+
+  const measured = await measurePeriod(db, repoDailyStats, start, previous)
+
+  const assembled = await assemble(db, {
+    header: {
+      period: "day",
+      day: `${day.year}-${pad(day.month)}-${pad(day.day)}`,
+    },
+    measured,
+    limit: options.limit ?? DEFAULT_LIMIT,
+  })
+
+  return { ...assembled, projectsMeasured: measured.length }
+}
+
+/**
+ * The most recent day the daily table has rows for.
+ *
+ * "Yesterday" is the wrong default for this table. The weekly and monthly rows
+ * are written once per completed period, so the newest row is always a full
+ * period; daily rows are written by a sampler that runs on its own schedule, so
+ * the newest day is usually two or three days old and the day after it may hold
+ * only a handful of rows from a partial run.
+ *
+ * That partial run is why this returns the newest day *that has rows* and why
+ * the caller is expected to report how many it found: defaulting to yesterday
+ * answers "no data" most of the time, and defaulting to a 12-row day would
+ * present a partial write as a ranking of the world.
+ *
+ * An index-only backward scan of the period index, so the cost is one page read
+ * rather than a scan of the table.
+ */
+export async function latestDailyPeriod(db: Db): Promise<Date | null> {
+  const rows = await db
+    .select({ period: repoDailyStats.period })
+    .from(repoDailyStats)
+    .orderBy(desc(repoDailyStats.period))
+    .limit(1)
+  return rows[0]?.period ?? null
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0")
 }
 
 /** The month before a given one, across the year boundary. */
@@ -196,7 +312,8 @@ export function previousMonth({ year, month }: YearMonth): YearMonth {
  */
 async function measurePeriod(
   db: Db,
-  table: typeof repoWeeklyStats | typeof repoMonthlyStats,
+  table:
+    typeof repoWeeklyStats | typeof repoMonthlyStats | typeof repoDailyStats,
   period: Date,
   previous: Date
 ): Promise<Measured[]> {
@@ -255,24 +372,17 @@ async function measurePeriod(
  * overwritten by a refresh, so the question it answered no longer exists and
  * the simpler rule is the one that matches what the column now means.
  */
-async function assemble(
+async function assemble<T extends BoardHeader>(
   db: Db,
   input: {
-    period: "week" | "month"
-    year: number
-    week?: number
-    month?: number
+    header: T
     measured: Measured[]
     limit: number
   }
-): Promise<Rankings> {
-  const { period, year, week, month, measured, limit } = input
-  const header = {
-    period,
-    year,
-    ...(week !== undefined ? { week } : {}),
-    ...(month !== undefined ? { month } : {}),
-  }
+): Promise<
+  { trending: RankedProject[]; byRelativeGrowth: RankedProject[] } & T
+> {
+  const { header, measured, limit } = input
 
   if (measured.length === 0) {
     return { ...header, trending: [], byRelativeGrowth: [] }
