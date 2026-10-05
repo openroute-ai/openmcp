@@ -31,8 +31,8 @@ export function fakeGitHubClient(
     fetchStargazersWithTimestamps: unimplemented(
       "fetchStargazersWithTimestamps"
     ),
-    fetchFileContent: unimplemented("fetchFileContent"),
-    listDirectory: unimplemented("listDirectory"),
+    readPath: unimplemented("readPath"),
+    findSkillDocuments: unimplemented("findSkillDocuments"),
     searchRepositories: unimplemented("searchRepositories"),
     fetchUserInfo: unimplemented("fetchUserInfo"),
     listUserRepositories: unimplemented("listUserRepositories"),

@@ -17,11 +17,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { inArray } from "drizzle-orm"
 
 import { db, pool } from "@/db/client"
-import { repos } from "@/db/schema"
+import { repos, user, userRepos } from "@/db/schema"
 import { createCaller } from "@/lib/trpc/root"
 import { isAdmin, landingPathFor } from "@/lib/auth/role"
 import { ADMIN_ROLE } from "@/lib/auth/role"
 import {
+  fakeAccountContext,
   fakeAdminContext,
   fakeAnonymousContext,
   fakeTRPCContext,
@@ -137,8 +138,12 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     const longer = createCaller(fakeTRPCContext(db, "administrator"))
 
     for (const [label, call] of adminOnly) {
-      await expect(call(typo), label).rejects.toMatchObject({ code: "FORBIDDEN" })
-      await expect(call(longer), label).rejects.toMatchObject({ code: "FORBIDDEN" })
+      await expect(call(typo), label).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      })
+      await expect(call(longer), label).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      })
     }
   })
 
@@ -209,12 +214,12 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     // GitHub rate limit by asking for a resync.
     const caller = createCaller(fakeUserContext(db))
 
-    await expect(
-      caller.repos.refresh({ id: "any-id" })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" })
-    await expect(
-      caller.repos.delete({ id: "any-id" })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(caller.repos.refresh({ id: "any-id" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    })
+    await expect(caller.repos.delete({ id: "any-id" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    })
     await expect(
       caller.repos.update({ id: "any-id", description: "rewritten" })
     ).rejects.toMatchObject({ code: "FORBIDDEN" })
@@ -283,18 +288,23 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     // Reading only: a refusal here would mean the role check rejects the role it
     // is written for, which is the one bug the gate cannot be allowed to have.
     await expect(caller.authors.list()).resolves.toBeDefined()
-    await expect(caller.repos.list({ limit: 1, offset: 0 })).resolves.toBeDefined()
+    await expect(
+      caller.repos.list({ limit: 1, offset: 0 })
+    ).resolves.toBeDefined()
   })
 
   /**
    * What the two audiences see in the repository list.
    *
-   * `/console` filters `list` and `byId` by `created_by`, so "我的仓库" means
-   * the account's own additions rather than the whole registry; the operator's
-   * `/dashboard` still sees everything. The three fixtures carry a per-run
-   * suffix in their names and every query is scoped by that suffix, so the
-   * assertions name exactly these rows and cannot be satisfied by whatever else
-   * the database happens to hold.
+   * `/console` filters `list` and `byId` by ownership, so "我的仓库" means the
+   * account's own repositories rather than the whole registry; the operator's
+   * `/dashboard` still sees everything. Ownership is `repos.created_by` **or** a
+   * `user_repos` row: the first records who got here first, the second records
+   * who submitted the URL, and an API submission only ever writes the second —
+   * so a filter reading the first alone hides it from the account that made it.
+   * The four fixtures carry a per-run suffix in their names and every query is
+   * scoped by that suffix, so the assertions name exactly these rows and cannot
+   * be satisfied by whatever else the database happens to hold.
    */
   describe("repository ownership", () => {
     const suffix = `ownership-${Math.random().toString(36).slice(2, 10)}`
@@ -302,6 +312,15 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
       mine: `repo-mine-${suffix}`,
       theirs: `repo-theirs-${suffix}`,
       unowned: `repo-unowned-${suffix}`,
+      submitted: `repo-submitted-${suffix}`,
+    }
+
+    // `user_repos.user_id` references `user`, so the submitter has to be a real
+    // row. `user-1` / `user-2` match `fakeUserContext`'s hard-coded id and the
+    // `created_by` fixtures above; the API fixture hangs off `user-1`.
+    const userIds = {
+      mine: `user-1`,
+      theirs: `user-2`,
     }
 
     const columns = {
@@ -312,18 +331,36 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
     }
 
     beforeAll(async () => {
+      await db
+        .insert(user)
+        .values([
+          {
+            id: userIds.mine,
+            name: "Ownership Mine",
+            email: `ownership-mine-${suffix}@console.test`,
+            emailVerified: true,
+          },
+          {
+            id: userIds.theirs,
+            name: "Ownership Theirs",
+            email: `ownership-theirs-${suffix}@console.test`,
+            emailVerified: true,
+          },
+        ])
+        .onConflictDoNothing()
+
       await db.insert(repos).values([
         {
           ...columns,
           id: ids.mine,
           name: `mine-${suffix}`,
-          createdBy: "user-1",
+          createdBy: userIds.mine,
         },
         {
           ...columns,
           id: ids.theirs,
           name: `theirs-${suffix}`,
-          createdBy: "user-2",
+          createdBy: userIds.theirs,
         },
         {
           ...columns,
@@ -331,14 +368,33 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
           name: `unowned-${suffix}`,
           createdBy: null,
         },
+        {
+          // Nobody recorded it first: the API wrote a submission row and left
+          // `created_by` alone, which is what the two writers actually do.
+          ...columns,
+          id: ids.submitted,
+          name: `submitted-${suffix}`,
+          createdBy: null,
+        },
       ])
+
+      await db.insert(userRepos).values({
+        userId: userIds.mine,
+        repoId: ids.submitted,
+        source: "api",
+      })
     })
 
     afterAll(async () => {
       await db.delete(repos).where(inArray(repos.id, Object.values(ids)))
+      // `user_repos` cascades from both sides, so the rows are already gone;
+      // the accounts exist only for these fixtures and go with them.
+      await db
+        .delete(user)
+        .where(inArray(user.id, [userIds.mine, userIds.theirs]))
     })
 
-    it("shows a non-admin only the repositories that account added", async () => {
+    it("shows a non-admin only the repositories that account submitted", async () => {
       const caller = createCaller(fakeUserContext(db))
 
       const { items, total } = await caller.repos.list({
@@ -347,8 +403,11 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
         offset: 0,
       })
 
-      expect(total).toBe(1)
-      expect(items.map((repo) => repo.id)).toEqual([ids.mine])
+      // Two, not one: the pasted one and the API-submitted one.
+      expect(total).toBe(2)
+      expect(new Set(items.map((repo) => repo.id))).toEqual(
+        new Set([ids.mine, ids.submitted])
+      )
     })
 
     it("shows an admin every repository, owned or not", async () => {
@@ -360,10 +419,33 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
         offset: 0,
       })
 
-      expect(total).toBe(3)
+      expect(total).toBe(4)
       expect(new Set(items.map((repo) => repo.id))).toEqual(
-        new Set([ids.mine, ids.theirs, ids.unowned])
+        new Set([ids.mine, ids.theirs, ids.unowned, ids.submitted])
       )
+    })
+
+    it("opens a repository submitted by API key for the submitting account", async () => {
+      const caller = createCaller(fakeUserContext(db))
+
+      await expect(
+        caller.repos.byId({ id: ids.submitted })
+      ).resolves.toMatchObject({ id: ids.submitted })
+      // `byId` is seven round trips — the row, then six child reads — and this
+      // suite runs against a remote instance, so the default 5s budget is a
+      // coin flip rather than an assertion about the code under test.
+    }, 30_000)
+
+    it("never lists one repository twice when both columns name the account", async () => {
+      const caller = createCaller(fakeUserContext(db))
+
+      const { items } = await caller.repos.list({
+        search: `mine-${suffix}`,
+        limit: 10,
+        offset: 0,
+      })
+
+      expect(items.map((repo) => repo.id)).toEqual([ids.mine])
     })
 
     it("lets a non-admin open their own repository but not another account's", async () => {
@@ -372,12 +454,29 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
       await expect(caller.repos.byId({ id: ids.mine })).resolves.toMatchObject({
         id: ids.mine,
       })
-      await expect(
-        caller.repos.byId({ id: ids.theirs })
-      ).rejects.toMatchObject({ code: "NOT_FOUND" })
+      await expect(caller.repos.byId({ id: ids.theirs })).rejects.toMatchObject(
+        { code: "NOT_FOUND" }
+      )
       // Unowned belongs to the operator's registry, not to anybody's list.
       await expect(
         caller.repos.byId({ id: ids.unowned })
+      ).rejects.toMatchObject({ code: "NOT_FOUND" })
+    }, 30_000)
+
+    it("hides another account's submission, whatever recorded it", async () => {
+      const caller = createCaller(fakeAccountContext(db, userIds.theirs))
+
+      const { items } = await caller.repos.list({
+        search: suffix,
+        limit: 10,
+        offset: 0,
+      })
+
+      expect(new Set(items.map((repo) => repo.id))).toEqual(
+        new Set([ids.theirs])
+      )
+      await expect(
+        caller.repos.byId({ id: ids.submitted })
       ).rejects.toMatchObject({ code: "NOT_FOUND" })
     })
   })

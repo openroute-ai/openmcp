@@ -21,7 +21,7 @@ import {
 } from "@/lib/github/service/stats"
 import { lastNWeeks } from "@/lib/github/snapshot-dates"
 import { createConsoleLogger } from "@/lib/tasks/runner"
-import { projects, repos, USER_REPO_STATUSES } from "@/db/schema"
+import { projects, repos, userRepos, USER_REPO_STATUSES } from "@/db/schema"
 import { countProjectsForRepo } from "@/lib/github/service/project"
 import {
   countRepoSubmitters,
@@ -41,6 +41,34 @@ const CHART_MONTHS = 12
 const CHART_WEEKS = 12
 
 /**
+ * 一个账号在 `/console` 里能看到的那部分仓库集合。
+ *
+ * 两个来源取**并集**，而不是只读其中一个：
+ *
+ * - `repos.created_by` —— 谁**第一个**把这个仓库记进库里。`repos.create` 会写它，
+ *   所以在 console 里亲手粘贴的仓库走这一条。
+ * - `user_repos` —— 谁**提交过**它。这一对关系可以有很多用户，而 API 提交
+ *   （`POST /api/v1/repos` 与 `POST /api/v1/projects`）只写这里：`repos.created_by`
+ *   按设计不能被改写，否则谁先提交就决定了后来者还能不能看到它。
+ *
+ * 只读 `created_by` 时，API 提交的仓库对提交者本人是不可见的——这就是"我的仓库"
+ * 一直为空的原因；只读 `user_repos` 又会漏掉这张表存在之前由 console 亲手记下的
+ * 行，所以两个来源都得在。
+ *
+ * 写成 `exists` 而不是 join：同一个仓库可以同时被 `created_by` 和多条提交命中，
+ * join 会让它在结果里出现两次，而分页里的重复行比看不见更难解释。
+ */
+function ownedByUser(userId: string): SQL {
+  return or(
+    eq(repos.createdBy, userId),
+    sql`exists (
+      select 1 from ${userRepos}
+      where ${userRepos.repoId} = ${repos.id} and ${userRepos.userId} = ${userId}
+    )`
+  )!
+}
+
+/**
  * The repository registry.
  *
  * A repository is not a project. Curating one turns it into a project with a
@@ -56,7 +84,7 @@ const CHART_WEEKS = 12
  * into projects — is `adminProcedure`, because a repository row is an editorial
  * decision and an editorial decision is not something a signed-in account gets
  * to make. The two audiences do not, however, see the same rows: for a
- * non-admin, `list` and `byId` narrow to the repositories that account added
+ * non-admin, `list` and `byId` narrow to the repositories that account submitted
  * itself, because `/console` is titled "我的仓库" and the registry they would
  * otherwise see is the operator's, not theirs. Both still go through this one
  * query, so the two views cannot drift in columns, filters or ordering.
@@ -67,9 +95,10 @@ export const reposRouter = createTRPCRouter({
    * at one and by who added it.
    *
    * An admin sees the whole registry; anyone else sees only the rows their own
-   * additions created. The scope is pushed as one more condition rather than
-   * branched into a second query, so the search, the `curated` / `orphan` split
-   * and the pagination stay identical for both audiences.
+   * additions created or their own submissions recorded. The scope is pushed as
+   * one more condition rather than branched into a second query, so the search,
+   * the `curated` / `orphan` split and the pagination stay identical for both
+   * audiences.
    *
    * That split is the reason the operator page exists rather than a link to
    * each project, so it is part of the query instead of something the caller
@@ -93,12 +122,16 @@ export const reposRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const conditions: SQL[] = []
 
-      // Who added a repository, not who curates it: an admin sees the whole
+      // Who submitted a repository, not who curates it: an admin sees the whole
       // registry — the pool the discovery sweep fills and the dashboard
-      // curates — while anyone else sees only their own additions. Unowned rows
-      // match no non-admin, which is the point of the null.
+      // curates — while anyone else sees only their own. Both columns count, so
+      // a row an API key submitted for this account is in their list even
+      // though `created_by` names somebody else, and a row they pasted into
+      // the console is in their list even though it predates `user_repos`.
+      // Unowned and unsubmitted rows match no non-admin, which is the point of
+      // both nulls.
       if (!isAdmin(ctx.session.user)) {
-        conditions.push(eq(repos.createdBy, ctx.session.user.id))
+        conditions.push(ownedByUser(ctx.session.user.id))
       }
 
       const term = input.search?.trim()
@@ -212,9 +245,10 @@ export const reposRouter = createTRPCRouter({
    * `src/lib/tasks/tasks/update-github-data.ts`).
    *
    * The caller becomes the row's `created_by` when the row is new or has no
-   * owner yet, which is what puts it in that account's own `/console` list. A
-   * row already owned by another account is refreshed under its owner rather
-   * than reassigned.
+   * owner yet, which is one of the two ways it reaches that account's own
+   * `/console` list — the other is the `user_repos` row written just below, and
+   * the one that is always written. A row already owned by another account is
+   * refreshed under its owner rather than reassigned.
    */
   /**
    * One repository, in full, for the detail page a reader opens from the list.
@@ -226,7 +260,7 @@ export const reposRouter = createTRPCRouter({
    * decision, no `override` flag, no refresh control — so a signed-in account
    * reading it learns the same thing reading the row on GitHub.
    *
-   * A non-admin may open only a row they added. The scope is part of the query
+   * A non-admin may open only a row they submitted. The scope is part of the query
    * rather than a check after it, so a caller guessing an id gets the same
    * `NOT_FOUND` as one asking for a repository that does not exist: the list
    * never showed them anything else, so there is no third answer to give.
@@ -296,10 +330,7 @@ export const reposRouter = createTRPCRouter({
         .where(
           isAdmin(ctx.session.user)
             ? eq(repos.id, input.id)
-            : and(
-                eq(repos.id, input.id),
-                eq(repos.createdBy, ctx.session.user.id)
-              )
+            : and(eq(repos.id, input.id), ownedByUser(ctx.session.user.id))
         )
         .limit(1)
 

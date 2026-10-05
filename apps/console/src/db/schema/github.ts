@@ -128,8 +128,15 @@ export const repos = pgTable(
      *
      * Null is meaningful rather than missing: a repository with no creator
      * belongs to the registry, not to a person, so it is listed only for an
-     * admin. `/console` and `/console/repos/[id]` filter on this, which is what
-     * makes "我的仓库" mean *mine* instead of the whole registry.
+     * admin.
+     *
+     * One account at most, and deliberately: it records who got here *first*, so
+     * a second account submitting the same URL must not overwrite it. Every
+     * submission therefore also needs a row of its own, which is what
+     * `user_repos` is for. `/console` and `/console/repos/[id]` accept a row
+     * when **either** names the account, which is what makes "我的仓库" mean
+     * *mine* instead of the whole registry — reading this column alone hides
+     * everything submitted through the API.
      *
      * Plain text rather than a foreign key to `user`: `../schema` owns `user`
      * and imports this file, so a reference here would close an import cycle.

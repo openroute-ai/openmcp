@@ -91,6 +91,39 @@ function parseStarHistoryEntry(raw: unknown): StarHistoryEntry | undefined {
   }
 }
 
+export interface ContentEntry {
+  name: string
+  path: string
+  type: string
+}
+
+/**
+ * One row of a Contents API response.
+ *
+ * A file carries `content`/`encoding` and a directory carries neither, which is
+ * how the two are told apart. Every field is optional because the shape is
+ * whatever GitHub chose to inline for the requested size.
+ */
+interface ContentsEntry {
+  name?: string
+  path?: string
+  type?: string
+  content?: string
+  encoding?: string
+}
+
+/**
+ * What one path in a repository turned out to be.
+ *
+ * A discriminated union rather than two methods, because the Contents API makes
+ * this distinction in the same response that carries the content: an array means
+ * a directory, an object means a file. Anything that has to know which it is
+ * gets the answer without a second request and without inferring it from a name.
+ */
+export type PathContent =
+  | { kind: "file"; content: string }
+  | { kind: "directory"; entries: ContentEntry[] }
+
 type ReposBatchResult = {
   /** Keyed by the input `owner/name`, so callers need not track indices. */
   results: Map<string, RepoInfo>
@@ -756,60 +789,108 @@ export function createGitHubClient() {
     },
 
     /**
-     * Lists the repository root, or one directory, so skill directories can
-     * be discovered. Returns entry names only; the caller decides what to do
-     * with them.
-     */
-    async listDirectory(
-      fullName: string,
-      path = "",
-      branch?: string
-    ): Promise<{ name: string; path: string; type: string }[]> {
-      const branchQuery = branch ? `?ref=${encodeURIComponent(branch)}` : ""
-      const contents = (await makeRestApiRequestJson(
-        `repos/${fullName}/contents/${path}${branchQuery}`
-      )) as { name?: string; path?: string; type?: string }[]
-
-      if (!Array.isArray(contents)) return []
-      return contents
-        .filter((entry) => entry.name && entry.path)
-        .map((entry) => ({
-          name: entry.name as string,
-          path: entry.path as string,
-          type: entry.type ?? "file",
-        }))
-    },
-
-    /**
-     * Reads a file's text, following the Contents API.
+     * Reads one path, reporting what it turned out to be.
      *
-     * The API returns base64 for files over 1 MB is not supported, so a large
-     * file arrives as a content-less object; that is surfaced as an error
-     * rather than an empty string, which would look like an empty file.
+     * The Contents API answers a directory with an array and a file with an
+     * object, so one request settles both questions. That is what lets a caller
+     * treat "a document" and "a directory of documents" as two shapes of the
+     * same path instead of guessing which one it is from the name.
+     *
+     * A path that is not there raises `GitHubNotFoundError`, which is a
+     * permanent answer rather than a request worth repeating.
      */
-    async fetchFileContent(
+    async readPath(
       fullName: string,
       path: string,
       branch?: string
-    ): Promise<string> {
+    ): Promise<PathContent> {
       const branchQuery = branch ? `?ref=${encodeURIComponent(branch)}` : ""
       const data = (await makeRestApiRequestJson(
         `repos/${fullName}/contents/${path}${branchQuery}`
-      )) as { content?: string; encoding?: string }
+      )) as ContentsEntry | ContentsEntry[] | null
 
-      if (data.encoding === "base64" && data.content) {
+      if (Array.isArray(data)) {
+        return {
+          kind: "directory",
+          entries: data
+            .filter((entry) => entry?.name && entry?.path)
+            .map((entry) => ({
+              name: entry.name as string,
+              path: entry.path as string,
+              type: entry.type ?? "file",
+            })),
+        }
+      }
+
+      // Narrowed rather than cast: a body that is neither an array nor an
+      // object with content must reach the error below as a typed GitHub
+      // failure, not as a TypeError from reading a property of `null`.
+      const file = (data ?? {}) as ContentsEntry
+      if (file.encoding === "base64" && file.content) {
         // The API wraps base64 at 60 characters; the newlines must go before
         // decoding.
-        return Buffer.from(data.content.replace(/\n/g, ""), "base64").toString(
-          "utf-8"
-        )
+        return {
+          kind: "file",
+          content: Buffer.from(
+            file.content.replace(/\n/g, ""),
+            "base64"
+          ).toString("utf-8"),
+        }
       }
-      if (typeof data.content === "string") return data.content
+      if (typeof file.content === "string") {
+        return { kind: "file", content: file.content }
+      }
 
+      // A file over 1 MB comes back as an object with no content, because the
+      // API does not inline those. Reported as an error rather than as an empty
+      // file, which would look like a skill with nothing in it.
       throw new GitHubTransportError(
         `GitHub returned no content for ${fullName}/${path}`,
         { status: 200 }
       )
+    },
+
+    /**
+     * Every `SKILL.md` in the repository, found with one request.
+     *
+     * The Contents API can only answer for a path somebody already named, so
+     * locating skills in an unfamiliar repository through it means guessing a
+     * layout and spending a request on every wrong guess. The recursive trees
+     * API answers the other question — "which of these paths is a skill
+     * document" — directly, so the layouts this repository happens to use are
+     * discovered rather than enumerated here.
+     *
+     * `truncated` is reported rather than hidden: GitHub stops after 100k
+     * entries, and a caller that treats a cut-off list as complete would record
+     * a repository's skills as a shorter list than it is.
+     */
+    async findSkillDocuments(
+      fullName: string,
+      branch?: string
+    ): Promise<{ paths: string[]; truncated: boolean }> {
+      // `HEAD` rather than an omitted ref: the endpoint requires a tree-ish, and
+      // `readPath` above already treats an unknown branch as not-found, so a
+      // missing one here is the same permanent answer rather than a new error.
+      const treeish = encodeURIComponent(branch ?? "HEAD")
+      const data = (await makeRestApiRequestJson(
+        `repos/${fullName}/git/trees/${treeish}?recursive=1`
+      )) as { tree?: unknown; truncated?: unknown } | null
+
+      const entries = Array.isArray(data?.tree) ? data.tree : []
+      const paths: string[] = []
+      for (const entry of entries) {
+        const item = entry as { path?: unknown; type?: unknown }
+        // Blobs only: a tree entry named `SKILL.md` is a directory that happens
+        // to carry the name, and reading it as a document would yield the
+        // directory's first file instead of a skill.
+        if (item?.type !== "blob") continue
+        if (typeof item.path !== "string") continue
+        if (item.path === "SKILL.md" || item.path.endsWith("/SKILL.md")) {
+          paths.push(item.path)
+        }
+      }
+
+      return { paths, truncated: data?.truncated === true }
     },
 
     /**

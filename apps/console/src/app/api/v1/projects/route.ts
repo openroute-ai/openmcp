@@ -38,10 +38,7 @@ import {
   authenticateApiKey,
   withRateLimitHeaders,
 } from "@/lib/api/guard"
-import {
-  projectCreatedSchema,
-  projectRequestSchema,
-} from "@/lib/api/contract"
+import { projectCreatedSchema, projectRequestSchema } from "@/lib/api/contract"
 import { resolveWriteTarget } from "@/lib/api/write-request"
 import { deliverWriteCallback } from "@/lib/api/callback"
 import {
@@ -50,6 +47,10 @@ import {
 } from "@/lib/github/service/create-project"
 import { deliverProjectSkills } from "@/lib/github/service/deliver-project-skills"
 import { recordSkillsDestination } from "@/lib/github/service/skill-destination"
+import {
+  linkUserToRepo,
+  recomputePlatformStates,
+} from "@/lib/github/service/user-repo"
 import { getProjectByFullName } from "@/lib/github/service/project"
 import { getRepoByFullName } from "@/lib/github/service/repo"
 import { syncSkillsForProject } from "@/lib/github/sync-skills"
@@ -143,12 +144,41 @@ export async function POST(request: Request) {
     )
   }
 
+  // The submitter's own row, so the repository reaches that account's `/console`
+  // list. `/api/v1/repos` has always written it and this endpoint did not, so the
+  // two ways of submitting the same URL disagreed about who owns it — and since
+  // publishing is the default path for `apps/web`, every repository submitted
+  // that way was left with no owner at all.
+  //
+  // `repos.created_by` is deliberately left alone, for the reason the register
+  // endpoint gives: it answers "who recorded this first" and must not change
+  // when somebody else submits the same URL later.
+  //
+  // Read once for both this and the callback below — the repository was just
+  // written, and neither caller needs more than its id.
+  const submitterId = auth.principal.submitterId
+  const targetRepo =
+    submitterId || callback ? await getRepoByFullName(db, fullName) : undefined
+
+  if (submitterId && targetRepo) {
+    await linkUserToRepo(db, {
+      userId: submitterId,
+      repoId: targetRepo.id,
+      source: "api",
+    })
+    await recomputePlatformStates(db, [targetRepo.id])
+  }
+
   // Where this project's skills go comes from the caller's callback pair, and is
   // recorded before delivery so the retry queue and the operator's "retry now"
   // button — both of which run long after this request — have an address to
   // read. Written for every type: a project can be published as one type and
   // later re-submitted as a skill, and the address should not depend on which.
-  await recordSkillsDestination(db, created.project.id, resolved.target.callback)
+  await recordSkillsDestination(
+    db,
+    created.project.id,
+    resolved.target.callback
+  )
 
   // `createProjectFromRepo` returns early for an already-curated repository and
   // therefore does not sync its skills. A caller that asked for the skill *now*
@@ -173,21 +203,22 @@ export async function POST(request: Request) {
   // 投递都跑完——早一步发出去，接收方读到的就是一个还没有技能的项目。
   //
   // `createProjectFromRepo` 返回的 project 是不带 repoId 的子集，而回调的幂等键
-  // 需要它，所以这里回读一次仓库行。读不到就不发：宁可少一次回调，也不要发一个
-  // `repoId` 为空的 payload 让接收方拿它去查。
-  const callbackRepo = callback
-    ? await getRepoByFullName(db, fullName)
-    : undefined
-  if (callback && callbackRepo) {
+  // 需要它，所以 `targetRepo` 在上面已经回读过仓库行。读不到就不发：宁可少一次
+  // 回调，也不要发一个 `repoId` 为空的 payload 让接收方拿它去查。
+  if (callback && targetRepo) {
     const outcome = await deliverWriteCallback(callback, {
       event: "repo.published",
       fullName,
-      repoId: callbackRepo.id,
+      repoId: targetRepo.id,
       created: created.status === "created",
       projectId: created.project.id,
     })
     if (!outcome.delivered) {
+      // Event and endpoint included: one console serves many submitters, so
+      // "a callback failed" alone does not say which of them to go and look at.
       console.warn("[api/v1/projects] callback failed", {
+        event: "repo.published",
+        callbackUrl: callback.url,
         fullName,
         status: outcome.status,
         error: outcome.error,

@@ -25,6 +25,19 @@ export type Generate = (
   options?: GenerateOptions
 ) => Promise<string>
 
+/**
+ * How long one model call may take before it is abandoned.
+ *
+ * A README translation is one call with a 8000-token ceiling, so a slow provider
+ * can legitimately need a while — but not indefinitely. Without a bound a single
+ * stalled call holds the skill sync open: the ingest route is still waiting on it
+ * when its caller gives up, and the sync job it started stays `running` with
+ * nothing stored, which is a state neither an operator nor the retry queue can
+ * read. Every caller here already treats a failed translation as "keep the
+ * original text", so timing out costs a translation and nothing else.
+ */
+const GENERATE_TIMEOUT_MS = 45_000
+
 const defaultGenerate: Generate = async (prompt, options) => {
   const model = createChatModel()
   if (!model) throw new Error("No AI provider configured")
@@ -33,6 +46,7 @@ const defaultGenerate: Generate = async (prompt, options) => {
     prompt,
     temperature: options?.temperature,
     maxOutputTokens: options?.maxOutputTokens,
+    abortSignal: AbortSignal.timeout(GENERATE_TIMEOUT_MS),
   })
   return text
 }

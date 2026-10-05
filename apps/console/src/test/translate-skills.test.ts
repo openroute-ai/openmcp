@@ -126,4 +126,74 @@ describe("translateSkills", () => {
     ])
     expect(translate).toHaveBeenCalledTimes(2)
   })
+
+  it("keeps results aligned with their skills when a later one finishes first", async () => {
+    // The first skill is the slowest, so a fan-out that returned results as they
+    // landed would put "a" where "b" belongs and every caller would store the
+    // wrong translation against the wrong document.
+    const translate = vi.fn(async (description: string) => {
+      const delay = description === "one" ? 20 : 1
+      await new Promise((r) => setTimeout(r, delay))
+      return { descriptionZh: `译:${description}`, readmeZh: "" }
+    })
+
+    const result = await translateSkills(
+      [
+        { skillDir: "a", description: "one", readme: "r1" },
+        { skillDir: "b", description: "two", readme: "r2" },
+      ],
+      new Map(),
+      translate
+    )
+
+    expect(result).toEqual([
+      { descriptionZh: "译:one", readmeZh: "" },
+      { descriptionZh: "译:two", readmeZh: "" },
+    ])
+  })
+
+  it("does not translate a whole repository one skill at a time", async () => {
+    // This is the whole reason for the fan-out: a repository with a dozen skills
+    // was spending minutes in here, which is longer than an ingest caller waits.
+    let inFlight = 0
+    let peak = 0
+    const translate = vi.fn(async () => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((r) => setTimeout(r, 10))
+      inFlight -= 1
+      return { descriptionZh: "译", readmeZh: "" }
+    })
+
+    const skills = Array.from({ length: 12 }, (_, i) => ({
+      skillDir: `s${i}`,
+      description: `d${i}`,
+      readme: `r${i}`,
+    }))
+    const result = await translateSkills(skills, new Map(), translate)
+
+    expect(result).toHaveLength(12)
+    expect(peak).toBeGreaterThan(1)
+    // And bounded, so a large repository cannot spend a provider's whole budget
+    // on one sync.
+    expect(peak).toBeLessThanOrEqual(4)
+  })
+
+  it("rejects when one translation rejects, as the sequential loop did", async () => {
+    const translate = vi.fn(async (description: string) => {
+      if (description === "bad") throw new Error("model unavailable")
+      return { descriptionZh: "译", readmeZh: "" }
+    })
+
+    await expect(
+      translateSkills(
+        [
+          { skillDir: "a", description: "good", readme: "r1" },
+          { skillDir: "b", description: "bad", readme: "r2" },
+        ],
+        new Map(),
+        translate
+      )
+    ).rejects.toThrow("model unavailable")
+  })
 })

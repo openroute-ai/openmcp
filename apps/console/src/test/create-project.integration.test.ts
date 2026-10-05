@@ -22,6 +22,8 @@ import {
   getProjectBySlug,
 } from "@/lib/github/service/project"
 import { getRepoByFullName } from "@/lib/github/service/repo"
+import { syncSkillsForProject } from "@/lib/github/sync-skills"
+import { GitHubNotFoundError } from "@/lib/github/errors"
 import { createBufferingLogger } from "@/lib/tasks/runner"
 import { fakeGitHubClient } from "./helpers/fakes"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
@@ -345,8 +347,10 @@ describe.skipIf(!hasDatabase)("createProjectFromRepo (integration)", () => {
   describe("skill projects", () => {
     it("records a project sync job for a skill project", async () => {
       const c = client({
-        fetchFileContent: vi.fn(async () => ""),
-        listDirectory: vi.fn(async () => []),
+        readPath: vi.fn(async () => ({
+          kind: "file" as const,
+          content: "",
+        })),
       })
 
       const result = await createProjectFromRepo(
@@ -374,10 +378,9 @@ describe.skipIf(!hasDatabase)("createProjectFromRepo (integration)", () => {
 
     it("records a failed project sync when the skill fetch throws", async () => {
       const c = client({
-        fetchFileContent: vi.fn(async () => {
+        readPath: vi.fn(async () => {
           throw new Error("SKILL.md unreachable")
         }),
-        listDirectory: vi.fn(async () => []),
       })
 
       const result = await createProjectFromRepo(
@@ -395,6 +398,273 @@ describe.skipIf(!hasDatabase)("createProjectFromRepo (integration)", () => {
       expect(jobs).toHaveLength(1)
       expect(jobs[0]!.status).toBe("failed")
       expect(jobs[0]!.errorMessage).toContain("SKILL.md unreachable")
+    })
+
+    it("records a missing SKILL.md as an empty sync, not a failure", async () => {
+      // A repository that has no SKILL.md at the configured path is a state,
+      // not an outage: the next run will read the same 404. Recording it as
+      // failed left the project reporting an error forever for a path that was
+      // simply wrong.
+      const c = client({
+        readPath: vi.fn(async () => {
+          throw new GitHubNotFoundError("contents/SKILL.md")
+        }),
+        // The default path is missing, so the repository is asked where its
+        // skills are. This one has none either, which is the state under test.
+        findSkillDocuments: vi.fn(async () => ({
+          paths: [],
+          truncated: false,
+        })),
+      })
+
+      const result = await createProjectFromRepo(
+        db,
+        { url: "acme/skill-absent", type: "skill" },
+        deps(c)
+      )
+
+      expect(result.status).toBe("created")
+      expect(result.skills).toEqual({ count: 0, translated: 0, empty: true })
+
+      const jobs = await db.query.projectSyncJobs.findMany({
+        where: (t, { eq: e }) => e(t.projectId, result.project.id),
+      })
+
+      expect(jobs).toHaveLength(1)
+      expect(jobs[0]!.status).toBe("success")
+      expect(jobs[0]!.errorMessage).toBeNull()
+    })
+
+    it("reads every subdirectory when the path is a directory of skills", async () => {
+      // The layout a name-based check cannot recognise: nothing about the
+      // default `SKILL.md` says the repository keeps its skills in a directory,
+      // so the sync has to ask GitHub which it is rather than assume from the
+      // path it was configured with.
+      const c = client({
+        readPath: vi.fn(async (_fullName: string, path: string) => {
+          if (path === "skills") {
+            return {
+              kind: "directory" as const,
+              entries: [
+                { name: "pdf", path: "skills/pdf", type: "dir" },
+                { name: "xlsx", path: "skills/xlsx", type: "dir" },
+                { name: "README.md", path: "skills/README.md", type: "file" },
+              ],
+            }
+          }
+          const name = path.split("/").slice(1, 2).join("")
+          return {
+            kind: "file" as const,
+            content: `---\nname: ${name}\ndescription: does ${name}\n---\nbody`,
+          }
+        }),
+      })
+
+      const created = await createProjectFromRepo(
+        db,
+        { url: "acme/skill-dir", type: "skill" },
+        deps(c)
+      )
+
+      const project = await getProjectByFullName(db, "acme/skill-dir")
+      await db
+        .update(projects)
+        .set({ skillMdPath: "skills" })
+        .where(eq(projects.id, created.project.id))
+      const repo = await getRepoByFullName(db, "acme/skill-dir")
+
+      const result = await syncSkillsForProject(
+        db,
+        c,
+        { project: { ...project!, skillMdPath: "skills" }, repo: repo! },
+        { logger: createBufferingLogger() }
+      )
+
+      expect(result).toMatchObject({ skills: 2, empty: false })
+
+      const stored = await db.query.projectSkills.findMany({
+        where: (t, { eq: e }) => e(t.projectId, created.project.id),
+      })
+      // Keyed by directory, not by the configured path, so a later switch to
+      // file mode stores under different keys instead of overwriting these.
+      expect(stored.map((row) => row.skillDir).sort()).toEqual(["pdf", "xlsx"])
+    })
+
+    it("keeps stored skills when the path stops resolving", async () => {
+      const first = client({
+        readPath: vi.fn(async () => ({
+          kind: "file" as const,
+          content: "---\nname: pdf\n---\nbody",
+        })),
+      })
+      const created = await createProjectFromRepo(
+        db,
+        { url: "acme/skill-regressed", type: "skill" },
+        deps(first)
+      )
+      expect(
+        await db.query.projectSkills.findMany({
+          where: (t, { eq: e }) => e(t.projectId, created.project.id),
+        })
+      ).toHaveLength(1)
+
+      // The file is gone upstream. An empty discovery must not unpublish what
+      // is already stored.
+      const second = client({
+        readPath: vi.fn(async () => {
+          throw new GitHubNotFoundError("contents/SKILL.md")
+        }),
+        // Only the file disappeared, not the whole repository, so discovery
+        // finds the layout the stored rows came from and reports it as absent
+        // rather than as a repository with no skills at all.
+        findSkillDocuments: vi.fn(async () => ({
+          paths: [],
+          truncated: false,
+        })),
+      })
+      const project = await getProjectByFullName(db, "acme/skill-regressed")
+      const repo = await getRepoByFullName(db, "acme/skill-regressed")
+
+      const result = await syncSkillsForProject(
+        db,
+        second,
+        { project: project!, repo: repo! },
+        { logger: createBufferingLogger() }
+      )
+
+      expect(result).toMatchObject({ skills: 0, empty: true })
+      expect(
+        await db.query.projectSkills.findMany({
+          where: (t, { eq: e }) => e(t.projectId, created.project.id),
+        })
+      ).toHaveLength(1)
+    })
+
+    it("asks the repository where its skills are when the default path is absent", async () => {
+      // The case that made every submission of a conventionally-laid-out
+      // repository report zero skills: `SKILL.md` is the schema default, not a
+      // description of anyone's layout, and a repository that keeps its skills
+      // in `.agents/skills` was answering "nothing here" to a path that was
+      // never going to resolve.
+      const c = client({
+        readPath: vi.fn(async (_fullName: string, path: string) => {
+          if (path === "SKILL.md") {
+            throw new GitHubNotFoundError("contents/SKILL.md")
+          }
+          if (path === ".agents/skills") {
+            return {
+              kind: "directory" as const,
+              entries: [
+                { name: "pdf", path: ".agents/skills/pdf", type: "dir" },
+                { name: "xlsx", path: ".agents/skills/xlsx", type: "dir" },
+              ],
+            }
+          }
+          const name = path.split("/").slice(2, 3).join("")
+          return {
+            kind: "file" as const,
+            content: `---\nname: ${name}\ndescription: does ${name}\n---\nbody`,
+          }
+        }),
+        findSkillDocuments: vi.fn(async () => ({
+          paths: [
+            ".agents/skills/pdf/SKILL.md",
+            ".agents/skills/xlsx/SKILL.md",
+          ],
+          truncated: false,
+        })),
+      })
+
+      const created = await createProjectFromRepo(
+        db,
+        { url: "acme/skill-agents-dir", type: "skill" },
+        deps(c)
+      )
+
+      const project = await getProjectByFullName(db, "acme/skill-agents-dir")
+      const repo = await getRepoByFullName(db, "acme/skill-agents-dir")
+
+      const result = await syncSkillsForProject(
+        db,
+        c,
+        { project: project!, repo: repo! },
+        { logger: createBufferingLogger() }
+      )
+
+      expect(result).toMatchObject({ skills: 2, empty: false })
+
+      const stored = await db.query.projectSkills.findMany({
+        where: (t, { eq: e }) => e(t.projectId, created.project.id),
+      })
+      expect(stored.map((row) => row.skillDir).sort()).toEqual(["pdf", "xlsx"])
+
+      // Written back, so the next sweep does not pay for the same dead lookup
+      // and the operator sees the path that actually holds the skills.
+      const after = await getProjectByFullName(db, "acme/skill-agents-dir")
+      expect(after?.skillMdPath).toBe(".agents/skills")
+    })
+
+    it("leaves a path somebody set alone, even when discovery finds skills", async () => {
+      // A typo in a configured path should be reported, not silently replaced
+      // by a guess: a working import would hide the one thing the operator
+      // needed to see.
+      const c = client({
+        readPath: vi.fn(async (_fullName: string, path: string) => {
+          if (path === ".agents/skills") {
+            return {
+              kind: "directory" as const,
+              entries: [
+                { name: "pdf", path: ".agents/skills/pdf", type: "dir" },
+              ],
+            }
+          }
+          if (path === ".agents/skills/pdf/SKILL.md") {
+            return {
+              kind: "file" as const,
+              content: "---\nname: pdf\n---\nbody",
+            }
+          }
+          throw new GitHubNotFoundError(`contents/${path}`)
+        }),
+        findSkillDocuments: vi.fn(async () => ({
+          paths: [".agents/skills/pdf/SKILL.md"],
+          truncated: false,
+        })),
+      })
+
+      const created = await createProjectFromRepo(
+        db,
+        { url: "acme/skill-typo", type: "skill" },
+        deps(c)
+      )
+      await db
+        .update(projects)
+        .set({ skillMdPath: "skils" })
+        .where(eq(projects.id, created.project.id))
+
+      const project = await getProjectByFullName(db, "acme/skill-typo")
+      const repo = await getRepoByFullName(db, "acme/skill-typo")
+
+      // Creating the project already ran one sync against the untouched default,
+      // and that one is allowed to search. What must not happen is a second
+      // search for a path somebody has since set.
+      const askedBefore = (c.findSkillDocuments as ReturnType<typeof vi.fn>)
+        .mock.calls.length
+
+      const result = await syncSkillsForProject(
+        db,
+        c,
+        { project: { ...project!, skillMdPath: "skils" }, repo: repo! },
+        { logger: createBufferingLogger() }
+      )
+
+      expect(result).toMatchObject({ skills: 0, empty: true })
+      expect(
+        (c.findSkillDocuments as ReturnType<typeof vi.fn>).mock.calls.length
+      ).toBe(askedBefore)
+
+      const after = await getProjectByFullName(db, "acme/skill-typo")
+      expect(after?.skillMdPath).toBe("skils")
     })
   })
 })
