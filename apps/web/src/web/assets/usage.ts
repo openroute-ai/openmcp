@@ -139,6 +139,9 @@ export async function getAuthorUsageSummaries(
         gte(gatewaySpendRecords.occurredAt, windowStart(days))
       )
     )
+    // 按资产分组，asset_type / asset_id 只能出现在 GROUP BY 或聚合里，
+    // 漏掉会直接 42803。
+    .groupBy(gatewaySpendRecords.assetType, gatewaySpendRecords.assetId)
 
   const out = new Map<AssetUsageKey, AssetUsageSummary>()
   for (const row of rows) {
