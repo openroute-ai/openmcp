@@ -15,14 +15,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import {
-  IconCode,
-  IconInnerShadowTop,
-  IconKey,
-  IconScale,
-  IconSettings,
-} from "@tabler/icons-react"
-
+import { IconCode, IconKey, IconScale, IconSettings } from "@tabler/icons-react"
+import { RadarLogo } from "@/components/brand/radar-logo"
+import { SITE_NAME } from "@/lib/config/site"
 // Ungrouped: these are the account's three pages, and a heading over them would
 // either name the product ("Workspace") or repeat each page back at the reader,
 // which is noise rather than navigation.
@@ -73,8 +68,10 @@ export function ConsoleSidebar({
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <LocaleLink href="/console">
-                <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">{t("myRepos")}</span>
+                <RadarLogo className="size-6" />
+                <span className="font-display text-base font-semibold tracking-tight">
+                  {SITE_NAME}
+                </span>
               </LocaleLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

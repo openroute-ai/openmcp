@@ -34,7 +34,7 @@ export const INDEXABLE_PAGES: IndexablePage[] = [
     path: "/",
     title: "首页",
     description:
-      "AI雷达的入口：本周异动的实时预览，以及通往榜单、分类与判定规则的入口。",
+      "VercelAI雷达的入口：本周异动的实时预览，以及通往榜单、分类与判定规则的入口。",
     priority: 1,
     changeFrequency: "daily",
   },

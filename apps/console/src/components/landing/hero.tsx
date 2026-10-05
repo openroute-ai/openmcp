@@ -261,7 +261,7 @@ export function Hero({
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          我逐个记录 stargazer 的到达时间，据此算增速、加速度和下行异动。
+          逐个记录 stargazer 的到达时间，据此算增速、加速度和下行异动。
           增速断崖、维护停滞、许可证变更，每条都能点开看原始时间轴。
         </p>
 

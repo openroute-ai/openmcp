@@ -25,13 +25,14 @@ import {
   IconFolder,
   IconRobot,
   IconRepeat,
-  IconInnerShadowTop,
   IconUsers,
   IconUsersGroup,
   IconDeviceDesktop,
   IconKey,
   IconSettings,
 } from "@tabler/icons-react"
+import { RadarLogo } from "@/components/brand/radar-logo"
+import { SITE_NAME } from "@/lib/config/site"
 
 // The label is a message key rather than text, so the sidebar translates with
 // everything else. The url stays here: it is routing, not presentation.
@@ -155,9 +156,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <LocaleLink href="/dashboard">
-                <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">{t("console")}</span>
+              <LocaleLink
+                href="/dashboard"
+                className="flex items-center gap-2.5"
+              >
+                <RadarLogo className="size-6" />
+                <span className="font-display text-base font-semibold tracking-tight">
+                  {SITE_NAME}
+                </span>
               </LocaleLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

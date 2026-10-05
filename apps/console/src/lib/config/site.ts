@@ -99,10 +99,10 @@ export const SITE_ORIGIN = toOrigin(ENV.origin, "https://vercelai.cn")
 export const SITE_HOST = fromEnv(ENV.host) ?? new URL(SITE_ORIGIN).host
 
 /** Chinese display name, and the `og:site_name` value. */
-export const SITE_NAME = fromEnv(ENV.name) ?? "AI雷达"
+export const SITE_NAME = fromEnv(ENV.name) ?? "VercelAI雷达"
 
 /** English display name, for `lang="en"` surfaces. */
-export const SITE_NAME_EN = fromEnv(ENV.nameEn) ?? "AI Radar"
+export const SITE_NAME_EN = fromEnv(ENV.nameEn) ?? "VercelAI Radar"
 
 /**
  * The one-line pitch. Used verbatim as the footer blurb and as the OG
@@ -125,7 +125,7 @@ export const SITE_TAGLINE =
  */
 export const SITE_DESCRIPTION =
   fromEnv(ENV.description) ??
-  "AI雷达记录每个 stargazer 到达 GitHub 的时间，据此判断一个开源项目正在变好还是变坏。周榜、月榜、年度飙升榜与异动流都以原始星标增量、相对增速和维护停滞证据对外提供，每条结论都能点开复核。"
+  "VercelAI雷达记录每个 stargazer 到达 GitHub 的时间，据此判断一个开源项目正在变好还是变坏。周榜、月榜、年度飙升榜与异动流都以原始星标增量、相对增速和维护停滞证据对外提供，每条结论都能点开复核。"
 
 /** The repository the footer links to, and the one `sameAs` should name. */
 export const SITE_GITHUB_URL =
