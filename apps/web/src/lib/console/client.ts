@@ -32,8 +32,8 @@
  * letting a 404 surface as a user-facing error.
  */
 
-import { getBaseUrl } from '@/lib/urls/urls'
-import type { SkillWebhookData } from '@/lib/skills/ingest-console-skill'
+import { getBaseUrl } from "@/lib/urls/urls"
+import type { SkillWebhookData } from "@/lib/skills/ingest-console-skill"
 
 /** How long an ordinary machine-to-machine call may take before it is abandoned. */
 const REQUEST_TIMEOUT_MS = 10_000
@@ -47,7 +47,8 @@ const REQUEST_TIMEOUT_MS = 10_000
 const INGEST_TIMEOUT_MS = 180_000
 
 /** The project classification console creates for a registered repository. */
-export type ConsoleProjectType = 'application' | 'skill' | 'client' | 'server' | 'persona'
+export type ConsoleProjectType =
+  "application" | "skill" | "client" | "server" | "persona"
 
 /**
  * What a repository submission to console is allowed to do.
@@ -64,12 +65,12 @@ export type ConsoleProjectType = 'application' | 'skill' | 'client' | 'server' |
  * visibility by an order of magnitude. This app picks between them at
  * deployment time rather than per submission.
  */
-export type ConsoleSubmitMode = 'publish' | 'register'
+export type ConsoleSubmitMode = "publish" | "register"
 
 export type ConsoleIngestResult = {
   ok: boolean
   /** `existing` when the repository already had a project on console. */
-  status?: 'created' | 'existing'
+  status?: "created" | "existing"
   repo?: { full_name: string }
   project?: {
     id: string
@@ -79,10 +80,25 @@ export type ConsoleIngestResult = {
     status: string
     description: string
   }
+  /**
+   * console 的技能同步结果。
+   *
+   * `empty` 是这里唯一能回答"这个仓库有没有技能文档"的字段：它为 true 表示
+   * console 读了配置的那个路径而里面没有 `SKILL.md`。`count` 是它存下的数量，
+   * 仓库被策展过更早时这一段是 `null`（本次调用没有再同步过）。
+   */
   skills?: {
     count?: number
     translated?: number
     empty?: boolean
+  } | null
+  /**
+   * 投递结果，与同步结果分开：console 存下的技能里有多少真的推到了本服务。
+   *
+   * 它回答的是"有没有东西被推过"，不是"有没有东西可推"——`found: 0` 配上
+   * `delivered: true` 是自洽的，见 {@link consoleFoundNoSkills}。
+   */
+  delivery?: {
     found?: number
     pushed?: number
     failed?: number
@@ -125,8 +141,8 @@ export type ConsoleRepoRegistration = {
  * console is not going to make.
  */
 export type ConsoleSubmitResult =
-  | ({ mode: 'publish' } & ConsoleIngestResult)
-  | ({ mode: 'register' } & ConsoleRepoRegistration)
+  | ({ mode: "publish" } & ConsoleIngestResult)
+  | ({ mode: "register" } & ConsoleRepoRegistration)
 
 /**
  * One skill as `GET /api/skills-sync/export` serves it: an event envelope whose
@@ -154,8 +170,8 @@ export type ConsoleSyncResult = {
 }
 
 export function consoleBaseUrl(): string {
-  const raw = (process.env.CONSOLE_API_BASE_URL || '').trim()
-  return raw.replace(/\/$/, '')
+  const raw = (process.env.CONSOLE_API_BASE_URL || "").trim()
+  return raw.replace(/\/$/, "")
 }
 
 /**
@@ -207,8 +223,8 @@ export function consoleCronSecret(): string | undefined {
  */
 export function consoleSkillsCallbackUrl(): string {
   const override = process.env.CONSOLE_SKILLS_CALLBACK_URL?.trim()
-  if (override) return override.replace(/\/$/, '')
-  return `${getBaseUrl().replace(/\/$/, '')}/api/webhook/daily/skills`
+  if (override) return override.replace(/\/$/, "")
+  return `${getBaseUrl().replace(/\/$/, "")}/api/webhook/daily/skills`
 }
 
 /**
@@ -253,13 +269,13 @@ export function consoleSkillsCallbackSecret(): string | undefined {
  */
 export function consoleSkillsRegisterOnly(): boolean {
   const raw = process.env.CONSOLE_SKILLS_REGISTER_ONLY?.trim().toLowerCase()
-  if (raw === undefined || raw === '') return false
-  return raw !== '0' && raw !== 'false' && raw !== 'no' && raw !== 'off'
+  if (raw === undefined || raw === "") return false
+  return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 
 /** The endpoint a submission will use. See {@link ConsoleSubmitMode}. */
 export function consoleSubmitMode(): ConsoleSubmitMode {
-  return consoleSkillsRegisterOnly() ? 'register' : 'publish'
+  return consoleSkillsRegisterOnly() ? "register" : "publish"
 }
 
 /**
@@ -294,7 +310,7 @@ export class ConsoleApiError extends Error {
 
   constructor(message: string, status: number) {
     super(message)
-    this.name = 'ConsoleApiError'
+    this.name = "ConsoleApiError"
     this.status = status
   }
 
@@ -304,12 +320,55 @@ export class ConsoleApiError extends Error {
   }
 }
 
-async function request(path: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
-  return fetch(`${consoleBaseUrl()}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-    cache: 'no-store',
-  })
+/**
+ * Thrown when *this client's* budget ended the call, as opposed to console
+ * answering with a status.
+ *
+ * The two answer different questions, and conflating them is what turned a slow
+ * repository into a reported failure. A status means console received the
+ * request and refused it: a bad key, an insufficient scope, an unparseable URL —
+ * re-sending it changes nothing. This client's budget expiring means console was
+ * most likely still working, because it fetches, translates and pushes before it
+ * answers, which for a repository holding more than a handful of skills takes
+ * longer than this call waits. console finishes that work on its own and
+ * delivers the skills either way.
+ *
+ * So callers get this one separately in order to keep waiting instead of
+ * telling the user their submission failed.
+ */
+export class ConsoleTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`console 响应超时（${Math.round(timeoutMs / 1000)}s）`)
+    this.name = "ConsoleTimeoutError"
+  }
+}
+
+/** True for the abort a `AbortSignal.timeout` raises, in either DOMException shape. */
+function isTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  if (error.name === "TimeoutError" || error.name === "AbortError") return true
+  const cause = (error as { cause?: unknown }).cause
+  return (
+    cause instanceof Error &&
+    (cause.name === "TimeoutError" || cause.name === "AbortError")
+  )
+}
+
+async function request(
+  path: string,
+  init: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<Response> {
+  try {
+    return await fetch(`${consoleBaseUrl()}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    })
+  } catch (error) {
+    if (isTimeout(error)) throw new ConsoleTimeoutError(timeoutMs)
+    throw error
+  }
 }
 
 /**
@@ -321,20 +380,45 @@ async function request(path: string, init: RequestInit, timeoutMs = REQUEST_TIME
  * `insufficient_scope` explains a 403 in a way `console returned 403` never will.
  */
 async function readError(res: Response): Promise<string> {
-  const body = await res.text().catch(() => '')
+  const body = await res.text().catch(() => "")
   try {
     const parsed = JSON.parse(body) as { error?: unknown }
-    if (typeof parsed.error === 'string') return parsed.error
-    if (parsed.error && typeof parsed.error === 'object') {
-      const { message, detail } = parsed.error as { message?: unknown; detail?: unknown }
-      if (typeof message === 'string') {
-        return typeof detail === 'string' ? `${message} (${detail})` : message
+    if (typeof parsed.error === "string") return parsed.error
+    if (parsed.error && typeof parsed.error === "object") {
+      const { message, detail } = parsed.error as {
+        message?: unknown
+        detail?: unknown
+      }
+      if (typeof message === "string") {
+        return typeof detail === "string" ? `${message} (${detail})` : message
       }
     }
   } catch {
     // Not JSON - fall through to the raw body.
   }
   return body.slice(0, 200) || `console returned ${res.status}`
+}
+
+/**
+ * True when console answered a publish but reports holding no skill document for
+ * it — that is, when nothing is ever going to arrive here and re-submitting will
+ * not change it.
+ *
+ * `delivered` cannot answer this. It is `pushed === found`, so a repository whose
+ * configured skill path holds nothing reports `found: 0, delivered: true`: read as
+ * "the skills are on their way" that sends the caller off to spend a whole polling
+ * budget waiting for a push that was never going to happen. The two fields that do
+ * answer it are the sync result's `empty` (console read the path and found no
+ * document) and the delivery's `found` (console had no stored row to push).
+ *
+ * Unset fields answer nothing and so answer no. `delivery: null` means console had
+ * no destination at all, and a sync result that is absent (a repository curated
+ * before this submission) says nothing about what the path holds.
+ */
+export function consoleFoundNoSkills(result: ConsoleIngestResult): boolean {
+  if (result.skills?.empty === true) return true
+  const found = result.delivery?.found
+  return found === 0
 }
 
 /**
@@ -361,21 +445,23 @@ async function readError(res: Response): Promise<string> {
  *
  * Throws {@link ConsoleApiError} like {@link publishProjectByUrl}.
  */
-export async function registerRepoWithConsole(repoUrl: string): Promise<ConsoleRepoRegistration> {
+export async function registerRepoWithConsole(
+  repoUrl: string
+): Promise<ConsoleRepoRegistration> {
   const token = consoleApiToken()
   if (!consoleBaseUrl() || !token) {
-    throw new ConsoleApiError('console 未配置，无法登记仓库', 404)
+    throw new ConsoleApiError("console 未配置，无法登记仓库", 404)
   }
 
   // console still fetches the repository from GitHub here, so this is not a
   // cheaper call than publishing - it is the same work minus the parts that
   // create a project.
   const res = await request(
-    '/api/v1/repos',
+    "/api/v1/repos",
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ url: repoUrl }),
@@ -413,11 +499,11 @@ export async function registerRepoWithConsole(repoUrl: string): Promise<ConsoleR
  */
 export async function publishProjectByUrl(
   repoUrl: string,
-  type: ConsoleProjectType = 'skill'
+  type: ConsoleProjectType = "skill"
 ): Promise<ConsoleIngestResult> {
   const token = consoleApiToken()
   if (!consoleBaseUrl() || !token) {
-    throw new ConsoleApiError('console 未配置，无法登记仓库', 404)
+    throw new ConsoleApiError("console 未配置，无法登记仓库", 404)
   }
 
   // Both or neither: console rejects a `callbackUrl` with no secret rather than
@@ -432,11 +518,11 @@ export async function publishProjectByUrl(
   }
 
   const res = await request(
-    '/api/v1/projects',
+    "/api/v1/projects",
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
@@ -463,12 +549,12 @@ export async function publishProjectByUrl(
  */
 export async function submitRepo(
   repoUrl: string,
-  type: ConsoleProjectType = 'skill'
+  type: ConsoleProjectType = "skill"
 ): Promise<ConsoleSubmitResult> {
-  if (consoleSubmitMode() === 'register') {
-    return { mode: 'register', ...(await registerRepoWithConsole(repoUrl)) }
+  if (consoleSubmitMode() === "register") {
+    return { mode: "register", ...(await registerRepoWithConsole(repoUrl)) }
   }
-  return { mode: 'publish', ...(await publishProjectByUrl(repoUrl, type)) }
+  return { mode: "publish", ...(await publishProjectByUrl(repoUrl, type)) }
 }
 
 /**
@@ -478,21 +564,26 @@ export async function submitRepo(
  * without being translated. `cursor` is the moment a skill was last confirmed
  * synced; omitting it starts the walk at whatever is still outstanding.
  */
-export async function fetchConsoleSkills(options: { limit?: number; cursor?: string | null } = {}): Promise<ConsoleSkillsPage> {
+export async function fetchConsoleSkills(
+  options: { limit?: number; cursor?: string | null } = {}
+): Promise<ConsoleSkillsPage> {
   const token = consoleSkillsToken()
   if (!consoleBaseUrl() || !token) {
-    throw new ConsoleApiError('console 未配置，无法拉取技能', 404)
+    throw new ConsoleApiError("console 未配置，无法拉取技能", 404)
   }
 
   const params = new URLSearchParams()
-  if (options.limit != null) params.set('limit', String(options.limit))
-  if (options.cursor) params.set('cursor', options.cursor)
+  if (options.limit != null) params.set("limit", String(options.limit))
+  if (options.cursor) params.set("cursor", options.cursor)
 
   const query = params.toString()
-  const res = await request(`/api/skills-sync/export${query ? `?${query}` : ''}`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await request(
+    `/api/skills-sync/export${query ? `?${query}` : ""}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  )
 
   if (!res.ok) {
     throw new ConsoleApiError(await readError(res), res.status)
@@ -512,11 +603,11 @@ export async function fetchConsoleSkills(options: { limit?: number; cursor?: str
 export async function triggerConsoleSync(): Promise<ConsoleSyncResult> {
   const secret = consoleCronSecret()
   if (!consoleBaseUrl() || !secret) {
-    throw new ConsoleApiError('console 定时任务未配置，无法手动触发', 404)
+    throw new ConsoleApiError("console 定时任务未配置，无法手动触发", 404)
   }
 
-  const res = await request('/api/cron/github', {
-    method: 'POST',
+  const res = await request("/api/cron/github", {
+    method: "POST",
     headers: { Authorization: `Bearer ${secret}` },
   })
 

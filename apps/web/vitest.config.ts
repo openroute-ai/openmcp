@@ -26,6 +26,14 @@ export default defineConfig({
       "@workspace/litellm": fileURLToPath(
         new URL("../../packages/litellm/src/index.ts", import.meta.url)
       ),
+      // 同上（`packages/mail`）。它是被测路由的依赖图上的一环：路由 → ingest →
+      // 安全扫描 → 邮件通知，不配这条别名就只有路由级的测试会整个加载失败。
+      "@workspace/mail/types": fileURLToPath(
+        new URL("../../packages/mail/src/types.ts", import.meta.url)
+      ),
+      "@workspace/mail": fileURLToPath(
+        new URL("../../packages/mail/src/index.ts", import.meta.url)
+      ),
     },
   },
   test: {

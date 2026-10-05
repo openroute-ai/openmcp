@@ -169,6 +169,9 @@ export const skillsRouter = createTRPCRouter({
    *
    * `mode` travels with it because in `register` mode nothing is published and
    * no skill document is ever pushed back, so the dialog must not poll for one.
+   * `pending` says the same for `publish` mode, where the answer console gives
+   * (`delivered`) is true even when it read no skill document at all - polling
+   * there would wait a full minute for a push that is not coming.
    */
   registerWithConsole: protectedProcedure
     .input(z.object({ repoUrl: z.string().min(8).max(500) }))

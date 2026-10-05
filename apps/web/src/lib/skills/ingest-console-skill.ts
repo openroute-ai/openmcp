@@ -40,6 +40,43 @@ export type SkillWebhookPayload = {
   data: SkillWebhookData
 }
 
+/**
+ * console 写端点的一次性回调（`repo.registered` / `repo.published`）。
+ *
+ * 它和技能投递走**同一个** `callbackUrl`：console 把这个地址理解为"这个提交方的
+ * 回调地址"，然后按事件类型分别发技能文档和写端点通知。所以接收端不能只认
+ * `skill_updated`，否则每次登记/发布都会收到一个 400 —— console 会把一次已经
+ * 成功的发布记成 `callback failed`，而技能投递本身是好的。
+ *
+ * 字段照抄 console 的 `WriteCallbackPayload`；这里只做识别，不消费任何字段。
+ */
+export type ConsoleWriteCallback = {
+  eventId: string
+  event: 'repo.registered' | 'repo.published'
+  occurredAt: string
+  fullName: string
+  repoId: string
+  created: boolean
+  projectId?: string
+}
+
+/** console 写端点的两个事件名。技能投递的 `skill_updated` 不在其中。 */
+const WRITE_CALLBACK_EVENTS = new Set(['repo.registered', 'repo.published'])
+
+/**
+ * 这份 body 是 console 的写端点回调而不是技能文档投递。
+ *
+ * 认 `event` 而不是猜字段：技能投递的 `data` 里也可能出现任意 console 字段，
+ * 靠"有没有某个键"来判断只会把一份投递报文误当成回调吞掉。
+ */
+export function isConsoleWriteCallback(body: unknown): body is ConsoleWriteCallback {
+  if (!body || typeof body !== 'object') return false
+  const event = (body as { event?: unknown }).event
+  if (typeof event !== 'string' || !WRITE_CALLBACK_EVENTS.has(event)) return false
+  const fullName = (body as { fullName?: unknown }).fullName
+  return typeof fullName === 'string' && fullName.length > 0
+}
+
 export type IngestConsoleSkillResult = {
   id: string
   referenceId: string

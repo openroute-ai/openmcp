@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ConsoleApiError,
+  consoleFoundNoSkills,
   consoleSubmitMode,
   submitRepo,
 } from '../lib/console/client'
@@ -217,6 +218,39 @@ describe('submitRepo when console is absent', () => {
       status: 404,
       notConfigured: true,
     })
+  })
+})
+
+describe('consoleFoundNoSkills', () => {
+  it('reads a repository with no skill document as empty, not as delivered', () => {
+    // console 的 `delivered` 是 `pushed === found`：仓库里一个技能都没有时它是
+    // 0 === 0 的 true。把它当"技能正在入库"会让调用方把整轮轮询预算花在一份
+    // 根本不存在的推送上。
+    expect(
+      consoleFoundNoSkills({
+        ok: true,
+        delivered: true,
+        skills: { count: 0, translated: 0, empty: true },
+        delivery: { found: 0, pushed: 0, failed: 0 },
+      })
+    ).toBe(true)
+  })
+
+  it('does not call a repository empty when console never told us the path', () => {
+    // `delivery: null` 是"没有配置投递地址"，不是"没有技能"。它不构成证据。
+    expect(consoleFoundNoSkills({ ok: true, delivered: null, delivery: null })).toBe(false)
+    expect(consoleFoundNoSkills({ ok: true })).toBe(false)
+  })
+
+  it('leaves a real delivery alone', () => {
+    expect(
+      consoleFoundNoSkills({
+        ok: true,
+        delivered: false,
+        skills: { count: 1, translated: 1, empty: false },
+        delivery: { found: 1, pushed: 0, failed: 1 },
+      })
+    ).toBe(false)
   })
 })
 

@@ -2,6 +2,8 @@
  * Inbound Skills webhook from apps/console.
  *
  * Contract: POST body is `SkillWebhookPayload` (`event_type: skill_updated`).
+ * Console also sends its write-callbacks (`repo.registered` / `repo.published`)
+ * to this same address; those are acknowledged, not ingested — see the handler.
  *
  * Auth, in the order it is tried:
  *   1. console's HMAC signature, over `<timestamp>.<body>`, with
@@ -27,6 +29,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import {
   ingestConsoleSkill,
+  isConsoleWriteCallback,
   validateSkillWebhookPayload,
 } from '@/lib/skills/ingest-console-skill'
 import { assertSkillsWebhookAuthorized } from '@/lib/webhook/bearer-auth'
@@ -47,6 +50,18 @@ export async function POST(request: NextRequest) {
     body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
+  }
+
+  // console 把 `repo.registered` / `repo.published` 也发到这个地址：它在
+  // `POST /api/v1/projects` 上把这个 URL 当作"该提交方的回调地址"，而技能投递
+  // 与写端点通知共用它。把它们当技能文档校验会得到一个 `invalid event_type` 的
+  // 400，console 于是把一次发布成功的调用记成 `callback failed` —— 技能其实已经
+  // 推到了，唯一的症状是一条指向本路由的假报警。
+  //
+  // 认证已经在上面过了，而这份报文不带任何可落库的数据：它说的是"project 现在可以
+  // 被读了"，可读的数据在 console 自己的库里。所以确认收到即可，不写库。
+  if (isConsoleWriteCallback(body)) {
+    return NextResponse.json({ ok: true, event: body.event, fullName: body.fullName, ingested: false })
   }
 
   const validated = validateSkillWebhookPayload(body)
