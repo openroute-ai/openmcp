@@ -11,6 +11,8 @@ import { ruleCards } from "@/lib/docs/radar-rules"
 import { FAQS } from "@/lib/faq"
 import { getPost, listPosts } from "@/lib/blog"
 import { INDEXABLE_PAGES } from "@/lib/seo/indexable-pages"
+import { ANONYMOUS_RPD, ANONYMOUS_RPM } from "@/lib/agent/anonymous-limit"
+import { A2A_ENDPOINT, agentCard, CARD_PATH } from "@/lib/agent/card"
 
 /**
  * `/llms-full.txt` — this site's whole text layer in one document.
@@ -178,6 +180,71 @@ function postsSection(): string {
   return lines.join("\n")
 }
 
+/**
+ * The A2A section.
+ *
+ * Kept adjacent to the API section on purpose, and explicitly *not* folded into
+ * it, because the two differ on the one question a reader has first: the
+ * `/api/v1/*` endpoints above all need a key, and this does not. Merging them
+ * would make "every endpoint here needs a key" false; separating them makes the
+ * anonymous surface legible as a deliberate choice rather than an oversight.
+ *
+ * The skill list and thresholds are read off the card and the rising-stars
+ * floors rather than retyped, so this section cannot describe a skill the
+ * endpoint does not implement.
+ */
+function a2aSection(): string {
+  const card = agentCard("1.0") as {
+    skills: { id: string; name: string; description: string }[]
+  }
+
+  return [
+    "## A2A（Agent2Agent）接口：无需 key",
+    "",
+    `本站按 A2A ${"1.0"} 提供一个 Agent Card：\`${siteUrl(CARD_PATH["1.0"])}\`` +
+      `（0.3 客户端读 ${siteUrl(CARD_PATH["0.3"])}）。端点是 \`${siteUrl(A2A_ENDPOINT)}\`，` +
+      "JSON-RPC 2.0 over HTTP。",
+    "",
+    "**与上面的 `/api/v1/*` 不同：这里不需要 API key，也不需要登录。** " +
+      `配额按来源 IP 计（${ANONYMOUS_RPM} rpm / ${ANONYMOUS_RPD} rpd），` +
+      "超限返回 HTTP 429 与 `Retry-After`。免鉴权是刻意选择：要读的数字本来就以公开 " +
+      "HTML 呈现，要求 key 才能读 JSON 只会挡住 agent，而挡不住浏览器。",
+    "",
+    "调用方式是 `SendMessage`（0.3 客户端用 `message/send`），参数放在 message 的 " +
+      "`data` part 里，按 `skill` 字段分发：",
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "SendMessage",
+        params: {
+          message: {
+            role: "ROLE_USER",
+            parts: [{ data: { skill: "rankings", cadence: "week", limit: 20 } }],
+          },
+        },
+      },
+      null,
+      2
+    ),
+    "```",
+    "",
+    "返回值是一个立刻完成的 `TASK_STATE_COMPLETED` task，带两个 artifact：" +
+      "`<skill>.md` 是同样的数字写成文字，`<skill>.json` 是可计算的原始结构。两者来自同一次读取，" +
+      "所以不会互相矛盾。",
+    "",
+    ...card.skills.map(
+      (skill) => `- \`${skill.id}\`（${skill.name}）：${skill.description}`
+    ),
+    "",
+    "只实现 `SendMessage` 是有意的：每次读取都在一次往返内完成，" +
+      "没有可流式输出或可推送更新的长任务，因此 card 里 `streaming` 与 " +
+      "`pushNotifications` 都是 `false`，调用它们会得到 `UnsupportedOperationError`。",
+  ].join("\n")
+}
+
 export function GET(): Response {
   const index = INDEXABLE_PAGES.map(
     (page) => `- [${page.title}](${siteUrl(page.path)}): ${page.description}`
@@ -193,6 +260,8 @@ export function GET(): Response {
     rulesSection(),
     "",
     apiSection(),
+    "",
+    a2aSection(),
     "",
     faqSection(),
     postsSection(),

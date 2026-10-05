@@ -179,10 +179,17 @@ function HeroAnomalyFeed({
   )
 }
 
-/** 给 agent 的指令块。整块可复制，复制成功就换成对勾。 */
+/**
+ * 给 agent 的指令块。整块可复制，复制成功就换成对勾。
+ *
+ * 这一行必须是免登录、且真的返回 200 的地址：它是首屏给 agent 的第一句指令，
+ * 写成一条需要 key 或者早已下线的端点，等于把「你可以直接读」这句话先证伪。
+ * 所以给的是 `/llms-full.txt`——站点自己的文本层，正是为「一次读完」设计的，
+ * 而结构化数据要 key 这件事挪到下面那句，不藏在这里。
+ */
 function AgentCommand({ origin }: { origin: string }) {
   const [copied, setCopied] = useState(false)
-  const command = `curl -s ${origin}/api/rankings/week.json`
+  const command = `curl -s ${origin}/llms-full.txt`
 
   async function copy() {
     try {
@@ -216,8 +223,13 @@ function AgentCommand({ origin }: { origin: string }) {
       </pre>
 
       <p className="mt-2.5 text-xs text-muted-foreground">
-        榜单、分类、详情都是免登录的 JSON 与 HTML，agent
-        可以直接读，不需要信用卡。
+        这是整个站点的文本层：结论、判定规则、字段口径都在里面，agent
+        读一遍就知道 我们说了什么、以及刻意没说什么。榜单与详情的 HTML
+        同样免登录；要取结构化 数据用{" "}
+        <LocaleLink href="/docs" className="underline underline-offset-2">
+          /api/v1/rankings/weekly
+        </LocaleLink>
+        ，它需要一个 API key。
       </p>
     </div>
   )
