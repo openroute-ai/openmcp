@@ -1227,6 +1227,7 @@
     "revoked": "Revoked",
     "revokedReason": "Reason",
     "revokedAt": "Revoked {date}",
+    "revokedTime": "Revoked",
     "revokeConfirm": "Revoke this key? Anything still using it will start getting 401s immediately.",
     "rotateConfirm": "Rotate this key? The current key stops working immediately and its plaintext cannot be recovered.",
     "secretTitle": "Copy your key now",
@@ -1270,6 +1271,15 @@
     "scopesOnly": "Permissions",
     "limitsOnly": "Rate limit",
     "ip": "IP",
-    "secretStored": "I have stored this key somewhere safe"
+    "secretStored": "I have stored this key somewhere safe",
+    "status": "Status",
+    "createdAt": "Created",
+    "lastUsedAt": "Last used",
+    "actions": "Actions",
+    "active": "Active",
+    "expired": "Expired",
+    "scopesUpdated": "Permissions updated",
+    "limitsUpdated": "Rate limit updated",
+    "limits": "Limits"
   }
 }

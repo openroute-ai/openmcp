@@ -1211,7 +1211,7 @@
     "create": "创建密钥",
     "name": "名称",
     "namePlaceholder": "例如：每晚榜单导入",
-    "scopes": "这把密钥可以做什么",
+    "scopes": "权限",
     "empty": "你还没有 API 密钥。",
     "emptyHint": "创建一个，就可以在脚本或定时任务里调用 API。明文只显示一次 —— 关闭这个弹窗之前先存好。",
     "prefix": "前缀",
@@ -1227,6 +1227,7 @@
     "revoked": "已吊销",
     "revokedReason": "原因",
     "revokedAt": "吊销于 {date}",
+    "revokedTime": "吊销时间",
     "revokeConfirm": "吊销这把密钥？仍在使用它的程序会立刻收到 401。",
     "rotateConfirm": "轮换这把密钥？当前密钥立即失效，且明文无法找回。",
     "secretTitle": "请立即保存你的密钥",
@@ -1270,6 +1271,15 @@
     "scopesOnly": "权限",
     "limitsOnly": "限流",
     "ip": "IP",
-    "secretStored": "我已经把这把密钥存好了"
+    "secretStored": "我已经把这把密钥存好了",
+    "status": "状态",
+    "createdAt": "创建时间",
+    "lastUsedAt": "最后使用",
+    "actions": "操作",
+    "active": "活跃",
+    "expired": "已过期",
+    "scopesUpdated": "权限已更新",
+    "limitsUpdated": "速率限制已更新",
+    "limits": "限制"
   }
 }

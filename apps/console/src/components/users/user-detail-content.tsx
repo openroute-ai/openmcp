@@ -29,6 +29,7 @@ import { useTRPC } from "@/lib/trpc/client"
 import { useEnumLabel } from "@/lib/i18n/labels"
 import { useFormats } from "@/lib/i18n/format"
 import { LocaleLink } from "@/i18n/navigation"
+import { UserApiKeysContent } from "@/components/api-keys/user-api-keys-content"
 
 /**
  * A labelled value in a detail grid.
@@ -428,6 +429,8 @@ export function UserDetail({ id }: { id: string }) {
           )}
         </CardContent>
       </Card>
+
+      <UserApiKeysContent userId={id} />
     </div>
   )
 }
