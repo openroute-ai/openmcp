@@ -247,6 +247,57 @@ export async function getSubscription(
 }
 
 /**
+ * 行本身的归属主体。
+ *
+ * 存在的理由是管理员视图：它要读**别人**的订阅，而上面两个函数都要求调用方先知道
+ * 归属才能读。管理员拿到行之后把它转回判别联合，再交给同一个 `getSubscriptionDetail`，
+ * 于是「详情怎么算」（matched repos、水位线回退、排障字段）只有一份实现，而归属过滤
+ * 仍然在 SQL 里发生一次——不是「先读全部再在内存里过滤」。
+ */
+export function ownerOf(row: SubscriptionRow): SubscriptionOwner {
+  if (row.userId) return { userId: row.userId }
+  // CHECK 保证恰好一个非空，所以这里不需要兜底的第三种形状：造一个
+  // `{ apiKeyId: undefined }` 只会把一条坏行变成一条查不到东西的查询。
+  return { apiKeyId: row.apiKeyId as string }
+}
+
+/** 按 id 读一行，不带归属过滤。**只在 `adminProcedure` 里调用。 */
+export async function findSubscriptionById(
+  db: Database,
+  id: string
+): Promise<SubscriptionRow | undefined> {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.id, id))
+    .limit(1)
+
+  return rows[0]
+}
+
+/**
+ * 全部订阅，两种归属都返回。**只在 `adminProcedure` 里调用。**
+ *
+ * 与 `listSubscriptions` 分成两个函数而不是加一个 `owner` 可选的参数：可选参数会让
+ * 「忘了传 owner」变成一次静默的全站读取，而租户隔离的失败模式恰恰是这种没人发现的
+ * 那种（§6.7）。要管理员视图就得写出 `listAllSubscriptions` 这几个字。
+ */
+export async function listAllSubscriptions(
+  db: Database
+): Promise<(SubscriptionView & { apiKeyId: string | null; userId: string | null })[]> {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .orderBy(desc(subscriptions.createdAt), subscriptions.id)
+
+  return rows.map((row) => ({
+    ...toSubscriptionView(row),
+    apiKeyId: row.apiKeyId,
+    userId: row.userId,
+  }))
+}
+
+/**
  * 订阅方的投递主体，也就是 §6.6 那个 `$owner`。
  *
  * M2M key 取 `api_keys.submitter_id` 而不是 `subscriptions.user_id`：一条 key 归属的

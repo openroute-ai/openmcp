@@ -30,6 +30,7 @@ import {
   IconDeviceDesktop,
   IconKey,
   IconSettings,
+  IconWebhook,
 } from "@tabler/icons-react"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
@@ -107,6 +108,15 @@ const navMain: NavMainItem[] = [
     key: "sessions",
     url: "/dashboard/sessions",
     icon: <IconDeviceDesktop />,
+    group: "groupManagement",
+  },
+  // Beside API keys because a subscription is what a key spends itself on, and an
+  // operator reading "this key is being rate limited" wants the subscriptions that
+  // key owns on the next line rather than three pages away.
+  {
+    key: "subscriptions",
+    url: "/dashboard/subscriptions",
+    icon: <IconWebhook />,
     group: "groupManagement",
   },
   // Beside sessions rather than after users: both are per-account records, and

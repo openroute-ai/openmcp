@@ -9,6 +9,7 @@ import { rankingsRouter } from "./routers/rankings"
 import { reposRouter } from "./routers/repos"
 import { sessionsRouter } from "./routers/sessions"
 import { skillsRouter } from "./routers/skills"
+import { subscriptionsRouter } from "./routers/subscriptions"
 import { syncRouter } from "./routers/sync"
 import { tagsRouter } from "./routers/tags"
 import { tasksRouter } from "./routers/tasks"
@@ -26,6 +27,9 @@ export const appRouter = createTRPCRouter({
   projects: projectsRouter,
   rankings: rankingsRouter,
   repos: reposRouter,
+  // §6.7：订阅的自助页与管理员治理页共用这一个 router，归属由 service 层的
+  // `ownerCondition` 决定，页面没有权限判断。
+  subscriptions: subscriptionsRouter,
   // Accounts and their sessions sit together under the same gate: a session row
   // without the account it belongs to cannot answer "who is this", and an account
   // page without its sessions cannot answer "is this one still signed in".

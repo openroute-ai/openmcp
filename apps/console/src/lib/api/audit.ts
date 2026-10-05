@@ -40,10 +40,16 @@ export type WriteApiAuditInput = {
    * 而自助的意义正是"这把 key 是这个人的，所以出问题找他"。
    */
   userId: string | null
-  /** 被改动的 key。key 被删也不影响这行落库，所以没有外键。 */
-  apiKeyId: string
-  /** 前 4 字符，key 被删之后仍能认出是哪一把。 */
-  keyPrefix: string
+  /**
+   * 被改动的 key。key 被删也不影响这行落库，所以没有外键。
+   *
+   * 可空，因为审计的动作不再只关于 key：`subscription.disable` 改的是一条订阅，而
+   * 订阅本身可以是 console 账号的，根本不挂在任何一把 key 上（§6.7）。表结构上这两列
+   * 一直是可空的，所以这里放宽类型不需要迁移；key 那一族的调用方仍然传字符串。
+   */
+  apiKeyId: string | null
+  /** 前 4 字符，key 被删之后仍能认出是哪一把。可空的理由同 {@link apiKeyId}。 */
+  keyPrefix: string | null
   action: ApiAuditAction
   before?: Record<string, unknown> | null
   after?: Record<string, unknown> | null

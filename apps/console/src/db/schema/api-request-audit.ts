@@ -114,6 +114,14 @@ export const API_AUDIT_ACTIONS = [
    * 之后才被发现，那时配对行早就没了。
    */
   "connection.redeem",
+  /**
+   * 管理员停用了一条别人的订阅（§6.7）。
+   *
+   * 列在这里而不是只记在 `subscriptions.disabled_reason` 上，是因为那一列只说"被关了"，
+   * 不说"谁关的、为什么"。停用会立刻改变别人能收到什么数据，所以问"这条订阅为什么停
+   * 着"的答案必须包含操作者。
+   */
+  "subscription.disable",
 ] as const
 
 export type ApiAuditAction = (typeof API_AUDIT_ACTIONS)[number]

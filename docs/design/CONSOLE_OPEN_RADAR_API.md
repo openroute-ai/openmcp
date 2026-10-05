@@ -2100,7 +2100,7 @@ HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/open
 | 4 | 排行与周期目录路由 | — | ✅ **已实现**。`/api/v1/rankings/{weekly,monthly,periods}` |
 | 5 | `GET /api/v1/repos` 过滤器 + 分页 | — | ✅ **已实现**。过滤器与订阅共用 `lib/api/repo-filter.ts`；keyset 分页（§3.7）。**本轮修**：`platformTypes` / `categoryCodes` / `projectTypes` 的 `IN` 子句曾缺括号（`lib/api/repo-filter.ts` 的 `inList`） |
 | 6 | `subscriptions` / `webhook_deliveries` 表 + `notify-subscriptions` + 重试/熔断 | `0024` | ✅ **已实现**。`lib/api/subscriptions.ts` 全套服务函数 + `/api/v1/subscriptions/*` 六条路由 + `notify-subscriptions` 任务 |
-| 7 | `/console/subscriptions` + `/dashboard/subscriptions` | — | ❌ **未做**。服务函数与 REST 路由都在，**只有这两个页面与 `subscriptionsRouter` 缺失** |
+| 7 | `/console/subscriptions` + `/dashboard/subscriptions` | — | ✅ **已实现**。`subscriptionsRouter`（`listMine` / `create` / `update` / `remove` / `rotateSecret` / `sendTest` + `list` / `detail` / `disable`），两个页面共用 `components/subscriptions/subscriptions-table.tsx`。admin 侧只有 `disable` 可写，过滤器与 `callbackUrl` 不可写（§6.7）。**本轮补**：`api_request_audit.action` 加 `subscription.disable`，`api_key_id` / `key_prefix` 放宽为可空（订阅可以完全不属于任何 key） |
 | 12 | **清理现有 `/api/*`**（§12） | — | 🟡 **部分**。`/api/internal/repos` 已删；4 个 `.json` 端点尚未收敛到 `/api/v1` 的服务函数 |
 
 ### 10.2 剩余步骤
@@ -2109,7 +2109,6 @@ HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/open
 
 | 剩余 | 内容 | 风险 |
 |---|---|---|
-| 7 | `subscriptionsRouter` + `/console/subscriptions`（用户）+ `/dashboard/subscriptions`（admin，含 `disable`） | 中。服务函数（`lib/api/subscriptions.ts`）与 `/api/v1/subscriptions/*` 都已完成，只差前端 |
 | 3b | 抽 `lib/github/service/ingest-repo.ts`，让 `POST /api/v1/repos` 与 `repos.create` 真正共用一段逻辑（§3.1） | 低。纯重构，当前两者行为已一致 |
 | 3c | 幂等的 `in_flight` 租约超时（§3.3 已知边界） | 中。要与业务写入同事务，或给预占加租约 |
 | 5b | 分类可读化：`/dashboard/categories` 维护页 + `categories` tRPC router（消费 `listCategoryReviewQueue` / `categoryUsage`） | 中。**不是上线阻塞项**（§1.5 坑一：空词表是合法状态），但不做则运营无处配置 |

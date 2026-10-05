@@ -21,6 +21,7 @@ import {
   IconLink,
   IconScale,
   IconSettings,
+  IconWebhook,
 } from "@tabler/icons-react"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
@@ -38,6 +39,10 @@ const navMain: NavMainItem[] = [
   // short-lived codes that produce one, and a reader looking for the key is
   // looking at the row this one becomes.
   { key: "connections", url: "/console/connections", icon: <IconLink /> },
+  // After the credential pages, because that is what a subscription consumes: it
+  // pushes data to a callback URL you sign with a key from the page above. A
+  // reader looking for either starts at the credential.
+  { key: "subscriptions", url: "/console/subscriptions", icon: <IconWebhook /> },
   // Also in the account menu at the foot of the sidebar. Here as well because
   // it is per-account data like the other two, and that is what this list holds.
   { key: "settings", url: "/settings", icon: <IconSettings /> },
