@@ -2,7 +2,7 @@ import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
 import { db } from "@/lib/db"
 import { repos, skills } from "@workspace/db"
 import { parseGithubRepoUrl } from "@/lib/gateway/names"
-import { consoleApiConfigured, ingestRepoByUrl } from '@/lib/console/client'
+import { consoleApiConfigured, consoleSubmitMode, submitRepo } from '@/lib/console/client'
 import { filesFromSkillRow, runSkillSecurityScan } from "@/lib/security-scan"
 import { mapSkillRow } from '@/web/assets/map-asset'
 import type { MineListOptions } from '@/web/assets/mine-list'
@@ -128,6 +128,13 @@ export const skillsGatewayAccess = {
   /**
    * Hand a repository to console so its sync tasks own it.
    *
+   * Which endpoint that is depends on `CONSOLE_SKILLS_REGISTER_ONLY` (see
+   * {@link submitRepo}): either console curates it into a published project and
+   * pushes the skill document back, or it only records the repository against
+   * this app's submitter account and does nothing else. `mode` in the answer is
+   * what the caller needs to tell those apart - in register mode no skill is ever
+   * coming, so polling for one can only time out.
+   *
    * This is an ingest, not a fetch. console has the GitHub credentials; this
    * app only has the repositories its own collector already recorded, and
    * console's ingest is upsert-only over the columns it accepts, so pushing
@@ -139,9 +146,11 @@ export const skillsGatewayAccess = {
    * to send and console has no bare-URL endpoint - so it is reported as
    * unready rather than left to time out in the caller's polling loop.
    */
-  registerWithConsole: async (repoUrl: string): Promise<{ ready: boolean; registered: boolean; message: string }> => {
+  registerWithConsole: async (
+    repoUrl: string
+  ): Promise<{ ready: boolean; registered: boolean; mode: 'publish' | 'register'; message: string }> => {
     const parsed = parseGithubRepoUrl(repoUrl)
-    if (!parsed) return { ready: false, registered: false, message: 'Invalid GitHub URL' }
+    if (!parsed) return { ready: false, registered: false, mode: 'publish', message: 'Invalid GitHub URL' }
 
     // console is the only side with GitHub credentials and the only writer of
     // the repository/project/skill tables, so with it unconfigured there is
@@ -151,6 +160,7 @@ export const skillsGatewayAccess = {
       return {
         ready: check.ready,
         registered: false,
+        mode: 'publish',
         message: check.ready
           ? `${parsed.fullName} 已就绪`
           : `仓库 ${parsed.fullName} 尚未被索引，请稍后重试或改用 ZIP 上传`,
@@ -161,14 +171,32 @@ export const skillsGatewayAccess = {
       // console fetches, creates the project, syncs the skill documents and
       // pushes them back to this app before it answers, so a ready check right
       // afterwards sees the skill rather than an empty poll window.
-      const result = await ingestRepoByUrl(repoUrl, 'skill')
+      const submitted = await submitRepo(repoUrl, 'skill')
       const check = await skillsGatewayAccess.checkGithubRepo(repoUrl)
+
+      if (submitted.mode === 'register') {
+        // Nothing was published and no skill document is coming, so readiness is
+        // exactly what the local crawler already knows - there is no pending
+        // delivery that could still make it true a second later. Saying so is
+        // what stops the caller from spending its poll budget on a push that is
+        // not scheduled.
+        return {
+          ready: check.ready,
+          registered: true,
+          mode: 'register',
+          message: check.ready
+            ? `${parsed.fullName} 已就绪（仅登记到 console，未发布项目）`
+            : `${parsed.fullName} 已登记到 console，未发布项目`,
+        }
+      }
+
       return {
         ready: check.ready,
         registered: true,
+        mode: 'publish',
         message: check.ready
           ? `${parsed.fullName} 已就绪`
-          : result.delivered
+          : submitted.delivered
             ? `仓库 ${parsed.fullName} 已登记，技能正在入库，请稍后重试`
             : `仓库 ${parsed.fullName} 已登记，但技能推送未完成，请稍后重试`,
       }
@@ -180,6 +208,10 @@ export const skillsGatewayAccess = {
       return {
         ready: check.ready,
         registered: false,
+        // The submission threw, so there is no answer to read a mode off; report
+        // the one this deployment is configured for rather than defaulting to
+        // publish and telling a register-only caller the wrong thing.
+        mode: consoleSubmitMode(),
         message: check.ready
           ? `${parsed.fullName} 已就绪（console 同步失败，稍后重试）`
           : `仓库 ${parsed.fullName} 登记失败：${error instanceof Error ? error.message : '未知错误'}`,
@@ -299,8 +331,13 @@ export const skillsGatewayAccess = {
     // is already written, and a console outage must not roll back a creator's
     // submission. The web app holds no GitHub credentials, so the repository
     // goes over as a URL and console does the fetch itself.
+    //
+    // In register-only mode this only records the repository. That is still
+    // worth doing here: console's scheduler owns stats and ranking either way,
+    // and this is the one call that runs for listings created outside the
+    // submit dialog.
     if (consoleApiConfigured()) {
-      void ingestRepoByUrl(input.repoUrl, 'skill').catch((error: unknown) => {
+      void submitRepo(input.repoUrl, 'skill').catch((error: unknown) => {
         console.error('[skills] console ingest failed', parsed.fullName, error)
       })
     }

@@ -15,12 +15,12 @@ import {
   recordPushSuccess,
   syncProjectSkills,
 } from "@/lib/github/service/skill"
+import { recordSkillsDestination } from "@/lib/github/service/skill-destination"
 import {
   createPushSkillsTask,
   type PushSkillsOptions,
 } from "@/lib/tasks/tasks/push-skills"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
-import { resetSyncEnvCache } from "@/lib/env"
 import type { SendOptions, WebhookResult } from "@/lib/webhook/client"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
@@ -28,6 +28,13 @@ const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
 const okUrl = "https://skills.example/hook"
 
 let slugSuffix = 0
+
+/**
+ * A destination stands in for what a submitting caller sent on
+ * `POST /api/v1/projects`. `null` is the project nobody submitted — the discovery
+ * task's output — and is what the queue must leave alone.
+ */
+const seedDestination = { url: okUrl, secret: "shared-secret" }
 
 async function seedProject(owner: string, name: string) {
   const repo = await upsertRepo(db, repoInfo(owner, name))
@@ -82,6 +89,7 @@ async function seedSkill(
   skillDir: string
 ) {
   const { repo, project } = await seedProject(repoOwner, repoName)
+  await recordSkillsDestination(db, project.id, seedDestination)
   await syncProjectSkills(db, project.id, [
     {
       projectId: project.id,
@@ -141,9 +149,7 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
     const now = new Date("2026-03-01T03:00:00Z")
 
     const outcome = await task({
-      webhookUrl: okUrl,
-      token: "skills-token",
-      secret: "shared-secret",
+      destination: seedDestination,
       sender,
       now: () => now,
     }).run({ db, logger: console } as never)
@@ -151,10 +157,9 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
     expect(calls).toHaveLength(1)
     const { urls, payload, options } = calls[0]!
     expect(urls).toEqual([okUrl])
-    expect(options).toMatchObject({
-      token: "skills-token",
-      secret: "shared-secret",
-    })
+    // Signed with the destination's own key and sent with no bearer: the
+    // destination is the submitter's, so console holds no shared push secret.
+    expect(options).toEqual({ secret: seedDestination.secret })
     expect(payload).toMatchObject({
       event_type: "skill_updated",
       data: {
@@ -188,7 +193,7 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
     )
 
     const { calls, sender } = recordingSender()
-    const outcome = await task({ webhookUrl: okUrl, sender }).run({
+    const outcome = await task({ destination: seedDestination, sender }).run({
       db,
       logger: console,
     } as never)
@@ -215,7 +220,7 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
       return [{ url: okUrl, success: true, status: 200 }]
     })
 
-    const first = await task({ webhookUrl: okUrl, sender }).run({
+    const first = await task({ destination: seedDestination, sender }).run({
       db,
       logger: console,
     } as never)
@@ -226,7 +231,7 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
     expect(stored?.lastSyncError).toContain("500")
     expect(stored?.lastSyncAttemptAt).not.toBeNull()
 
-    const second = await task({ webhookUrl: okUrl, sender }).run({
+    const second = await task({ destination: seedDestination, sender }).run({
       db,
       logger: console,
     } as never)
@@ -247,22 +252,34 @@ describe.skipIf(!hasDatabase)("push-skills (integration)", () => {
     expect(outcome).toMatchObject({ processed: 0, pushed: 0, pending: 0 })
   })
 
-  it("fails the run when the webhook URL is missing and work is pending", async () => {
-    await seedSkill("acme", "stranded", "gen")
+  it("leaves a skill alone when its project has no destination", async () => {
+    // Nobody submitted this repository, so there is nowhere to deliver to.
+    // Skipping it is the whole queue's job not failing: other rows in the same
+    // run belong to submitters that are still reachable.
+    const { project } = await seedProject("acme", "undiscovered")
+    await syncProjectSkills(db, project.id, [
+      {
+        projectId: project.id,
+        skillDir: "gen",
+        name: "gen",
+        description: "Work with gen",
+        descriptionZh: "",
+        readme: "Body of gen",
+        readmeZh: "",
+        version: "1.0.0",
+      },
+    ])
 
-    const previous = process.env.SKILLS_WEBHOOK_URL
-    delete process.env.SKILLS_WEBHOOK_URL
-    resetSyncEnvCache()
-    try {
-      await task({}).run({ db, logger: console } as never)
-      expect.unreachable("task should have thrown")
-    } catch (error) {
-      expect((error as Error).message).toBe(
-        'No "SKILLS_WEBHOOK_URL" env. variable!'
-      )
-    } finally {
-      if (previous !== undefined) process.env.SKILLS_WEBHOOK_URL = previous
-      resetSyncEnvCache()
-    }
+    const { calls, sender } = recordingSender()
+    const outcome = await task({ destination: undefined, sender }).run({
+      db,
+      logger: console,
+    } as never)
+
+    expect(calls).toHaveLength(0)
+    expect(outcome).toMatchObject({ failed: 1, pushed: 0 })
+
+    const stored = await getSkill(db, project.id, "gen")
+    expect(stored?.syncedToWebAt).toBeNull()
   })
 })

@@ -2,8 +2,8 @@ import { and, count, desc, eq, ilike, isNotNull, isNull, or } from "drizzle-orm"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { projects, projectSkills, repos } from "@/db/schema"
-import { syncEnv } from "@/lib/env"
 import { pushSkill } from "@/lib/github/service/push-skill"
+import { getSkillsDestination } from "@/lib/github/service/skill-destination"
 import { createTRPCRouter, adminProcedure } from "../init"
 
 const skillStatusSchema = z
@@ -134,6 +134,11 @@ export const skillsRouter = createTRPCRouter({
    * delivery that an operator triggers by hand and one the scheduler retries
    * are indistinguishable downstream. The task remains the thing that sweeps
    * the queue; this is the button for the row someone is looking at.
+   *
+   * The address is the project's own destination, recorded when the submitter
+   * published it. There is no deployment-wide endpoint to fall back on, so a
+   * project curated by the discovery task — which no one submitted — has
+   * nothing to push to and this reports that rather than inventing one.
    */
   push: adminProcedure
     .input(
@@ -143,19 +148,18 @@ export const skillsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const env = syncEnv()
-      const webhookUrl = env.SKILLS_WEBHOOK_URL
-      if (!webhookUrl) {
+      const destination = await getSkillsDestination(ctx.db, input.projectId)
+      if (!destination) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: 'No "SKILLS_WEBHOOK_URL" env. variable!',
+          message:
+            "该 project 没有投递地址：技能地址由提交方在发布时提供，未提交过的 project 无法投递",
         })
       }
 
       return pushSkill(ctx.db, input, {
-        webhookUrl,
-        secret: env.GITHUB_DATA_WEBHOOK_SECRET,
-        token: env.SKILLS_WEBHOOK_TOKEN,
+        webhookUrl: destination.url,
+        secret: destination.secret,
       })
     }),
 })

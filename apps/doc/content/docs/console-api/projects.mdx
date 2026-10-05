@@ -142,10 +142,12 @@ Key 自带的 `submitter_id` 会被记成这次写入的归属，不需要也不
 
 幂等：按仓库去重。已经策展过的 URL 返回既有 project 与 `status: "existing"`，不会建第二行。
 
-| 字段   | 类型   | 必填 | 说明                                                            |
-| ------ | ------ | ---- | --------------------------------------------------------------- |
-| `url`  | string | ✅   | GitHub 仓库地址                                                  |
-| `type` | enum   |      | `application`、`skill`、`client`、`server`、`persona`。缺省 `application` |
+| 字段              | 类型   | 必填 | 说明                                                                                    |
+| ----------------- | ------ | ---- | --------------------------------------------------------------------------------------- |
+| `url`             | string | ✅   | GitHub 仓库地址                                                                          |
+| `type`            | enum   |      | `application`、`skill`、`client`、`server`、`persona`。缺省 `application`                |
+| `callbackUrl`     | string |      | 技能文档的投递地址，必须是 `http` / `https`。只被 `type: "skill"` 真正用到                |
+| `callbackSecret`  | string |      | 投递签名用的 HMAC 密钥，至少 16 字符。与 `callbackUrl` **必须成对出现**                   |
 
 <Callout>
   这个端点会**同步等待**：取仓库、翻译、同步技能、推送 webhook
@@ -189,7 +191,18 @@ Key 自带的 `submitter_id` 会被记成这次写入的归属，不需要也不
 | `502`  | `create_failed`      | 策展失败                                                |
 | `503`  | `github_unavailable` | 服务端缺 GitHub token。这是运维配置问题，不是请求问题  |
 
-**出站 webhook**：`type: "skill"` 时在同步完成后会把该项目所有技能推送到 `SKILLS_WEBHOOK_URL`，带 `Authorization: Bearer $SKILLS_WEBHOOK_TOKEN` 和用 `GITHUB_DATA_WEBHOOK_SECRET` 签名的请求体。被拒绝的投递会记在行上，由重试队列接手，而不是在这里丢掉。
+**出站 webhook**：`type: "skill"` 时在同步完成后会把该项目所有技能推送到**调用方在本次请求里给出的 `callbackUrl`**，并用同一次请求里的 `callbackSecret` 签名。没有全站共享的出站地址：一把 console 可以同时服务多个提交方，各自的地址与密钥记在各自的 project 行上，因此重试队列（`push-skills`，全库扫、无请求上下文）之后仍然读得到地址。被拒绝的投递会记在行上，由重试队列接手，而不是在这里丢掉。
+
+请求头只有签名，没有 `Authorization`：投递方就是这次请求的调用方，它的凭据是**这一次**的 `callbackSecret`，不是某个常驻账号的 token。
+
+| 头                    | 内容                                                  |
+| --------------------- | ----------------------------------------------------- |
+| `x-webhook-timestamp` | Unix 秒时间戳，签名覆盖它                             |
+| `x-webhook-signature` | `sha256=<hex>`，HMAC-SHA256 over `<timestamp>.<body>` |
+
+验签必须用**被传输的原始字节**（`await req.text()`），不能重新序列化。`callbackSecret` 在 `projects` 表里以明文保存——HMAC 需要密钥本身，存哈希验不了任何东西——因此它不出现在本端点的任何响应里，但对能读该表的部署等同于一把可用的密钥。
+
+不带 `callbackUrl` / `callbackSecret` 的请求仍会建 project，只是技能文档留在 console 侧重试队列里，`delivered` 为 `null`。`callbackUrl` 与 `callbackSecret` 必须成对出现，只给地址会被拒。
 
 ## 已移除的端点
 

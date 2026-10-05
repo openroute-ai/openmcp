@@ -80,15 +80,27 @@ What works: fetch `limit=500`, confirm delivery for that page, then fetch from t
 
 ## The outbound webhook (push direction)
 
-The console pushes to `SKILLS_WEBHOOK_URL` after a skill sync completes. The receiver is the web app.
+The console pushes after a skill sync completes. The receiver is the web app.
+
+**Where it pushes** is the `callbackUrl` the submitter named on
+`POST /api/v1/projects`, paired with the `callbackSecret` from that same
+request. There is no deployment-wide address: one console serves several
+submitters, each with its own URL and key, and the pair is recorded on the
+project row so the `push-skills` retry queue can still reach it with no request
+context. The key below is therefore the *submitter's* key, not a site-wide
+secret — which is what makes `SKILLS_WEBHOOK_TOKEN`, which authorises the pull
+direction above, unable to forge a delivery.
 
 **Request headers**
 
 | Header                | Value                                                 |
 | --------------------- | ----------------------------------------------------- |
-| `Authorization`       | `Bearer $SKILLS_WEBHOOK_TOKEN`                        |
 | `x-webhook-timestamp` | Unix seconds; the signature covers it                 |
 | `x-webhook-signature` | `sha256=<hex>`, HMAC-SHA256 over `<timestamp>.<body>` |
+
+No `Authorization` header. The submitter is the caller that supplied the
+credential, so it signs with the key it already gave us rather than presenting a
+second, long-lived token.
 
 **Verifying the signature**
 

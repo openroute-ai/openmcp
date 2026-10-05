@@ -183,8 +183,13 @@ Copy `apps/console/.env.example` (or set these in your shell):
 | `REDIS_URL`                   | Redis URL for the auth rate limiter                   |
 | `GITHUB_ACCESS_TOKEN`         | Required by every GitHub call and the sync tasks      |
 | `CRON_SECRET`                 | Bearer for the scheduler and inbound webhook          |
-| `SKILLS_WEBHOOK_URL`          | Outbound webhook for synced skills                    |
-| `SKILLS_WEBHOOK_TOKEN`        | Outbound bearer, and the export endpoint's bearer     |
+| `SKILLS_WEBHOOK_TOKEN`        | Bearer for `GET /api/skills-sync/export`              |
+
+Outbound skill delivery has no deployment-wide address. The submitter names it
+per project as `callbackUrl` / `callbackSecret` on `POST /api/v1/projects`, and
+the pair is recorded on the project row so the retry queue can still reach it
+later. A console therefore serves several submitters at once, each with its own
+address and key.
 
 `.env.example` documents the rest (translation providers, Aliyun OSS, WeCom,
 build hooks). Most are optional; the tasks that need one are skipped or fail

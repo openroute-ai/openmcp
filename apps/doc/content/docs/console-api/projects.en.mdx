@@ -137,10 +137,12 @@ The `detail` on `400 invalid_body` names the **first offending field**. `RepoInf
 
 Idempotent: deduped by repository. A URL that was already curated returns the existing project with `status: "existing"` and never creates a second row.
 
-| Field  | Type   | Required | Meaning                                                                    |
-| ------ | ------ | -------- | -------------------------------------------------------------------------- |
-| `url`  | string | ✅       | A GitHub repository URL                                                    |
-| `type` | enum   |          | `application`, `skill`, `client`, `server`, `persona`. Defaults to `application` |
+| Field           | Type   | Required | Meaning                                                                    |
+| --------------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `url`           | string | ✅       | A GitHub repository URL                                                    |
+| `type`          | enum   |          | `application`, `skill`, `client`, `server`, `persona`. Defaults to `application` |
+| `callbackUrl`   | string |          | Where the skill documents are delivered. Must be `http` or `https`. Only `type: "skill"` actually delivers |
+| `callbackSecret`| string |          | The HMAC key deliveries are signed with, at least 16 characters. **Must be supplied together with `callbackUrl`** |
 
 <Callout>
   This form **waits**: the fetch, the translation, the skill sync and the webhook
@@ -185,7 +187,18 @@ With `type: "skill"` and `status: "existing"` the endpoint runs the skill sync *
 | `502`  | `create_failed`      | Curation failed                                                          |
 | `503`  | `github_unavailable` | The server has no GitHub token. That is an operator misconfiguration, not a bad request |
 
-**Outbound webhook**: when `type: "skill"`, a completed call pushes every skill of the project to `SKILLS_WEBHOOK_URL` with `Authorization: Bearer $SKILLS_WEBHOOK_TOKEN` and a body signed with `GITHUB_DATA_WEBHOOK_SECRET`. A rejected delivery is recorded on the row for the retry queue to pick up rather than being dropped here.
+**Outbound webhook**: when `type: "skill"`, a completed call pushes every skill of the project to the **`callbackUrl` this request supplied**, signed with the `callbackSecret` from the same request. There is no deployment-wide outbound address: one console serves several submitters at once, each with its own address and key, both recorded on their own project row so the retry queue — which runs over the whole table with no request to read an address from — can still reach it later. A rejected delivery is recorded on the row for the retry queue to pick up rather than being dropped here.
+
+The request carries a signature and no `Authorization` header: the submitter *is* the caller of this request, and its credential is *this* `callbackSecret` rather than some long-lived account token.
+
+| Header                  | Value                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `x-webhook-timestamp`   | Unix seconds; covered by the signature                       |
+| `x-webhook-signature`   | `sha256=<hex>`, HMAC-SHA256 over `<timestamp>.<body>`       |
+
+Verification must use the **raw transmitted bytes** (`await req.text()`), not a re-serialization. `callbackSecret` is stored in plaintext on the `projects` row — HMAC needs the key itself, so a hash would verify nothing — which is why it never appears in this endpoint's responses but is, for any deployment that can read that table, a usable key.
+
+A request without `callbackUrl` / `callbackSecret` still creates the project; the skill documents simply stay in console's retry queue and `delivered` is `null`. The two must be supplied together: a URL with no secret is rejected.
 
 ## Removed endpoint
 

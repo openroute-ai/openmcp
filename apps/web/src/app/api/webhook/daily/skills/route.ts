@@ -1,15 +1,25 @@
 /**
- * Inbound Skills webhook from apps/console (`push-skills` / export).
+ * Inbound Skills webhook from apps/console.
  *
  * Contract: POST body is `SkillWebhookPayload` (`event_type: skill_updated`).
- * Auth: `Authorization: Bearer <WEB_SKILLS_INGEST_TOKEN|SKILLS_WEBHOOK_TOKEN>`.
- * Fails closed (404) when no token is configured.
  *
- * Console side:
- *   SKILLS_WEBHOOK_URL=https://<web>/api/webhook/daily/skills
- *   SKILLS_WEBHOOK_TOKEN=<same secret>
+ * Auth, in the order it is tried:
+ *   1. console's HMAC signature, over `<timestamp>.<body>`, with
+ *      `CONSOLE_SKILLS_CALLBACK_SECRET`. This is what it sends now: the
+ *      destination and its key are per-submitter and travel on the
+ *      `POST /api/v1/projects` call that registered the repository, because
+ *      console has no deployment-wide skills endpoint.
+ *   2. a plain bearer matching `WEB_SKILLS_INGEST_TOKEN|SKILLS_WEBHOOK_TOKEN`, so
+ *      a console that predates per-submitter callbacks still works.
  *
- * Optional pull (same payload shape):
+ * Fails closed with 404 when neither credential is configured.
+ *
+ * Console side, when it registers a repository through the API:
+ *   callbackUrl=https://<this-host>/api/webhook/daily/skills
+ *   callbackSecret=<CONSOLE_SKILLS_CALLBACK_SECRET>
+ *
+ * Optional pull (same payload shape), which authorises the other direction —
+ * this app reading console's export with `SKILLS_WEBHOOK_TOKEN`:
  *   curl -H "Authorization: Bearer $SKILLS_WEBHOOK_TOKEN" \
  *     "$CONSOLE_URL/api/skills-sync/export?limit=100"
  */
@@ -19,18 +29,22 @@ import {
   ingestConsoleSkill,
   validateSkillWebhookPayload,
 } from '@/lib/skills/ingest-console-skill'
-import { assertSkillsIngestAuthorized } from '@/lib/webhook/bearer-auth'
+import { assertSkillsWebhookAuthorized } from '@/lib/webhook/bearer-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
-  const unauthorized = assertSkillsIngestAuthorized(request)
+  // Read once as text: the signature covers these exact bytes, so verifying it
+  // against a re-serialised object would reject every genuine request.
+  const rawBody = await request.text()
+
+  const unauthorized = assertSkillsWebhookAuthorized(request, rawBody)
   if (unauthorized) return unauthorized
 
   let body: unknown
   try {
-    body = await request.json()
+    body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }

@@ -79,15 +79,18 @@ title: "技能导出"
 
 ## 出站 webhook（推送方向）
 
-控制台在技能同步完成后主动推送，是主路径。收件方是 Web 端，URL 是 `SKILLS_WEBHOOK_URL`。
+控制台在技能同步完成后主动推送，是主路径。收件方是 Web 端。
+
+**推到哪里**是提交方在 `POST /api/v1/projects` 里给出的 `callbackUrl`，配合同一次请求的 `callbackSecret`。没有全站共享的地址：一把 console 同时服务多个提交方，各自的 URL 与密钥记在各自的 project 行上，因此 `push-skills` 重试队列在没有请求上下文的情况下也读得到地址。下面的密钥因此是**提交方的**密钥，而不是站点级 secret——也正因为两者分开，能读 export 的 `SKILLS_WEBHOOK_TOKEN` 无法伪造一次投递。
 
 **请求头**
 
 | 头                    | 内容                                                  |
 | --------------------- | ----------------------------------------------------- |
-| `Authorization`       | `Bearer $SKILLS_WEBHOOK_TOKEN`                        |
 | `x-webhook-timestamp` | Unix 秒时间戳，签名覆盖它                             |
 | `x-webhook-signature` | `sha256=<hex>`，HMAC-SHA256 over `<timestamp>.<body>` |
+
+没有 `Authorization` 头。提交方就是给出凭据的那次请求的调用方，它用已经交出来的密钥签名，而不是再出示第二个常驻 token。
 
 **验签**：
 

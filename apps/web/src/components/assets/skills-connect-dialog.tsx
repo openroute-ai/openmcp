@@ -170,6 +170,27 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
       setFetchError(resultError(registerResult) || '仓库同步失败')
       return
     }
+
+    const [, , repo] = match
+    const repoName = repo?.replace(/\.git$/, '') ?? ''
+    const fallbackInfo = (): ParsedSkillInfo => ({
+      name: repoName,
+      description: `${repoName} - OpenClaw Skill repository`,
+      version: '1.0.0',
+      category: '',
+      license: 'MIT',
+    })
+
+    // 只登记模式（CONSOLE_SKILLS_REGISTER_ONLY）：console 只记录仓库归属，
+    // 不建 project、不推技能文档，所以没有东西会到达这里。轮询 12 次必然
+    // 超时，且超时文案会把一次成功的登记报成失败——直接用仓库名继续。
+    if (registerResult.data.mode === 'register') {
+      setFetching(false)
+      setParsedInfo(fallbackInfo())
+      toast.success('仓库已登记到 console（未发布项目）')
+      return
+    }
+
     if (!registerResult.data.ready) {
       setFetching(false)
       setFetchError(registerResult.data.message)
@@ -196,8 +217,6 @@ export function SkillsConnectDialog({ open, onOpenChange, onCreated }: SkillsCon
       return
     }
 
-    const [, , repo] = match
-    const repoName = repo?.replace(/\.git$/, '') ?? ''
     setParsedInfo({
       name: lastSkill?.title || repoName,
       description: lastSkill?.description || `${repoName} - OpenClaw Skill repository`,

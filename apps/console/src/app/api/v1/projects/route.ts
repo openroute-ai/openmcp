@@ -23,9 +23,9 @@
  * `POST /api/v1/repos` 完全一致，另加可选的 `type` 与那对回调参数。
  *
  * **技能投递**：仅当 `type === "skill"` 时，建完之后同步推一遍下游。
- * 这不是本文设计的新耦合，而是从被删掉的 `POST /api/internal/repos` 原样搬过来的
- * —— 唯一还在同步等待技能到达的调用方（`apps/web` 的创作者流程）只有这条路径，
- * 删掉它会让创作者在下一个周期之前一直看到"未就绪"。
+ * 下游地址不是部署级的环境变量，而是这次请求里的 `callbackUrl` / `callbackSecret`：
+ * 一个 console 可以同时服务多个提交方，各自的地址与密钥记在各自的 project 行上，
+ * 这样重试队列（`push-skills`，全库扫、无请求上下文）也读得到地址。
  * 失败不报错：行已进重试队列，`push-skills` 任务会接手；`delivered` 让调用方
  * 自己决定怎么提示。
  */
@@ -49,6 +49,7 @@ import {
   InvalidRepoUrlError,
 } from "@/lib/github/service/create-project"
 import { deliverProjectSkills } from "@/lib/github/service/deliver-project-skills"
+import { recordSkillsDestination } from "@/lib/github/service/skill-destination"
 import { getProjectByFullName } from "@/lib/github/service/project"
 import { getRepoByFullName } from "@/lib/github/service/repo"
 import { syncSkillsForProject } from "@/lib/github/sync-skills"
@@ -141,6 +142,13 @@ export async function POST(request: Request) {
       auth.rateLimitHeaders
     )
   }
+
+  // Where this project's skills go comes from the caller's callback pair, and is
+  // recorded before delivery so the retry queue and the operator's "retry now"
+  // button — both of which run long after this request — have an address to
+  // read. Written for every type: a project can be published as one type and
+  // later re-submitted as a skill, and the address should not depend on which.
+  await recordSkillsDestination(db, created.project.id, resolved.target.callback)
 
   // `createProjectFromRepo` returns early for an already-curated repository and
   // therefore does not sync its skills. A caller that asked for the skill *now*

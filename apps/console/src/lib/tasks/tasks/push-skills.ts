@@ -13,11 +13,16 @@
  * moves the row out of the queue.
  *
  * Unlike `build-daily-data` — where a missing endpoint leaves the day's work
- * already done — a missing webhook URL fails the run, because the endpoint is
- * the single thing this task exists to reach.
+ * already done — a skill with no destination fails its own attempt, because
+ * there is nowhere to send it. The failure is scoped to the row rather than the
+ * run: a queue holding skills for several submitters is normal, and one of them
+ * going away must not stall the others.
+ *
+ * The address is per project, from the `callbackUrl` / `callbackSecret` the
+ * submitting caller sent to `POST /api/v1/projects`, so it is read off the
+ * joined project row rather than from the environment.
  */
 
-import { syncEnv } from "@/lib/env"
 import { listSkillsNeedingPushJoined } from "@/lib/github/service/skill"
 import { pushSkill } from "@/lib/github/service/push-skill"
 import { processItems } from "@/lib/tasks/iterate"
@@ -27,9 +32,8 @@ import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
 
 export interface PushSkillsOptions {
   sender?: WebhookSender
-  webhookUrl?: string
-  secret?: string
-  token?: string
+  /** 覆盖 project 行上的地址，测试用。 */
+  destination?: { url: string; secret: string }
   now?: () => Date
 }
 
@@ -38,7 +42,7 @@ export function createPushSkillsTask(options: PushSkillsOptions = {}): Task {
     name: "push-skills",
     description:
       "Push every stored skill that has never been pushed, or whose last " +
-      "push failed, to the skills webhook",
+      "push failed, to its project's skills destination",
 
     async run({ db, logger }) {
       const pending = await listSkillsNeedingPushJoined(db)
@@ -47,26 +51,45 @@ export function createPushSkillsTask(options: PushSkillsOptions = {}): Task {
         return { processed: 0, pushed: 0, failed: 0, pending: 0 }
       }
 
-      const env = syncEnv()
-      const webhookUrl = options.webhookUrl ?? env.SKILLS_WEBHOOK_URL
-      if (!webhookUrl) {
-        throw new Error(`No "SKILLS_WEBHOOK_URL" env. variable!`)
-      }
-
-      const secret = options.secret ?? env.GITHUB_DATA_WEBHOOK_SECRET
-      const token = options.token ?? env.SKILLS_WEBHOOK_TOKEN
       const sender = options.sender ?? sendWebhook
       const now = options.now ?? (() => new Date())
 
       const results = await processItems(
         pending,
-        async ({ skill }) => {
+        async ({ skill, project, repo }) => {
+          // A destination with no secret is treated as no destination: pushing
+          // unsigned would hand anyone who guessed the URL the ability to inject
+          // skills, which is worse than leaving the row queued for a retry.
+          const destination =
+            options.destination ??
+            (project.skillsWebhookUrl && project.skillsWebhookSecret
+              ? {
+                  url: project.skillsWebhookUrl,
+                  secret: project.skillsWebhookSecret,
+                }
+              : null)
+
+          const fullName = `${repo.owner}/${repo.name}`
+          if (!destination) {
+            return {
+              meta: { processed: 1, pushed: 0 },
+              data: {
+                slug: project.slug,
+                full_name: fullName,
+                skill_dir: skill.skillDir,
+                pushed: false,
+                skipped: true,
+                reason: "no_destination",
+              },
+            }
+          }
+
           // The same call the console's per-skill retry makes, so a manual
           // push and the scheduled one cannot diverge in payload or bookkeeping.
           const result = await pushSkill(
             db,
             { projectId: skill.projectId, skillDir: skill.skillDir },
-            { webhookUrl, secret, token, sender, now }
+            { webhookUrl: destination.url, secret: destination.secret, sender, now }
           )
 
           if (result.pushed) {
@@ -87,6 +110,8 @@ export function createPushSkillsTask(options: PushSkillsOptions = {}): Task {
               full_name: result.fullName,
               skill_dir: result.skillDir,
               pushed: result.pushed,
+              skipped: false,
+              reason: result.summary,
             },
           }
         },

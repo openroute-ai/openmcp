@@ -14,12 +14,18 @@
  * 失败**不抛出**。技能没送到不该让一次成功的 project 创建变成 500：那行已经进了
  * 重试队列，`push-skills` 会接手。用返回值 `delivered === false` 把"存下了但没送到"
  * 交给调用方决定怎么提示。
+ *
+ * 投递地址取自 project 行（`skillsWebhookUrl` / `skillsWebhookSecret`），也就是提交
+ * 那次请求带过来的 `callbackUrl` / `callbackSecret`。曾经这里是读部署级的
+ * `SKILLS_WEBHOOK_URL`，现在没有全站地址了：一个 console 可以同时服务多个提交方，
+ * 各自的地址跟各自的密钥一起记在自己的行上。
  */
-import { syncEnv } from "@/lib/env"
 import { pushSkill } from "@/lib/github/service/push-skill"
 import { listSkillsForProject } from "@/lib/github/service/skill"
+import { getSkillsDestination } from "@/lib/github/service/skill-destination"
 import type { Db } from "@/lib/github/service/repo"
 import type { TaskLogger } from "@/lib/tasks/runner"
+import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
 
 export interface DeliverProjectSkillsResult {
   /** 该 project 存着的技能总数。 */
@@ -37,15 +43,14 @@ export interface DeliverProjectSkillsResult {
 
 export interface DeliverProjectSkillsDeps {
   logger: TaskLogger
-  /** 覆盖环境变量，测试用。 */
-  webhookUrl?: string
-  secret?: string
-  token?: string
+  /** 覆盖 project 行上的地址，测试用。 */
+  destination?: { url: string; secret: string }
+  sender?: WebhookSender
 }
 
 /**
- * `null` 表示**没有配置下游地址**，与"配置了但推送失败"是两种不同的结果：
- * 前者不该在响应里报失败（那是部署的事，不是这次调用的），后者要报。
+ * `null` 表示**这个 project 没有投递地址**，与"配了地址但推送失败"是两种不同的
+ * 结果：前者不该在响应里报失败（那是提交方的事，不是这次调用的），后者要报。
  * 调用方据此决定 `delivered` 是 `false` 还是省略。
  */
 export async function deliverProjectSkills(
@@ -53,10 +58,11 @@ export async function deliverProjectSkills(
   projectId: string,
   deps: DeliverProjectSkillsDeps
 ): Promise<DeliverProjectSkillsResult | null> {
-  const env = syncEnv()
-  const webhookUrl = deps.webhookUrl ?? env.SKILLS_WEBHOOK_URL
-  if (!webhookUrl) {
-    deps.logger.warn("SKILLS_WEBHOOK_URL is not set; skills stored for retry")
+  const destination = deps.destination ?? (await getSkillsDestination(db, projectId))
+  if (!destination) {
+    deps.logger.warn(
+      "project has no skills destination; skills stored for retry"
+    )
     return null
   }
 
@@ -72,18 +78,14 @@ export async function deliverProjectSkills(
     const result = await pushSkill(
       db,
       { projectId, skillDir: skill.skillDir },
-      {
-        webhookUrl,
-        secret: deps.secret ?? env.GITHUB_DATA_WEBHOOK_SECRET,
-        token: deps.token ?? env.SKILLS_WEBHOOK_TOKEN,
-      }
+      { webhookUrl: destination.url, secret: destination.secret, sender: deps.sender }
     )
 
     if (result.pushed) {
       pushed += 1
     } else {
       deps.logger.error(
-        `failed to push ${result.fullName} (${result.skillDir}): ${result.summary}`
+        `failed to push ${result.fullName} (${skill.skillDir}): ${result.summary}`
       )
     }
 

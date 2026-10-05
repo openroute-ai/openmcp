@@ -321,6 +321,28 @@ export const projects = pgTable(
     categoryConfidence: doublePrecision("category_confidence"),
     categoryEvidence: text("category_evidence"),
     categoryReviewedAt: timestamp("category_reviewed_at"),
+    /**
+     * Where this project's skill documents are delivered, and the key they are
+     * signed with. Both come from the submitting caller's `callbackUrl` /
+     * `callbackSecret` on `POST /api/v1/projects`, and both are per project
+     * rather than per deployment: there is no site-wide skills endpoint any
+     * more, so a console can serve several submitters at once and each row
+     * carries its own address.
+     *
+     * Stored rather than passed through because delivery outlives the call. The
+     * inline push in that request is the fast path; the `push-skills` retry
+     * queue and the operator's "retry now" button run later, with no request to
+     * read an address from, so the row is the only place it can come from.
+     *
+     * The secret is plaintext because HMAC signing needs the key itself — a hash
+     * would verify nothing. It is therefore as sensitive as the database row it
+     * sits in, and it is deliberately absent from `projectCreatedSchema`, so it
+     * cannot travel back out through the API. A row can be re-pointed by a
+     * later submission of the same repository, which is why the write scope for
+     * this endpoint is granted per key and never self-service.
+     */
+    skillsWebhookUrl: text("skills_webhook_url"),
+    skillsWebhookSecret: text("skills_webhook_secret"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
   },

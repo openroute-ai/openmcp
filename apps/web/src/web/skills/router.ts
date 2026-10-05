@@ -166,6 +166,9 @@ export const skillsRouter = createTRPCRouter({
    * data to send and console has no bare-URL endpoint, so it is reported as
    * not ready immediately instead of after a minute of polling that can only
    * time out.
+   *
+   * `mode` travels with it because in `register` mode nothing is published and
+   * no skill document is ever pushed back, so the dialog must not poll for one.
    */
   registerWithConsole: protectedProcedure
     .input(z.object({ repoUrl: z.string().min(8).max(500) }))

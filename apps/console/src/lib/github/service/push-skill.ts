@@ -8,6 +8,11 @@
  *
  * The push is a single webhook call, so unlike a project resync it does not
  * outlive the request: the operator is waiting on the result.
+ *
+ * Always signed. The destination is per project — the submitting caller named it
+ * and its key on `POST /api/v1/projects` — so there is no shared bearer to fall
+ * back on, and a bearer here would be a credential that every submitter's
+ * receiver has to accept from everyone else.
  */
 
 import { and, eq } from "drizzle-orm"
@@ -20,8 +25,13 @@ import type { WebhookSender } from "@/lib/tasks/tasks/build-daily-data"
 
 export interface PushSkillDeps {
   webhookUrl: string
-  secret?: string
-  token?: string
+  /**
+   * Signs the delivery. Required in practice rather than by type: every caller
+   * resolves it from the project's stored destination, which is only ever
+   * written as a URL/secret pair, so an unsigned push is not reachable through
+   * this path.
+   */
+  secret: string
   sender?: WebhookSender
   now?: () => Date
 }
@@ -81,11 +91,7 @@ export async function pushSkill(
 
   const sender = deps.sender ?? sendWebhook
   const at = (deps.now ?? (() => new Date()))()
-  const sent = await sender(
-    [deps.webhookUrl],
-    payload,
-    { secret: deps.secret, token: deps.token }
-  )
+  const sent = await sender([deps.webhookUrl], payload, { secret: deps.secret })
   const accepted = hasAccepted(sent)
   const summary = summarise(sent)
 

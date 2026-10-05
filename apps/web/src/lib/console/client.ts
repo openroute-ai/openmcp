@@ -4,10 +4,10 @@
  *
  * console owns the repository, project, ranking and skill-document tables and
  * the tasks that keep them current. This app owns the marketplace: listings,
- * authors, purchases, wallets. The three endpoints below are all
- * machine-to-machine:
+ * authors, purchases, wallets. The endpoints below are all machine-to-machine:
  *
  *   POST /api/v1/projects           create a project for a URL (publishes it)
+ *   POST /api/v1/repos              register a URL for tracking (publishes nothing)
  *   GET  /api/skills-sync/export    page through synced skill documents
  *   POST /api/cron/github           run the console scheduler on demand
  *
@@ -17,10 +17,10 @@
  * are now separate endpoints on separate scopes, so the credential this app
  * holds says exactly what it may do.
  *
- * `CONSOLE_API_KEY` is therefore required, and it must carry `projects:write` -
- * an operator issues it on console's `/dashboard/api-keys`. It replaces
- * `CONSOLE_API_TOKEN` / `GITHUB_NEXTJS_API_TOKEN`, which are no longer read by
- * either app.
+ * `CONSOLE_API_KEY` is therefore required, and which scope it needs depends on
+ * {@link consoleSubmitMode}. An operator issues it on console's
+ * `/dashboard/api-keys`. It replaces `CONSOLE_API_TOKEN` /
+ * `GITHUB_NEXTJS_API_TOKEN`, which are no longer read by either app.
  *
  * The skills export and the cron trigger keep their own tokens, because those
  * are separate credentials with separate blast radii: holding the export token
@@ -32,6 +32,7 @@
  * letting a 404 surface as a user-facing error.
  */
 
+import { getBaseUrl } from '@/lib/urls/urls'
 import type { SkillWebhookData } from '@/lib/skills/ingest-console-skill'
 
 /** How long an ordinary machine-to-machine call may take before it is abandoned. */
@@ -47,6 +48,23 @@ const INGEST_TIMEOUT_MS = 180_000
 
 /** The project classification console creates for a registered repository. */
 export type ConsoleProjectType = 'application' | 'skill' | 'client' | 'server' | 'persona'
+
+/**
+ * What a repository submission to console is allowed to do.
+ *
+ * - `publish` — `POST /api/v1/projects`, which creates a project row and is
+ *   therefore **publication**: the repository becomes visible on the public site
+ *   and its skill documents are synced and pushed back here.
+ * - `register` — `POST /api/v1/repos`, which writes only `repos` +
+ *   `user_repos`. Nothing is published, and console never syncs or pushes the
+ *   repository's skill documents, so nothing arrives here.
+ *
+ * The distinction is console's own (§1.4 of its open radar API design): the two
+ * endpoints write different tables, sit behind different scopes, and differ in
+ * visibility by an order of magnitude. This app picks between them at
+ * deployment time rather than per submission.
+ */
+export type ConsoleSubmitMode = 'publish' | 'register'
 
 export type ConsoleIngestResult = {
   ok: boolean
@@ -73,13 +91,42 @@ export type ConsoleIngestResult = {
   /**
    * Every stored skill reached this app's webhook.
    *
-   * `null` means console has no `SKILLS_WEBHOOK_URL` configured, which is a
+   * `null` means console had no `callbackUrl` for this project, which is a
    * deployment fact rather than a failed delivery - and `undefined` is the older
    * endpoints' way of saying the same thing.
    */
   delivered?: boolean | null
   message?: string
 }
+
+/**
+ * console's answer to a registration that published nothing.
+ *
+ * A different shape from {@link ConsoleIngestResult} on purpose: there is no
+ * project and no skill sync, so every field the publish answer carries about
+ * them would be permanently absent rather than occasionally empty. `projectCount`
+ * is console telling us this repository was curated into a project *before* -
+ * which is the one thing a register-only caller cannot tell from the response,
+ * and the reason the field exists.
+ */
+export type ConsoleRepoRegistration = {
+  ok: boolean
+  repo?: { id: string; full_name: string; stars: number }
+  created?: boolean
+  projectCount?: number
+}
+
+/**
+ * A submission plus which endpoint produced it.
+ *
+ * `mode` is on the result rather than left to the caller to re-read the flag
+ * for: the mode decides whether a skill document is ever going to arrive, and a
+ * caller that guessed wrong here waits out a full poll timeout for a push that
+ * console is not going to make.
+ */
+export type ConsoleSubmitResult =
+  | ({ mode: 'publish' } & ConsoleIngestResult)
+  | ({ mode: 'register' } & ConsoleRepoRegistration)
 
 export type ConsoleSkillsPage = {
   skills: SkillWebhookData[]
@@ -128,7 +175,95 @@ export function consoleCronSecret(): string | undefined {
   return process.env.CRON_SECRET?.trim() || undefined
 }
 
-/** True when `POST /api/v1/projects` can be called at all. */
+/**
+ * Where console should deliver the skill documents of a repository we submit.
+ *
+ * Console has no deployment-wide skills endpoint any more. The submitter names
+ * the address on `POST /api/v1/projects` as `callbackUrl`, together with
+ * `callbackSecret`, and console records the pair against the project it created
+ * so its retry queue — which runs with no request to read an address from — can
+ * still reach us later.
+ *
+ * Defaults to this app's own base URL, which is right in the common case and
+ * keeps one origin defined in one place. But it is overridable: a wrong address
+ * here fails quietly. Console would accept the submission, store the documents
+ * and push them into nothing, and the only symptom is a skill sitting in its
+ * retry queue — recoverable solely by this app's own pull channel. That is a
+ * bad failure mode for a value whose whole job is to be reachable, so a
+ * deployment that sits behind a proxy, a custom domain or a tunnel should set
+ * `CONSOLE_SKILLS_CALLBACK_URL` explicitly rather than trust the derivation.
+ */
+export function consoleSkillsCallbackUrl(): string {
+  const override = process.env.CONSOLE_SKILLS_CALLBACK_URL?.trim()
+  if (override) return override.replace(/\/$/, '')
+  return `${getBaseUrl().replace(/\/$/, '')}/api/webhook/daily/skills`
+}
+
+/**
+ * The HMAC key console signs each skill delivery with.
+ *
+ * Separate from `SKILLS_WEBHOOK_TOKEN`, which authorises the *pull* direction.
+ * Keeping them apart is what makes the per-submitter model meaningful: the
+ * export token reads every project's skills and can push to none of them,
+ * while this key authorises console to push only to this app.
+ *
+ * Unset means no signature can be produced, so a submission goes out without a
+ * destination and console stores the skills for later rather than delivering
+ * unsigned ones the receiver has to accept on address alone.
+ */
+export function consoleSkillsCallbackSecret(): string | undefined {
+  return process.env.CONSOLE_SKILLS_CALLBACK_SECRET?.trim() || undefined
+}
+
+/**
+ * Whether a repository submission registers it without publishing anything.
+ *
+ * Set `CONSOLE_SKILLS_REGISTER_ONLY=true` and submissions go to console's
+ * `POST /api/v1/repos` instead of `POST /api/v1/projects`: console records the
+ * repository and links it to this app's submitter account, and stops there. No
+ * project row, so nothing is listed publicly, and no skill-document sync, so
+ * nothing is pushed back into this app either.
+ *
+ * **Defaults to publishing**, because that is what every deployment did before
+ * this flag existed and flipping it silently would stop publishing skills that
+ * are currently live. An operator turns it on deliberately.
+ *
+ * The submitter account is the key's `submitter_id` on console, not the end user
+ * who pasted the URL: one service key carries many users' submissions, so
+ * `user_repos` rows all land on the single account the operator minted the key
+ * for. `user_repos` is the right place for that - `repos.created_by` cannot be
+ * reused for it, since it answers "who first submitted this" and must not
+ * change when a second user submits the same URL.
+ *
+ * Accepted as true: anything that is not empty, `0`, `false`, `no` or `off`.
+ * Same vocabulary as `local-cron`'s `envBool`, so one deployment does not end up
+ * with two spellings of "off".
+ */
+export function consoleSkillsRegisterOnly(): boolean {
+  const raw = process.env.CONSOLE_SKILLS_REGISTER_ONLY?.trim().toLowerCase()
+  if (raw === undefined || raw === '') return false
+  return raw !== '0' && raw !== 'false' && raw !== 'no' && raw !== 'off'
+}
+
+/** The endpoint a submission will use. See {@link ConsoleSubmitMode}. */
+export function consoleSubmitMode(): ConsoleSubmitMode {
+  return consoleSkillsRegisterOnly() ? 'register' : 'publish'
+}
+
+/**
+ * True when a repository submission can be made at all.
+ *
+ * Covers both endpoints, so it does not check the scope: which one is used is
+ * {@link consoleSubmitMode}'s business, and a deployment that switched modes
+ * without re-minting the key finds out as a 403 from console rather than as this
+ * returning false and the app silently pretending console is absent.
+ *
+ * The callback pair is not part of this: a publish without it still publishes,
+ * it just leaves console holding the documents instead of pushing them here.
+ * {@link submitRepo} reports that back through `delivered: null` rather than
+ * failing the call. In register mode the pair is not sent at all - see
+ * {@link registerRepoWithConsole}.
+ */
 export function consoleApiConfigured(): boolean {
   return Boolean(consoleBaseUrl() && consoleApiToken())
 }
@@ -191,7 +326,60 @@ async function readError(res: Response): Promise<string> {
 }
 
 /**
- * Ask console to curate a repository into a project, naming it by URL.
+ * Register a repository with console without publishing it.
+ *
+ * `POST /api/v1/repos` writes `repos` and, when the key carries a
+ * `submitter_id`, a `user_repos` row naming this app's platform account. It
+ * creates no project, so the repository is not listed on the public site, and it
+ * runs no skill-document sync, so no skill is ever pushed back here. console's
+ * own scheduler picks the repository up for stats and ranking, which is the
+ * point: tracked upstream, private downstream.
+ *
+ * Three things this request deliberately does not carry:
+ *
+ * - **`type`.** console rejects the field outright on this endpoint, because
+ *   accepting a classification on a registration is how "registering also
+ *   publishes" creeps back in as a default. Sending it would turn every
+ *   register-only submission into a 400 that points at the publish endpoint.
+ * - **`callbackUrl` / `callbackSecret`.** There are no skill documents to
+ *   deliver, so the only thing the pair would buy is a one-shot `repo.registered`
+ *   POST aimed at a route built to accept skill documents - it would fail to
+ *   ingest and log a warning on console's side on every single submission.
+ * - **A skill classification.** Ignored even if a caller passes one.
+ *
+ * Throws {@link ConsoleApiError} like {@link publishProjectByUrl}.
+ */
+export async function registerRepoWithConsole(repoUrl: string): Promise<ConsoleRepoRegistration> {
+  const token = consoleApiToken()
+  if (!consoleBaseUrl() || !token) {
+    throw new ConsoleApiError('console 未配置，无法登记仓库', 404)
+  }
+
+  // console still fetches the repository from GitHub here, so this is not a
+  // cheaper call than publishing - it is the same work minus the parts that
+  // create a project.
+  const res = await request(
+    '/api/v1/repos',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url: repoUrl }),
+    },
+    INGEST_TIMEOUT_MS
+  )
+
+  if (!res.ok) {
+    throw new ConsoleApiError(await readError(res), res.status)
+  }
+
+  return (await res.json()) as ConsoleRepoRegistration
+}
+
+/**
+ * Publish a repository as a console project and pull its skill documents back.
  *
  * console holds the GitHub credentials and owns the repository, project and
  * skill-document tables, so a bare URL is all this app has to send. console
@@ -199,22 +387,36 @@ async function readError(res: Response): Promise<string> {
  * documents, then push them back through the webhook this app ingests — and
  * its `delivered` flag says whether the skill reached us before it answered.
  *
- * This is `POST /api/v1/projects` rather than console's `POST /api/v1/repos`
- * on purpose. Registering a repository and publishing a project are different
- * scopes there, and a creator pasting their own repository needs the second one:
- * the listing they just created points at a project, and without it there is
- * nothing for the public site to show.
+ * The callback pair travels with the request: it is how console learns where to
+ * deliver those documents at all. Without it console still creates the project,
+ * but the skills stay queued on its side and `delivered` comes back `null`,
+ * which is a deployment fact rather than a failed delivery.
+ *
+ * Requires a key scoped `projects:write`. Publishing is admin-granted and
+ * deliberately not self-service, because it is what puts a repository on the
+ * public site.
  *
  * Throws {@link ConsoleApiError}; callers on a user-facing path should catch,
  * because a console outage must not fail a creator's submission.
  */
-export async function ingestRepoByUrl(
+export async function publishProjectByUrl(
   repoUrl: string,
   type: ConsoleProjectType = 'skill'
 ): Promise<ConsoleIngestResult> {
   const token = consoleApiToken()
   if (!consoleBaseUrl() || !token) {
     throw new ConsoleApiError('console 未配置，无法登记仓库', 404)
+  }
+
+  // Both or neither: console rejects a `callbackUrl` with no secret rather than
+  // picking a default, because a derived default is either a constant, which
+  // authenticates nothing, or derived from the API key, which ties the key's
+  // lifetime to the callback.
+  const callbackSecret = consoleSkillsCallbackSecret()
+  const body: Record<string, unknown> = { url: repoUrl, type }
+  if (callbackSecret) {
+    body.callbackUrl = consoleSkillsCallbackUrl()
+    body.callbackSecret = callbackSecret
   }
 
   const res = await request(
@@ -225,7 +427,7 @@ export async function ingestRepoByUrl(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ url: repoUrl, type }),
+      body: JSON.stringify(body),
     },
     INGEST_TIMEOUT_MS
   )
@@ -235,6 +437,26 @@ export async function ingestRepoByUrl(
   }
 
   return (await res.json()) as ConsoleIngestResult
+}
+
+/**
+ * Submit a repository to console, publishing or merely registering per
+ * {@link consoleSubmitMode}.
+ *
+ * The one call both submission paths make, so the mode is decided in one place:
+ * `registerWithConsole` (which reports readiness back to the submit dialog) and
+ * the fire-and-forget registration after a listing is written would otherwise
+ * each pick an endpoint, and a deployment would end up publishing from one path
+ * and only registering from the other.
+ */
+export async function submitRepo(
+  repoUrl: string,
+  type: ConsoleProjectType = 'skill'
+): Promise<ConsoleSubmitResult> {
+  if (consoleSubmitMode() === 'register') {
+    return { mode: 'register', ...(await registerRepoWithConsole(repoUrl)) }
+  }
+  return { mode: 'publish', ...(await publishProjectByUrl(repoUrl, type)) }
 }
 
 /**

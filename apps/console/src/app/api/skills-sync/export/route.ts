@@ -1,11 +1,18 @@
 /**
  * The skill export endpoint.
  *
- * The console pushes each skill to `SKILLS_WEBHOOK_URL` as it is synced, which
- * is the primary path. This endpoint is the pull direction for a consumer that
- * would rather fetch a page than receive a callback: it returns the same
- * payload the webhook sends, for the same skills, so a consumer can switch
- * between the two without translating anything.
+ * The console pushes each skill to its project's own destination as it is
+ * synced, which is the primary path. This endpoint is the pull direction for a
+ * consumer that would rather fetch a page than receive a callback: it returns
+ * the same payload the webhook sends, for the same skills, so a consumer can
+ * switch between the two without translating anything.
+ *
+ * It is also the safety net for the push direction, because the push is now
+ * per-submitter: a destination that was wrong, or that was unreachable while
+ * this app restarted, leaves rows queued on the submitter's side that only it
+ * can resolve. `SKILLS_WEBHOOK_TOKEN` is what makes that possible — it is
+ * granted per consumer rather than shared with the push path, so holding it
+ * grants read access to every project's skills and no ability to push to any.
  *
  * Pagination is by cursor rather than offset, because a skill that is
  * acknowledged mid-walk must not shift the page boundary. The cursor is the

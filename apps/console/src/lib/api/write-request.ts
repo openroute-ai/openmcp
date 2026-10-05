@@ -20,7 +20,13 @@ export interface WriteRequestBody {
 
 export interface ResolvedTarget {
   fullName: string
-  /** 给了 `callbackUrl` 就一定有 secret：缺一个就是 400，不替调用方挑默认值。 */
+  /**
+   * 给了 `callbackUrl` 就一定有 secret 且 scheme 一定可投递：缺一个就是 400，不替
+   * 调用方挑默认值。
+   *
+   * 这一对同时是「发布完成」回调与「技能文档投递」的地址，落库到 project 行上，
+   * 因为后者的重试队列跑在请求之外。
+   */
   callback?: { url: string; secret: string }
 }
 
@@ -84,6 +90,15 @@ export function resolveWriteTarget(
     }
   }
 
+  if (body.callbackUrl && !isHttpUrl(body.callbackUrl)) {
+    return {
+      ok: false,
+      code: "invalid_body",
+      message: "callbackUrl 必须是 http/https 地址",
+      detail: `收到 ${schemeOf(body.callbackUrl) || "空 scheme"}`,
+    }
+  }
+
   return {
     ok: true,
     target: {
@@ -92,5 +107,41 @@ export function resolveWriteTarget(
         ? { url: body.callbackUrl, secret: body.callbackSecret! }
         : undefined,
     },
+  }
+}
+
+/**
+ * The scheme of a URL string, without throwing on malformed input.
+ *
+ * `new URL` would be the obvious way to ask, but it throws on half a URL and
+ * this is a validation path that has to answer with a message either way. The
+ * colon index is what the scheme is anyway, so it is read directly.
+ */
+function schemeOf(value: string): string {
+  const match = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(value.trim())
+  return match?.[1]?.toLowerCase() ?? ""
+}
+
+/**
+ * Only `http` and `https` are deliverable.
+ *
+ * This is the SSRF surface of the write endpoints: the address in the body is
+ * one this server will POST to, so anything the fetch layer would accept but a
+ * receiver could not answer over — `file:`, `gopher:`, `data:` — is refused
+ * before the request is ever built.
+ *
+ * Deliberately only a scheme check. Host-level policy is not imposed here: the
+ * legitimate deployment of this pair is a console and a web app on the same
+ * host, so rejecting loopback or private addresses would break the case the
+ * feature exists for. A deployment reachable from untrusted callers should put
+ * an egress allowlist in front of it instead.
+ */
+function isHttpUrl(value: string): boolean {
+  const scheme = schemeOf(value)
+  if (scheme !== "http" && scheme !== "https") return false
+  try {
+    return Boolean(new URL(value).hostname)
+  } catch {
+    return false
   }
 }
