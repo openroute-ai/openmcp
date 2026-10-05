@@ -6,13 +6,13 @@
  * *visitor without a session* may read, and it includes routes that must not be
  * indexed anyway. `robots.txt` is a claim about search results, and the honest
  * version of that claim names three separate things: the signed-in console, the
- * machine endpoints, and the four public JSON endpoints, which are allowed on
+ * machine endpoints, and the anonymous text layers, which are allowed on
  * purpose.
  *
  * Everything not named here is allowed, including the AI crawlers. This site's
- * whole public surface is meant to be read by machines — the JSON endpoints exist
- * for agents, the `/llms.txt` and `/llms-full.txt` text files exist because they
- * do, and the pages a shared link can point at are the acquisition surface. A
+ * whole public surface is meant to be read by machines — the `/llms.txt` and
+ * `/llms-full.txt` text files exist because they do, and the pages a shared
+ * link can point at are the acquisition surface. A
  * `Disallow: /` aimed at GPTBot would be a self-inflicted wound on a site whose
  * product is "fetch this and decide for yourself".
  */
@@ -51,10 +51,11 @@ const PRIVATE_PREFIXES = [
  * `sync` export page and a cron tick are not documents, and spending a crawl on
  * one costs the crawler time and produces nothing worth indexing.
  *
- * `/api/rankings/*` and `/api/anomalies.json` are the deliberate exception, and
- * the list below is shaped to make that exception legible: every credentialed
- * prefix is named, so the two public ones are conspicuously absent rather than
- * merely unlisted.
+ * `/api/v1/*` and the two `llms*.txt` layers are the deliberate exception: the
+ * former carries its own authentication and fails closed on it, the latter is
+ * what agents are meant to fetch. The list below is shaped to make that
+ * exception legible — every credentialed prefix is named, so the ones left out
+ * are conspicuously absent rather than merely unlisted.
  */
 const PRIVATE_API_PREFIXES = [
   "/api/auth",

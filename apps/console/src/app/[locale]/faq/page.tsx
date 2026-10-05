@@ -58,9 +58,9 @@ export default function PublicFaqPage() {
         <FaqAccordion items={FAQS} className="mt-8 space-y-3" />
 
         <p className="mt-8 text-xs leading-relaxed text-muted-foreground">
-          还有别的问题？榜单与生命体征数据可以直接取 JSON：
+          还有别的问题？榜单与生命体征数据可以通过 API 取：
           <code className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono">
-            /api/rankings/week.json
+            /api/v1/rankings/weekly
           </code>
           ，每条数字都能自己重算。
         </p>

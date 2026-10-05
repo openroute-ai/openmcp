@@ -28,10 +28,10 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "portrait-primary",
     categories: ["news", "productivity", "developer"],
-    // The light-theme `--radar-up`, because a shortcut's icon background is drawn
-    // by the OS in a colour it picks, not by this page: naming the light value
-    // gives the browser a fixed colour rather than leaving it to sample a
-    // `--accent` it cannot see.
+    // A fixed colour rather than a token: the OS draws a shortcut's background
+    // itself and cannot read `--accent`. Deliberately not tied to `--radar-*` —
+    // those are trend colours and would make the installed app's chrome change
+    // with whatever the site happened to be reporting.
     background_color: "#fafafa",
     theme_color: "#dc2626",
     // The same three assets the layout declares, in manifest form. Declaring a

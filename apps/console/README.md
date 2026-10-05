@@ -34,7 +34,8 @@ stays at the app root, and `@/` resolves to `src/`.
 | `/sign-in`, `/sign-up`    | Email + password auth                                 |
 | `/api/auth/*`             | better-auth handler                                   |
 | `/api/trpc/*`             | tRPC fetch handler (batched, superjson)               |
-| `/api/rankings/*.json`    | Public ranking JSON (`week`, `month`, `rising-stars`) |
+| `/llms.txt`, `/llms-full.txt` | Anonymous machine-readable text layer for agents        |
+| `/api/v1/rankings/weekly`   | Ranking JSON, key-required (`monthly`, `periods` too)  |
 | `/api/cron/github`        | The single scheduler entrypoint (Vercel Cron)         |
 | `/api/webhook/[task]`     | Inbound trigger for a named task                      |
 | `/api/v1/repos`           | Machine-to-machine repository registration           |

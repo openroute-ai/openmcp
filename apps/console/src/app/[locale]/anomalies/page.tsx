@@ -5,6 +5,7 @@ import { AnomalyList, GoodNewsList } from "@/components/public/anomaly-list"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { db } from "@/db/client"
 import { ANOMALY_KINDS, type AnomalyKind } from "@/db/schema/github"
+import { LocaleLink } from "@/i18n/navigation"
 import { listOpenAnomalies } from "@/lib/radar/anomalies"
 import Link from "next/link"
 
@@ -13,8 +14,8 @@ import Link from "next/link"
  *
  * Anonymous, and the reason it earns its own route is §5.9.4: a feed nobody can
  * link to is not a marketing surface, and a feed only an account can see is not
- * one either. It sits beside the rankings and reads from the same function as
- * `/api/anomalies.json`, so the page and the JSON cannot report different rows.
+ * one either. It is the only public rendering of `listOpenAnomalies`, so there is
+ * no second copy of the feed that could report different rows.
  *
  * `force-dynamic` for the same reason the rankings are. A reader who lands here
  * during a project's decline is reading this page *because* it is current; a
@@ -137,7 +138,10 @@ export default async function PublicAnomaliesPage({
           <p className="text-xs text-muted-foreground">
             数据截至{" "}
             {new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}{" "}
-            · 判定与原始数据见 <code>/api/anomalies.json</code>
+            · 判定规则与阈值见{" "}
+            <LocaleLink href="/method" className="underline underline-offset-2">
+              判定规则
+            </LocaleLink>
           </p>
         </div>
       </div>

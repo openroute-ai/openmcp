@@ -232,7 +232,7 @@ export default async function PublicProjectPage({
           页面上的每个数字都来自记录下来的 stargazer
           到达时间，没有评分公式，也没有 AI 判定。 任何结论都可以用{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono">
-            /api/rankings/week.json
+            /api/v1/repos/{"{id}"}/stats
           </code>{" "}
           里的原始增量自己重算。
         </p>

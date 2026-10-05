@@ -151,7 +151,8 @@ export default async function PublicRisingRankingsPage({
 
         <p className="mt-8 text-xs leading-relaxed text-muted-foreground">
           门槛只影响这张榜。任意周期的数据在{" "}
-          <code>/api/rankings/week.json</code>，含 <code>relativeGrowth</code>，不限条数。
+          <code>/api/v1/rankings/weekly</code>
+          ，含 <code>relativeGrowth</code>，不限条数，需要 API key。
         </p>
       </div>
     </PublicShell>
@@ -212,7 +213,7 @@ function toItem(project: RankedProject): PublicProjectItem {
 function emptyLabel(week: YearWeek | undefined): string {
   return `本周没有项目越过门槛：上周至少 ${MIN_BASE_STARS} 星，本周至少 +${MIN_DELTA} 星。${
     week ? `${weekLabel(week)} 的` : ""
-  }全量数据在 /api/rankings/week.json，不过门槛。`
+  }全量数据在 /api/v1/rankings/weekly，不过门槛。`
 }
 
 function weekLabel(week: YearWeek): string {

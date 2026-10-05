@@ -113,8 +113,8 @@ export default function MethodPage() {
         </section>
 
         <p className="mt-8 text-xs text-muted-foreground">
-          判定与原始数据见 <code>/api/anomalies.json</code>
-          ，里面带每条异动触发时生效的 阈值；
+          上面每个阈值都直接读判定代码里的常量，改阈值的人不必回来改文案，
+          因此这一页不可能和系统给出不同的数；
           <LocaleLink
             href="/guide"
             className="mx-1 underline underline-offset-2"

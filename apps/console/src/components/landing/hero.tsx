@@ -28,8 +28,7 @@ import type { AnomalyWithRepo } from "@/lib/radar/anomalies"
  * 首屏的主数据是**真实的异动行**，由 `page.tsx` 在服务端取好后传进来。此前这个位置
  * 摆过一版写死的样例（acme/k8s-operator 之类），后���整块删掉——假数据配「每条结论都能
  * 点开看原始时间轴」这句话，等于在首屏就把唯一的核心承诺作废了。现在数据是同一张
- * `repo_anomalies` 表，与 `/anomalies` 页和 `/api/anomalies.json` 同源，三者不可能
- * 各说各话。
+ * `repo_anomalies` 表，与 `/anomalies` 页同源，两者不可能各说各话。
  *
  * 取数在服务端而不是客户端 fetch：这块 feed 的全部说服力在于「这是我们此刻看到的」，
  * 而 hydration 之后才填进来的列表，在读者眼里就是一个演示数据在加载。

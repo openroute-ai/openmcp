@@ -67,7 +67,8 @@ describe("the proxy matcher", () => {
   })
 
   it("leaves the API routes to their own guards", () => {
-    expect(gated("/api/rankings/week.json")).toBe(false)
+    expect(gated("/api/v1/rankings/weekly")).toBe(false)
+    expect(gated("/openapi.json")).toBe(false)
     expect(gated("/api/trpc")).toBe(false)
   })
 

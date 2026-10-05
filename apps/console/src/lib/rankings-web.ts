@@ -116,7 +116,7 @@ export function resolveYearInput(
   return { ok: true, value: input.year ?? defaultYear(now) }
 }
 
-/** Parses `week.json`'s query string, then defers to the numeric resolver. */
+/** Parses the `week`/`year` query string, then defers to the numeric resolver. */
 export function resolveWeek(
   params: URLSearchParams,
   now: Date = new Date()
@@ -132,7 +132,7 @@ export function resolveWeek(
   return resolveWeekInput({ year, week }, now)
 }
 
-/** Parses `month.json`'s query string, then defers to the numeric resolver. */
+/** Parses the `month`/`year` query string, then defers to the numeric resolver. */
 export function resolveMonth(
   params: URLSearchParams,
   now: Date = new Date()

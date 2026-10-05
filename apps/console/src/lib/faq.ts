@@ -10,7 +10,7 @@
  * Every answer is a claim about what this product actually does. Each one is
  * checkable against the code: the numbers are recorded stargazer arrivals, the
  * colour convention is `--radar-up`/`--radar-down`, and the JSON endpoints named
- * here are the ones `/api/rankings` serves. Nothing here promises a score,
+ * here are the ones `/api/v1` serves. Nothing here promises a score,
  * because there is no score to promise.
  */
 
@@ -48,7 +48,7 @@ export const FAQS: FaqEntry[] = [
   {
     question: "榜单为什么只列前 12 个？",
     answer:
-      "公开榜单每期只公布 12 个，把「前 12」当成一条能读的结论，而不是把全量数据铺开让人自己找。想取全量数据用 /api/rankings/week.json 和 /api/rankings/month.json，两者的排序与页面上看到的一致。",
+      "公开榜单每期只公布 12 个，把「前 12」当成一条能读的结论，而不是把全量数据铺开让人自己找。想取全量数据用 /api/v1/rankings/weekly 和 /api/v1/rankings/monthly（需要一个 API key，见 /docs），两者的排序与页面上看到的一致。",
   },
   {
     question: "支持私有化部署吗？",

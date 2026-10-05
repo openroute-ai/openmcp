@@ -22,11 +22,11 @@ import { resolveMonth, resolveWeek } from "@/lib/rankings-web"
 /**
  * The public rankings: this week or this month, each beside the period before it.
  *
- * Anonymous and `force-dynamic` for the same reason the sibling JSON endpoints
- * are: a ranking that went stale would read as reality to whoever fetched it, and
- * a stale one is worse than a slow one. The page and `/api/rankings/week.json`
+ * Anonymous and `force-dynamic` for the same reason the authenticated API is:
+ * a ranking that went stale would read as reality to whoever fetched it, and
+ * a stale one is worse than a slow one. The page and `/api/v1/rankings/weekly`
  * therefore answer from the same service with the same default period, so the
- * HTML a reader sees and the JSON an agent reads cannot disagree.
+ * HTML a reader sees and the JSON a keyholder reads cannot disagree.
  *
  * Both periods come out of one render, which is the whole reason the previous
  * period is here rather than a link to another page. A reader comparing this
@@ -41,7 +41,7 @@ import { resolveMonth, resolveWeek } from "@/lib/rankings-web"
  * the JSON — it answers a real question, but not the one this page asks.
  *
  * Each period is capped at {@link PAGE_LIMIT}. The cap is the page's editorial
- * choice and the JSON endpoints are not subject to it: an agent asking for a
+ * choice and the API is not subject to it: a keyholder asking for a
  * period's data wants all of it, while a reader wants the part that is a ranking.
  * Both are served by the same service with the same sort, so the two answers can
  * only differ in length.
@@ -55,11 +55,18 @@ const RANGES = [
 ] as const
 
 /**
+ * The API path suffix for a range, kept beside {@link RANGES} because the two
+ * spellings differ (`week`/`month` here, `weekly`/`monthly` there) and a reader
+ * who guesses wrong gets a 404 from an endpoint that does exist.
+ */
+const API_RANGE = { week: "weekly", month: "monthly" } as const
+
+/**
  * How many rows one period's list keeps.
  *
  * A ranking is a statement about the top of something, and "the top 12" is one a
  * reader can hold in their head; the 13th place is not. The full set stays one
- * request away in `/api/rankings/*.json`, which reads from the same service with
+ * request away in `/api/v1/rankings/*`, which reads from the same service with
  * the same sort, so a capped page and an uncapped endpoint cannot report two
  * different orderings for the same period.
  */
@@ -218,9 +225,9 @@ export default async function PublicRankingsPage({
         <p className="mt-8 text-xs text-muted-foreground">
           页面每期列前 {PAGE_LIMIT} 个，全量数据在{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
-            /api/rankings/{range}.json
+            /api/v1/rankings/{API_RANGE[range]}
           </code>
-          ，排序一致。
+          ，需要 API key，排序一致。
         </p>
       </div>
     </PublicShell>
