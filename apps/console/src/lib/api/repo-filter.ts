@@ -98,6 +98,24 @@ export function repoVisibilityCondition(ownerUserId: string | null): SQL {
 }
 
 /**
+ * `col in (?, ?, ?)` 的**完整** `IN` 表达式，含那对括号。
+ *
+ * 括号不能省：`sql.join` 只负责把元素用分隔符连起来，它不知道调用方的语法上下文，
+ * 于是 `sql.join([...], sql\`,\ `)` 渲染出来的是裸的 `$1, $2`。写 `p.type in ${...}`
+ * 得到的是 `p.type in $1, $2` —— Postgres 报 `syntax error at or near "$1"`，
+ * 三个分类过滤器（§6.6 的形态 / 分类 / 平台形态）全部 500，而不带过滤器的列表照常
+ * 200，于是这个错误只出现在"调用方真的想按类型筛"的路径上。
+ *
+ * 参数化而不是拼字面量：这些值来自查询参数，拼进 SQL 就是注入面。
+ */
+function inList(values: readonly string[]): SQL {
+  return sql`(${sql.join(
+    values.map((value) => sql`${value}`),
+    sql`, `
+  )})`
+}
+
+/**
  * 过滤条件，或者 undefined（无过滤 = 全部可见仓库都命中）。
  *
  * `undefined` 而不是恒真的 SQL：`inArray(repos.id, [])` 在 Postgres 里是 `false`，
@@ -133,16 +151,11 @@ export function repoFilterCondition(
   // 项目凭空消失，而调用方并没有要求过任何过滤。
   if (filters.includePlatformProjects !== false) {
     const platformTypes = filters.platformTypes ?? []
-    const typeMatch =
-      platformTypes.length > 0
-        ? sql<boolean>`and p.status <> 'hidden', p.type in ${sql.join(
-            platformTypes.map((type) => sql`${type}`),
-            sql`, `
-          )}`
-        : sql<boolean>`p.status <> 'hidden'`
     rules.push(
       sql<boolean>`exists (
-        select 1 from ${projects} p where p.repo_id = ${repos.id} and ${typeMatch}
+        select 1 from ${projects} p
+        where p.repo_id = ${repos.id} and p.status <> 'hidden'
+        ${platformTypes.length > 0 ? sql`and p.type in ${inList(platformTypes)}` : sql``}
       )`
     )
   }
@@ -153,10 +166,7 @@ export function repoFilterCondition(
       sql<boolean>`exists (
         select 1 from ${projects} p
         join ${categories} c on c.id = p.category_id
-        where p.repo_id = ${repos.id} and c.code in ${sql.join(
-          filters.categoryCodes.map((code) => sql`${code}`),
-          sql`, `
-        )}
+        where p.repo_id = ${repos.id} and c.code in ${inList(filters.categoryCodes)}
       )`
     )
   }
@@ -166,10 +176,7 @@ export function repoFilterCondition(
     rules.push(
       sql<boolean>`exists (
         select 1 from ${projects} p
-        where p.repo_id = ${repos.id} and p.type in ${sql.join(
-          filters.projectTypes.map((type) => sql`${type}`),
-          sql`, `
-        )}
+        where p.repo_id = ${repos.id} and p.type in ${inList(filters.projectTypes)}
       )`
     )
   }

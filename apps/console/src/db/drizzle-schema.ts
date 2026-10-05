@@ -2,7 +2,9 @@ import {
   account,
   apiKeys,
   apiRequestAudit,
+  apiRequestIdempotency,
   bundles,
+  connectionPairings,
   capabilities,
   categories,
   decisionBoards,
@@ -74,6 +76,21 @@ export { account, session, user, verification }
  * 表删掉。
  */
 export { apiKeys, apiRequestAudit }
+
+/**
+ * `Idempotency-Key` 的回放记录（§3.3）。
+ *
+ * 单独具名而不是 `export *`：理由同上面那组——`push` 会提出删掉一张只在 TypeScript
+ * 里存在的表，而这张表被删掉的表现是"重试开始重复登记"，不会有任何报错。
+ */
+export { apiRequestIdempotency }
+
+/**
+ * 接入方配对码（§2.11）。
+ *
+ * 引用 `api_keys` 与 `user`，与 `subscriptions` 同属"跨两个域"那一组，处置方式一致。
+ */
+export { connectionPairings }
 
 /**
  * 订阅与投递队列（设计文档 §6.1）。

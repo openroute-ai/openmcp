@@ -21,8 +21,16 @@
  * `lib/github/snapshot-dates.ts`.
  */
 
-import { and, asc, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  getTableName,
+  inArray,
+  sql,
+} from "drizzle-orm"
 import {
   repoDailyStats,
   repoMonthlyStats,
@@ -570,9 +578,14 @@ export async function latestStatsPerRepo(
 ): Promise<StatsCounterRow[]> {
   if (repoIds.length === 0) return []
   const table = TABLES[cadence]
-  // 同一个表要出现两次，所以内层必须起别名；`alias` 渲染成 `"table" "latest"`，
-  // 而不是重复一遍表名——后者是 Postgres 里的语法错误，不是"能跑但慢"。
-  const inner = alias(table, "latest_period")
+  // 同一个表要出现两次，所以内层必须起别名。这里**不用** `alias(table, name)` 来生成
+  // 别名表：`alias()` 的返回值只能出现在 `from` 的位置，插进一段 `sql` 模板时
+  // drizzle 只渲染出别名本身，于是模板里得到 `from "latest_period"` —— 一个既没有
+  // 名字也没有列的关系，Postgres 报 `relation "latest_period" does not exist`。
+  // 相关子查询不是 `from` 子查询，所以别名要在这里手写：表名与别名名都来自 schema
+  // 与本文件，不含调用方输入。
+  const innerTable = sql.identifier(getTableName(table))
+  const innerAlias = sql.identifier("latest_period")
 
   return (await db
     .select()
@@ -581,8 +594,8 @@ export async function latestStatsPerRepo(
       and(
         inArray(table.repoId, repoIds),
         sql`${table.period} = (
-          select max(${inner.period}) from ${inner}
-          where ${inner.repoId} = ${table.repoId}
+          select max(${innerAlias}.period) from ${innerTable} as ${innerAlias}
+          where ${innerAlias}.repo_id = ${table.repoId}
         )`
       )
     )

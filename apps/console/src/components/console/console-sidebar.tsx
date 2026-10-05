@@ -15,7 +15,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { IconCode, IconKey, IconScale, IconSettings } from "@tabler/icons-react"
+import {
+  IconCode,
+  IconKey,
+  IconLink,
+  IconScale,
+  IconSettings,
+} from "@tabler/icons-react"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
 // Ungrouped: these are the account's three pages, and a heading over them would
@@ -28,6 +34,10 @@ const navMain: NavMainItem[] = [
   // submitting repositories, and the four entries above are all "things you
   // made" while this is "the credential you use to make more of them".
   { key: "apiKeys", url: "/console/api-keys", icon: <IconKey /> },
+  // After the key list, because this page does not hold a key: it holds the
+  // short-lived codes that produce one, and a reader looking for the key is
+  // looking at the row this one becomes.
+  { key: "connections", url: "/console/connections", icon: <IconLink /> },
   // Also in the account menu at the foot of the sidebar. Here as well because
   // it is per-account data like the other two, and that is what this list holds.
   { key: "settings", url: "/settings", icon: <IconSettings /> },

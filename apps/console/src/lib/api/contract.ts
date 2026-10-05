@@ -6,7 +6,9 @@
  * 字段写两遍就一定会漂一次，所以这里只写一遍。
  *
  * 覆盖范围以 `docs/design/CONSOLE_OPEN_RADAR_API.md` §1.1 的路由清单为准：读取、
- * 写入、订阅与那份需要凭据的自描述端点，全部在这里，没有匿名旁路。
+ * 写入、订阅、需要凭据的自描述端点，以及 §2.11 那个**匿名**的配对兑换端点。
+ * 匿名的那一个仍然要在这里有 schema：它输入一段没人验证过的东西却换出一把 key，
+ * 它的形状一旦漂掉，OpenAPI 就是唯一还能看见这件事的地方。
  */
 import { z } from "zod"
 import {
@@ -266,14 +268,50 @@ export const repoListItemSchema = z.object({
 })
 
 /**
- * `GET /api/v1/repos` 的响应体。
+ * `POST /api/v1/connections/redeem` 的请求体（§2.11）。
  *
- * **这里没有分页**：设计文档 §6.6 只给了过滤器，`limit` / `cursor` 只在
- * `GET /api/v1/repos/{id}/stats`（§4.1）上出现过。与其在这里发明一套游标，
- * 不如让契约如实反映设计当前的边界——真要加分页，两处一起改。
+ * 放在 `contract.ts` 而不是路由文件里，是因为 OpenAPI 要引用同一个 schema —— 一份无凭据
+ * 端点的契约如果只存在于路由里，spec 就会漏掉它，而漏掉的那个恰好是唯一一个别人最需要
+ * 提前读文档的端点。
+ */
+export const pairingRedeemRequestSchema = z
+  .object({
+    /** 8 个字符，大小写不敏感：用户多半是手敲或扫码，容错比严格好。 */
+    code: z.string().trim().min(1).max(32),
+    /** 必须与建码时给的完全相等（不是前缀相等，§2.11）。 */
+    returnUrl: z.string().url(),
+  })
+  .strict()
+
+/** 兑换响应。明文 key 只在这里出现一次。 */
+export const pairingRedeemResponseSchema = z.object({
+  ok: z.literal(true),
+  key: z.object({
+    id: z.string(),
+    name: z.string(),
+    scopes: z.array(z.string()),
+    tier: z.string(),
+    /** `mcp_radar_<prefix>_<secret>`。库里只有哈希，之后取不回来。 */
+    secret: z.string(),
+  }),
+})
+
+/**
+ * `GET /api/v1/repos` 的响应。
+ *
+ * **游标是 keyset 而不是 offset**：`cursor` 编码的是上一页最后一个 `id`，下一页取
+ * `id > cursor`。offset 在两次请求之间会因为新登记的仓库被插进来而让同一行出现两次
+ * 或者被跳过；而 keyset 不会——它只依赖 `id` 的大小关系（§3.7）。
+ *
+ * 排序键 `id` 对客户端是**不透明**的（nanoid 风格的 base64url，看不出大小序），所以
+ * 游标必须是服务端发的那个串，不能让调用方自己拼。
  */
 export const repoListSchema = z.object({
   repos: z.array(repoListItemSchema),
+  /** 下一页的起点；`null` 表示这是最后一页。 */
+  nextCursor: z.string().nullable(),
+  /** 命中的总数。不受 `limit` 影响，调用方据此判断"该不该继续翻"。 */
+  total: z.number().describe("命中过滤器的仓库总数，与 limit 无关"),
 })
 
 /** 仓库档案：列表项的全部字段，加上 GitHub 的补充事实（§3.6）。 */

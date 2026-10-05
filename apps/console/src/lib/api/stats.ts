@@ -15,7 +15,7 @@
 import { z } from "zod"
 import { monthOfPeriod, weekOfPeriod, type StatsCadence } from "@/lib/github/snapshot-dates"
 import type { StatsCounterRow } from "@/lib/github/service/stats"
-import { APP_TIMEZONE, civilOf } from "@/lib/time"
+import { APP_TIMEZONE, civilOf, instantOfCivil } from "@/lib/time"
 
 /** 契约里的三种粒度。 */
 export const STATS_CADENCES = ["daily", "weekly", "monthly"] as const
@@ -55,15 +55,68 @@ export const DEFAULT_RANGE_DAYS = 90
 
 const RANGE_LIMIT = { min: 1, max: 1000, default: 500 } as const
 
+/**
+ * 一个区间边界。
+ *
+ * 两种写法都接受，而且**日历日**的那种必须按 `Asia/Shanghai` 解释：
+ *
+ * - `2026-04-01` —— 日历日，取该日在上海时区的零点。
+ * - `2026-04-01T16:00:00Z` —— 一个瞬间，按原样用。
+ *
+ * 区别不是可有可无的格式宽容。`new Date("2026-04-01")` 在 JS 里被解析成 **UTC**
+ * 零点，也就是上海时区的 04-01 08:00，落在"这一天"的中间；那 8 小时会切掉窗口
+ * 的第一个存储周期，于是 `?start=2026-04-01` 返回的第一行是 04-02，而调用方
+ * 明确要的是 04-01。周期本身就存在上海零点（`instantOfCivil`），所以边界也必须
+ * 落在同一处，两边才比得起来。
+ *
+ * 先自己认形状而不是交给 `z.iso.datetime()`：那个 schema 只收完整的日期时间，
+ * `2026-04-01` 会以一句 `Invalid ISO datetime` 被拒——而按 §4.1 的说法
+ * "ISO 8601，按 Asia/Shanghai 日历解释"，date-only 是合法输入，不该被拒。
+ */
+const boundarySchema = z
+  .string()
+  .refine((value) => boundaryOf(value) !== null, "不是 ISO 8601 日期或日期时间")
+
+/** 日历日形状：`YYYY-MM-DD`，且必须是真实存在的那一天。 */
+const CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+function boundaryOf(value: string): Date | null {
+  const civil = CIVIL_DATE.exec(value)
+  if (civil) {
+    const [, year, month, day] = civil
+    const instant = instantOfCivil({
+      year: Number(year),
+      month: Number(month),
+      day: Number(day),
+    })
+    // `2026-02-30` 会被 `Date.UTC` 顺延成 03-02，那是一个**存在但不是用户意思**
+    // 的日期。用 ISO 串回读一次来确认没有溢出。
+    return civilOf(instant).year === Number(year) &&
+      civilOf(instant).month === Number(month) &&
+      civilOf(instant).day === Number(day)
+      ? instant
+      : null
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 const querySchema = z.object({
   cadence: z.enum(STATS_CADENCES).default("daily"),
-  start: z.iso.datetime().optional(),
-  end: z.iso.datetime().optional(),
+  start: boundarySchema.optional(),
+  end: boundarySchema.optional(),
   limit: z.coerce.number().int().min(RANGE_LIMIT.min).max(RANGE_LIMIT.max).default(RANGE_LIMIT.default),
   cursor: z.string().min(1).optional(),
 })
 
 export type StatsQuery = z.output<typeof querySchema>
+
+/** `start` / `end` 已经解析成瞬间的形状，路由直接用。 */
+export type ResolvedStatsQuery = Omit<StatsQuery, "start" | "end"> & {
+  start?: Date
+  end?: Date
+}
 
 /** 解析失败时 caller 报 400 并带上第一个问题的位置。 */
 export function parseStatsQuery(params: URLSearchParams) {
@@ -78,7 +131,17 @@ export function parseStatsQuery(params: URLSearchParams) {
         : undefined,
     }
   }
-  return { ok: true as const, value: parsed.data }
+  const value = parsed.data
+  return {
+    ok: true as const,
+    value: {
+      ...value,
+      // 边界在这一层就变成瞬间：路由里再写一次 `new Date(...)` 就是把"日历日 vs
+      // 瞬间"这个决定散到两个地方，而只有这里知道时区。
+      start: value.start ? boundaryOf(value.start) ?? undefined : undefined,
+      end: value.end ? boundaryOf(value.end) ?? undefined : undefined,
+    },
+  }
 }
 
 /**

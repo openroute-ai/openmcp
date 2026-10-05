@@ -3,6 +3,7 @@
   "pages": [
     "read",
     "write",
-    "subscriptions"
+    "subscriptions",
+    "pairing"
   ]
 }

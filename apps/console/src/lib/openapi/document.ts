@@ -27,6 +27,8 @@ import { z } from "zod"
 import {
   classificationSchema,
   errorBodySchema,
+  pairingRedeemRequestSchema,
+  pairingRedeemResponseSchema,
   periodCatalogSchema,
   projectCreatedSchema,
   projectRequestSchema,
@@ -177,6 +179,34 @@ const githubUnavailable: ResponseObject = {
   description: "这个部署没配 GitHub 凭据（github_unavailable）",
   content: jsonContent(errorBody),
 }
+
+/**
+ * `Idempotency-Key` 请求头（§3.3）。
+ *
+ * 上界写在这里，因为它真的存在：`idempotencyKeyOf` 对超长的 key 当作**没带**处理，而不是
+ * 400。这个头的唯一合法用途是"客户端生成的稳定字符串"，而一个 8KB 的 key 不可能是忘了
+ * 截断的 uuid —— 所以拒绝它更可能是调用方的生成方式有问题，而那被一个 400 掩盖成"重试
+ * 也许能过"。语义因此是：过长 = 不启用幂等。
+ */
+const idempotencyKeyParam: ParameterObject = {
+  name: "Idempotency-Key",
+  in: "header",
+  required: false,
+  description:
+    "客户端生成的稳定字符串（建议 uuid）。给了就启用幂等：同 key + 同请求体回放上次的" +
+    "状态码与响应体（响应体按 JSON 语义相同，键序可能与首次不同）；同 key + 不同请求体 " +
+    "409 `idempotency_key_reuse`；同 key 的另一个" +
+    "请求仍在跑 409 `idempotency_in_flight` + `Retry-After`。只有成功会被记住，" +
+    "24 小时后过期。超过 200 字符视作未带",
+  schema: { type: "string", maxLength: 200 },
+}
+
+/** 409 的两个幂等分支共用（§3.3）。 */
+const idempotencyConflict = (code: string, hint: string): ResponseObject => ({
+  description: `${code}：${hint}`,
+  headers: { "Retry-After": ref("#/components/headers/Retry-After") },
+  content: jsonContent(errorBody),
+})
 
 const bearerAuth: SecuritySchemeObject = {
   type: "http",
@@ -360,15 +390,17 @@ const paths: Record<string, ContractPathItem> = {
           name: "start",
           in: "query",
           required: false,
-          description: "区间起点，ISO 8601，按 Asia/Shanghai 日历解释。缺省 `end - 90d`",
-          schema: { type: "string", format: "date-time" },
+          description:
+            "区间起点，**`YYYY-MM-DD` 或完整 ISO 8601 时间戳**，按 Asia/Shanghai " +
+            "日历解释。给日期时取当日 00:00 (+08:00)。缺省 `end - 90d`",
+          schema: { type: "string" },
         },
         {
           name: "end",
           in: "query",
           required: false,
-          description: "区间终点，ISO 8601。缺省该仓库最新已存周期",
-          schema: { type: "string", format: "date-time" },
+          description: "区间终点，写法同 `start`。缺省该仓库最新已存周期",
+          schema: { type: "string" },
         },
         limitParam(500, 1000),
         cursorParam,
@@ -643,8 +675,9 @@ const paths: Record<string, ContractPathItem> = {
         "列出这把 key 可见的仓库，过滤器与订阅（§6.6）是**同一套语义**：判定按固定" +
         "顺序短路求值，`repoIds` 非空时完全绕过其余规则。响应带上分类四轴，调用方可以" +
         "自己验一遍「为什么这个仓库命中了」。\n\n可见范围是「公开可见 + 这把 key 自己" +
-        "提交的」，不含任何用户的私有列表。\n\n**这一条没有分页参数**——设计文档 §6.6 " +
-        "只给了过滤器，`limit` / `cursor` 只出现在统计端点（§4.1）。",
+        "提交的」，不含任何用户的私有列表。\n\n分页是 **keyset**（§3.7）：`cursor` 是上一页 " +
+        "响应里的 `nextCursor`，**坏的游标返回 400 而不是退回第一页**——静默退回会让调用方 " +
+        "以为数据只有一页。`total` 是命中过滤器的总数，与 `limit` 无关。",
       parameters: [
         listParam("repoIds", "显式白名单，逗号分隔。给了就完全覆盖其余过滤器", [
           "V1StGXR8Z5jd",
@@ -666,10 +699,15 @@ const paths: Record<string, ContractPathItem> = {
             "想要更宽的范围要显式写 true（设计文档 §6.6 陷阱一）"
         ),
         flagParam("includeOwnSubmissions", "是否纳入这把 key 自己提交过的仓库", true),
+        limitParam(50, 500),
+        cursorParam,
       ],
       security: [{ bearerAuth: [] }],
       responses: {
-        "200": response("命中的仓库", ref("#/components/schemas/RepoList")),
+        "200": response(
+          "命中的一页。`nextCursor` 为 `null` 表示这是最后一页，`total` 是命中总数",
+          ref("#/components/schemas/RepoList")
+        ),
         ...readFailures("repos:read"),
       },
     },
@@ -685,8 +723,10 @@ const paths: Record<string, ContractPathItem> = {
         "语言、topics 是调用方某一时刻的快照，落库等于让统计建立在一个可能过期的副本上，" +
         "服务端自己去取。按仓库去重：重发同一地址是安全的，返回 `created: false`。" +
         "带 `type` 的请求会被 400 拒绝并指向 `POST /api/v1/projects`。最长 60 秒（要去 " +
-        "GitHub 抓数据）。",
+        "GitHub 抓数据）。\n\n给了 `Idempotency-Key` 就启用幂等（§3.3），成功的响应会被" +
+        "记住并逐次回放；不带也不产生重复行。",
       security: [{ bearerAuth: [] }],
+      parameters: [idempotencyKeyParam],
       requestBody: {
         required: true,
         description:
@@ -697,13 +737,21 @@ const paths: Record<string, ContractPathItem> = {
       },
       responses: {
         "200": response(
-          "这个仓库本来就在跟踪（幂等命中）",
+          "这个仓库本来就在跟踪里，本次只是刷新",
           ref("#/components/schemas/RepoRegistered")
         ),
-        "201": response("新登记", ref("#/components/schemas/RepoRegistered")),
+        "201": response(
+          "新登记，或幂等回放了上次同一个 key 的成功响应（回放保留首次的状态码，所以也是 201）",
+          ref("#/components/schemas/RepoRegistered")
+        ),
         "400": v1BadRequest(
           "invalid_body / invalid_url / type_not_accepted",
           "不是合法 JSON、字段不符合 schema、不是 GitHub 仓库地址，或带了 `type`"
+        ),
+        "409": idempotencyConflict(
+          "idempotency_key_reuse / idempotency_in_flight",
+          "同一个 Idempotency-Key 配了不同的请求体（换仓库请换 key），或同一个 key 的" +
+            "请求正在处理中（按 `Retry-After` 稍后重试即可拿到回放）"
         ),
         "401": unauthorized,
         "403": insufficientScope("repos:write"),
@@ -756,6 +804,57 @@ const paths: Record<string, ContractPathItem> = {
       },
     },
   },
+
+  /**
+   * 唯一 `security: []` 的端点 —— 所以它必须自己写清"为什么不需要凭据"，否则 spec 的
+   * 读者会以为这里漏了。安全边界是配对码本身 + 单 IP 限流（§2.11）。
+   */
+  "/api/v1/connections/redeem": {
+    post: {
+      tags: ["配对 API"],
+      operationId: "redeemPairingCode",
+      summary: "配对码换 API key",
+      "x-nav-description": "用一次性配对码换一把 user 档的 API key。**无需凭据。**",
+      description:
+        "把 `/console/connections` 生成的 8 位配对码换成一把 `user` 档 API key。" +
+        "\n\n**这是唯一一个不需要凭据的 `/api/v1` 端点**——它要发的东西就是凭据，所以" +
+        "安全边界完全等于 OAuth device flow：8 位无歧义字符、5 分钟 TTL、单次有效、" +
+        "`returnUrl` 必须**精确相等**（不是前缀相等），单 IP 每小时 20 次且 fail-closed。" +
+        "\n\n**关于码本身的失败一律 404，四种原因同一个答案**（不存在 / 已用过 / 已过期 / " +
+        "`returnUrl` 不匹配）。分开报等于给探测者一个二分枚举的 oracle，而攻出一个还没" +
+        "被用的码就等于拿到了一把 API key。\n\n另有两个不泄漏任何关于那个码的信息的" +
+        "结果：`429 rate_limited`（纯**本地**的 IP 计数）与 `403 quota_exceeded`（码已通过" +
+        "全部校验后才可能出现——它只说明**码主人**的 key 存量已到上限，主人得先去 " +
+        "`/console/api-keys` 撤销一把）。所以这两条和 404 分得开，而且客户端确实需要" +
+        "据此退避或转告主人。\n\n响应恒为 " +
+        "`Cache-Control: no-store`；明文 key 只在这里出现一次，之后取不回来。",
+      security: [],
+      requestBody: {
+        required: true,
+        description:
+          "`returnUrl` 必须与建码时给 console 的那个**完全相等**。前缀匹配会让 " +
+          "`https://evil.com/?x=https://a.b` 通过，是典型的开放重定向。",
+        content: jsonContent(ref("#/components/schemas/PairingRedeemRequest")),
+      },
+      responses: {
+        "200": response(
+          "换到了 key。**`key.secret` 只出现这一次**，丢了只能在 console 里轮换",
+          ref("#/components/schemas/PairingRedeemResponse")
+        ),
+        "400": v1BadRequest(
+          "invalid_body",
+          "不是合法 JSON，或缺 `code` / `returnUrl`（`returnUrl` 必须是绝对地址）"
+        ),
+        "403": response(
+          "码本身是有效的，但**码主人**的 key 存量已到上限（quota_exceeded）。码没有被" +
+          "消费——主人撤销一把 key 后可以用同一个码再试",
+          errorBody
+        ),
+        "404": notFound,
+        "429": rateLimited,
+      },
+    },
+  },
 }
 
 /** 文档本身。每条 operation 都逐个标注所需 scope。 */
@@ -768,9 +867,10 @@ export function buildOpenAPIDocument(): ContractDocument {
       description:
         "VercelAI 雷达的开放 API：读排行与仓库统计、登记仓库与发布项目、以及把新数据推到" +
         "订阅者地址上。\n\n" +
-        "**每个端点都要 `Authorization: Bearer <key>`，没有免鉴权旁路。** 各自需要的 " +
-        "`scope` 写在每个端点的说明里；配额按 key 计（`user` 档 30 rpm / 1000 rpd，" +
-        "`service` 档 60 rpm / 5000 rpd）。\n\n" +
+        "**除 `POST /api/v1/connections/redeem` 之外，每个端点都要 " +
+        "`Authorization: Bearer <key>`，没有别的免鉴权旁路。** 各自需要的 `scope` 写在" +
+        "每个端点的说明里；配额按 key 计（`user` 档 30 rpm / 1000 rpd，`service` 档 " +
+        "60 rpm / 5000 rpd）。\n\n" +
         "接入说明、错误码表与 key 签发见站内 `/docs`；每个端点的交互式文档在 `/docs/api/`。",
     },
     servers: [{ url: SITE_ORIGIN }],
@@ -789,6 +889,12 @@ export function buildOpenAPIDocument(): ContractDocument {
         name: "订阅 API",
         description:
         "`subscriptions:write`：创建、改过滤器、暂停、轮换 secret、发探测事件。",
+      },
+      {
+        name: "配对 API",
+        description:
+        "**唯一不需要凭据的一组**：用 `/console/connections` 生成的配对码换一把 user 档 " +
+        "key（§2.11）。",
       },
     ],
     paths,
@@ -827,6 +933,8 @@ export function buildOpenAPIDocument(): ContractDocument {
         RepoListItem: jsonSchema(repoListItemSchema, "output"),
         RepoList: jsonSchema(repoListSchema, "output"),
         RepoDetail: jsonSchema(repoDetailSchema, "output"),
+        PairingRedeemRequest: jsonSchema(pairingRedeemRequestSchema, "output"),
+        PairingRedeemResponse: jsonSchema(pairingRedeemResponseSchema, "output"),
         StatsPeriod: jsonSchema(statsPeriodSchema, "output"),
         RepoStatsRange: jsonSchema(repoStatsRangeSchema, "output"),
         PeriodCatalog: jsonSchema(periodCatalogSchema, "output"),

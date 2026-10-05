@@ -87,11 +87,8 @@ export async function GET(
 
   // 缺省区间：`[最新已存周期 - 90d, 最新已存周期]`。显式给的 start/end 各自独立生效，
   // 所以 `?start=` 单独出现就是"从那天到最新一期"。
-  const storedEnd = query.value.end
-    ? new Date(query.value.end)
-    : ((await latestStatsPeriod(db, resolved.id, stored)) ?? new Date())
-  const end = storedEnd
-  const start = query.value.start ? new Date(query.value.start) : defaultRangeStart(end)
+  const end = query.value.end ?? ((await latestStatsPeriod(db, resolved.id, stored)) ?? new Date())
+  const start = query.value.start ?? defaultRangeStart(end)
 
   const window: StatsRangeQuery = { start, end, ...(before ? { before } : {}) }
   const [page, periods] = await Promise.all([

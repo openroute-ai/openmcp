@@ -14,6 +14,7 @@ import { db } from "@/db/client"
 import { apiKeys } from "@/db/schema/api-keys"
 import {
   findApiKeyByPlaintext,
+  hashApiKey,
   normalizeScopes,
   touchApiKeyUsage,
 } from "./keys"
@@ -34,6 +35,14 @@ export type ApiKeyPrincipal = {
    */
   userId: string | null
   tier: ApiTier
+  /**
+   * `sha256(明文)`。
+   *
+   * 鉴权已经算过一次这个值（按它查库），而 `Idempotency-Key` 的回放表以它作为主键的
+   * 一半。让路由再 `hashApiKey(plaintext)` 一次是重复计算，而更糟的是它要求路由能拿到
+   * 明文——那会让"凭据只经过 guard 一次"这个性质失效。
+   */
+  keyHash: string
 }
 
 export type AuthFailure = {
@@ -179,6 +188,8 @@ export async function authenticateApiKey(
 
   const lookup = options.lookup ?? findApiKeyByPlaintext
   const row = await lookup(db, token)
+  // 与 `findApiKeyByPlaintext` 内部用的是同一个函数，所以这里必然等于库里那一行。
+  const keyHash = hashApiKey(token)
   if (!row) {
     // 见文件头：404 而非 401，理由是状态码差别不应泄漏路由是否存在。
     return {
@@ -242,6 +253,7 @@ export async function authenticateApiKey(
       submitterId: row.submitterId,
       userId: row.userId,
       tier: row.tier,
+      keyHash,
     },
     rateLimitHeaders: rateLimited.headers,
   }

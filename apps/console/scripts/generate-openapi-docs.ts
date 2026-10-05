@@ -1,7 +1,7 @@
 /**
  * 把 `lib/openapi/document.ts` 聚合出的 OpenAPI 文档，写成
- * `content/docs/api/` 下的逐端点 MDX 页面，按标签分成 `read/`、`write/` 与
- * `subscriptions/` 三个目录——侧栏的分组就是目录本身。
+ * `content/docs/api/` 下的逐端点 MDX 页面，按标签分成 `read/`、`write/`、
+ * `subscriptions/` 与 `pairing/` 四个目录——侧栏的分组就是目录本身。
  *
  * 什么时候跑：加了新的 `/api/v1` 端点，或改了端点的路径 / 方法 / 说明。
  * 改字段或改响应体不用跑——页面按 id 现取文档，schema 一变它们就跟着变。
@@ -28,6 +28,7 @@ const FOLDER_BY_TAG: Record<string, string> = {
   "读取 API": "read",
   "写入 API": "write",
   "订阅 API": "subscriptions",
+  "配对 API": "pairing",
 }
 
 const NAV = navDescriptions()

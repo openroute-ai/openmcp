@@ -106,6 +106,14 @@ export const API_AUDIT_ACTIONS = [
   "key.surrender",
   "scopes.update",
   "limits.update",
+  /**
+   * 接入方兑换掉了配对码（§2.11）。
+   *
+   * 列在这里而不是在 `connection_pairings` 上，是因为它回答的是审计的那个问题：
+   * "这把 key 是怎么来的"。配对记录会过期清理，而审计不会——凭据泄漏往往在泄漏很久
+   * 之后才被发现，那时配对行早就没了。
+   */
+  "connection.redeem",
 ] as const
 
 export type ApiAuditAction = (typeof API_AUDIT_ACTIONS)[number]

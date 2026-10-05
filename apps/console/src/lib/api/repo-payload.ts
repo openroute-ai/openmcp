@@ -5,14 +5,15 @@
  * 列表项本身**带上分类四轴**：过滤器就是拿这四轴判定的，不给调用方看到它们，调用方
  * 就没法自己验一遍「为什么这个仓库命中了」。
  */
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, gt, sql } from "drizzle-orm"
 import { projects, repos } from "@/db/schema"
 import type { repoListItemSchema, repoProfileSchema } from "@/lib/api/contract"
 import type { z } from "zod"
+import { encodeRepoCursor } from "@/lib/api/pagination"
 import {
   classificationOf,
   loadClassifications,
-  listFilteredRepoIds,
+  repoScopeCondition,
   type RepoClassification,
   type RepoFilters,
 } from "@/lib/api/repo-filter"
@@ -138,26 +139,49 @@ function toListItem(
  * **没有分页**（设计文档 §6.6 只给了过滤器，`limit` / `cursor` 只出现在统计端点）。
  * `ORDER BY id` 是刻意的：响应顺序稳定，客户端两次请求看到的差别就只来自数据本身。
  */
+export type RepoListPage = {
+  items: RepoListItem[]
+  /** 下一页的起点游标；`null` 表示这是最后一页。 */
+  nextCursor: string | null
+  /** 命中的总数，与 `limit` 无关。 */
+  total: number
+}
+
 export async function listRepoItems(
   db: Db,
   filters: RepoFilters,
-  ownerUserId: string | null
-): Promise<RepoListItem[]> {
-  const ids = await listFilteredRepoIds(db, filters, ownerUserId)
-  if (ids.length === 0) return []
+  ownerUserId: string | null,
+  page: { limit: number; cursor?: string } = { limit: 50 }
+): Promise<RepoListPage> {
+  const scope = repoScopeCondition(filters, ownerUserId)
+  const after = page.cursor ? and(scope, gt(repos.id, page.cursor)) : scope
 
-  const rows = (await db
+  // `limit + 1`：多取一行来分辨"还有下一页"与"这一页刚好填满"。改成先 `count(*)`
+  // 再比长度要多付一次全表扫描，而这就是多取一行的全部理由。
+  const fetched = (await db
     .select(REPO_COLUMNS)
     .from(repos)
-    .where(inArray(repos.id, ids))
-    .orderBy(repos.id)) as RepoQueryRow[]
+    .where(after)
+    .orderBy(repos.id)
+    .limit(page.limit + 1)) as RepoQueryRow[]
 
-  const classifications = await loadClassifications(
-    db,
-    rows.map((row) => row.id)
-  )
+  const hasMore = fetched.length > page.limit
+  const rows = hasMore ? fetched.slice(0, page.limit) : fetched
 
-  return rows.map((row) => toListItem(row, classifications))
+  const [classifications, [totalRow]] = await Promise.all([
+    loadClassifications(db, rows.map((row) => row.id)),
+    // 总数按**同一个 scope**数，不含游标条件：调用方要的是"这个过滤条件一共命中多少"，
+    // 而含了游标的 count 回答的是"还有多少"，两个数都会被当成 total 用错。
+    db.select({ count: sql<number>`count(*)::int` }).from(repos).where(scope),
+  ])
+
+  const last = rows[rows.length - 1]
+  return {
+    items: rows.map((row) => toListItem(row, classifications)),
+    // 游标指向**这一页最后一行**，不是多取的那一行：多取它的作用只是判断还有没有。
+    nextCursor: hasMore && last ? encodeRepoCursor(last.id) : null,
+    total: totalRow?.count ?? 0,
+  }
 }
 
 /** 单个仓库的档案。找不到返回 undefined，由路由决定报不报 404。 */

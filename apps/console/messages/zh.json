@@ -52,7 +52,8 @@
     "groupManagement": "账户管理",
     "settings": "账号设置",
     "apiKeys": "API 密钥",
-    "groupAccess": "访问"
+    "groupAccess": "访问",
+    "connections": "接入连接"
   },
   "Status": {
     "pending": "等待中",
@@ -1281,5 +1282,34 @@
     "scopesUpdated": "权限已更新",
     "limitsUpdated": "速率限制已更新",
     "limits": "限制"
+  },
+  "Connections": {
+    "title": "接入连接",
+    "description": "把一段短时效的码交给服务，让它换到属于自己的 API key。码只能用一次、5 分钟后过期；换出的 key 出现在 API Keys 里。",
+    "newCode": "新建配对码",
+    "create": "生成配对码",
+    "formDescription": "这个码由要接入的服务来兑换。它只能用一次，且只能从你在这里填写的回调地址兑换。",
+    "name": "用途",
+    "namePlaceholder": "例：每晚导入榜单",
+    "nameHint": "会显示在它换出的那把 key 上；在服务兑换之前，这是它唯一能知道的关于这把 key 的信息。",
+    "returnUrl": "回调地址",
+    "returnUrlHint": "必须是绝对的 http(s) 地址。服务兑换时必须原样带回，不一致会被拒绝。",
+    "scopes": "这把 key 可以做什么",
+    "code": "配对码",
+    "expires": "过期时间",
+    "actions": "操作",
+    "revoke": "丢弃这个配对码",
+    "empty": "你还没有生效中的配对码。",
+    "emptyHint": "准备接入服务时再建一个。码被兑换或过期后会从列表里消失。",
+    "issuedTitle": "把这个码交给你的服务",
+    "issuedWarning": "这个码只显示一次，有效期 5 分钟。若过期未用，只能重新生成，没有延长的办法。",
+    "expiresAt": "{date} 过期",
+    "handOver": "怎么交出去",
+    "handOverHint": "用带外方式把码发给服务，让它这样兑换：",
+    "stepExchange": "POST /api/v1/connections/redeem，请求体 {{ code, returnUrl: \"{returnUrl}\" }}",
+    "stepKey": "它会拿到一把 user key，限速为每分钟 {rpm} 次、每天 {rpd} 次，权限就是所勾选的那些。",
+    "copied": "已复制",
+    "copy": "复制",
+    "done": "完成"
   }
 }

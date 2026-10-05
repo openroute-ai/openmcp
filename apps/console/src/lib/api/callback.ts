@@ -52,6 +52,11 @@ export async function deliverWriteCallback(
   try {
     const [result] = await sendWebhook([callback.url], body, {
       secret: callback.secret,
+      // 设计文档 §3.5 要求的两个头。`eventId` 与签名的时间戳不同类：签名覆盖的是
+      // "这一次发送"，而 `eventId` 覆盖的是"这一件事"，重发时必须不变——接收方正是靠
+      // 它把网络重试收敛成一行。
+      eventId: body.eventId,
+      event: payload.event,
     })
     if (!result) return { delivered: false, error: "no result" }
     return result.success

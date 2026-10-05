@@ -55,6 +55,22 @@ export type SelfServiceIssueResult =
 export const SELF_SERVICE_COOLDOWN_SECONDS = 60
 
 /**
+ * 冷却槽的结果。
+ *
+ * 两种失败要分开，因为它们对用户是两件完全不同的事：`cooldown` 是"你自己太快了"，
+ * 稍等即可；`rate_limited_infra` 是"我们的限流存储挂了"，等一分钟也没用，重试只会
+ * 继续失败。合成一个 code 会让调用方把基础设施故障显示成一句"请稍后再试"，而用户
+ * 等了 60 秒之后看到的是同一句话。
+ */
+type CooldownSlotResult =
+  | { ok: true }
+  | {
+      ok: false
+      code: "cooldown" | "rate_limited_infra"
+      message: string
+    }
+
+/**
  * 冷却槽的 Redis key。
  *
  * 按 **user id** 而不是按 IP 或不按：按 IP 会让一个公司 NAT 后的所有人共享一个槽
@@ -82,19 +98,29 @@ function cooldownKey(userId: string): string {
  * 所以这里不 fallback 到进程内 map。那种 fallback 会让"两个副本各签 5 把"变成 10
  * 把——它挡住的只是最笨的滥用者。
  */
-async function claimCooldownSlot(
-  userId: string
-): Promise<{ ok: true } | { ok: false }> {
+async function claimCooldownSlot(userId: string): Promise<CooldownSlotResult> {
   const redis = getRedisClient()
-  if (!redis) return { ok: false }
+  if (!redis) {
+    return {
+      ok: false,
+      code: "rate_limited_infra",
+      message:
+        "限流存储不可用，签发已暂停。这是为了防止 Redis 抖动时无人看管的批量签发；请稍后再试。",
+    }
+  }
   // `setIfAbsent` 是 `SET key 1 NX PX ttl`：原子地"要么占住这个槽，要么告诉别人
-  // 有人占了"。先 GET 再 SET 的写法在这个场景下会被两个并发请求同时通过。
+  // 有人占了"。先 GET 再 SET 的写法在这个场景里会被两个并发请求同时通过。
   const claimed = await redis.setIfAbsent(
     cooldownKey(userId),
     "1",
     SELF_SERVICE_COOLDOWN_SECONDS * 1000
   )
-  return claimed ? { ok: true } : { ok: false }
+  if (claimed) return { ok: true }
+  return {
+    ok: false,
+    code: "cooldown",
+    message: `每 ${SELF_SERVICE_COOLDOWN_SECONDS} 秒只能申请一把 API Key，请稍后再试`,
+  }
 }
 
 export async function issueSelfServiceKey(
@@ -113,11 +139,15 @@ export async function issueSelfServiceKey(
     return { ok: false, code: "scope_not_allowed", message: messageOf(error) }
   }
 
-  if (!(await claimCooldownSlot(input.userId))) {
+  // 判 `.ok` 而不是判返回值本身：`claimCooldownSlot` 返回的是一个对象，而对象永远
+  // truthy，写成 `if (!(await ...))` 会让这一层形同虚设——冷却槽被 `SET NX` 占住了，
+  // 却没人看它的结果，于是"每分钟一把"变成"配额没满就能一直签"。
+  const cooldown = await claimCooldownSlot(input.userId)
+  if (!cooldown.ok) {
     return {
       ok: false,
-      code: "cooldown",
-      message: `每 ${SELF_SERVICE_COOLDOWN_SECONDS} 秒只能申请一把 API Key，请稍后再试`,
+      code: cooldown.code,
+      message: cooldown.message,
     }
   }
 
@@ -154,9 +184,14 @@ export async function issueSelfServiceKey(
       // 而是一次 500 的 `ApiKeyOwnershipError`，把"自助签发的 tier 由服务端定"这件
       // 事变成了一条只有翻代码才看得懂的报错。
       tier: "user",
-      // 自助没有"谁签发的"——就是本人自己。写 admin 的 id 会让这把 key 在审计里
-      // 看起来像一次管理员签发。
-      createdBy: null,
+      // §2.2 要求"自助签发时 user_id = created_by"：`created_by` 记录的是**这把 key
+      // 的存在由谁的账号担保**，自助入口由用户自己的会话驱动，所以担保人与归属人是
+      // 同一个 id。它不是"操作人"——管理员代签发时操作人在审计的 reason 里。
+      //
+      // 留 null 的代价不是"看不出是谁"，而是筛选：`created_by is null` 是"这把 key
+      // 没有任何账号担保"（纯 service key）的判据，把自助签发也算进去会让审计里的
+      // 自助 key 与机器签发的机器 key 无法区分。
+      createdBy: input.userId,
       // 自助签发不设过期：给用户一个"到期后必须回来续"的负担只会把他们推向 admin
       // 去要一把长过期的 key，那反而更难管。真正该做的是轮换提示。
       expiresAt: null,

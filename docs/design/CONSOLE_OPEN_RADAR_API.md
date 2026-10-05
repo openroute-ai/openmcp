@@ -57,7 +57,7 @@
 |---|---|---|---|
 | POST | `/api/v1/repos` | `repos:write` | 登记仓库，**不建 project**（§12.2 已实施） |
 | POST | `/api/v1/projects` | `projects:write` | 按 URL 策展并**发布** project（§12.2 已实施） |
-| GET | `/api/v1/repos` | `repos:read` | 列出该 key 可见的仓库，支持 §6.6 的同一套过滤器 |
+| GET | `/api/v1/repos` | `repos:read` | 列出该 key 可见的仓库，支持 §6.6 的同一套过滤器，**keyset 分页** |
 | GET | `/api/v1/repos/{id}` | `repos:read` | 单个仓库档案 + 最近一期统计 |
 | GET | `/api/v1/repos/{id}/stats` | `repos:read` | 日/周/月区间统计（§4） |
 | GET | `/api/v1/rankings/weekly` | `rankings:read` | 指定周排行 |
@@ -70,6 +70,7 @@
 | DELETE | `/api/v1/subscriptions/{id}` | `subscriptions:write` | 删除订阅并清空待投递队列 |
 | POST | `/api/v1/subscriptions/{id}/rotate-secret` | `subscriptions:write` | 轮换回调 secret |
 | POST | `/api/v1/subscriptions/{id}/test` | `subscriptions:write` | 立刻发一条探测 payload，验证回调可达 |
+| POST | `/api/v1/connections/redeem` | **无凭据** | 配对码换 key（§2.11，唯一无凭据端点） |
 | GET | `/api/v1/openapi.json` | 任意有效凭据 | 接口自描述（§8） |
 
 订阅也可以由 console 登录用户在 `/dashboard/subscriptions` 自助创建，归属主体是该账号而不是某个
@@ -837,16 +838,19 @@ async function assertSelfServiceQuota(db, userId): Promise<void>
 ```
 用户(web)                     console                      web 后端
    │                             │                             │
-   │─ 生成一次性配对码 ──────────▶│                             │
+   │  用户登录 /console/connections，建一把配对码  │             │
+   │────────────────────────────▶│                             │
    │                             │                             │
-   │  用户登录 /console/connections，在 console 侧创建一把 key   │
-   │  console 显示配对码 + 该 key 的 scopes                     │
+   │  console 显示配对码 + 该码的 scopes + 兑换方法说明         │
+   │◀────────────────────────────│                             │
    │                             │                             │
    │  把配对码粘回 web ───────────────────────────────────────▶│
    │                             │◀── 用配对码兑换 ─────────────│
    │                             │   POST /api/v1/connections/redeem
-   │                             │      （无需凭据，见下）
+   │                             │   { code, returnUrl }
+   │                             │      （无需凭据，见下）      │
    │                             │── 返回明文 key ─────────────▶│
+   │                             │   （同时写入该码的 api_key_id）│
 ```
 
 兑换端点 `POST /api/v1/connections/redeem` 是**唯一**一个不需要凭据的 `/api/v1` 端点，
@@ -855,10 +859,63 @@ async function assertSelfServiceQuota(db, userId): Promise<void>
 | 约束 | 值 |
 |---|---|
 | 配对码 | 8 字符、无 `0O1I` 歧义字符；单次有效；TTL 5 分钟 |
-| 绑定 | 生成时绑定 `(keyId, scopes 快照, returnUrl, userId)` |
+| 绑定 | **兑换时**才签发 key，因此绑定的是 `(code, scopes 快照, returnUrl, userId)`；`api_key_id` 在兑换成功后回填 |
 | 兑换校验 | 码有效 + 未用过 + 未过期 + `returnUrl` 精确相等（不是前缀相等） |
 | 限流 | 按 IP，**fail-closed**，复用 `claimSlot`；单 IP 每小时 20 次 |
 | 明文 | 只在兑换响应里出现一次；不写日志（§2.13） |
+
+兑换端的失败语义分成两类，因为两类的信息量不一样：
+
+| 情况 | 响应 | 为什么能/不能分开 |
+|---|---|---|
+| 码不存在 / 已用过 / 已过期 / `returnUrl` 不匹配 | 全部 `404 not_found` | 分开报就是给探测者的二分枚举 oracle；攻出一个还没用的码 = 拿到一把 key |
+| 单 IP 超 20 次 | `429 rate_limited` + `Retry-After: 3600` | **本地**计数，与那个码存不存在无关 |
+| 码主人 key 存量已满 | `403 quota_exceeded`，**无** `Retry-After` | 只在码通过全部校验之后才可能出现，泄漏的是"主人存量满了"而不是"码存在"。上限要主人去 `/console/api-keys` 撤销一把 key 才会动，所以不给一个不会兑现的重试时间 |
+
+**为什么是兑换时才签发**，而不是建码时就签好（这是与初版设计不同的一处）：建码时签发
+意味着 `connection_pairings` 要存一把**未交付**的明文 key，而那把 key 在建码到兑换之间
+对任何人都没有用处，却能被任何能读到这张表的人拿走。改成兑换时签发之后，明文的生命周期
+被压缩到"兑换响应本身"这一瞬间，与 `api_keys` 侧"明文只在签发响应里出现一次"的规则
+（§2.3）一致，代价是 `api_key_id` 列可为 `NULL`——而它本来就在"兑换前无意义"的那一侧。
+
+**兑换方拿到的 key 是 `user` tier。** 所以它带 §2.5 的自助子集 scope、`rpm=30 / rpd=1000`
+配额（§2.10，取自 `TIER_DEFAULTS.user`，与 `selfServiceRateLimits()` 同源），且 `user_id` 等于
+建码的那个账号——服务端的调用因此会出现在该账号的"我的仓库"里。这与 §2.4 自助签发是同一
+个结果，区别只有发放方式。
+
+配对建码同样走 §2.10 里与"能发出去多少"有关的两道闸门（邮箱已验证、存量 key 上限）：配对
+是发 key 的第二条路，服务端在这里不查，一个未验证的小号就能绕过自助签发拿到一把能调的
+key；不查存量上限，用户可以绕过 5 把的封顶反复兑换。**刻意不搬**的是 60 秒 cooldown——
+它防的是"一把 key 换一次 GitHub token"的成本，而建码不消耗任何外部配额，这里的实际
+天花板是"同时 3 个待兑换码 × 5 把存量上限"，两者都是每账号计数、都不需要等时间。
+
+**console 侧入口**（§2.11 的配套 UI，不属于 `/api/v1`）：
+
+| 入口 | 作用 |
+|---|---|
+| `connections.listMine`（tRPC `protectedProcedure`） | 列出我建的、未兑换且未过期的码 |
+| `connections.create` | 建码：入参只有 `name` / `scopes` / `returnUrl` |
+| `connections.revoke` | 作废一个还没被兑换的码（删行） |
+| `/console/connections` | 上述三者的页面；建码后一次性弹窗显示码 |
+
+归属判断是 SQL 里的 `user_id = session.user.id`，scope 上界是 `SELF_SERVICE_SCOPES`，
+页面里没有一处权限判断。**兑换端点不在这个 router 里**——那是无凭据面。
+
+`connections.create` 的失败码映射（`CREATE_FAILURE_CODE`，三档而不是一档，因为三件事要用户
+做的事不同）：
+
+| 服务层 code | tRPC | 用户该做什么 |
+|---|---|---|
+| `invalid_return_url` | `BAD_REQUEST` | 改 `returnUrl` 重试 |
+| `too_many_open_codes`（同时最多 3 个未兑换未过期的码） | `BAD_REQUEST` | 作废一个，或等它过期 |
+| `email_unverified` | `FORBIDDEN` | 去验证邮箱——**没有**验证就绕过 §2.10 拿到能调 API 的 key，是配对这条路最大的风险 |
+| `quota_exceeded` | `FORBIDDEN` | 去 `/console/api-keys` 撤销一把 |
+| `scope_not_allowed` | `FORBIDDEN` | 服务层的兜底；页面已被 zod 挡在前面 |
+| `generation_failed`（连续 5 次撞码） | `INTERNAL_SERVER_ERROR` | 我们的故障，重试即可；**不能**报成前两档，否则用户会去作废一个没问题的码 |
+
+限流落在**兑换**侧（按 IP，单 IP 每小时 20 次），不落在建码侧：建码是登录态操作，已有
+`MAX_OPEN_PAIRING_CODES` 与 key 存量上限两道每账号计数；真正需要防穷举的是兑换那一端，
+所以 20 次的额度花在那里。
 
 `returnUrl` 用**精确相等**而不是前缀相等：前缀匹配会让 `https://evil.com/?x=https://a.b`
 通过校验，是典型的开放重定向。
@@ -994,61 +1051,113 @@ ingest 逻辑现在分散在 `repos.ts:394-455` + `service/repo.ts:151-195` +
 
 ```http
 POST /api/v1/repos
-Authorization: Bearer mcp_radar_xxx_yyy
+Authorization: Bearer mcp_radar_<prefix>_<secret>
 Content-Type: application/json
 Idempotency-Key: <可选，客户端生成的稳定字符串>
 ```
 
 ```jsonc
+// 形态一：给一整个地址
+{ "url": "https://github.com/owner/name" }
+
+// 形态二：给裸 slug
+{ "repo": "owner/name" }
+
+// 两个形态都可带的回调参数
 {
-  "repository": "owner/name",            // 或完整 GitHub URL
-  "clientRef": "web-repo-1024",          // 可选，原样回传
-  "callbackUrl": "https://…",            // 可选
-  "callbackSecret": "…",                 // 可选，不传则用 key 派生的 secret
-  "wait": false                          // 可选，默认 false
+  "repo": "owner/name",
+  "callbackUrl": "https://your-service.example/hook",  // 可选
+  "callbackSecret": "…"                               // 给了 callbackUrl 就必填
 }
 ```
 
-`wait: true` 时同步等待首次拉取完成并直接返回统计（最多阻塞 30s，超过则退回异步语义 + 202）。
-这是给"提交后立刻想看到数据"的小客户端的便利开关，不是保证。
+**三种约束，逐条都是被一次失败换来的：**
+
+1. **`url` 与 `repo` 二选一，且只能带一个地址字段。** 两者都带会被拒（"该用哪个"），都
+   不带也会被拒（"没给地址"）。
+2. **`callbackUrl` 存在时 `callbackSecret` 必填。** 早期版本把它写成"缺省时用 key 派生的
+   secret"（§4.3），但那条派生路径等于"只要有人知道 key 的哈希就能收回调"，而 `api_keys`
+   只有 SHA-256、哈希本身就在审计可见的列里。因此取消派生：`callbackSecret` 由调用方
+   提供，它至少是一次真实的双方约定。
+3. **带 `type` 的请求被明确拒绝**，并返回 400 `type_not_accepted` + 指向
+   `POST /api/v1/projects`。理由见 §1.4 与 §3.1：登记与发布是两个 scope，一个能通过
+   API 把任意仓库推上公开站的接入方，和一个能通过 `/console` 做到的匿名用户是同一个
+   越权面。答错端点比答错字段贵——调用方会拿着同一个 body 重试到底，所以这条要指向
+   正确的端点，而不是让 union 的第一个校验错误把它引到别处。
+
+**没有 `wait`、没有 `requestId`、没有异步排队。** 初版设计里的 `wait: true` 同步等首次拉取
+（阻塞 30s）与 `202 queued` + `requestId` 都已移除：端点因此与 `repos.create`（§3.1）
+**完全一致**，"提交后立刻看到统计"这个需求由调用方自己轮询 `GET /api/v1/repos/{id}/stats`
+（§4.1）满足。一次长任务换来一个会被客户端轮询、被中间层掐断、且失败语义含糊的同步
+端点，不如给一个稳定的读接口。
 
 ### 3.3 幂等
 
 - `Idempotency-Key` 头存在时，在 `api_request_idempotency` 表记
   `(key_hash, idempotency_key, request_fingerprint, response_status, response_body, created_at)`。
-- 同 key + 同 fingerprint → 直接回放上次响应。
-- 同 key + 不同 fingerprint → `409 idempotency_key_reuse`。
+  `key_hash` 是 `api_keys.key_hash` 而不是 `keyId`：一次轮换是**吊销旧行 + 签发新行**
+  （`rotateApiKey`），新行有自己的 id 与 `key_hash`，所以幂等记录天然按"这把具体的
+  明文"隔离——轮换后客户端拿新 key 重发同一次请求会重新执行而不是回放旧的答案。这是对的：
+  旧 key 上成功的那次请求，是用另一把 key 完成的。吊销不删行也不影响回放。
+- 指纹是 `sha256(method + path + 规范化后的 body)`，规范化会把对象键排序递归展开，
+  因此键序不同的两次请求视为同一个。
+- 同 key + 同指纹 → 回放上次响应（**状态码与响应体都取上次那一份**）。
+- 同 key + 不同指纹 → `409 idempotency_key_reuse`。
+- 同 key + 另一个请求仍在执行 → `409 idempotency_in_flight` + `Retry-After: 2`。
+- **只记成功**。一次 400 或 503 没有"答案"，槽会被释放，于是客户端改完 body 用同一个 key
+  重试是允许的——这正是 `invalid_body` 之后再占槽会毁掉的行为。
 - 24 小时后过期清理。
-- 未带该头时，天然幂等：`upsertRepo` 本身按 `(owner, name)` 冲突更新，重复提交同一 URL 只是刷新。
-  所以**不带该头也不会产生重复行**，只是响应里的 `created` 字段会从 `true` 变 `false`。
+- 未带该头时，天然幂等：`upsertRepo` 本身按 `(owner, name)` 冲突更新，重复提交同一地址
+  只是刷新。所以**不带该头也不会产生重复行**，只是响应里的 `created` 字段会从 `true`
+  变成 `false`。
+
+**已知边界**（照实写在这里，而不是留给下一个人发现）：
+
+- 预占与业务写入不在一个事务里。进程在"仓库已落库"与"响应已记住"之间崩溃，会留下一行
+  `in_flight`，此后该 key 的重试一直被 `idempotency_in_flight` 挡住。要彻底消除需要把
+  业务写入和幂等行放进同一个事务，或给 `in_flight` 加租约超时；两者都超出当前端点的
+  事务边界（`ingestRepo` 会调 GitHub HTTP，见 §3.1）。
+- 指纹不做语义归一：`{"repo":"owner/name"}` 与 `{"url":"https://github.com/owner/name"}`
+  会得到两个不同的指纹。它们确实是**不同的请求体**，所以这不是 bug，只是同一个意图的
+  两种写法要用两个 key。
+- `response_body` 存的是 JSONB，回放时重新序列化，因此键序可能与首次响应不同。语义
+  一致，不是逐字节一致。
 
 ### 3.4 响应
 
 ```jsonc
-// 202，异步（wait=false，或 wait=true 但超时）
+// 201：本次新登记
 {
-  "requestId": "req_abc123",
-  "repoId": "V1StGXR8Z5jd",
-  "fullName": "owner/name",
-  "status": "queued",
+  "ok": true,
+  "repo": { "id": "V1StGXR8Z5jd", "full_name": "owner/name", "stars": 1234 },
   "created": true,
-  "clientRef": "web-repo-1024"
+  "projectCount": 0
 }
 
-// 200，同步且当天已 fetch 过
+// 200：这个仓库本来就在跟踪里，本次只是刷新
 {
-  "requestId": "req_abc123",
-  "repoId": "V1StGXR8Z5jd",
-  "fullName": "owner/name",
-  "status": "ready",
-  "created": true,
-  "stats": { "daily": {...}, "weekly": {...}, "monthly": {...} }
+  "ok": true,
+  "repo": { "id": "V1StGXR8Z5jd", "full_name": "owner/name", "stars": null },
+  "created": false,
+  "projectCount": 2
 }
 ```
 
-### 3.5 首次拉取回调
+`stars` 为 `null` 表示尚未采集到（§4.1 之后才有值）；`projectCount` 非零意味着这个仓库
+先前被策展过（§1.4），与 `repos.create` 的返回一致（`repos.ts:448-454`）——调用方据此
+知道"这个仓库已经在公开站上，type 会被忽略"。
 
-`callbackUrl` 给了就走异步，console 在 `ingestRepo` 成功后回调一次；失败也回调一次。
+没有 `status` 字段：同步成功没有状态可报，而失败的形态是 HTTP 4xx/5xx + 错误体。
+
+**回放时的状态码**：幂等回放**原样返回首次的状态码**，所以一次新登记（201）的重试拿到的
+仍是 201 而不是 200。调用方因此不能靠状态码区分"这次真的登记了"与"这次回放了"——要区分
+就看 body 里的 `created`（首次新登记为 `true`）或者干脆带上自己的 `Idempotency-Key`。
+
+### 3.5 登记回调
+
+`callbackUrl` 给了就在登记成功后回调一次。**注意语义**：登记是「请求返回时数据已经在
+库里了」（§3.2 没有 `wait`、没有异步排队），所以回调**不是**"首次拉取完成"的信号——
+它是"可以开始读统计了"的信号，而统计本身要等下一个周期任务才有值。
 
 **签名**：复用 `signPayload`（`apps/console/src/lib/webhook/client.ts:63`）。
 
@@ -1069,99 +1178,94 @@ X-Webhook-Signature: sha256=<hex over "<timestamp>.<raw body>">
 
 ```
 Content-Type: application/json
-X-Webhook-Id: evt_abc123          ← 幂等键，重试不变
+X-Webhook-Id: repo.registered.V1StGXR8Z5jd   ← 幂等键，重试不变
 X-Webhook-Timestamp: 1774000000
 X-Webhook-Signature: sha256=...
-X-Webhook-Event: repo.initial_pull.completed
+X-Webhook-Event: repo.registered
 ```
 
-secret 来源优先级：`callbackSecret`（本次请求带的）> `api_keys` 派生 secret（见 §4.3）> `CONSOLE_API_TOKEN`。
+**事件名是 `repo.registered` / `repo.published`，不是初版设计里的
+`repo.initial_pull.completed` / `.failed`。** 原因就是上一段那句语义：登记端点不等待
+首次拉取，所以不存在"拉取完成"这个时刻可报；报一个从未发生的时刻，会让接入方写出一个
+永远等不到的状态机。两个事件名与 `POST /api/v1/projects` 共用同一个回调发送器
+（`lib/api/callback.ts`），所以"登记"与"发布"在消费方是同一段代码的两个分支。
+
+`eventId` 由事件名加仓库 id 派生（`repo.registered.<repoId>`）而不是随机：同一个写请求
+因为超时被重发时，接收方按 `eventId` 去重就能认出这是同一件事，而不是两次独立的登记。
+
+**secret 只有一种来源：本次请求带来的 `callbackSecret`。** 初版设计的
+"`callbackSecret` > `api_keys` 派生 secret > `CONSOLE_API_TOKEN`" 优先级已取消——后两档
+都不成立：`api_keys` 只存 SHA-256 而 §4.3 的派生方案依赖那列可读；`CONSOLE_API_TOKEN`
+是全站共享的，一个接入方拿到它就能收回所有人的回调。因此 `callbackUrl` 存在而
+`callbackSecret` 缺失时直接 400（§3.2 约束 2）。
+
+**投递失败不影响本次调用的结果**：数据已经落库，把一次写成功报成失败，调用方的重试只会
+登记两次。回调结果只进日志（`lib/api/callback.ts` 的文件头第 2、3 条）。
 
 ### 3.6 payload
 
 ```jsonc
 {
-  "eventId": "evt_abc123",
-  "event": "repo.initial_pull.completed",
-  "deliveredAt": "2026-04-01T18:00:03.114Z",
-  "requestId": "req_abc123",
-  "clientRef": "web-repo-1024",
-  "repo": {
-    "id": "V1StGXR8Z5jd",
-    "fullName": "owner/name",
-    "owner": "owner", "ownerId": 12345, "name": "name",
-    "repoUrl": "https://github.com/owner/name",
-    "description": "…", "homepage": "…",
-    "topics": ["mcp"], "languages": ["TypeScript"],
-    "licenseSpdxId": "MIT",
-    "defaultBranch": "main", "archived": false,
-    "stars": 1234, "forks": 120,
-    "subscribersCount": 89,                  // GitHub watchers，见 §4.4
-    "contributorCount": 34, "commitCount": 890,
-    "mentionableUsersCount": 12,
-    "openIssuesCount": 7,
-    "pullRequestsCount": 15, "releasesCount": 9,
-    "createdAt": "2024-01-01T00:00:00Z",
-    "pushedAt": "2026-03-30T12:00:00Z",
-    "lastCommit": "2026-03-30T11:59:00Z",
-    "latestReleaseName": "v1.2.0",
-    "latestReleaseTagName": "v1.2.0",
-    "latestReleasePublishedAt": "2026-03-01T00:00:00Z",
-    "latestReleaseUrl": "https://github.com/owner/name/releases/tag/v1.2.0",
-    "openGraphImageUrl": "…",
-    "iconUrl": "…",                          // 可为 null，取决于 icon 任务是否跑过
-    // §6.6 的过滤器命中情况。订阅推送也带同一份，客户端的过滤逻辑可以复用。
-    // 注意 POST /api/v1/repos 不建 projects 行（§1.4），所以这里的 projectTypes /
-    // categoryCode 必然为空——它是"这个仓库此刻的分类"，不是"提交时的分类"。
-    "classification": {
-      "projectTypes": [],                // 未策展 → 空
-      "categoryCode": null,              // 未策展 → null，见 §6.6 陷阱四
-      "categoryReviewed": false,
-      "isPlatformProject": false,
-      "platformStatus": "tracked",
-      "tags": []
-    },
-    "projectCount": 0                    // 与 repos.create 的返回值一致（repos.ts:448-454）
-  },
-  "stats": {
-    "daily":   { /* §4.1 的单期对象 */ },
-    "weekly":  { /* … */ },
-    "monthly": { /* … */ }
-  },
-  "meta": {
-    "taskName": "repos.create",
-    "processedAt": "2026-04-01T18:00:03.114Z",
-    "processingTimeMs": 1420,
-    "success": true
-  }
+  "eventId": "repo.registered.V1StGXR8Z5jd",
+  "event": "repo.registered",
+  "occurredAt": "2026-04-01T18:00:03.114Z",
+  "fullName": "owner/name",
+  "repoId": "V1StGXR8Z5jd",
+  "created": true
+  // 发布回调多一个 projectId；登记没有 project，所以这个字段不出现。
 }
 ```
 
-失败：
+**回调体里没有 §3.6 初版设计那张庞大的 `repo` / `stats` / `classification` 全量 payload。**
+初版把订阅推送的 payload（§6.5）复制了一份到登记回调里，但那些字段在登记刚完成时
+**全是空的**：`stats` 要等周期任务，`classification` 必然为空（§1.4：M2M 登记不建
+`projects` 行，所以 `projectTypes` / `categoryCode` 恒为空），`iconUrl` 要等图标任务。
+发一份内容基本为 null 的全量结构，只会让接入方以为"字段为空就是没有数据"，然后写出一段
+去猜 null 含义的代码。回调只报"发生了哪件事"，数据由接入方按 §4.1 / §5.1 去读。
+
+需要全量 payload 的调用方有两条路：`GET /api/v1/repos/{id}`（§3.6 之外的档案端点，含
+分类四轴）与 `POST /api/v1/subscriptions` 之后的推送（§6.5，那里有 `event` 级的
+`repo.registered` 触发）。
+
+失败时**不发回调**。回调只在成功路径上投递；`ingestRepo` 失败会带着 4xx/5xx 返回给
+调用方，那才是处理失败的地方。
+
+---
+
+### 3.7 `GET /api/v1/repos`：可见性、过滤器与分页
+
+列表**只返回已策展、对公开站可见的仓库**（§1.4），这与 `POST /api/v1/repos` 的"登记即可见"
+正好相反，所以两个方法共用一条路径却不共用可见性。过滤器是 §6.6 的同一套参数
+（`projectTypes` / `categoryCodes` / `platformTypes` / `tags` / `includeUncurated` /
+`minStars` / `includePlatformProjects`），由同一个 `lib/api/repo-filter.ts` 求值——列表里
+看得到与订阅里收得到必须是同一个集合。
+
+分页是 **keyset**，不是 offset：
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `limit` | 50 | 1..500 |
+| `cursor` | — | 上一页响应里的 `nextCursor` |
 
 ```jsonc
 {
-  "eventId": "evt_abc124",
-  "event": "repo.initial_pull.failed",
-  "requestId": "req_abc123",
-  "clientRef": "web-repo-1024",
-  "error": {
-    "code": "github_repo_not_found",   // 或 github_forbidden / github_rate_limited / github_unreachable
-    "message": "GitHub returned 404 for owner/name"
-  },
-  "meta": { "success": false, "taskName": "repos.create" }
+  "repos": [ /* §3.6 的档案行，带分类四轴 */ ],
+  "nextCursor": "V1StGXR8Z5jd",  // 或 null：这是最后一页
+  "total": 137                     // 命中过滤器的总数，与 limit 无关
 }
 ```
 
-**HTTP 状态码恒为 2xx**（含失败事件），`success` 在 payload 里。
-理由：让消费方按状态码做重试决策，等于让"GitHub 仓库是私有的"和"你的服务炸了"走同一条重试路径，
-把一个永久失败重试到天荒地老。失败事件由消费方按 `error.code` 自己决定要不要告警。
+- 游标是上一页最后一行 `repos.id` 的 base64url。**不用 offset** 的理由是 offset 会在两次
+  请求之间错行：新登记的仓库按 id 插进中间位置，于是第二页的第一行与第一页的最后一行
+  重复；而更糟的是"读到最后返回空数组"会被调用方当成"读完了"。
+- **坏游标返回 400，不退回第一页。** 静默退回会让调用方以为数据只有一页。
+- `total` 是命中过滤器的总数，所以调用方翻第一页就知道"要不要继续"，不必翻完才知道。
+- `limit` 上限 500 而不是 1000：每行带分类四轴（§1.5），1000 行是一个几 MB 的响应，
+  而调用方真正需要的"还有多少"已经由 `total` 回答了。
 
-可重试与不可重试在 console 侧也分开：失败回调只投递一次，不重试——因为 §3.5 已经把状态码从重试
-语义里解耦了，再加重试只是放大"永久失败"。
-
-**明确不含 `repo_stargazers` / stargazer 明细。** 也不含 `readmeContent`（可能是几 MB，
-且 radar 不做 README 托管）。
+**已知边界**：游标只按 `id` 定序，而 `repos.id` 是 nanoid。翻页期间新登记的仓库如果 id 排序
+落在游标之前，它在这次翻页里不会被看到——这是 keyset 的定义，不是缺陷；需要一致的快照
+只能给调用方一个"截至 `X` 时刻"的语义，而当前端点没有那个参数。
 
 ---
 
@@ -1174,13 +1278,26 @@ secret 来源优先级：`callbackSecret`（本次请求带的）> `api_keys` �
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `cadence` | `daily` | `daily` \| `weekly` \| `monthly` |
-| `start` | `end - 90d` | ISO 8601，按 `Asia/Shanghai` 日历解释 |
-| `end` | 该仓库最新已存周期 | **不clamp 到今天** |
+| `start` | `end - 90d` | ISO 8601 **日期或时间戳**，按 `Asia/Shanghai` 日历解释 |
+| `end` | 该仓库最新已存周期 | 同上；**不 clamp 到今天** |
 | `limit` | 500 | 1..1000 |
 | `cursor` | — | 上一页的 `nextCursor` |
 
 **为什么默认 90 天**：沿用 `stats.ts:1105` 的 `DAILY_ARRIVALS_WINDOW_DAYS`，
 和公开项目详情图用同一个窗口，客户端不需要为 radar 和详情页维护两套默认。
+
+**`start` / `end` 接受两种写法**，因为"我要 4 月"是一个日期而不是一个时刻：
+
+| 写法 | 含义（`Asia/Shanghai`） |
+|---|---|
+| `"2026-04-01"` | 该日 00:00:00.000 +08:00，即 `2026-03-31T16:00:00Z` |
+| `"2026-04-01T00:00:00Z"` / 带偏移 / 不带偏移的完整时间戳 | 就按它解析（无偏移者按 `Asia/Shanghai`） |
+
+只接受完整 ISO 时间戳曾经是一个真 bug：`{start: "2026-04-01", end: "2026-04-30"}` 是最自然的
+区间写法，却会被 `z.iso.datetime()` 拒成 400，而同一份文档的示例里 `range.start` 输出的是
+`2026-03-31T16:00:00Z` —— 文档教人用的写法端点不接受。现在 `YYYY-MM-DD` 被当作**上海时区
+的日历边界**（`instantOfCivil`），而不是运行时的本地时区：`2026-04-01` 在 UTC 服务器上和在
+上海部署的服务器上必须指向同一个时刻，否则同一个请求在不同机器上返回不同区间。
 
 **为什么 `end` 是"最新已存周期"而不是今天**：`listDailyArrivals`
 （`apps/console/src/lib/github/service/stats.ts:995`）的注释已经论证过这一点 —— sweep 随时可能停，
@@ -1273,17 +1390,27 @@ export async function listStatsSince(
 `listStatsSince` 供订阅增量推送使用（§6.4），按 `period > since` 索引扫描，
 三张表都有 `period` 单列索引（`0012` 建出）。
 
-### 4.3 callback secret 的派生
+### 4.3 callback secret 的派生 —— **已取消**
 
-未显式传 `callbackSecret` 时，用 key 派生而不是用 key 明文本身：
+初版设计是"未显式传 `callbackSecret` 时从 key 派生"：
 
 ```
 secret = base64url( HMAC-SHA256( key="mcp-radar-callback-v1", message=sha256(apiKeyHash) ) )
 ```
 
-这样做的收益是**回调 secret 可独立吊销**（换 key 即换 secret），且回调接收端泄露 secret 不会
-反推出调用用的 API key。派生输入用 `key_hash` 而非明文，是为了让派生过程不需要在请求路径上
-持有明文。
+**这条路径没有实现，而且不该实现。** 它的两个卖点都站不住：
+
+1. "回调 secret 可独立吊销（换 key 即换 secret）" —— 换 key 本来就是一次明确的管理动作，
+   而 `api_keys` 上还有 `revoke`，独立吊销并不需要靠派生 secret 来实现。
+2. "派生输入用 `key_hash`，不必在请求路径上持有明文" —— `key_hash` 恰恰是**库里明文可见、
+   审计可见**的那一列。任何能读到 `api_keys.key_hash` 的人都能算出回调 secret，于是"回调
+   只对我信任的接收方可见"退化成"对任何能查库的人可见"。而 `HMAC-SHA256` 在这里没有密钥
+   保密性可言：`key="mcp-radar-callback-v1"` 是写在本文里的常量。
+
+所以现在只有一种 secret 来源：**调用方在请求里带来 `callbackSecret`**
+（`POST /api/v1/repos` / `POST /api/v1/projects`，`callbackUrl` 存在时必填，§3.2 约束 2）。
+订阅的 secret 不走这条路，它由 `rotateSubscriptionSecret` 显式生成与轮换（§6.2），
+因为订阅要能**在不换 key** 的前提下换 secret。
 
 ### 4.4 `subscribers`（GitHub watchers）：语义澄清与结论
 
@@ -1959,70 +2086,36 @@ includeUncurated 的默认值 = (projectTypes 为空 AND categoryCodes 为空 AN
 
 ### 10.1 实际进度（逐条核对代码，不是估计）
 
-本文的凭据层已经落地，HTTP 层一行都没有。这个组合状态本身是个风险：
-`authenticateApiKey` 已实现、有 12 处单测 + 真实 DB 集成测试，却**零生产调用方**，
-因为没有 `/api/v1` 路由可守。
+HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/openapi.json` 也在。
+下表逐条核对代码；偏离设计的地方都写出来，而不是留一个 ✅ 了事。
 
 | 步骤 | 内容 | 迁移 | 状态 |
 |---|---|---|---|
-| 0 | `lib/redis/{client,lua,lock}.ts` 双驱动 + 限流 + 分布式锁 | — | ✅ **已实现**。偏离设计：限流用**固定窗口** `INCR`+`EXPIRE`（`lua.ts:30-40`）而非设计的滑动窗口 zset；key 前缀 `openmcp:console:api:rate-limit:` 而非 `rl:rpm:`。`RedisLike` 有 7 个原语而非 3 个（锁需要）。**锁零调用方** |
-| 2 | `api_keys` 表 + **管理员**签发/吊销/轮换 + `lib/api/guard.ts` + 限流 | `0015_api_keys.sql` ✅ 已存在 | ✅ **已实现**。scope 枚举与 §2.5 **完全一致**（`lib/api/scopes.ts:10-15`），4 个 tRPC 过程全是 `adminProcedure`。缺：`user_id` / `tier` 两列（§2.2，`0022`）、`KV_REST_API_*` 不在任何 `.env.example`、`REDIS_DB` 从未被读 |
-| 2' | **用户自助签发 + 管理员治理**（§2.10 / §2.12 / §2.13） | `0022` + `0023` | ❌ **未做**。`createMine` / `updateScopes` / `assertSelfServiceQuota` / `api_request_audit` 全部不存在 |
-| 2'' | **接入方注册与配对**（§2.11） | `0024` | ❌ **未做**。`POST /api/v1/connections/redeem` 不存在 |
-| 1 | `listStatsRange` + zod DTO + `GET /api/v1/repos/{id}/stats` | — | ❌ **未做**。`listStatsRange` / `listStatsSince` 全仓为空 |
-| 3 | `ingestRepo` 抽取 + `POST /api/v1/repos` + 幂等表 + 首次拉取回调 | — | ❌ **未做**。`ingest-repo.ts` 不存在；`api_request_idempotency` 表不存在；§4.3 的 callback secret 派生（`mcp-radar-callback-v1`）只存在于本文 |
-| 4 | 排行与周期目录路由 | — | ❌ **未做**。无 `/api/v1` 任何路由 |
-| 5 | `resolveSubscriptionRepos` + `GET /api/v1/repos` 过滤器 | — | ❌ **未做** |
-| 6 | `subscriptions` / `webhook_deliveries` 表 + `notify-subscriptions` + 重试/熔断 | — | ❌ **未做**。两张表、`filters_version` 列、`notify-subscriptions` 任务均不存在 |
-| 7 | `/console/subscriptions` + `/dashboard/subscriptions` | — | ❌ **未做** |
-| 12 | **清理现有 `/api/*`**（§12） | — | 🟡 **部分**。`/api/internal/repos` 已删并由 `/api/v1/{repos,projects}` 取代（§12.2）；4 个 `.json` 端点尚未收敛到 `/api/v1` 的服务函数 |
-
-`/api/v1/openapi.json`（§7.1）也不存在。
+| 0 | `lib/redis/{client,lua,lock}.ts` 双驱动 + 限流 + 分布式锁 | — | ✅ **已实现**。偏离设计：限流用**固定窗口** `INCR`+`EXPIRE`（`lua.ts`）而非设计的滑动窗口 zset；key 前缀 `openmcp:console:api:rate-limit:` 而非 `rl:rpm:`。`RedisLike` 有 7 个原语而非 3 个（锁需要）。锁被 `notify-subscriptions` 用作跨实例单飞 |
+| 2 | `api_keys` 表 + 管理员签发/吊销/轮换 + `lib/api/guard.ts` + 限流 | `0015_api_keys.sql` | ✅ **已实现**。scope 枚举与 §2.5 完全一致，tRPC 有 admin 与自助两族 |
+| 2' | **用户自助签发 + 管理员治理**（§2.10 / §2.12 / §2.13） | `0022` + `0023` | ✅ **已实现**。`createMine` / `updateScopes` / `assertSelfServiceQuota` / `api_request_audit` 全部存在。**本轮修**：`createdBy` 曾被写成 `null`，现已改为 `input.userId`（§2.2） |
+| 2'' | **接入方注册与配对**（§2.11） | `0025`（与幂等表同一次迁移） | ✅ **已实现**。`POST /api/v1/connections/redeem` + `/console/connections` + `connectionsRouter`。**偏离**：key 在**兑换时**签发而非建码时签发，见 §2.11。**本轮补**：建码曾绕过 §2.10 的邮箱验证（未验证小号可拿到能调的 key），现由 `createPairing` 内的 `assertEmailVerified` 挡住；兑换侧补 403 `quota_exceeded`（事务回滚，码不消费，撤销一把 key 后可重试）；`input.ip === null` 从"跳过限流"改成 fail-closed |
+| 1 | `listStatsRange` + zod DTO + `GET /api/v1/repos/{id}/stats` | — | ✅ **已实现**。`listStatsRange`（`stats.ts:432`）/ `listStatsSince`（`stats.ts:544`）。**本轮修**：date-only 边界曾被 400（见 §4.1） |
+| 3 | `POST /api/v1/repos` + 幂等表 + 登记回调 | `0025` | ✅ **已实现**。**偏离**：没有抽 `ingestRepo`，登记逻辑仍分散在路由与 service；回调事件名是 `repo.registered`、payload 是瘦的（§3.5 / §3.6）。幂等回放存 JSONB，所以**语义**一致而键序可能变；回放保留首次的状态码（新登记的重试仍是 201） |
+| 4 | 排行与周期目录路由 | — | ✅ **已实现**。`/api/v1/rankings/{weekly,monthly,periods}` |
+| 5 | `GET /api/v1/repos` 过滤器 + 分页 | — | ✅ **已实现**。过滤器与订阅共用 `lib/api/repo-filter.ts`；keyset 分页（§3.7）。**本轮修**：`platformTypes` / `categoryCodes` / `projectTypes` 的 `IN` 子句曾缺括号（`lib/api/repo-filter.ts` 的 `inList`） |
+| 6 | `subscriptions` / `webhook_deliveries` 表 + `notify-subscriptions` + 重试/熔断 | `0024` | ✅ **已实现**。`lib/api/subscriptions.ts` 全套服务函数 + `/api/v1/subscriptions/*` 六条路由 + `notify-subscriptions` 任务 |
+| 7 | `/console/subscriptions` + `/dashboard/subscriptions` | — | ❌ **未做**。服务函数与 REST 路由都在，**只有这两个页面与 `subscriptionsRouter` 缺失** |
+| 12 | **清理现有 `/api/*`**（§12） | — | 🟡 **部分**。`/api/internal/repos` 已删；4 个 `.json` 端点尚未收敛到 `/api/v1` 的服务函数 |
 
 ### 10.2 剩余步骤
 
-| 步骤 | 内容 | 迁移 | 风险 |
-|---|---|---|---|
-| 2' | **`api_keys` 加 `user_id` / `tier` / `last_rotated_at`** + 服务层授权断言 + `assertSelfServiceQuota`（fail-closed） | `0022` | 中。唯一真正阻塞自助签发的 schema 改动 |
-| 1 | `listStatsRange` + zod DTO + `GET /api/v1/repos/{id}/stats` | — | 低。纯读，guard 已在 |
-| 2'' | 接入方配对表 + `POST /api/v1/connections/redeem` + `/console/connections` | `0024` | **高**。唯一一个无凭据的 `/api/v1` 端点，§2.11 的每条约束都是必需的 |
-| 3 | 抽 `ingestRepo` + `POST /api/v1/repos` + 幂等表 + 首次拉取回调 | — | 中。写路径；须同时满足"不改 `createdBy`"（§3.1）与"不建 projects"（§1.4） |
-| 4 | 排行与周期目录路由 | — | 低 |
-| 5 | `resolveSubscriptionRepos` + `GET /api/v1/repos` 过滤器参数 | — | 中。§6.6 是本文最容易实现错的部分 |
-| 5b | **分类可读化**：`/dashboard/categories` 维护页 + `categories` tRPC router（消费 `listCategoryReviewQueue` / `categoryUsage`） | — | 中。**不是上线阻塞项**（§1.5 坑一：空词表是合法状态），但不做则运营无处配置，"产品/运营配置"这句话是空的 |
-| 6 | `subscriptions` / `webhook_deliveries` 表 + `notify-subscriptions` + 重试/熔断 | `0025` | 高。任务编排、锁归属（§6.3）、重试、熔断 |
-| 7 | `/console/subscriptions`（用户）+ `/dashboard/subscriptions`（admin，含 `disable`） | — | 中。前端 |
-| 12a | ~~4 个 `.json` 端点收敛到 `/api/v1` 的服务函数（§12.3）~~ | — | 低。纯内部重构 |
-| 12b | 删除 web 侧死代码 `triggerConsoleSync`（`client.ts:249`） | — | 低 |
-| 12c | 两个新端点的集成测试（鉴权 / scope / 语义 / 幂等） | — | 中 |
+§10.1 之后真正剩下的只有这些，其余标记 ✅ 的行不需要再排期：
 
-> **迁移编号从 `0022` 起，不是本文早期版本写的 `0015`。** `0015_api_keys.sql` 已被步骤 2 占用，
-> `0016_restore_capabilities_tables.sql`、`0017_radar_anomalies.sql`、`0018_decision_workbench.sql`、
-> `0019_anomaly_magnitude.sql`、`0020_dry_black_cat.sql`（newsletter）、
-> `0021_stiff_shadowcat.sql`（categories）都已存在。本文占用五个，**按依赖顺序**编号
-> （`api_keys` 的归属列是其余每一个的前置）：
-
-| 编号 | 文件 | 依赖 | 步骤 |
-|---|---|---|---|
-| `0022` | `api_key_ownership.sql` — `api_keys` 加 `user_id` / `tier` / `last_rotated_at` | 无 | 2' |
-| `0023` | `api_request_audit.sql` — 审计日志 | `0022` | 2' |
-| `0024` | `connection_pairing.sql` — 配对码 | `0022` | 2'' |
-| `0025` | `subscriptions.sql` — `subscriptions` + `webhook_deliveries` | `0022` | 6 |
-| `0026` | `rename_capability_category_axis.sql` — `capabilities.axis` 改名 | 无（可任意时刻） | — |
-
-`0026` 与其他四个无依赖，所以它不阻塞任何一步；放在最后只是为了让前五个按依赖顺序连续。
-
-步骤 1–5 都是同步无副作用的，可以先上线给 `apps/web` 联调；
-步骤 6 是唯一有状态的部分，放在最后。
-
-**本轮新增的步骤 2' / 2'' 必须在步骤 3 之前完成。** 理由：`apps/web` 调用
-`POST /api/v1/projects` 时需要一把 key，而配对流程（2''）依赖 `user_id`（2'）。
-顺序反了会让联调方拿到一把无归属的 key，然后卡在"这把 key 属于谁"上。
-
-> §12.2 已经先落地了这条链的最小可用版本：`POST /api/v1/{repos,projects}` 与
-> `projects:write` 已上线，`apps/web` 已在用。步骤 2' / 2'' 没有前置阻塞——现有
-> `api_keys` 表已经能承载这两把 key，只是没有 `user_id` / `tier`，所以 web 那把 key
-> 现在是**无归属**的，审计只能追到 key 追不到人。
+| 剩余 | 内容 | 风险 |
+|---|---|---|
+| 7 | `subscriptionsRouter` + `/console/subscriptions`（用户）+ `/dashboard/subscriptions`（admin，含 `disable`） | 中。服务函数（`lib/api/subscriptions.ts`）与 `/api/v1/subscriptions/*` 都已完成，只差前端 |
+| 3b | 抽 `lib/github/service/ingest-repo.ts`，让 `POST /api/v1/repos` 与 `repos.create` 真正共用一段逻辑（§3.1） | 低。纯重构，当前两者行为已一致 |
+| 3c | 幂等的 `in_flight` 租约超时（§3.3 已知边界） | 中。要与业务写入同事务，或给预占加租约 |
+| 5b | 分类可读化：`/dashboard/categories` 维护页 + `categories` tRPC router（消费 `listCategoryReviewQueue` / `categoryUsage`） | 中。**不是上线阻塞项**（§1.5 坑一：空词表是合法状态），但不做则运营无处配置 |
+| 12a | 4 个 `.json` 端点收敛到 `/api/v1` 的服务函数（§12.3） | 低。纯内部重构 |
+| 12b | 删除 web 侧死代码 `triggerConsoleSync`（`client.ts`） | 低 |
+| 12c | `POST /api/v1/{repos,projects}` 与 `/connections/redeem` 的集成测试（鉴权 / scope / 语义 / 幂等 / 配对约束） | 中。当前只有手工验证 |
 
 ## 11. 待确认
 
