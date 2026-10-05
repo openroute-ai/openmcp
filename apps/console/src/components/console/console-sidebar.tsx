@@ -18,7 +18,6 @@ import {
 import {
   IconCode,
   IconKey,
-  IconLink,
   IconScale,
   IconSettings,
   IconWebhook,
@@ -35,10 +34,6 @@ const navMain: NavMainItem[] = [
   // submitting repositories, and the four entries above are all "things you
   // made" while this is "the credential you use to make more of them".
   { key: "apiKeys", url: "/console/api-keys", icon: <IconKey /> },
-  // After the key list, because this page does not hold a key: it holds the
-  // short-lived codes that produce one, and a reader looking for the key is
-  // looking at the row this one becomes.
-  { key: "connections", url: "/console/connections", icon: <IconLink /> },
   // After the credential pages, because that is what a subscription consumes: it
   // pushes data to a callback URL you sign with a key from the page above. A
   // reader looking for either starts at the credential.

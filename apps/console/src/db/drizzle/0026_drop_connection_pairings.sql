@@ -1,0 +1,11 @@
+-- `connection_pairings` was created by 0025 together with `api_request_idempotency`,
+-- for the pairing-code flow (`POST /api/v1/connections/redeem` + `/console/connections`).
+-- That flow is gone: the only consumer would be an integration that does not exist yet,
+-- and self-service issuance (§2.10) plus admin-issued service keys (§2.12) already cover
+-- every credential the API needs.
+--
+-- 0025 keeps its `connection_pairings` DDL. Migrations are append-only: databases that
+-- already applied it must still replay it verbatim, so the drop lives here instead of
+-- being edited into 0025. `api_request_idempotency` from the same migration stays — only
+-- the pairing table goes.
+DROP TABLE "connection_pairings" CASCADE;

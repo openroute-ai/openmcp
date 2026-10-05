@@ -15,14 +15,12 @@ import * as githubSchema from "./schema/github"
 import { repos } from "./schema/github"
 import { apiKeys } from "./schema/api-keys"
 import { apiRequestAudit } from "./schema/api-request-audit"
-import { connectionPairings } from "./schema/connection-pairings"
 import { subscriptions } from "./schema/subscriptions"
 
 export * from "./schema/github"
 export * from "./schema/api-keys"
 export * from "./schema/api-request-audit"
 export * from "./schema/api-request-idempotency"
-export * from "./schema/connection-pairings"
 export * from "./schema/subscriptions"
 
 /**
@@ -362,10 +360,6 @@ export const userRelations = relations(user, ({ many }) => ({
   // console 用户自己创建的订阅。key 创建的那些走 `apiKeyRelations`。
   subscriptions: many(subscriptions, {
     relationName: "subscriptionUser",
-  }),
-  // 建过接入配对码。兑换出来的 key 也归他，所以这个方向同时回答"我的 key 是配来的吗"。
-  connectionPairings: many(connectionPairings, {
-    relationName: "connectionPairingUser",
   }),
 }))
 

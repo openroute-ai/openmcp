@@ -4,7 +4,6 @@ import {
   apiRequestAudit,
   apiRequestIdempotency,
   bundles,
-  connectionPairings,
   capabilities,
   categories,
   decisionBoards,
@@ -84,13 +83,6 @@ export { apiKeys, apiRequestAudit }
  * 里存在的表，而这张表被删掉的表现是"重试开始重复登记"，不会有任何报错。
  */
 export { apiRequestIdempotency }
-
-/**
- * 接入方配对码（§2.11）。
- *
- * 引用 `api_keys` 与 `user`，与 `subscriptions` 同属"跨两个域"那一组，处置方式一致。
- */
-export { connectionPairings }
 
 /**
  * 订阅与投递队列（设计文档 §6.1）。

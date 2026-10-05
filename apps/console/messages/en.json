@@ -53,7 +53,6 @@
     "settings": "Account settings",
     "apiKeys": "API Keys",
     "groupAccess": "Access",
-    "connections": "Connections",
     "subscriptions": "Subscriptions"
   },
   "Status": {
@@ -1283,35 +1282,6 @@
     "scopesUpdated": "Permissions updated",
     "limitsUpdated": "Rate limit updated",
     "limits": "Limits"
-  },
-  "Connections": {
-    "title": "Connections",
-    "description": "Hand a short-lived code to a service so it can get its own API key. The code works once and expires in 5 minutes; the key it produces appears in API Keys.",
-    "newCode": "New pairing code",
-    "create": "Create code",
-    "formDescription": "The code is exchanged for a key by the service you are connecting. It can be used once, and only by the callback URL you give here.",
-    "name": "What it is for",
-    "namePlaceholder": "e.g. nightly ranking import",
-    "nameHint": "Shown in the API key this produces, and it is all the service will know about the key before it redeems the code.",
-    "returnUrl": "Callback URL",
-    "returnUrlHint": "Must be an absolute http(s) URL. The service has to send it back exactly when it redeems the code — a different value is refused.",
-    "scopes": "What the resulting key may do",
-    "code": "Code",
-    "expires": "Expires",
-    "actions": "Actions",
-    "revoke": "Discard this code",
-    "empty": "You have no active pairing codes.",
-    "emptyHint": "Create one when you are ready to connect a service. Codes are removed from this list once they are used or expired.",
-    "issuedTitle": "Give this code to your service",
-    "issuedWarning": "This code is shown once and works for 5 minutes. If it expires unused, create another — there is no way to extend it.",
-    "expiresAt": "Expires {date}",
-    "handOver": "How to hand it over",
-    "handOverHint": "Send the code to the service out of band, and let it redeem it with:",
-    "stepExchange": "POST /api/v1/connections/redeem with { code, returnUrl: \"{returnUrl}\" }",
-    "stepKey": "It receives a user key limited to {rpm} requests a minute and {rpd} a day, with only the permissions you picked.",
-    "copied": "Copied",
-    "copy": "Copy",
-    "done": "Done"
   },
   "Subscriptions": {
     "title": "Subscriptions",

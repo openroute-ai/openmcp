@@ -127,6 +127,13 @@
       "when": 1791172632164,
       "tag": "0025_idempotency_and_pairing",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791184379922,
+      "tag": "0026_drop_connection_pairings",
+      "breakpoints": true
     }
   ]
 }

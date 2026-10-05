@@ -6,9 +6,8 @@
  * 字段写两遍就一定会漂一次，所以这里只写一遍。
  *
  * 覆盖范围以 `docs/design/CONSOLE_OPEN_RADAR_API.md` §1.1 的路由清单为准：读取、
- * 写入、订阅、需要凭据的自描述端点，以及 §2.11 那个**匿名**的配对兑换端点。
- * 匿名的那一个仍然要在这里有 schema：它输入一段没人验证过的东西却换出一把 key，
- * 它的形状一旦漂掉，OpenAPI 就是唯一还能看见这件事的地方。
+ * 写入、订阅，以及那份需要凭据的自描述端点——**没有匿名端点**，所以每一个
+ * `/api/v1` 路由的鉴权都是 Bearer key。
  */
 import { z } from "zod"
 import {
@@ -265,35 +264,6 @@ export const repoListItemSchema = z.object({
   classification: classificationSchema,
   /** 已发布的项目数。非零意味着这个仓库被策展过（提交本身不会建 project 行）。 */
   projectCount: z.number(),
-})
-
-/**
- * `POST /api/v1/connections/redeem` 的请求体（§2.11）。
- *
- * 放在 `contract.ts` 而不是路由文件里，是因为 OpenAPI 要引用同一个 schema —— 一份无凭据
- * 端点的契约如果只存在于路由里，spec 就会漏掉它，而漏掉的那个恰好是唯一一个别人最需要
- * 提前读文档的端点。
- */
-export const pairingRedeemRequestSchema = z
-  .object({
-    /** 8 个字符，大小写不敏感：用户多半是手敲或扫码，容错比严格好。 */
-    code: z.string().trim().min(1).max(32),
-    /** 必须与建码时给的完全相等（不是前缀相等，§2.11）。 */
-    returnUrl: z.string().url(),
-  })
-  .strict()
-
-/** 兑换响应。明文 key 只在这里出现一次。 */
-export const pairingRedeemResponseSchema = z.object({
-  ok: z.literal(true),
-  key: z.object({
-    id: z.string(),
-    name: z.string(),
-    scopes: z.array(z.string()),
-    tier: z.string(),
-    /** `mcp_radar_<prefix>_<secret>`。库里只有哈希，之后取不回来。 */
-    secret: z.string(),
-  }),
 })
 
 /**

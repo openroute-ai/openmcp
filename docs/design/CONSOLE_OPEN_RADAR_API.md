@@ -1,7 +1,7 @@
 # `apps/console` Radar 开放 API 设计方案
 
 > 本文定义 `apps/console` 对外开放的 HTTP API：**用户自助签发与管理员治理 API Key**、
-> 接入方注册与配对、仓库创建与首次拉取回调、指定仓库的日/周/月统计、周期排行与周期目录、
+> 接入方的 key 来源、仓库创建与首次拉取回调、指定仓库的日/周/月统计、周期排行与周期目录、
 > 以及日更新订阅推送。同时定义**现有 `/api/*` 路由的清理与迁移**（§12）。
 >
 > 前提事实（已核对代码）：
@@ -70,7 +70,6 @@
 | DELETE | `/api/v1/subscriptions/{id}` | `subscriptions:write` | 删除订阅并清空待投递队列 |
 | POST | `/api/v1/subscriptions/{id}/rotate-secret` | `subscriptions:write` | 轮换回调 secret |
 | POST | `/api/v1/subscriptions/{id}/test` | `subscriptions:write` | 立刻发一条探测 payload，验证回调可达 |
-| POST | `/api/v1/connections/redeem` | **无凭据** | 配对码换 key（§2.11，唯一无凭据端点） |
 | GET | `/api/v1/openapi.json` | 任意有效凭据 | 接口自描述（§8） |
 
 订阅也可以由 console 登录用户在 `/dashboard/subscriptions` 自助创建，归属主体是该账号而不是某个
@@ -759,7 +758,7 @@ SET notify-subscriptions:lock <instanceId> NX PX 900000
 2. **分层的 rate limit**：第三方默认比内部 key 更严，由 `tier` 决定默认值（§2.2），
    而不是让每个 key 手填数字。
 3. **key 的自助签发还是 admin 签发** —— **已决定**：用户自助签发自己名下、限定 scope 子集
-   （§2.10），接入方走注册 + 配对（§2.11）。
+   （§2.10）；机器对机器由 admin 签 `service` 档（§2.12）。没有第三条路，也没有免凭据端点（§2.11）。
 
 ### 2.10 用户自助签发与滥用防护
 
@@ -781,7 +780,7 @@ SET notify-subscriptions:lock <instanceId> NX PX 900000
 错的只是默认值。
 
 对**读接口** fail-open 是合理的取舍：Redis 抖动时让用户能继续看数据。但"一个账号能不能再申请
-一把 key"、"这台 IP 能不能再兑一次配对码"是**滥用控制**，fail-open 的语义正好相反 ——
+一把 key"、"这个账号能不能再建一把"是**滥用控制**，fail-open 的语义正好相反 ——
 Redis 一挂，限制消失，当天签发量翻倍。所以自助路径**不共用**上述任何一条，而是走新的、
 **fail-closed** 的路径：
 
@@ -813,11 +812,37 @@ async function assertSelfServiceQuota(db, userId): Promise<void>
 自助 `repos:write` 不构成新能力（§2.5 已论证），所以这一层不需要额外限流；
 签发频率交给上面两层。
 
-### 2.11 接入方注册与配对（`apps/web` 的接入路径）
+### 2.11 `apps/web` 的接入路径：没有免凭据面
 
-产品要求：**接入方必须先注册，创建 key，然后才能正常调用 console 的 API**。
-这条要求真正要解决的是一个鸡生蛋问题 —— 注册和创建 key 本身都需要凭据，
-而接入方此时还没有凭据。
+接入方要调 console 的 API 就得先有一把 console 的 key，而"拿到 key"这件事本身需要凭据 ——
+当初的配对流程就是为这个鸡生蛋问题设计的。**它已删除**（本轮）。现在发 key 只有两条路：
+
+| 路径 | 归属 | tier / 配额 | 适合 |
+|---|---|---|---|
+| 用户自助签发（§2.10） | `user_id = 登录账号` | `user`，30 rpm / 1000 rpd | 接入方的调用要出现在某个账号的"我的仓库"里 |
+| admin 在 `/dashboard/api-keys` 签发 | `user_id IS NULL` | `service`，60 rpm / 5000 rpd | 服务端机器对机器调用（§2.12） |
+
+两者产出的 key 在**权限上完全等价**（同一套 scope 校验、同一套吊销、同一套审计），
+差别只在归属与配额档位，所以接入方要哪一把只取决于"它的调用要不要挂在某个账号名下"。
+
+#### 被删掉的那条：配对码
+
+删掉的是 `POST /api/v1/connections/redeem`（匿名端点）、`/console/connections`、
+`connectionsRouter` 与 `connection_pairings` 表 —— 表由 `0026_drop_connection_pairings.sql`
+删掉，而 `0025` 里那段建表 DDL 保持原样（迁移 append-only，已经应用过的库要能原样重放；
+同一次迁移里的 `api_request_idempotency` 留下）。流程是 console 侧生成一个 8 位一次性码，
+接入方拿码 + `returnUrl` 换 key，唯一的卖点是**长期 key 不经过人的手**（不进聊天记录、
+不进屏幕共享、不进工单）。
+
+删除的理由不是它不安全，而是**它没有消费者**：仓库里除它自己的实现、OpenAPI 与文档外
+零引用 —— 没有 MCP server、没有任何接入方文档页在教人怎么用。而它比 §2.10 多出来的那点
+安全性，要用一个匿名 `/api/v1` 端点去换，那个端点唯一的屏障是 40 bit 短码。为了一个尚不存在的
+集成维持一个可被扫到的匿名面，不划算。
+
+等真的出现一个"**无法接受粘贴密钥、且确实要求 key 不被人看见**"的接入方，应当重新设计成
+OAuth 授权码式的重定向（console 出 consent 页 → `code` 换 token），而不是把这个码捡回来 ——
+device flow 的那一套约束（单次、5 分钟 TTL、绑定 `returnUrl`、按 IP fail-closed 限流）是
+**因为有匿名面才必须成立**的，没有匿名面就不需要背着。
 
 #### 为什么不能靠"web 有自己的 api_keys 表"
 
@@ -830,101 +855,8 @@ async function assertSelfServiceQuota(db, userId): Promise<void>
 两份 API Key 表面看起来是同一件事，其实是两个产品。文档必须显式承认这一点，
 否则下一个人一定会把它们合并，然后顺手造出跨库读 `user` 表的东西。
 
-#### 配对流程
-
-采用**从 console 侧发起**的配对，而不是让 web 主动来注册。理由：发起方向决定了
-"哪一侧需要凭据"。web 反过来发起就需要一个已经存在的 key，而那个 key 正是我们要发的东西。
-
-```
-用户(web)                     console                      web 后端
-   │                             │                             │
-   │  用户登录 /console/connections，建一把配对码  │             │
-   │────────────────────────────▶│                             │
-   │                             │                             │
-   │  console 显示配对码 + 该码的 scopes + 兑换方法说明         │
-   │◀────────────────────────────│                             │
-   │                             │                             │
-   │  把配对码粘回 web ───────────────────────────────────────▶│
-   │                             │◀── 用配对码兑换 ─────────────│
-   │                             │   POST /api/v1/connections/redeem
-   │                             │   { code, returnUrl }
-   │                             │      （无需凭据，见下）      │
-   │                             │── 返回明文 key ─────────────▶│
-   │                             │   （同时写入该码的 api_key_id）│
-```
-
-兑换端点 `POST /api/v1/connections/redeem` 是**唯一**一个不需要凭据的 `/api/v1` 端点，
-安全边界完全等于 OAuth device flow，因此这几个约束是必须的而不是可选的：
-
-| 约束 | 值 |
-|---|---|
-| 配对码 | 8 字符、无 `0O1I` 歧义字符；单次有效；TTL 5 分钟 |
-| 绑定 | **兑换时**才签发 key，因此绑定的是 `(code, scopes 快照, returnUrl, userId)`；`api_key_id` 在兑换成功后回填 |
-| 兑换校验 | 码有效 + 未用过 + 未过期 + `returnUrl` 精确相等（不是前缀相等） |
-| 限流 | 按 IP，**fail-closed**，复用 `claimSlot`；单 IP 每小时 20 次 |
-| 明文 | 只在兑换响应里出现一次；不写日志（§2.13） |
-
-兑换端的失败语义分成两类，因为两类的信息量不一样：
-
-| 情况 | 响应 | 为什么能/不能分开 |
-|---|---|---|
-| 码不存在 / 已用过 / 已过期 / `returnUrl` 不匹配 | 全部 `404 not_found` | 分开报就是给探测者的二分枚举 oracle；攻出一个还没用的码 = 拿到一把 key |
-| 单 IP 超 20 次 | `429 rate_limited` + `Retry-After: 3600` | **本地**计数，与那个码存不存在无关 |
-| 码主人 key 存量已满 | `403 quota_exceeded`，**无** `Retry-After` | 只在码通过全部校验之后才可能出现，泄漏的是"主人存量满了"而不是"码存在"。上限要主人去 `/console/api-keys` 撤销一把 key 才会动，所以不给一个不会兑现的重试时间 |
-
-**为什么是兑换时才签发**，而不是建码时就签好（这是与初版设计不同的一处）：建码时签发
-意味着 `connection_pairings` 要存一把**未交付**的明文 key，而那把 key 在建码到兑换之间
-对任何人都没有用处，却能被任何能读到这张表的人拿走。改成兑换时签发之后，明文的生命周期
-被压缩到"兑换响应本身"这一瞬间，与 `api_keys` 侧"明文只在签发响应里出现一次"的规则
-（§2.3）一致，代价是 `api_key_id` 列可为 `NULL`——而它本来就在"兑换前无意义"的那一侧。
-
-**兑换方拿到的 key 是 `user` tier。** 所以它带 §2.5 的自助子集 scope、`rpm=30 / rpd=1000`
-配额（§2.10，取自 `TIER_DEFAULTS.user`，与 `selfServiceRateLimits()` 同源），且 `user_id` 等于
-建码的那个账号——服务端的调用因此会出现在该账号的"我的仓库"里。这与 §2.4 自助签发是同一
-个结果，区别只有发放方式。
-
-配对建码同样走 §2.10 里与"能发出去多少"有关的两道闸门（邮箱已验证、存量 key 上限）：配对
-是发 key 的第二条路，服务端在这里不查，一个未验证的小号就能绕过自助签发拿到一把能调的
-key；不查存量上限，用户可以绕过 5 把的封顶反复兑换。**刻意不搬**的是 60 秒 cooldown——
-它防的是"一把 key 换一次 GitHub token"的成本，而建码不消耗任何外部配额，这里的实际
-天花板是"同时 3 个待兑换码 × 5 把存量上限"，两者都是每账号计数、都不需要等时间。
-
-**console 侧入口**（§2.11 的配套 UI，不属于 `/api/v1`）：
-
-| 入口 | 作用 |
-|---|---|
-| `connections.listMine`（tRPC `protectedProcedure`） | 列出我建的、未兑换且未过期的码 |
-| `connections.create` | 建码：入参只有 `name` / `scopes` / `returnUrl` |
-| `connections.revoke` | 作废一个还没被兑换的码（删行） |
-| `/console/connections` | 上述三者的页面；建码后一次性弹窗显示码 |
-
-归属判断是 SQL 里的 `user_id = session.user.id`，scope 上界是 `SELF_SERVICE_SCOPES`，
-页面里没有一处权限判断。**兑换端点不在这个 router 里**——那是无凭据面。
-
-`connections.create` 的失败码映射（`CREATE_FAILURE_CODE`，三档而不是一档，因为三件事要用户
-做的事不同）：
-
-| 服务层 code | tRPC | 用户该做什么 |
-|---|---|---|
-| `invalid_return_url` | `BAD_REQUEST` | 改 `returnUrl` 重试 |
-| `too_many_open_codes`（同时最多 3 个未兑换未过期的码） | `BAD_REQUEST` | 作废一个，或等它过期 |
-| `email_unverified` | `FORBIDDEN` | 去验证邮箱——**没有**验证就绕过 §2.10 拿到能调 API 的 key，是配对这条路最大的风险 |
-| `quota_exceeded` | `FORBIDDEN` | 去 `/console/api-keys` 撤销一把 |
-| `scope_not_allowed` | `FORBIDDEN` | 服务层的兜底；页面已被 zod 挡在前面 |
-| `generation_failed`（连续 5 次撞码） | `INTERNAL_SERVER_ERROR` | 我们的故障，重试即可；**不能**报成前两档，否则用户会去作废一个没问题的码 |
-
-限流落在**兑换**侧（按 IP，单 IP 每小时 20 次），不落在建码侧：建码是登录态操作，已有
-`MAX_OPEN_PAIRING_CODES` 与 key 存量上限两道每账号计数；真正需要防穷举的是兑换那一端，
-所以 20 次的额度花在那里。
-
-`returnUrl` 用**精确相等**而不是前缀相等：前缀匹配会让 `https://evil.com/?x=https://a.b`
-通过校验，是典型的开放重定向。
-
-**service key 走另一条路。** `apps/web` 后端之间的机器对机器调用不需要每个用户配对一次，
-admin 在 `/dashboard/api-keys` 直接签发一把 `tier = "service"`、`user_id IS NULL` 的 key 即可，
-这是 §2.12 的日常用法。**两条路并存**：用户归属的操作用配对得到的 `user` tier key，
-后台批处理用 admin 签发的 `service` tier key。
-
+**service tier 才是服务端之间的日常路径。** admin 在 `/dashboard/api-keys` 直接签发一把
+`tier = "service"`、`user_id IS NULL` 的 key 即可（§2.12），不需要每个用户各自走一遍签发流程。
 ### 2.12 管理员治理
 
 管理员页 `/dashboard/api-keys` 与 `/dashboard/subscriptions` 的能力，与自助页的对称关系：
@@ -1985,11 +1917,13 @@ includeUncurated 的默认值 = (projectTypes 为空 AND categoryCodes 为空 AN
 | 接收方去重 | `X-Webhook-Id` 落幂等表 | 消费方责任 |
 | 用户 → console（自助签发/订阅） | better-auth 会话 cookie + `protectedProcedure` + §2.10 滥用防护 | §2.4 / §2.10，**新增** |
 | 管理员 → console（治理） | better-auth 会话 cookie + `adminProcedure` | 现有 tRPC |
-| web → console（配对兑换） | 一次性配对码，**无需凭据**，`returnUrl` 精确相等 + fail-closed 限流 | §2.11，**新增**，唯一豁免 |
+| 接入方 → console（拿 key） | 登录账号自助签发（`user` 档）或 admin 签发（`service` 档），**都要会话 cookie** | §2.10 / §2.11 / §2.12 |
 
-`/api/v1/connections/redeem` 是上表里唯一不需要凭据的 `/api/v1` 端点。它的安全边界**完全**
-由配对码承担（单次 + 5 分钟 TTL + 绑定 `returnUrl` + 按 IP fail-closed 限流），
-等价于 OAuth device flow。任何人往这个表里再加一个"先认证再放行"的豁免端点，都要重新评审。
+**`/api/v1/*` 里没有任何豁免端点。** 每一个都要 `Authorization: Bearer <key>`，包括
+`GET /api/v1/openapi.json`。这不是巧合而是决定：配对码那条免凭据路已删除（§2.11），
+剩下的每一个端点都在校验一把握在调用方手里的长期凭据，而校验方式只有一种。
+任何人往这个表里再加一行"先认证再放行"，都要在这里重新评审 —— 唯一能正当豁免凭据的
+形态是 OAuth 授权码重定向，而那不是一个 `/api/v1` 端点。
 
 未配置任何凭据时，`/api/v1/*` 全部返回 **404**，与 `/api/internal/repos` 一致。
 
@@ -2041,7 +1975,7 @@ includeUncurated 的默认值 = (projectTypes 为空 AND categoryCodes 为空 AN
 （`apps/web/src/app/[locale]/(protected)/(console)/dashboard/apikeys/page.tsx`），
 逻辑与 console 的 §2.10 高度相似 —— 但它**不能**调 console 的任何接口。
 必须假定下一个读到这两处代码的人会想把它们合并，然后在合并过程中接上跨库读 `user` 表。
-§2.11 的配对流程就是为了让两条线各自保持独立。
+§2.11 记录的"不配对"决定就是为了让两条线各自保持独立。
 
 ---
 
@@ -2051,7 +1985,7 @@ includeUncurated 的默认值 = (projectTypes 为空 AND categoryCodes 为空 AN
 本文的接口恰好都是"读证据 + 推证据"，没有一个是"卖东西"或"管账号"：
 
 - API Key 签发留在 console 的账号体系内（自助签自己名下 + admin 签发别人的，§2.4），
-  **不与 web 打通账号** —— web 的用户必须自己在 console 注册并配对（§2.11），
+  **不与 web 打通账号** —— web 的用户必须自己在 console 注册并自助签发（§2.10 / §2.11），
   这是账号独立约束在自助签发之后的必然结果，而不是例外。
 - 仓库创建只写 `repos` + `user_repos(source: "api")`，**不动 `repos.created_by`**，
   **也不建 `projects` 行** —— radar 记录"这个仓库存在并被跟踪"，不主张"这个仓库属于谁"，
@@ -2094,7 +2028,6 @@ HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/open
 | 0 | `lib/redis/{client,lua,lock}.ts` 双驱动 + 限流 + 分布式锁 | — | ✅ **已实现**。偏离设计：限流用**固定窗口** `INCR`+`EXPIRE`（`lua.ts`）而非设计的滑动窗口 zset；key 前缀 `openmcp:console:api:rate-limit:` 而非 `rl:rpm:`。`RedisLike` 有 7 个原语而非 3 个（锁需要）。锁被 `notify-subscriptions` 用作跨实例单飞 |
 | 2 | `api_keys` 表 + 管理员签发/吊销/轮换 + `lib/api/guard.ts` + 限流 | `0015_api_keys.sql` | ✅ **已实现**。scope 枚举与 §2.5 完全一致，tRPC 有 admin 与自助两族 |
 | 2' | **用户自助签发 + 管理员治理**（§2.10 / §2.12 / §2.13） | `0022` + `0023` | ✅ **已实现**。`createMine` / `updateScopes` / `assertSelfServiceQuota` / `api_request_audit` 全部存在。**本轮修**：`createdBy` 曾被写成 `null`，现已改为 `input.userId`（§2.2） |
-| 2'' | **接入方注册与配对**（§2.11） | `0025`（与幂等表同一次迁移） | ✅ **已实现**。`POST /api/v1/connections/redeem` + `/console/connections` + `connectionsRouter`。**偏离**：key 在**兑换时**签发而非建码时签发，见 §2.11。**本轮补**：建码曾绕过 §2.10 的邮箱验证（未验证小号可拿到能调的 key），现由 `createPairing` 内的 `assertEmailVerified` 挡住；兑换侧补 403 `quota_exceeded`（事务回滚，码不消费，撤销一把 key 后可重试）；`input.ip === null` 从"跳过限流"改成 fail-closed |
 | 1 | `listStatsRange` + zod DTO + `GET /api/v1/repos/{id}/stats` | — | ✅ **已实现**。`listStatsRange`（`stats.ts:432`）/ `listStatsSince`（`stats.ts:544`）。**本轮修**：date-only 边界曾被 400（见 §4.1） |
 | 3 | `POST /api/v1/repos` + 幂等表 + 登记回调 | `0025` | ✅ **已实现**。**偏离**：没有抽 `ingestRepo`，登记逻辑仍分散在路由与 service；回调事件名是 `repo.registered`、payload 是瘦的（§3.5 / §3.6）。幂等回放存 JSONB，所以**语义**一致而键序可能变；回放保留首次的状态码（新登记的重试仍是 201） |
 | 4 | 排行与周期目录路由 | — | ✅ **已实现**。`/api/v1/rankings/{weekly,monthly,periods}` |
@@ -2114,7 +2047,7 @@ HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/open
 | 5b | 分类可读化：`/dashboard/categories` 维护页 + `categories` tRPC router（消费 `listCategoryReviewQueue` / `categoryUsage`） | 中。**不是上线阻塞项**（§1.5 坑一：空词表是合法状态），但不做则运营无处配置 |
 | 12a | 4 个 `.json` 端点收敛到 `/api/v1` 的服务函数（§12.3） | 低。纯内部重构 |
 | 12b | 删除 web 侧死代码 `triggerConsoleSync`（`client.ts`） | 低 |
-| 12c | `POST /api/v1/{repos,projects}` 与 `/connections/redeem` 的集成测试（鉴权 / scope / 语义 / 幂等 / 配对约束） | 中。当前只有手工验证 |
+| 12c | `POST /api/v1/{repos,projects}` 的集成测试（鉴权 / scope / 语义 / 幂等） | 中。当前只有手工验证 |
 
 ## 11. 待确认
 
@@ -2132,10 +2065,10 @@ HTTP 层与凭据层都已落地。13 条 `/api/v1` 路由存在，`/api/v1/open
   要拆的不是"radarType vs platformType"，而是 `categories`（运营分类）这一维本身。
 - **第三方 key 的签发路径 → 已定**（原来的 #1，本轮关闭）。见 §2.10 / §2.11 / §2.12：
   用户自助签发自己名下（scopes 限子集、fail-closed 滥用防护），
-  接入方走"console 侧发起的配对码 + 唯一豁免端点 redeem"，
-  admin 保留 `tier: "service"` 的机器对机器签发。
+  admin 保留 `tier: "service"` 的机器对机器签发，**没有配对码、没有免凭据端点**。
   设计细节不再推迟 —— 推迟的理由（"需求细节取决于接入方是谁"）已经被
-  "`apps/web` 就是那个接入方"这个事实消除了。
+  "`apps/web` 就是那个接入方"这个事实消除了：它要的是一把能挂在某个账号名下的 key，
+  而这正是 §2.10 的自助签发。配对流程是本轮删掉的推测性设计，删除理由见 §2.11。
 - **`categories` 空词表不是缺陷**（原来的 #6，本轮降级）。§1.5 坑一已重写：
   分类是运营配置的数据，程序只保证四条空状态断言，不保证词表非空。
   因此**没有"运营录入第一批分类之前不能上线"这种前置条件**。

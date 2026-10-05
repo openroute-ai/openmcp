@@ -27,8 +27,6 @@ import { z } from "zod"
 import {
   classificationSchema,
   errorBodySchema,
-  pairingRedeemRequestSchema,
-  pairingRedeemResponseSchema,
   periodCatalogSchema,
   projectCreatedSchema,
   projectRequestSchema,
@@ -804,57 +802,6 @@ const paths: Record<string, ContractPathItem> = {
       },
     },
   },
-
-  /**
-   * 唯一 `security: []` 的端点 —— 所以它必须自己写清"为什么不需要凭据"，否则 spec 的
-   * 读者会以为这里漏了。安全边界是配对码本身 + 单 IP 限流（§2.11）。
-   */
-  "/api/v1/connections/redeem": {
-    post: {
-      tags: ["配对 API"],
-      operationId: "redeemPairingCode",
-      summary: "配对码换 API key",
-      "x-nav-description": "用一次性配对码换一把 user 档的 API key。**无需凭据。**",
-      description:
-        "把 `/console/connections` 生成的 8 位配对码换成一把 `user` 档 API key。" +
-        "\n\n**这是唯一一个不需要凭据的 `/api/v1` 端点**——它要发的东西就是凭据，所以" +
-        "安全边界完全等于 OAuth device flow：8 位无歧义字符、5 分钟 TTL、单次有效、" +
-        "`returnUrl` 必须**精确相等**（不是前缀相等），单 IP 每小时 20 次且 fail-closed。" +
-        "\n\n**关于码本身的失败一律 404，四种原因同一个答案**（不存在 / 已用过 / 已过期 / " +
-        "`returnUrl` 不匹配）。分开报等于给探测者一个二分枚举的 oracle，而攻出一个还没" +
-        "被用的码就等于拿到了一把 API key。\n\n另有两个不泄漏任何关于那个码的信息的" +
-        "结果：`429 rate_limited`（纯**本地**的 IP 计数）与 `403 quota_exceeded`（码已通过" +
-        "全部校验后才可能出现——它只说明**码主人**的 key 存量已到上限，主人得先去 " +
-        "`/console/api-keys` 撤销一把）。所以这两条和 404 分得开，而且客户端确实需要" +
-        "据此退避或转告主人。\n\n响应恒为 " +
-        "`Cache-Control: no-store`；明文 key 只在这里出现一次，之后取不回来。",
-      security: [],
-      requestBody: {
-        required: true,
-        description:
-          "`returnUrl` 必须与建码时给 console 的那个**完全相等**。前缀匹配会让 " +
-          "`https://evil.com/?x=https://a.b` 通过，是典型的开放重定向。",
-        content: jsonContent(ref("#/components/schemas/PairingRedeemRequest")),
-      },
-      responses: {
-        "200": response(
-          "换到了 key。**`key.secret` 只出现这一次**，丢了只能在 console 里轮换",
-          ref("#/components/schemas/PairingRedeemResponse")
-        ),
-        "400": v1BadRequest(
-          "invalid_body",
-          "不是合法 JSON，或缺 `code` / `returnUrl`（`returnUrl` 必须是绝对地址）"
-        ),
-        "403": response(
-          "码本身是有效的，但**码主人**的 key 存量已到上限（quota_exceeded）。码没有被" +
-          "消费——主人撤销一把 key 后可以用同一个码再试",
-          errorBody
-        ),
-        "404": notFound,
-        "429": rateLimited,
-      },
-    },
-  },
 }
 
 /** 文档本身。每条 operation 都逐个标注所需 scope。 */
@@ -867,8 +814,8 @@ export function buildOpenAPIDocument(): ContractDocument {
       description:
         "VercelAI 雷达的开放 API：读排行与仓库统计、登记仓库与发布项目、以及把新数据推到" +
         "订阅者地址上。\n\n" +
-        "**除 `POST /api/v1/connections/redeem` 之外，每个端点都要 " +
-        "`Authorization: Bearer <key>`，没有别的免鉴权旁路。** 各自需要的 `scope` 写在" +
+        "**每个端点都要 `Authorization: Bearer <key>`，没有任何免鉴权旁路。** " +
+        "各自需要的 `scope` 写在" +
         "每个端点的说明里；配额按 key 计（`user` 档 30 rpm / 1000 rpd，`service` 档 " +
         "60 rpm / 5000 rpd）。\n\n" +
         "接入说明、错误码表与 key 签发见站内 `/docs`；每个端点的交互式文档在 `/docs/api/`。",
@@ -889,12 +836,6 @@ export function buildOpenAPIDocument(): ContractDocument {
         name: "订阅 API",
         description:
         "`subscriptions:write`：创建、改过滤器、暂停、轮换 secret、发探测事件。",
-      },
-      {
-        name: "配对 API",
-        description:
-        "**唯一不需要凭据的一组**：用 `/console/connections` 生成的配对码换一把 user 档 " +
-        "key（§2.11）。",
       },
     ],
     paths,
@@ -933,8 +874,6 @@ export function buildOpenAPIDocument(): ContractDocument {
         RepoListItem: jsonSchema(repoListItemSchema, "output"),
         RepoList: jsonSchema(repoListSchema, "output"),
         RepoDetail: jsonSchema(repoDetailSchema, "output"),
-        PairingRedeemRequest: jsonSchema(pairingRedeemRequestSchema, "output"),
-        PairingRedeemResponse: jsonSchema(pairingRedeemResponseSchema, "output"),
         StatsPeriod: jsonSchema(statsPeriodSchema, "output"),
         RepoStatsRange: jsonSchema(repoStatsRangeSchema, "output"),
         PeriodCatalog: jsonSchema(periodCatalogSchema, "output"),

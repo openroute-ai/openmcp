@@ -1,7 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from "./init"
 import { apiKeysRouter } from "./routers/api-keys"
 import { authorsRouter } from "./routers/authors"
-import { connectionsRouter } from "./routers/connections"
 import { decisionsRouter } from "./routers/decisions"
 import { overviewRouter } from "./routers/overview"
 import { projectsRouter } from "./routers/projects"
@@ -20,8 +19,6 @@ export const appRouter = createTRPCRouter({
   // 的文件头。
   apiKeys: apiKeysRouter,
   authors: authorsRouter,
-  // 接入方配对码（§2.11）。建码在这里，兑换在 `/api/v1/connections/redeem`。
-  connections: connectionsRouter,
   decisions: decisionsRouter,
   overview: overviewRouter,
   projects: projectsRouter,
