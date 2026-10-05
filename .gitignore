@@ -48,3 +48,4 @@ npm-debug.log*
 
 # fumadocs-mdx generated
 .source/
+apps/console/public/report/
