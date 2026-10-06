@@ -10,6 +10,7 @@
  *   POST /api/v1/repos              register a URL for tracking (publishes nothing)
  *   GET  /api/skills-sync/export    page through synced skill documents
  *   POST /api/cron/github           run the console scheduler on demand
+ *   POST /api/v1/skills/scan        run the security scanner on a repository
  *
  * The first one replaced `POST /api/internal/repos`, which authenticated on a
  * single site-wide `CONSOLE_API_TOKEN` and created a project as a side effect of
@@ -34,6 +35,12 @@
 
 import { getBaseUrl } from "@/lib/urls/urls"
 import type { SkillWebhookData } from "@/lib/skills/ingest-console-skill"
+import type {
+  LlmAnalysis,
+  SecurityFlagHit,
+  SecurityGrade,
+  TrustTier,
+} from "@workspace/security-scan"
 
 /** How long an ordinary machine-to-machine call may take before it is abandoned. */
 const REQUEST_TIMEOUT_MS = 10_000
@@ -616,4 +623,84 @@ export async function triggerConsoleSync(): Promise<ConsoleSyncResult> {
   }
 
   return (await res.json()) as ConsoleSyncResult
+}
+
+/**
+ * Where console executed a skill scan.
+ *
+ * `vercel-sandbox-serverless` is the fallback console takes when an in-sandbox
+ * script fails: the files come back and the rules run in the function. Only
+ * that one failure mode falls back; a repository that cannot be fetched stays
+ * an error rather than silently downgrading to a different source.
+ */
+export type ConsoleScanSource = "local-clone" | "vercel-sandbox" | "vercel-sandbox-serverless"
+
+/**
+ * console's answer to `POST /api/v1/skills/scan`.
+ *
+ * The shapes of `flags` / `context` / `llmAnalysis` are owned by
+ * `@workspace/security-scan`'s `types.ts`; console's contract points back to it
+ * rather than re-declaring them, and so does this client. The response also
+ * carries the actual files scanned, but the caller does not need them — it only
+ * persists the conclusion.
+ */
+export type ConsoleScanResponse = {
+  repoFullName: string
+  skillDir?: string
+  ref?: string
+  source: ConsoleScanSource
+  grade: SecurityGrade
+  flags: SecurityFlagHit[]
+  trustTier: TrustTier
+  llmGrade?: SecurityGrade
+  llmAnalysis?: LlmAnalysis
+  scannedAt: string
+  rulesVersion: string
+  fileCount: number
+  truncated: boolean
+  truncatedReason?: string
+  files: Array<{ path: string; size: number }>
+}
+
+/**
+ * Run the security scanner on a repository, on console.
+ *
+ * The request carries **an address, not files**: console fetches the source
+ * itself, so the same commit gets the same conclusion no matter who asks.
+ * `CONSOLE_API_KEY` is the credential, same as `submitRepo` — console answers
+ * 403 `insufficient_scope` when the key does not carry `skills:scan`.
+ *
+ * The call may be long: console clones a repository before it answers. This is
+ * still a bound, matching `INGEST_TIMEOUT_MS`, and an unparseable repository
+ * fails rather than pinning the caller's request open.
+ */
+export async function scanSkillOnConsole(input: {
+  repoFullName: string
+  ref?: string
+  skillDir?: string
+  includeLlm?: boolean
+}): Promise<ConsoleScanResponse> {
+  const token = consoleApiToken()
+  if (!consoleBaseUrl() || !token) {
+    throw new ConsoleApiError("console 未配置，无法执行远程扫描", 404)
+  }
+
+  const res = await request(
+    "/api/v1/skills/scan",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    },
+    INGEST_TIMEOUT_MS
+  )
+
+  if (!res.ok) {
+    throw new ConsoleApiError(await readError(res), res.status)
+  }
+
+  return (await res.json()) as ConsoleScanResponse
 }

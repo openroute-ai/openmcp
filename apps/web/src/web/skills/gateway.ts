@@ -9,7 +9,7 @@ import {
   consoleSubmitMode,
   submitRepo,
 } from "@/lib/console/client"
-import { filesFromSkillRow, runSkillSecurityScan } from "@/lib/security-scan"
+import { filesFromSkillRow, runRemoteSkillSecurityScan, runSkillSecurityScan } from "@/lib/security-scan"
 import { mapSkillRow } from "@/web/assets/map-asset"
 import type { MineListOptions } from "@/web/assets/mine-list"
 
@@ -398,22 +398,36 @@ export const skillsGatewayAccess = {
       .where(eq(skills.id, skillId))
       .limit(1)
     if (!skill) return null
-    const files = await filesFromSkillRow(skill)
-    if (files.length === 0 && repo?.readmeContent) {
-      files.push({ path: "README.md", content: repo.readmeContent })
+
+    // 安全扫描：GitHub 导入优先让 console 对仓库跑（sandbox / serverless /
+    // local-clone 由它自己定），把结论落回本库。console 没配时退化成本地扫描
+    // 本地快照——单应用部署仍要有门控，哪怕结论拿不到仓库全文；远程扫描失败
+    // 则**不**把技能判死，保持 `scanning` + `unknown` 只记日志（见设计 §6.4）。
+    if (consoleApiConfigured()) {
+      await runRemoteSkillSecurityScan({
+        skillId,
+        repoFullName: parsed.fullName,
+      }).catch((error) => {
+        console.error("[skills] remote scan failed", parsed.fullName, error)
+      })
+    } else {
+      const files = await filesFromSkillRow(skill)
+      if (files.length === 0 && repo?.readmeContent) {
+        files.push({ path: "README.md", content: repo.readmeContent })
+      }
+      await runSkillSecurityScan({
+        skillId,
+        files,
+        context: {
+          owner: parsed.owner,
+          homepage: repo?.homepage,
+          stars: repo?.stars,
+          license: repo?.licenseSpdxId,
+        },
+      }).catch((error) => {
+        console.error("[skills] scan failed", error)
+      })
     }
-    await runSkillSecurityScan({
-      skillId,
-      files,
-      context: {
-        owner: parsed.owner,
-        homepage: repo?.homepage,
-        stars: repo?.stars,
-        license: repo?.licenseSpdxId,
-      },
-    }).catch((error) => {
-      console.error("[skills] scan failed", error)
-    })
 
     // Register the repository with console once the listing exists, so the
     // upstream sync domain starts tracking it and pushes updated skill
@@ -492,6 +506,17 @@ export const skillsGatewayAccess = {
       .where(and(eq(skills.id, id), eq(skills.authorId, authorId)))
       .limit(1)
     if (!row) throw new Error("Skill 不存在")
+    // GitHub 来源走 console 重扫（与导入同一条路径，保证同一提交同一结论）；
+    // ZIP / webhook 补偿的来源留在本地扫描。
+    if (row.sourceType === "github" && row.githubUrl && consoleApiConfigured()) {
+      const parsed = parseGithubRepoUrl(row.githubUrl)
+      if (parsed) {
+        return runRemoteSkillSecurityScan({
+          skillId: id,
+          repoFullName: parsed.fullName,
+        })
+      }
+    }
     const files = await filesFromSkillRow(row)
     return runSkillSecurityScan({ skillId: id, files, context: {} })
   },

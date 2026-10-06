@@ -14,7 +14,7 @@
  * `lib/security-scan/types.ts` 里有规范定义，本文件不重复声明。
  */
 
-import type { SecurityFlagHit, SecurityGrade, TrustTier } from '@/lib/security-scan/types'
+import type { SecurityFlagHit, SecurityGrade, TrustTier } from '@workspace/security-scan'
 
 /** 规范类型在 lib/security-scan/types.ts，这里沿用旧名避免大面积改名。 */
 export type SecurityFlag = SecurityFlagHit

@@ -32,10 +32,11 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { type DragEvent, useCallback, useState } from "react"
+import { type DragEvent, useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { ImageUploader } from "@/components/shared/image-uploader"
 import { resultError } from "@/lib/gateway/input"
+import { resolveSkillRepo } from "@/lib/skills/repo-url"
 import { trpc } from "@/lib/trpc/client"
 import {
   type ScanResult,
@@ -80,6 +81,12 @@ const CATEGORIES = [
   "其他",
 ]
 
+/**
+ * Radix Select 不接受空字符串的 value，选中项会直接塌掉，所以"未分类 / 未选择"
+ * 用一个不会与真实取值冲突的哨兵值表示。
+ */
+const NONE_CATEGORY = "__none__";
+
 const defaultPublish: PublishConfig = {
   name: "",
   description: "",
@@ -106,6 +113,15 @@ export function SkillsConnectDialog({
   const [step, setStep] = useState<WizardStep>(1)
   const [mode, setMode] = useState<SubmitMode>("github")
   const [githubUrl, setGithubUrl] = useState("")
+  /**
+   * The canonical GitHub URL resolved from `githubUrl`.
+   *
+   * Held separately because the input is whatever the submitter pasted, and
+   * step 3 creates the asset long after the fetch: resolving again there would
+   * work, but this keeps "what we fetched" and "what we register" the same
+   * value even if the input field is edited mid-wizard.
+   */
+  const [repoUrl, setRepoUrl] = useState("")
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [fetching, setFetching] = useState(false)
@@ -124,6 +140,7 @@ export function SkillsConnectDialog({
     setStep(1)
     setMode("github")
     setGithubUrl("")
+    setRepoUrl("")
     setZipFile(null)
     setFetching(false)
     setFetchError("")
@@ -175,23 +192,32 @@ export function SkillsConnectDialog({
   )
 
   // GitHub 路径：向 console 登记仓库 + 轮询技能文档就绪
+  const handleRepoUrlChange = useCallback((value: string) => {
+    setGithubUrl(value)
+    // The resolved URL describes the previous input, and step 3 registers it.
+    setRepoUrl("")
+  }, [])
+
   const handleGithubFetch = async () => {
     setFetchError("")
     setParsedInfo(null)
     setScanResult(null)
 
-    const match = githubUrl.match(/github\.com\/([^/]+)\/([^/\s#?]+)/)
-    if (!match) {
+    const repo = resolveSkillRepo(githubUrl)
+    if (!repo) {
       setFetchError(
-        "请输入有效的 GitHub 仓库地址，例如 https://github.com/owner/repo"
+        "请输入有效的仓库地址，例如 https://github.com/owner/repo、owner/repo 或 https://skills.sh/owner/repo"
       )
       return
     }
 
     setFetching(true)
 
-    const [, , repo] = match
-    const repoName = repo?.replace(/\.git$/, "") ?? ""
+    // Downstream is GitHub-only: the console write API has its own GitHub
+    // parser and the gateway matches `skills.githubUrl` against the canonical
+    // form, so a pasted skills.sh URL has to become one before it is sent.
+    setRepoUrl(repo.url)
+    const repoName = repo.name
     const fallbackInfo = (): ParsedSkillInfo => ({
       name: repoName,
       description: `${repoName} - OpenClaw Skill repository`,
@@ -207,7 +233,7 @@ export function SkillsConnectDialog({
       // console 拥有 GitHub 凭证，登记后由它的同步任务接管，并把技能文档回推。
       // 仓库尚未被索引时无法登记，这里直接给出结论，不再进入只会超时的轮询。
       const registerResult = await registerWithConsole.mutateAsync({
-        repoUrl: githubUrl,
+        repoUrl: repo.url,
       })
       if (!registerResult.success) {
         setFetchError(resultError(registerResult) || "仓库同步失败")
@@ -243,7 +269,7 @@ export function SkillsConnectDialog({
       } | null = null
       for (let i = 0; i < maxPolls; i++) {
         const pollResult = await utils.skills.pollSync.fetch({
-          repoUrl: githubUrl,
+          repoUrl: repo.url,
         })
         if (pollResult.success && pollResult.data?.ready) {
           synced = true
@@ -338,7 +364,7 @@ export function SkillsConnectDialog({
       }
       if (mode === "github") {
         const result = await connectGithub.mutateAsync({
-          repoUrl: githubUrl,
+          repoUrl,
           name: publish.name || parsedInfo.name,
           description: publish.description || parsedInfo.description,
           scope: publish.scope,
@@ -419,14 +445,30 @@ export function SkillsConnectDialog({
     }
   }
 
-  const canProceedToScan = !!parsedInfo && !!publish.name.trim()
+  // 仓库/包已经解析出名称、描述和分类，第 2 步不必让用户重敲一遍。
+  // 只填空字段：解析结果晚于用户输入到达时（轮询成功的那条路径），已经手填的内容保留。
+  useEffect(() => {
+    if (!parsedInfo) return;
+    setPublish((prev) => ({
+      ...prev,
+      name: prev.name || parsedInfo.name,
+      description: prev.description || parsedInfo.description,
+      category: prev.category || parsedInfo.category,
+    }));
+  }, [parsedInfo]);
+
+  // Each step is gated only by its own inputs. Letting step 1 depend on
+  // `publish.name` deadlocked the wizard: that field is editable in step 2,
+  // so the button that leads there could never be enabled.
+  const canProceedToListing = !!parsedInfo
+  const canProceedToScan = canProceedToListing && !!publish.name.trim()
   const canProceedToPublish =
     scanResult?.grade === "safe" || scanResult?.grade === "caution"
   const canSave = canProceedToPublish && !!publish.description.trim()
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="size-5 text-primary" />
@@ -452,7 +494,7 @@ export function SkillsConnectDialog({
             mode={mode}
             setMode={setMode}
             githubUrl={githubUrl}
-            setGithubUrl={setGithubUrl}
+            setGithubUrl={handleRepoUrlChange}
             fetching={fetching}
             fetchError={fetchError}
             setFetchError={setFetchError}
@@ -499,7 +541,7 @@ export function SkillsConnectDialog({
             <Button
               type="button"
               onClick={() => setStep(2)}
-              disabled={!canProceedToScan}
+              disabled={!canProceedToListing}
             >
               下一步：上架信息
             </Button>
@@ -595,13 +637,14 @@ function Step1Source(props: Step1SourceProps) {
           <div className="rounded-xl border bg-card p-6">
             <h3 className="mb-4 text-base font-semibold">GitHub 仓库地址</h3>
             <p className="mb-3 text-xs text-muted-foreground">
-              平台通过 internal API 将仓库登记到 console，由其同步任务补齐
-              README 与技能文档，全程不跳转。数据就绪后自动进入安全扫描。
+              支持 GitHub 仓库地址、skills.sh
+              技能页地址或 owner/repo。平台通过 internal API
+              将仓库登记到 console，由其同步任务补齐 README
+              与技能文档，全程不跳转。数据就绪后自动进入安全扫描。
             </p>
             <div className="flex gap-3">
               <Input
-                type="url"
-                placeholder="https://github.com/username/skill-name"
+                placeholder="https://github.com/owner/repo 或 https://skills.sh/owner/repo"
                 value={props.githubUrl}
                 onChange={(e) => {
                   props.setGithubUrl(e.target.value)
@@ -974,65 +1017,79 @@ interface Step2PublishProps {
 }
 
 function Step2Publish({ publish, setPublish, parsedInfo }: Step2PublishProps) {
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-        <div className="sm:col-span-2">
-          <Label>Logo / 封面图</Label>
-          <div className="mt-1.5">
-            <ImageUploader
-              label="Logo / 封面图"
-              value={publish.imageUrl}
-              maxBytes={5 * 1024 * 1024}
-              variant="square"
-              onChange={(url) =>
-                setPublish((prev) => ({ ...prev, imageUrl: url ?? "" }))
-              }
-            />
-          </div>
-        </div>
-        <div className="space-y-4 sm:col-span-3">
-          <div className="space-y-1.5">
-            <Label>
-              Skill 名称<span className="text-destructive"> *</span>
-            </Label>
-            <Input
-              value={publish.name}
-              onChange={(e) =>
-                setPublish((prev) => ({ ...prev, name: e.target.value }))
-              }
-              placeholder={parsedInfo?.name || "输入 Skill 名称"}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>
-              描述<span className="text-destructive"> *</span>
-            </Label>
-            <Textarea
-              rows={4}
-              value={publish.description}
-              onChange={(e) =>
-                setPublish((prev) => ({ ...prev, description: e.target.value }))
-              }
-              placeholder="描述技能的能力和用例（20-2000 字符）"
-            />
-          </div>
-        </div>
-      </div>
+  const paid = publish.priceType === "paid";
+  const descriptionLength = publish.description.trim().length;
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>分类</Label>
+  return (
+    <div className="space-y-6">
+      {/*
+        12 栏网格而不是原来的 `sm:grid-cols-5`：奇数栏让 2/5 : 3/5 的图片与表单
+        比例既不对称又难对齐。这里让描述拿到主栏宽，图片作为辅助信息收窄，
+        其余成对字段各占一半，视觉基线统一。
+      */}
+      <div className="grid gap-x-6 gap-y-4 lg:grid-cols-12">
+        <div className="space-y-1.5 lg:col-span-12">
+          <Label htmlFor="skill-publish-name">
+            Skill 名称<span className="text-destructive"> *</span>
+          </Label>
+          <Input
+            id="skill-publish-name"
+            value={publish.name}
+            onChange={(e) =>
+              setPublish((prev) => ({ ...prev, name: e.target.value }))
+            }
+            placeholder={parsedInfo?.name || "输入 Skill 名称"}
+          />
+        </div>
+
+        <div className="space-y-1.5 lg:col-span-7">
+          <Label htmlFor="skill-publish-description">
+            描述<span className="text-destructive"> *</span>
+          </Label>
+          <Textarea
+            id="skill-publish-description"
+            rows={5}
+            value={publish.description}
+            onChange={(e) =>
+              setPublish((prev) => ({
+                ...prev,
+                description: e.target.value,
+              }))
+            }
+            placeholder="描述技能的能力和用例（20-2000 字符）"
+          />
+          <p className="text-muted-foreground text-xs">
+            {descriptionLength > 0 ? `${descriptionLength} / 2000` : "必填"}
+          </p>
+        </div>
+
+        {/* ImageUploader 自带标签，外层不再重复一个同名 Label。 */}
+        <div className="lg:col-span-5 lg:self-start">
+          <ImageUploader
+            label="Logo / 封面图"
+            hint="PNG / JPG / WebP，最大 5MB"
+            value={publish.imageUrl}
+            maxBytes={5 * 1024 * 1024}
+            variant="square"
+            onChange={(url) =>
+              setPublish((prev) => ({ ...prev, imageUrl: url ?? "" }))
+            }
+          />
+        </div>
+
+        <div className="space-y-1.5 lg:col-span-6">
+          <Label htmlFor="skill-publish-category">分类</Label>
           <Select
-            value={publish.category}
+            value={publish.category || NONE_CATEGORY}
             onValueChange={(v) =>
-              setPublish((prev) => ({ ...prev, category: v }))
+              setPublish((prev) => ({ ...prev, category: v === NONE_CATEGORY ? "" : v }))
             }
           >
-            <SelectTrigger>
+            <SelectTrigger id="skill-publish-category">
               <SelectValue placeholder="选择分类（可选）" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={NONE_CATEGORY}>未分类</SelectItem>
               {CATEGORIES.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
@@ -1042,8 +1099,8 @@ function Step2Publish({ publish, setPublish, parsedInfo }: Step2PublishProps) {
           </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>可见范围</Label>
+        <div className="space-y-1.5 lg:col-span-6">
+          <Label htmlFor="skill-publish-scope">可见范围</Label>
           <Select
             value={publish.scope}
             onValueChange={(v) =>
@@ -1053,8 +1110,8 @@ function Step2Publish({ publish, setPublish, parsedInfo }: Step2PublishProps) {
               }))
             }
           >
-            <SelectTrigger>
-              <SelectValue placeholder="-" />
+            <SelectTrigger id="skill-publish-scope">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="public">公开</SelectItem>
@@ -1065,62 +1122,64 @@ function Step2Publish({ publish, setPublish, parsedInfo }: Step2PublishProps) {
         </div>
       </div>
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>价格类型</Label>
-            <Select
-              value={publish.priceType}
-              onValueChange={(v) =>
-                setPublish((prev) => ({
-                  ...prev,
-                  priceType: v as PublishConfig["priceType"],
-                }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="-" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="free">免费</SelectItem>
-                <SelectItem value="paid">付费</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="grid gap-x-6 gap-y-4 rounded-lg border p-4 lg:grid-cols-12">
+        <div className="space-y-1.5 lg:col-span-4">
+          <Label htmlFor="skill-publish-price-type">价格类型</Label>
+          <Select
+            value={publish.priceType}
+            onValueChange={(v) =>
+              setPublish((prev) => ({
+                ...prev,
+                priceType: v as PublishConfig["priceType"],
+              }))
+            }
+          >
+            <SelectTrigger id="skill-publish-price-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free">免费</SelectItem>
+              <SelectItem value="paid">付费</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          {publish.priceType === "paid" ? (
-            <div className="space-y-1.5">
-              <Label>计费模式</Label>
+        {paid ? (
+          <>
+            <div className="space-y-1.5 lg:col-span-4">
+              <Label htmlFor="skill-publish-billing">计费模式</Label>
               <Select
-                value={publish.billing}
+                value={publish.billing || NONE_CATEGORY}
                 onValueChange={(v) =>
-                  setPublish((prev) => ({ ...prev, billing: v }))
+                  setPublish((prev) => ({
+                    ...prev,
+                    billing: v === NONE_CATEGORY ? "" : v,
+                  }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="-" />
+                <SelectTrigger id="skill-publish-billing">
+                  <SelectValue placeholder="选择计费模式" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NONE_CATEGORY}>未选择</SelectItem>
                   <SelectItem value="one_time">一次性</SelectItem>
                   <SelectItem value="subscription">订阅（周期性）</SelectItem>
                   <SelectItem value="pay_per_call">按次计费</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          ) : null}
-        </div>
 
-        {publish.priceType === "paid" ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>
+            <div className="space-y-1.5 lg:col-span-4">
+              <Label htmlFor="skill-publish-amount">
                 {publish.billing === "pay_per_call"
                   ? "单次调用价格（CNY）"
                   : "价格（CNY）"}
                 <span className="text-destructive"> *</span>
               </Label>
               <Input
+                id="skill-publish-amount"
                 type="number"
+                inputMode="decimal"
                 step={publish.billing === "pay_per_call" ? "0.0001" : "0.01"}
                 min="0"
                 value={
@@ -1130,15 +1189,20 @@ function Step2Publish({ publish, setPublish, parsedInfo }: Step2PublishProps) {
                 }
                 onChange={(e) =>
                   setPublish((prev) =>
-                    prev.billing === "pay_per_call"
+                    publish.billing === "pay_per_call"
                       ? { ...prev, unitPrice: e.target.value }
                       : { ...prev, amount: e.target.value }
                   )
                 }
               />
             </div>
-          </div>
-        ) : null}
+          </>
+        ) : (
+          // 免费时右两栏留空会让这一行看起来缺了东西，补一句说明它是有意留白的。
+          <p className="self-center text-muted-foreground text-xs lg:col-span-8">
+            免费上架无需设置计费信息；改为付费后可在此选择计费模式并填写价格。
+          </p>
+        )}
       </div>
     </div>
   )

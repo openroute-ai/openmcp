@@ -6,7 +6,7 @@ import { routing } from './routing'
  * Default message catalogue, exported so components and tests can reference the
  * same shape the request configuration loads.
  */
-export { default as defaultMessages } from '../../messages/en.json'
+export { default as defaultMessages } from '../../messages/zh.json'
 
 type Messages = Record<string, unknown>
 

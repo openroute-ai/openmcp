@@ -124,6 +124,12 @@ STORAGE_OSS_INTERNAL=false  # Use internal endpoint for better performance
 STORAGE_OSS_SECURE=true     # Use HTTPS (recommended)
 ```
 
+`STORAGE_REGION` may be written either way (`cn-hangzhou` or
+`oss-cn-hangzhou`) — the `oss-` prefix that `ali-oss` requires is added when it
+is missing. `STORAGE_ENDPOINT` may likewise include the bucket host that the OSS
+console shows (`https://your-bucket.oss-cn-hangzhou.aliyuncs.com`); the bucket
+label is stripped because `ali-oss` prepends it again on every request.
+
 ## Advanced Usage
 
 ### Using the Storage Provider Directly

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scanGatewayMetadata } from '@/lib/security-scan/gateway-scan'
+import { scanGatewayMetadata } from '@workspace/security-scan'
 
 /**
  * 端点接入（MCP / A2A）扫描的是提供方**声明的元数据**，不是对方代码。

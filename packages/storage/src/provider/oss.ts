@@ -12,6 +12,51 @@ import {
 } from '../types'
 
 /**
+ * `ali-oss` derives the request host on its own and offers no way to opt out:
+ *
+ * - `endpoint` is used verbatim as the base host and the bucket is *always*
+ *   prepended to it (`getReqUrl`), so a bucket-qualified endpoint such as
+ *   `https://my-bucket.oss-cn-hangzhou.aliyuncs.com` would be requested as
+ *   `https://my-bucket.my-bucket.oss-cn-hangzhou.aliyuncs.com`.
+ * - without an `endpoint`, `region` is turned into
+ *   `<region><-internal.>.aliyuncs.com` (`setRegion`), so it must already carry
+ *   the `oss-` prefix that the OSS console omits in its region picker.
+ *
+ * Operators reasonably write either spelling, so both are accepted and
+ * normalised here rather than failing at request time with a DNS or TLS error.
+ */
+
+/** `cn-hangzhou` -> `oss-cn-hangzhou`; already-prefixed and VPC ids pass through. */
+export function normalizeOssRegion(region: string): string {
+  const trimmed = region.trim()
+  if (!trimmed) return trimmed
+  if (/^(oss-|vpc100-oss-)/i.test(trimmed)) return trimmed
+  return `oss-${trimmed}`
+}
+
+/** Drops a leading `<bucket>.` label from the endpoint host, which `ali-oss` adds itself. */
+export function normalizeOssEndpoint(endpoint: string, bucketName?: string): string {
+  const trimmed = endpoint.trim()
+  if (!trimmed || !bucketName) return trimmed
+
+  const schemeMatch = /^[a-z][a-z0-9+.-]*:\/\//i.exec(trimmed)
+  const scheme = schemeMatch ? schemeMatch[0] : ''
+  const authority = trimmed.slice(scheme.length)
+  const slashAt = authority.indexOf('/')
+  const userinfoAt = authority.lastIndexOf('@')
+  const hostStart = userinfoAt === -1 ? 0 : userinfoAt + 1
+  const hostEnd = slashAt === -1 ? authority.length : slashAt
+
+  // Compare the host label only, so a host that merely *contains* the bucket
+  // name (`zijiejuli-mirror.oss-...`) is left alone.
+  const label = `${bucketName.toLowerCase()}.`
+  if (!authority.slice(hostStart, hostEnd).toLowerCase().startsWith(label)) return trimmed
+
+  const host = authority.slice(hostStart + label.length, hostEnd)
+  return scheme + authority.slice(0, hostStart) + host + authority.slice(hostEnd)
+}
+
+/**
  * Alibaba Cloud OSS storage provider implementation
  *
  * This provider works with Alibaba Cloud Object Storage Service (OSS)
@@ -58,7 +103,7 @@ export class OSSProvider implements StorageProvider {
     }
 
     const clientOptions: OSSClientOptions = {
-      region,
+      region: normalizeOssRegion(region),
       accessKeyId,
       accessKeySecret: secretAccessKey,
       bucket: bucketName,
@@ -66,7 +111,7 @@ export class OSSProvider implements StorageProvider {
 
     // Add custom endpoint if provided
     if (endpoint) {
-      clientOptions.endpoint = endpoint
+      clientOptions.endpoint = normalizeOssEndpoint(endpoint, bucketName)
     }
 
     // Add OSS specific configurations
@@ -121,11 +166,9 @@ export class OSSProvider implements StorageProvider {
       if (publicUrl) {
         // Use custom domain if provided
         url = `${publicUrl.replace(/\/$/, '')}/${key}`
-        console.log('uploadFile, public url', url)
       } else {
         // Generate a signed URL if no public URL is provided
         url = oss.signatureUrl(key, { expires: 3600 * 24 * 7 }) // 7 days
-        console.log('uploadFile, signed url', url)
       }
 
       return { url, key }

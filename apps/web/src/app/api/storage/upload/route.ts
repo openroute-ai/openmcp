@@ -71,8 +71,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof StorageConfigurationError) {
-      console.error('[storage] upload attempted without configuration')
-      return NextResponse.json({ error: 'Storage is not configured' }, { status: 503 })
+      // Which variable is missing is a deployment concern; keep it in the log
+      // rather than in the response the browser renders to the end user.
+      console.error('[storage] upload attempted without configuration:', error.message)
+      return NextResponse.json(
+        { error: 'Image upload is unavailable. Please contact the operator.' },
+        { status: 503 }
+      )
     }
     console.error('[storage] upload failed', error)
     if (error instanceof StorageError) {

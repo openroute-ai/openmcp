@@ -169,7 +169,14 @@ export function mapSkillRow(row: {
       llmAnalysis: (row.securityLlmAnalysis as ScanResult['llmAnalysis']) ?? undefined,
       scannedAt: fmt(row.scannedAt),
       rulesVersion: row.scanRulesVersion ?? 'v1.0.0',
-      fileCount: Array.isArray(row.securityFlags) ? 0 : 0,
+      fileCount: (() => {
+        const m = (row.metadata ?? {}) as any
+        if (m && Array.isArray(m.sourceFiles)) return m.sourceFiles.length
+        const sf = (row as any).skillScans
+        if (Array.isArray(sf) && sf.length > 0 && typeof sf[0].fileCount === 'number') return sf[0].fileCount
+        if (Array.isArray(row.securityFlags)) return row.securityFlags.length
+        return 0
+      })(),
     }
   }
   return {

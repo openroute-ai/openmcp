@@ -47,7 +47,7 @@ export const websiteConfig = {
   donationQrUrl: process.env.NEXT_PUBLIC_DONATION_QR_URL || '',
 
   i18n: {
-    defaultLocale: 'en',
+    defaultLocale: 'zh',
     locales: {
       en: {
         flag: '🇺🇸',

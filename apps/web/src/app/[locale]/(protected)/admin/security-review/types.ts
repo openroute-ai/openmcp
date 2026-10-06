@@ -1,4 +1,4 @@
-import type { SecurityFlagHit } from '@/lib/security-scan/types'
+import type { SecurityFlagHit } from '@workspace/security-scan'
 
 /**
  * Review record shape returned by `trpc.admin.securityReview`.

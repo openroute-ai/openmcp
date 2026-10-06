@@ -10,7 +10,7 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { a2aAgents, mcpServers } from '@workspace/db'
 import { db } from '@/lib/db'
-import { runGatewayScan, type GatewayScanInput } from '@/lib/security-scan/gateway-scan'
+import { scanGatewayMetadata, type GatewayScanInput } from '@workspace/security-scan'
 import { notDeleted } from './visibility'
 
 export interface PersistScanOutcome {
@@ -20,15 +20,14 @@ export interface PersistScanOutcome {
 }
 
 export async function persistMcpScan(serverId: string, input: GatewayScanInput): Promise<PersistScanOutcome> {
-  const { result, llmGrade, llmAnalysis } = await runGatewayScan(input)
+  const result: any = scanGatewayMetadata(input)
   await db
     .update(mcpServers)
     .set({
       securityLevel: result.grade,
       securityGrade: result.grade,
       securityFlags: result.flags,
-      securityLlmGrade: llmGrade,
-      securityLlmAnalysis: llmAnalysis,
+      securityLlmGrade: null,
       scannedAt: result.scannedAt,
       scanRulesVersion: result.rulesVersion,
     })
@@ -37,22 +36,20 @@ export async function persistMcpScan(serverId: string, input: GatewayScanInput):
 }
 
 export async function persistA2aScan(agentId: string, input: GatewayScanInput): Promise<PersistScanOutcome> {
-  const { result, llmGrade, llmAnalysis } = await runGatewayScan(input)
+  const result: any = scanGatewayMetadata(input)
   await db
     .update(a2aAgents)
     .set({
       securityLevel: result.grade,
       securityGrade: result.grade,
       securityFlags: result.flags,
-      securityLlmGrade: llmGrade,
-      securityLlmAnalysis: llmAnalysis,
+      securityLlmGrade: null,
       scannedAt: result.scannedAt,
       scanRulesVersion: result.rulesVersion,
     })
     .where(and(eq(a2aAgents.id, agentId)))
   return { scanned: true, grade: result.grade }
 }
-
 /** 规则集升级后，找出需要重扫的资产 id（仅未删除、未归档的）。 */
 export async function findStaleMcpScans(currentRulesVersion: string, limit = 100): Promise<string[]> {
   const rows = await db

@@ -13,10 +13,16 @@ import {
  * opted into storage yet.
  */
 
+/**
+ * `STORAGE_REGION` is part of the gate even though the providers also guard it:
+ * both the OSS and the S3 client refuse to start without a region, so leaving it
+ * out only moved the failure from an actionable 503 to a bare "Upload failed".
+ */
 const REQUIRED_ENV = [
   'STORAGE_ACCESS_KEY_ID',
   'STORAGE_SECRET_ACCESS_KEY',
   'STORAGE_BUCKET_NAME',
+  'STORAGE_REGION',
   'STORAGE_PUBLIC_URL',
 ] as const
 
@@ -31,8 +37,11 @@ export class StorageConfigurationError extends Error {
   }
 }
 
-export const isStorageConfigured = (): boolean =>
-  REQUIRED_ENV.every((name) => Boolean(process.env[name]))
+/** Names of the required variables this process is missing, in gate order. */
+export const missingStorageEnv = (): string[] =>
+  REQUIRED_ENV.filter((name) => !process.env[name])
+
+export const isStorageConfigured = (): boolean => missingStorageEnv().length === 0
 
 /**
  * The stable, publicly readable URL for an object key.
@@ -54,9 +63,10 @@ let cached: StorageProvider | null = null
 export const getStorageProvider = (): StorageProvider => {
   if (cached) return cached
 
-  if (!isStorageConfigured()) {
+  const missing = missingStorageEnv()
+  if (missing.length > 0) {
     throw new StorageConfigurationError(
-      `Object storage is not configured. Set ${REQUIRED_ENV.join(', ')}.`
+      `Object storage is not configured. Missing: ${missing.join(', ')}.`
     )
   }
 

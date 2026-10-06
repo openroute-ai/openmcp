@@ -68,13 +68,22 @@ export async function POST(request: NextRequest) {
     const readUrl = publicUrlFor(result.key)
     if (!readUrl) {
       console.error('[storage] STORAGE_PUBLIC_URL missing, refusing presign')
-      return NextResponse.json({ error: 'Storage is not configured' }, { status: 503 })
+      return NextResponse.json(
+        { error: 'Image upload is unavailable. Please contact the operator.' },
+        { status: 503 }
+      )
     }
     return NextResponse.json({ uploadUrl: result.url, key: result.key, readUrl })
   } catch (error) {
     if (error instanceof StorageConfigurationError) {
-      console.error('[storage] presign attempted without configuration')
-      return NextResponse.json({ error: 'Storage is not configured' }, { status: 503 })
+      console.error(
+        '[storage] presign attempted without configuration:',
+        error.message
+      )
+      return NextResponse.json(
+        { error: 'Image upload is unavailable. Please contact the operator.' },
+        { status: 503 }
+      )
     }
     console.error('[storage] presign failed', error)
     if (error instanceof StorageError) {

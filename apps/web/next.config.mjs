@@ -15,6 +15,7 @@ const nextConfig = {
     "@workspace/storage",
     "@workspace/mail",
     "@workspace/payment",
+    "@workspace/security-scan",
   ],
   experimental: {
     proxyTimeout: 30_000,
