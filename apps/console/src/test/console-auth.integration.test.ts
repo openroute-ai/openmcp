@@ -3,9 +3,10 @@
  *
  * The console serves two audiences from one deployment: an operator curates the
  * catalogue from `/dashboard`, and anyone else signed in reaches `/console`,
- * which is the repository list and nothing else. The two layouts that redirect
- * between those paths are UX; this file covers the part that cannot be skipped,
- * which is the role check on each procedure.
+ * which counts that account's own numbers above its repository list. The two
+ * layouts that redirect between those paths are UX; this file covers the part
+ * that cannot be skipped, which is the role check on each procedure and the
+ * scoping of every figure the dashboard shows.
  *
  * The behaviour worth protecting is the failure mode: a gate that treats an
  * unrecognised role as an admin would turn a typo in one `update` statement
@@ -161,8 +162,8 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
   })
 
   it("lets a signed-in non-admin read the repository list", async () => {
-    // The one thing `/console` is: the list is readable, because a page that
-    // cannot list its own content renders empty and looks broken.
+    // The list under `/console` is readable, because a page that cannot list its
+    // own content renders empty and looks broken.
     const caller = createCaller(fakeUserContext(db))
 
     const result = await caller.repos.list({ limit: 5, offset: 0 })
@@ -253,7 +254,7 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
       offset: 0,
     }
 
-    // The two reads `/console` is built on, and the one write an ordinary
+    // The two reads `/console/repos` is built on, and the one write an ordinary
     // account may make. Everything else has to be refused.
     const allowed = new Set(["repos.list", "repos.byId", "repos.create"])
 
@@ -423,6 +424,52 @@ describe.skipIf(!hasDatabase)("console authorization (integration)", () => {
       expect(new Set(items.map((repo) => repo.id))).toEqual(
         new Set([ids.mine, ids.theirs, ids.unowned, ids.submitted])
       )
+    })
+
+    it("counts for the dashboard exactly the repositories the list shows", async () => {
+      const caller = createCaller(fakeUserContext(db))
+      const { total } = await caller.repos.list({ limit: 1, offset: 0 })
+
+      const { totals } = await caller.console.overview({ days: 90 })
+
+      // Compared against the list rather than against a number: this suite runs
+      // against a shared instance where the account may own other repositories,
+      // and what must hold is that the dashboard and the list it sits above read
+      // the same scope. A count of 4 next to a list of 2 is the bug worth
+      // catching, and a hard-coded 2 would only catch it on an empty database.
+      expect(totals.repos).toBe(total)
+    })
+
+    it("refuses the dashboard to a caller with no account", async () => {
+      const caller = createCaller(fakeAnonymousContext(db))
+
+      await expect(caller.console.overview({ days: 90 })).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+      })
+    })
+
+    it("hands the chart a series ordered oldest first and inside the window", async () => {
+      const caller = createCaller(fakeUserContext(db))
+      const days = 30
+
+      const { series } = await caller.console.overview({ days })
+
+      // The chart reads its window from the last point rather than from the
+      // clock — see `chart-area-interactive` — so an unordered series would
+      // silently widen the visible range instead of failing here.
+      const dates = series.map((point) => point.date)
+      expect(dates).toEqual([...dates].sort())
+      const earliest = new Date(`${dates[0]}T00:00:00Z`)
+      const latest = new Date(`${dates[dates.length - 1]}T00:00:00Z`)
+      expect(latest.getTime() - earliest.getTime()).toBeLessThanOrEqual(
+        (days - 1) * 86_400_000
+      )
+      // And every figure on it is a total, not a per-day delta, so the last
+      // point cannot be smaller than an earlier one.
+      for (const point of series) {
+        expect(point.stars).toBeGreaterThanOrEqual(0)
+        expect(point.forks).toBeGreaterThanOrEqual(0)
+      }
     })
 
     it("opens a repository submitted by API key for the submitting account", async () => {

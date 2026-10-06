@@ -43,6 +43,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     links: [
       { label: "关于我们", href: "/about" },
       { label: "联系我们", href: "/contact" },
+      { label: "AI 网关", href: "https://www.openroute.cn" },
+      { label: "OpenMCP", href: "https://www.openmcp.cn" },
+      { label: "Agent 沙箱", href: "https://www.gpurun.cn" },
     ],
   },
   {
@@ -65,7 +68,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2.5">
-              <RadarLogo className="size-8" />
+              <RadarLogo className="size-5" />
               <span className="font-display text-base font-semibold">{SITE_NAME}</span>
             </div>
             <p className="mt-4 max-w-[30ch] text-sm leading-relaxed text-muted-foreground">

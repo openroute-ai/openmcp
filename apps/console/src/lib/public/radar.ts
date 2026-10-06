@@ -15,17 +15,32 @@
 
 import {
   and,
+  asc,
   count,
   countDistinct,
   desc,
   eq,
+  ilike,
   inArray,
   ne,
+  or,
   sql,
+  type SQL,
 } from "drizzle-orm"
-import { hallOfFame, projects, projectsToTags, repos, tags } from "@/db/schema"
+import {
+  categories,
+  hallOfFame,
+  PROJECT_TYPES,
+  projectSkills,
+  projects,
+  projectsToTags,
+  repos,
+  repoWeeklyStats,
+  tags,
+} from "@/db/schema"
 import { githubAvatarUrl } from "@/lib/github/avatar-url"
 import { primaryLanguage } from "@/lib/github/languages"
+import { NO_DESCRIPTION } from "@/lib/github/service/project"
 import type { Db } from "@/lib/github/service/repo"
 import {
   listDailyArrivals,
@@ -33,6 +48,13 @@ import {
   type DailyArrivals,
   type WeeklyArrivals,
 } from "@/lib/github/service/stats"
+import {
+  PROJECT_TYPE_LABELS,
+  type PublicProjectFacet,
+  type PublicProjectFacets,
+  type PublicProjectQuery,
+  type PublicProjectSort,
+} from "@/lib/public/project-filters"
 
 /**
  * Statuses that stay off the public pages.
@@ -502,6 +524,47 @@ export async function getPublicAuthor(
 }
 
 /**
+ * The projects an author has had collected, most-starred first.
+ *
+ * One person's shelf for the author page: everything in the platform whose
+ * repository owner is this person, hidden projects excluded like everywhere
+ * else. The owner key is the same column the detail page's author card is read
+ * by, so the two pages cannot drift about who wrote what. Unpaginated because
+ * one author's collection is small; the tie-breakers after stars close the
+ * order the same way the tag list closes theirs, so two projects sharing a star
+ * count never swap places fitfully between renders.
+ */
+export async function listPublicProjectsByAuthor(
+  db: Db,
+  owner: string
+): Promise<PublicProjectSummary[]> {
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(projects)
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .where(and(eq(projects.owner, owner), PUBLIC_WHERE))
+    .orderBy(
+      sql`${repos.stars} desc nulls last`,
+      projects.name,
+      projects.owner,
+      projects.id
+    )
+
+  const byProject = await tagsByProject(
+    db,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map((row) => ({
+    ...row,
+    stars: row.stars ?? 0,
+    fullName: fullNameOf(row),
+    tags: byProject.get(row.id) ?? [],
+    avatar: avatarOf(row),
+  }))
+}
+
+/**
  * Other public projects to offer a reader who liked this one.
  *
  * Ranked by how many tags the two projects share, then by stars, and capped at
@@ -579,4 +642,351 @@ export async function countPublicProjects(db: Db): Promise<number> {
     .from(projects)
     .where(PUBLIC_WHERE)
   return row[0]?.total ?? 0
+}
+
+/**
+ * The `/projects` browser: the whole public catalog, filterable and sortable.
+ *
+ * The rankings answer "what moved this period" and the categories answer "what
+ * is filed under this tag"; neither is the catalog — the ranking has an editorial
+ * ceiling and a category is one shelf. This is the queryable list, and like the
+ * category pages it is paged in SQL and by URL, for the same reason: a catalog is
+ * a place a reader is meant to reach into an unbounded table, and `?page=` is the
+ * only address a crawler can cite.
+ *
+ * The three facets — type, category, tag — constrain a *set* of projects rather
+ * than a sequence, so they are framed as `exists` subqueries instead of joins:
+ * there is no risk of row multiplication, and the `count` and the list queries
+ * agree without anyone having to keep them in step by hand.
+ */
+
+/**
+ * One row of the catalog, with the movement the growth sort was ordered on.
+ *
+ * `delta` is only ever filled when the caller sorted by `growth`, and only then
+ * relays the same Δ the rankings are sorted on — the incremental week the reader
+ * asked for by choosing that sort, not a second number to reconcile.
+ */
+export interface PublicProjectListRow extends PublicProjectSummary {
+  createdAt: Date
+  /** The starred gain over the latest completed week, or `null` without one. */
+  delta: number | null
+}
+
+/**
+ * One page of the catalog under `input`'s sort and filters.
+ *
+ * The growth sort needs a single reference week, taken as the newest row of the
+ * whole stats table rather than each repo's own freshest row: the former compares
+ * every row within the same window, the latter mixes gains from different weeks
+ * into one ordering. When the stats table is empty there is no such window —
+ * the newest-day scan returns nothing — and the list degrades to the newest
+ * ordering rather than to an empty catalog.
+ */
+export async function listPublicProjects(
+  db: Db,
+  input: PublicProjectQuery & { limit: number; offset: number }
+): Promise<PublicProjectListRow[]> {
+  const conditions = projectConditions(input)
+  const period = input.sort === "growth" ? await latestWeeklyPeriod(db) : null
+
+  const select = {
+    ...SUMMARY_COLUMNS,
+    createdAt: projects.createdAt,
+    delta: period
+      ? sql<number | null>`${repoWeeklyStats.deltaStars}`
+      : sql<number | null>`null`,
+    // The "growth" fallback for the placeholder an editor's "clear" leaves in
+    // `projects.description`; an empty plain text would otherwise tell a reader
+    // nothing at all about a repository the upstream README describes.
+    repoDescription: repos.description,
+  }
+
+  const rows = period
+    ? await db
+        .select(select)
+        .from(projects)
+        .innerJoin(repos, eq(projects.repoId, repos.id))
+        .leftJoin(
+          repoWeeklyStats,
+          and(
+            eq(repoWeeklyStats.repoId, repos.id),
+            eq(repoWeeklyStats.period, period)
+          )
+        )
+        .where(and(...conditions))
+        .orderBy(...orderByFor(input.sort, period))
+        .limit(input.limit)
+        .offset(input.offset)
+    : await db
+        .select(select)
+        .from(projects)
+        .innerJoin(repos, eq(projects.repoId, repos.id))
+        .where(and(...conditions))
+        .orderBy(...orderByFor(input.sort, period))
+        .limit(input.limit)
+        .offset(input.offset)
+
+  const byProject = await tagsByProject(
+    db,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map(({ repoDescription, ...row }) => ({
+    ...row,
+    stars: row.stars ?? 0,
+    fullName: fullNameOf(row),
+    tags: byProject.get(row.id) ?? [],
+    avatar: avatarOf(row),
+    description:
+      row.description === NO_DESCRIPTION
+        ? repoDescription ?? ""
+        : row.description,
+  }))
+}
+
+/**
+ * How many projects match `query`: the denominator the page controls clamp to.
+ *
+ * Same conditions as {@link listPublicProjects}, so the total and the rows answer
+ * the same set — a count that counted a different set would promise a page the
+ * list never fills (the same reasoning as
+ * {@link countPublicProjectsByTag}).
+ */
+export async function countPublicProjectsForQuery(
+  db: Db,
+  query: PublicProjectQuery
+): Promise<number> {
+  const rows = await db
+    .select({ total: count() })
+    .from(projects)
+    .where(and(...projectConditions(query)))
+  return rows[0]?.total ?? 0
+}
+
+/**
+ * The three facet rails, counted under the *other* filters.
+ *
+ * A type facet that counts only unfiltered projects would say "客户端 19" while
+ * the tag filter is active and the tag facet says "mcp 3" — and the two rails
+ * would each claim to describe the same list. Omitting the rail being counted is
+ * the rule that keeps them coherent: each count answers "matching the keyword,
+ * the other two filters, and *this* value".
+ *
+ * Types are a closed enum, so all five are always offered and missing ones read
+ * zero — a closed set's empty option is still a real state. Categories and tags
+ * are open vocabularies, so only values with a nonzero count are offered, plus
+ * the currently selected one when the other filters emptied it: a reader must be
+ * able to switch a filter off, and a select that has lost the row it is showing
+ * cannot be switched off.
+ */
+export async function listPublicProjectFacets(
+  db: Db,
+  query: PublicProjectQuery
+): Promise<PublicProjectFacets> {
+  const [typeRows, categoryRows, tagRows] = await Promise.all([
+    db
+      .select({ value: projects.type, count: sql<number>`count(*)::int` })
+      .from(projects)
+      .where(and(...projectConditions(query, "type")))
+      .groupBy(projects.type),
+    db
+      .select({
+        code: categories.code,
+        label: categories.name,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(projects)
+      .innerJoin(categories, eq(categories.id, projects.categoryId))
+      .where(and(...projectConditions(query, "category")))
+      .groupBy(categories.id)
+      .orderBy(desc(sql`count(*)`), categories.code),
+    db
+      .select({
+        code: tags.code,
+        label: tags.name,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(projects)
+      .innerJoin(projectsToTags, eq(projectsToTags.projectId, projects.id))
+      .innerJoin(tags, eq(tags.id, projectsToTags.tagId))
+      .where(
+        and(
+          eq(tags.excludeFromRankings, false),
+          ...projectConditions(query, "tag")
+        )
+      )
+      .groupBy(tags.id)
+      .orderBy(desc(sql`count(*)`), tags.code),
+  ])
+
+  const typeCounts = new Map(typeRows.map((row) => [row.value, row.count]))
+
+  return {
+    types: PROJECT_TYPES.map((value) => ({
+      value,
+      label: PROJECT_TYPE_LABELS[value],
+      count: typeCounts.get(value) ?? 0,
+    })),
+    categories: keepFacetSelected(
+      populatedFacets(categoryRows),
+      query.category
+    ),
+    tags: keepFacetSelected(populatedFacets(tagRows), query.tag),
+  }
+}
+
+/** The SQL an anonymous browse request always carries, plus the in-set filters. */
+function projectConditions(
+  query: PublicProjectQuery,
+  omit?: "type" | "category" | "tag"
+): SQL[] {
+  const conditions: SQL[] = [PUBLIC_WHERE]
+
+  if (omit !== "type" && query.type) {
+    conditions.push(eq(projects.type, query.type))
+  }
+  if (omit !== "category" && query.category) {
+    conditions.push(categoryCondition(query.category))
+  }
+  if (omit !== "tag" && query.tag) {
+    conditions.push(tagCondition(query.tag))
+  }
+
+  const keyword = keywordCondition(query.q)
+  if (keyword) conditions.push(keyword)
+
+  return conditions
+}
+
+function categoryCondition(code: string): SQL {
+  // A correlated subquery quoting the outer row's own column, not a join: a
+  // filter is the question "is it filed under X", and a join would fan the row
+  // out and force the count query to rebuild the same shape by hand.
+  return sql<boolean>`exists (
+    select 1 from ${categories} c
+    where c.id = ${projects.categoryId} and c.code = ${code}
+  )`
+}
+
+function tagCondition(code: string): SQL {
+  return sql<boolean>`exists (
+    select 1 from ${projectsToTags} ptt
+    inner join ${tags} t on t.id = ptt.tag_id
+    where ptt.project_id = ${projects.id}
+      and t.code = ${code}
+      and t.exclude_from_rankings = false
+  )`
+}
+
+/**
+ * The keyword search, or `undefined` when there is nothing to search for.
+ *
+ * The pattern follows the reference app's project list: an `ilike`-match on the
+ * name, owner and description — plus the slug, which is where a project's
+ * romanised id lives. `_` and `%` in the keyword are escaped rather than let
+ * through, so a search for "100%" is a search for the characters, not a wildcard
+ * a malicious query could turn into a full scan.
+ */
+function keywordCondition(q: string): SQL | undefined {
+  const term = q.trim()
+  if (!term) return undefined
+  const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`
+  return or(
+    ilike(projects.name, pattern),
+    ilike(projects.owner, pattern),
+    ilike(projects.description, pattern),
+    ilike(projects.slug, pattern)
+  )
+}
+
+/**
+ * The newest completed week in the stats table, or `null` when it holds nothing.
+ *
+ * The same index-only backward scan as `latestDailyPeriod` in the rankings
+ * service; the boundary is the table's own newest row rather than `now()`, since
+ * a week is a calendar period with a written edge and deriving it would be wrong
+ * by construction.
+ */
+async function latestWeeklyPeriod(db: Db): Promise<Date | null> {
+  const rows = await db
+    .select({ period: repoWeeklyStats.period })
+    .from(repoWeeklyStats)
+    .orderBy(desc(repoWeeklyStats.period))
+    .limit(1)
+  return rows[0]?.period ?? null
+}
+
+function orderByFor(sort: PublicProjectSort, period: Date | null): SQL[] {
+  if (sort === "stars") {
+    return [sql`${repos.stars} desc nulls last`, asc(projects.id)]
+  }
+  if (sort === "growth") {
+    // The stats table can be empty before the first sweep; a growth ranking
+    // over a window that does not exist reads better as the newest list.
+    return period
+      ? [sql`${repoWeeklyStats.deltaStars} desc nulls last`, asc(projects.id)]
+      : [desc(projects.createdAt), asc(projects.id)]
+  }
+  return [desc(projects.createdAt), asc(projects.id)]
+}
+
+function populatedFacets(
+  rows: { code: string; label: string; count: number }[]
+): PublicProjectFacet[] {
+  return rows
+    .filter((row) => row.count > 0)
+    .map((row) => ({ code: row.code, label: row.label, count: Number(row.count) }))
+}
+
+function keepFacetSelected(
+  options: PublicProjectFacet[],
+  selected: string | undefined
+): PublicProjectFacet[] {
+  if (!selected || options.some((option) => option.code === selected)) {
+    return options
+  }
+  return [...options, { code: selected, label: selected, count: 0 }]
+}
+
+/**
+ * A skill a project ships, as the public pages may show it.
+ *
+ * Deliberately a subset of the row: the push state, the content hash and the
+ * parse errors are the back office's business, and `readme` is heavy enough to
+ * skip for a list that names a skill rather than documents it. `skillDir` is
+ * the natural ordering key — a directory path is stable, unlike a row id.
+ */
+export interface PublicProjectSkill {
+  skillDir: string
+  name: string
+  description: string
+  descriptionZh: string
+  version: string | null
+}
+
+/**
+ * The skills stored for one project, ordered by their directory.
+ *
+ * A skill repository carries its skills as `SKILL.md` documents, one per
+ * directory; `project_skills` is what the sync wrote from them. The reader is
+ * keyed by project id (the listing callers see on the dashboard uses the same
+ * key) and needs no joins — the caller has already resolved the project by the
+ * time it asks for skills.
+ */
+export async function listPublicProjectSkills(
+  db: Db,
+  projectId: string
+): Promise<PublicProjectSkill[]> {
+  return db
+    .select({
+      skillDir: projectSkills.skillDir,
+      name: projectSkills.name,
+      description: projectSkills.description,
+      descriptionZh: projectSkills.descriptionZh,
+      version: projectSkills.version,
+    })
+    .from(projectSkills)
+    .where(eq(projectSkills.projectId, projectId))
+    .orderBy(asc(projectSkills.skillDir))
 }

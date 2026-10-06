@@ -455,10 +455,13 @@ apiKeys.surrender    protectedProcedure   // 放弃自有 key 的所有权，改
 两侧都先 `if (!user) redirectTo(Routes.signIn)`。`src/lib/auth/role.ts:65` 的 `landingPathFor`
 把同一个二分法收敛成"登录后去哪"：admin → `/dashboard`，其他 → `/console`。
 
-`src/lib/routes.ts` 的注释记录了一个已经踩过的坑，值得照着做：它把 `/settings` 提升为
-顶层路径而不是 `/console/settings`，理由是"两个 console layout 都会把对方角色重定向走，
-只存在于 `/console` 下的设置页对管理员就不可达"。同理，**`/console/api-keys` 对管理员
-也是不可达的** —— 所以管理员要看到全部 key，必须有 `/dashboard/api-keys`，不能指望一个页面通吃。
+`src/lib/routes.ts` 的注释记录了一个已经踩过的坑，值得照着做：设置页曾经被提升为顶层
+`/settings` 而不是 `/console/settings`，理由是"两个 console layout 都会把对方角色重定向走，
+只存在于 `/console` 下的设置页对管理员就不可达"。现在这个坑换了个填法 —— 设置页**两边各有一份**
+（`/console/settings` 与 `/dashboard/settings`），共用同一个内容组件，各自套各自的 layout，
+于是用户和管理员都从自己那一侧的菜单进去，且进去之后左侧菜单还在。**同样的道理，
+`/console/api-keys` 对管理员也是不可达的** —— 所以管理员要看到全部 key，必须有
+`/dashboard/api-keys`，不能指望一个页面通吃。
 
 （`src/proxy.ts:99` 的 matcher 排除了整个 `api`，所以以上 layout 对 `/api/*` 一律不生效，
 每个 API 路由得自己鉴权 —— 见 §7。）

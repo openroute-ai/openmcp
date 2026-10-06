@@ -79,7 +79,6 @@ const envSchema = {
    */
   SKILLS_WEBHOOK_TOKEN: optionalString,
 
-  FRONTEND_BUILD_WEB_HOOK: optionalString,
   API_TRIGGER_BUILD_WEBHOOK_URL: optionalString,
   RANKINGS_ROOT_URL: optionalUrl,
 

@@ -43,7 +43,7 @@ export default async function PublicCategoriesPage() {
 
         {tags.length === 0 ? (
           <p className="mt-6 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
-            还没有可用于导航的分类。标签需要人工策展并挂到项目上才会出现在这里。
+            还没有可用于导航的分类。
           </p>
         ) : (
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,11 +71,6 @@ export default async function PublicCategoriesPage() {
             ))}
           </div>
         )}
-
-        <p className="mt-8 text-xs text-muted-foreground">
-          筛选维度说明：分类导航用 tags。capabilities（能力轴，用于筛选「支持哪些技术」）已在
-          schema 中就位，但目前没有写入路径，等自动分类上线后再作为补充筛选器开放。
-        </p>
       </div>
     </PublicShell>
   )

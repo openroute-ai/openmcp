@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 import {
+  IconChartAreaLine,
   IconCode,
   IconKey,
   IconScale,
@@ -24,11 +25,25 @@ import {
 } from "@tabler/icons-react"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
-// Ungrouped: these are the account's three pages, and a heading over them would
+
+/**
+ * This account's own settings page, named once.
+ *
+ * It is both a row of this sidebar and the settings entry in the account menu
+ * at its foot, and the two have to agree.
+ */
+const SETTINGS_PATH = "/console/settings"
+
+// Ungrouped: these are the account's pages, and a heading over them would
 // either name the product ("Workspace") or repeat each page back at the reader,
 // which is noise rather than navigation.
+//
+// The dashboard comes first because it is where sign-in lands, and the operator
+// console's own sidebar leads with the same page for the same reason: it answers
+// "where does my account stand" before it offers the things you can click.
 const navMain: NavMainItem[] = [
-  { key: "repos", url: "/console", icon: <IconCode /> },
+  { key: "dashboard", url: "/console", icon: <IconChartAreaLine /> },
+  { key: "repos", url: "/console/repos", icon: <IconCode /> },
   { key: "decisions", url: "/console/decisions", icon: <IconScale /> },
   // After repos rather than after decisions, because a key's main use is
   // submitting repositories, and the four entries above are all "things you
@@ -40,12 +55,14 @@ const navMain: NavMainItem[] = [
   { key: "subscriptions", url: "/console/subscriptions", icon: <IconWebhook /> },
   // Also in the account menu at the foot of the sidebar. Here as well because
   // it is per-account data like the other two, and that is what this list holds.
-  { key: "settings", url: "/settings", icon: <IconSettings /> },
+  // Inside `/console` rather than a shared top-level `/settings`, so that
+  // following it keeps this menu on screen — see `Routes.consoleSettings`.
+  { key: "settings", url: SETTINGS_PATH, icon: <IconSettings /> },
 ]
 
 /**
- * The user console's sidebar: the repositories you added, your decision boards,
- * and your account settings.
+ * The user console's sidebar: your dashboard, the repositories you added, your
+ * decision boards, and your account settings.
  *
  * Ungrouped because all three are per-account data and nothing else is. The
  * workbench is here rather than on the public site on purpose: a shortlist is a
@@ -91,7 +108,7 @@ export function ConsoleSidebar({
         <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={user} settingsHref={SETTINGS_PATH} />
       </SidebarFooter>
     </Sidebar>
   )

@@ -22,6 +22,7 @@ import { createTriggerRankingsFinishedTask } from "@/lib/tasks/tasks/trigger-ran
 import { createUpdateGitHubDataTask } from "@/lib/tasks/tasks/update-github-data"
 import { createUpdateBundleSizeTask } from "@/lib/tasks/tasks/update-bundle-size"
 import { createUpdatePackageDataTask } from "@/lib/tasks/tasks/update-package-data"
+import { createCleanupSkillScanTmpTask } from "@/lib/tasks/tasks/cleanup-skill-scan-tmp"
 import { getTaskRegistry, setTaskRegistry, type Task } from "@/lib/tasks/runner"
 
 /**
@@ -67,6 +68,7 @@ export function installTaskRegistry(): Map<string, Task> {
     createBuildRisingStarsTask(),
     createPushSkillsTask(),
     createRefreshAuthorsTask(),
+    createCleanupSkillScanTmpTask(),
   ]
 
   const registry = new Map(tasks.map((task) => [task.name, task]))

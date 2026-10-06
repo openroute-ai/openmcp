@@ -29,10 +29,22 @@ const withMDX = createMDX()
  * personas/payment/oauth — into console's build output, none of which exists
  * in `CONSOLE_DATABASE_URL`. `@workspace/ui` stays: shared components are the
  * deliberate L1 layer (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.1).
+ *
+ * `@workspace/shared-next` is the same story at a smaller scale: it publishes
+ * raw `.ts`/`.tsx` through its `exports` map, so the bundler has to compile it
+ * rather than treat it as an already-built dependency.
+ *
+ * `@workspace/security-scan` is raw TypeScript through its `exports` map too,
+ * and the scan route and the task both import it. It is the one new addition:
+ * console now executes skills security scanning (`src/lib/skill-scan`).
  */
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@workspace/ui"],
+  transpilePackages: [
+    "@workspace/ui",
+    "@workspace/shared-next",
+    "@workspace/security-scan",
+  ],
 }
 
 // MDX outermost, same order as `apps/web`: `withMDX` merges loaders into the

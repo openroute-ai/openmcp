@@ -16,7 +16,7 @@ type MessageTree = Record<string, unknown>
 
 // The default messages are exported directly so a build step, an email
 // template or a test can read them without a request.
-export { default as defaultMessages } from "../../messages/en.json"
+export { default as defaultMessages } from "../../messages/zh.json"
 
 const importLocale = async (locale: Locale): Promise<Messages> => {
   return (await import(`../../messages/${locale}.json`)).default as Messages

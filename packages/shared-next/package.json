@@ -1,0 +1,46 @@
+{
+  "name": "@workspace/shared-next",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./analytics": {
+      "default": "./src/analytics/analytics.tsx"
+    },
+    "./analytics/*": {
+      "default": "./src/analytics/*.tsx"
+    },
+    "./assets/fonts": {
+      "default": "./src/assets/fonts/index.ts"
+    },
+    "./affiliate/*": {
+      "default": "./src/affiliate/*.tsx"
+    }
+  },
+  "peerDependencies": {
+    "next": "16.3.6",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.39.2",
+    "next": "16.3.6",
+    "prettier": "^3.8.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3"
+  }
+}

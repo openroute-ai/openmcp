@@ -23,6 +23,7 @@ import type { RepoInfo } from "@/lib/github/repo-info-query"
 import {
   MAX_CANDIDATES,
   addCandidate,
+  listBoards,
   listCandidates,
 } from "@/lib/radar/decisions"
 
@@ -186,8 +187,9 @@ describe.skipIf(!hasDatabase)("decision boards (integration)", () => {
     const board = await newBoard(ALICE, "long shortlist")
 
     // Every candidate needs its own repository: `(board_id, repo_id)` is unique,
-    // and a repeated repository is answered idempotently rather than counted
-    // twice — so a loop over one repo would stop at two, not at the ceiling.
+    // and a repeated repository is refused rather than counted twice — so a loop
+    // over one repo would stop at the second with a duplicate, not at the ceiling.
+    let firstCandidateId = ""
     for (let index = 0; index < MAX_CANDIDATES; index += 1) {
       const id = (await upsertRepo(db, repoInfo(`candidate-${index}`))).id
       await seedWeeks(id, [1, 1, 1, 1])
@@ -197,6 +199,7 @@ describe.skipIf(!hasDatabase)("decision boards (integration)", () => {
         boardId: board.id,
         repoId: id,
       })
+      if (index === 0) firstCandidateId = id
     }
 
     expect(await listCandidates(db, ALICE, board.id)).toHaveLength(
@@ -220,6 +223,18 @@ describe.skipIf(!hasDatabase)("decision boards (integration)", () => {
     expect(after).toHaveLength(MAX_CANDIDATES)
     expect(after.some((row) => row.repoId === overflowId)).toBe(false)
 
+    // A duplicate on a full board is reported as the duplicate, not as the
+    // ceiling. Both are true at once, and "先移出一个再加" would send the reader
+    // to remove a candidate in order to add one they never added twice.
+    await expect(
+      addCandidate(db, {
+        id: crypto.randomUUID(),
+        ownerId: ALICE,
+        boardId: board.id,
+        repoId: firstCandidateId,
+      })
+    ).rejects.toThrow(/already a candidate/)
+
     // `afterAll` already removes every repository under OWNER, so the fixtures
     // for the remaining cases are reseeded here rather than cleaned up inline.
     // A mid-file `delete(repos)` would take the shared `alpha` and `beta` with
@@ -227,23 +242,32 @@ describe.skipIf(!hasDatabase)("decision boards (integration)", () => {
     await seedFixtures()
   })
 
-  it("treats re-adding the same repository as a no-op rather than an error", async () => {
+  it("refuses the same repository twice, and leaves the board unchanged", async () => {
+    // Refused rather than answered with the row that is already there. Returning
+    // it made a repeated add look like it worked while the board stayed the same
+    // size — and under the ceiling that hid the problem entirely, because a
+    // five-entry shortlist with two entries added twice reads as a full one.
     const board = await newBoard(ALICE, "double click")
-    const first = await addCandidate(db, {
-      id: crypto.randomUUID(),
-      ownerId: ALICE,
-      boardId: board.id,
-      repoId,
-    })
-    const second = await addCandidate(db, {
+    await addCandidate(db, {
       id: crypto.randomUUID(),
       ownerId: ALICE,
       boardId: board.id,
       repoId,
     })
 
-    expect(second.id).toBe(first.id)
-    expect(await listCandidates(db, ALICE, board.id)).toHaveLength(1)
+    await expect(
+      addCandidate(db, {
+        id: crypto.randomUUID(),
+        ownerId: ALICE,
+        boardId: board.id,
+        repoId,
+      })
+    ).rejects.toThrow(/already a candidate/)
+
+    // One row, not two, and not an empty board left behind by a partial write.
+    const rows = await listCandidates(db, ALICE, board.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.repoId).toBe(repoId)
   })
 
   it("puts the newest candidate first, so a shortlist stays read from the front", async () => {
@@ -263,5 +287,42 @@ describe.skipIf(!hasDatabase)("decision boards (integration)", () => {
 
     const rows = await listCandidates(db, ALICE, board.id)
     expect(rows.map((row) => row.repoId)).toEqual([otherRepoId, repoId])
+  })
+
+  it("counts each board's candidates in the list, and counts a board with none", async () => {
+    const empty = await newBoard(ALICE, "counting: none yet")
+    const two = await newBoard(ALICE, "counting: two of them")
+
+    await addCandidate(db, {
+      id: crypto.randomUUID(),
+      ownerId: ALICE,
+      boardId: two.id,
+      repoId,
+    })
+    await addCandidate(db, {
+      id: crypto.randomUUID(),
+      ownerId: ALICE,
+      boardId: two.id,
+      repoId: otherRepoId,
+    })
+
+    const counts = new Map(
+      (await listBoards(db, ALICE)).map((board) => [
+        board.id,
+        board.candidateCount,
+      ])
+    )
+
+    // Having no candidates is the state a board is in for the whole of the time
+    // between creating it and adding the first one, so a board in that state has
+    // to stay in the list — dropping it would make "just created" read as "does
+    // not exist".
+    expect(counts.get(empty.id)).toBe(0)
+    expect(counts.get(two.id)).toBe(2)
+
+    // The count rides on the board's own ownership rather than on the candidates'
+    // rows being reachable, so another account's list is empty, not just its
+    // counts.
+    expect(await listBoards(db, BOB)).toEqual([])
   })
 })

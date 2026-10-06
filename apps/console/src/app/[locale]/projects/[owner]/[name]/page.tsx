@@ -8,14 +8,17 @@ import { PublicAuthorCard } from "@/components/public/public-author-card"
 import { PublicReadme } from "@/components/public/public-readme"
 import { PublicRelatedProjects } from "@/components/public/public-related-projects"
 import { PublicShell } from "@/components/public/public-shell"
+import { PublicSkills } from "@/components/public/public-skills"
 import { PublicStarTrend } from "@/components/public/public-star-trend"
 import { VitalsStrip } from "@/components/public/vitals-strip"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
+import { outboundHref } from "@/lib/outbound"
 import {
   getPublicAuthor,
   getPublicProjectDetail,
   getPublicProjectIdentity,
+  listPublicProjectSkills,
   listRelatedPublicProjects,
 } from "@/lib/public/radar"
 import { readTimeline } from "@/lib/radar/timeline"
@@ -81,8 +84,11 @@ export default async function PublicProjectPage({
   // they are fetched alongside it rather than after it renders. The vitals and
   // the timeline are in the same batch because they read the same repository and
   // this page is already `force-dynamic` — a second waterfall would double the
-  // time to first paint of the numbers, which are the point of the page.
-  const [author, related, vital, timeline] = await Promise.all([
+  // time to first paint of the numbers, which are the point of the page. The
+  // skills are skipped for everything that isn't a skill project: a library has
+  // no skill directories to list, and asking anyways would only 404 on a table
+  // join that has nothing to join.
+  const [author, related, vital, timeline, skills] = await Promise.all([
     getPublicAuthor(db, project.owner),
     listRelatedPublicProjects(db, {
       projectId: project.id,
@@ -95,7 +101,16 @@ export default async function PublicProjectPage({
       licenseSpdxId: project.license,
     }),
     readTimeline(db, project.repoId, { limit: 20 }),
+    project.type === "skill"
+      ? listPublicProjectSkills(db, project.id)
+      : Promise.resolve([]),
   ])
+
+  // The repository button trails through the console's own `/out` link, like
+  // every other exit from this page, so the click is observable here. A
+  // malformed stored URL yields `null` and hides the button rather than
+  // rendering a dead link.
+  const repoOutbound = project.url ? outboundHref(project.url) : null
 
   // Days no writer measured are left out of the sum rather than counted as
   // zero, so a repository the collectors have not reached reads as "未记录" and
@@ -152,9 +167,10 @@ export default async function PublicProjectPage({
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {project.url && (
+            {repoOutbound && (
               <a
-                href={project.url}
+                href={repoOutbound}
+                target="_blank"
                 rel="noopener noreferrer nofollow"
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
@@ -193,6 +209,18 @@ export default async function PublicProjectPage({
                 the page indistinguishable from one where the reader simply forgot
                 to look. The card states the missing README instead of leaving a
                 gap where one should be. */}
+            {/* The skills of a skill project, shown only when there are any to
+                show. They are the project's product rather than its metadata —
+                for a skill repository, this list is the catalogue — so they
+                sit just below the chart, above our own conclusions about the
+                project. */}
+            {skills.length > 0 ? (
+              <PublicSkills
+                skills={skills}
+                fullName={project.fullName}
+              />
+            ) : null}
+
             {/* The timeline keeps dismissed rows (§5.4 red line 2 needs the
                 context, and `EvidenceTimeline` marks them). It sits below the
                 README because it is reference material: a reader looking for

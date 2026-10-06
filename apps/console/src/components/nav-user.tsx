@@ -31,12 +31,22 @@ import {
 
 export function NavUser({
   user,
+  settingsHref,
 }: {
   user: {
     name: string
     email: string
     avatar: string
   }
+  /**
+   * The account page of whichever console this menu is at the foot of.
+   *
+   * Passed in rather than derived from the session's role, because the sidebar
+   * that renders this menu has already decided that: it is the one whose gate
+   * let the reader through, so it is also the one whose console this link should
+   * land in.
+   */
+  settingsHref: string
 }) {
   const t = useTranslations("Nav")
   const { isMobile } = useSidebar()
@@ -108,11 +118,11 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {/* Settings live at `/settings` rather than under either console,
-                so this is the one entry both sidebars can share — see the note on
-                `Routes.settings`. */}
+            {/* Also a row of the sidebar above, for the same reason every
+                per-account page is: this is a link worth one click, not a
+                setting to be hunted for in a menu. */}
             <DropdownMenuItem asChild>
-              <LocaleLink href="/settings">
+              <LocaleLink href={settingsHref}>
                 <IconSettings />
                 {t("settings")}
               </LocaleLink>

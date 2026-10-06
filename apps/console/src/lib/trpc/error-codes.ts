@@ -17,6 +17,14 @@
 export const ERROR_CODES = {
   /** The task disappeared between listing it and clicking run. */
   taskNotFound: "task.notFound",
+  /**
+   * The repository is already a candidate on this board.
+   *
+   * A code rather than prose because the reader can act on it — pick another
+   * repository — and a toast that says it in the server's English is not an
+   * answer on a page written in another language.
+   */
+  duplicateCandidate: "decision.duplicateCandidate",
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

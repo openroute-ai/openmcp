@@ -28,6 +28,7 @@ const FOLDER_BY_TAG: Record<string, string> = {
   "读取 API": "read",
   "写入 API": "write",
   "订阅 API": "subscriptions",
+  "扫描 API": "scan",
 }
 
 const NAV = navDescriptions()

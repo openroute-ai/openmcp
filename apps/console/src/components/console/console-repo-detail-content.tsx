@@ -149,7 +149,7 @@ export function ConsoleRepoDetail({ id }: { id: string }) {
         </CardHeader>
         <CardContent>
           <Button variant="outline" asChild>
-            <LocaleLink href="/console">
+            <LocaleLink href="/console/repos">
               <IconArrowLeft />
               {t("backToRepos")}
             </LocaleLink>
@@ -182,7 +182,7 @@ export function ConsoleRepoDetail({ id }: { id: string }) {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <LocaleLink href="/console">{consoleT("title")}</LocaleLink>
+              <LocaleLink href="/console/repos">{consoleT("title")}</LocaleLink>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />

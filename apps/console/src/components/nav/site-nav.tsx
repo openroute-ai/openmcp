@@ -13,12 +13,12 @@ import { NavLink } from "./nav-link"
 
 /**
  * The destinations a visitor actually has: the anomaly feed, the two rankings,
- * the category index and the API reference. They are routes rather than
- * `#anchors` because all five are real pages that stand on their own — they are
- * public and readable without an account, and are linked from shared articles
- * and by agents. Anchoring the nav into the landing page's own sections would
- * have left it dead everywhere else, which is why the list is route-typed and
- * the landing page is not in it.
+ * the project catalog, the category index and the API reference. They are routes
+ * rather than `#anchors` because all six are real pages that stand on their own —
+ * they are public and readable without an account, and are linked from shared
+ * articles and by agents. Anchoring the nav into the landing page's own sections
+ * would have left it dead everywhere else, which is why the list is route-typed
+ * and the landing page is not in it.
  *
  * The order is the argument: this site reports declines, so the feed of things
  * going wrong is the first thing in the nav. Putting it after the rankings would
@@ -36,6 +36,7 @@ const NAV_LINKS: { label: string; href: PublicRoutePath }[] = [
   { label: "异动", href: "/anomalies" },
   { label: "公开榜单", href: "/rankings" },
   { label: "飙升榜", href: "/rankings/rising" },
+  { label: "项目库", href: "/projects" },
   { label: "分类", href: "/categories" },
   { label: "API 文档", href: "/docs" },
 ]
@@ -54,7 +55,7 @@ function Logo() {
       className="flex shrink-0 items-center gap-2.5"
       aria-label={SITE_NAME}
     >
-      <RadarLogo className="size-8" />
+      <RadarLogo className="size-6" />
       <span className="font-display text-base font-semibold tracking-tight">
         {SITE_NAME}
       </span>

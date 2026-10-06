@@ -25,6 +25,7 @@ import {
 import { organizationNode, webSiteNode } from "@/lib/seo/structured-data"
 import { siteNameForLocale } from "@/lib/seo/locale-name"
 import { TRPCReactProvider } from "@/lib/trpc/client"
+import { Analytics } from "@workspace/shared-next/analytics/analytics"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -110,6 +111,11 @@ export default async function LocaleLayout({
                 {children}
               </TooltipProvider>
               <ThemedToaster />
+              {/* Page views. Renders nothing unless NODE_ENV is production and
+                  NEXT_PUBLIC_UMAMI_WEBSITE_ID / NEXT_PUBLIC_UMAMI_SCRIPT are
+                  both set, so a dev server or an unconfigured deployment never
+                  emits a request. */}
+              <Analytics />
             </TRPCReactProvider>
           </ThemeProvider>
         </NextIntlClientProvider>

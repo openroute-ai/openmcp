@@ -1,5 +1,5 @@
 import type { routing } from "@/i18n/routing"
-import type defaultMessages from "../../messages/en.json"
+import type defaultMessages from "../../messages/zh.json"
 
 type Messages = typeof defaultMessages
 type Locales = (typeof routing.locales)[number]

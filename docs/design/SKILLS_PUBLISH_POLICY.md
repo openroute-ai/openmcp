@@ -2,7 +2,8 @@
 
 > 状态：产品 + 实现对齐稿（2026-09-20）  
 > 依据：产品方确认「同步后不可直接上架；须人工审核或按规则自动上架」；以 **扫描门控** 为准。  
-> 代码锚点：`src/lib/security-scan/run-scan.ts`、`src/app/api/webhook/daily/skills/route.ts`、`src/web/skill-reviews/index.ts`
+> 代码锚点：`src/lib/security-scan/run-scan.ts`、`src/app/api/webhook/daily/skills/route.ts`、`src/web/skill-reviews/index.ts`  
+> **扫描本身怎么跑**（独立模块、GitHub 源码由 console 在 Vercel/非 Vercel 下分类取源）见 [SKILL_SECURITY_SCAN_PIPELINE.md](./SKILL_SECURITY_SCAN_PIPELINE.md)。本文只定门控语义，两份不重复。
 
 ---
 

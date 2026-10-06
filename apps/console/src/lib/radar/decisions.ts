@@ -53,17 +53,47 @@ export interface Candidate {
 }
 
 /**
+ * 一份工作台，加上列表页要显示的候选计数。
+ *
+ * 计数在服务端一次查出来，而不是让前端为每行各发一次 `listCandidates`：列表页唯一
+ * 的用途是让人挑一份工作台打开，而「这份还差几个候选」正是挑的那把尺子——把它变成
+ * 每行一次请求，会让它变成最慢的一页。
+ */
+export interface BoardSummary extends Board {
+  /** 已加入的候选数。与 `MAX_CANDIDATES` 一起读作「2 / 5」。 */
+  candidateCount: number
+}
+
+/**
  * 这个账户名下的工作台，最近动过的在前。
  *
  * `owner_id` 是查询条件而不是过滤后校验——两者在结果上一样，但后者的写法会先读出
  * 别人的行再丢掉，而那是一个「忘了加条件」就能变成数据泄漏的形状。
+ *
+ * 计数写成相关子查询而不是 `left join` 加 `group by`：一份没有候选的工作台必须留在
+ * 列表里（内连接会让它看起来像不存在，而那正是新建之后的状态），而 `count(*)` 在
+ * 相关子查询里天然给出 0，也不必为了一个数字给整条查询引入分组语义。
  */
-export async function listBoards(db: Db, ownerId: string): Promise<Board[]> {
-  return db
-    .select()
+export async function listBoards(
+  db: Db,
+  ownerId: string
+): Promise<BoardSummary[]> {
+  const rows = await db
+    .select({
+      board: decisionBoards,
+      candidateCount: sql<number>`(
+        select count(*)::int from ${decisionCandidates}
+        where ${decisionCandidates.boardId} = ${decisionBoards.id}
+      )`,
+    })
     .from(decisionBoards)
     .where(eq(decisionBoards.ownerId, ownerId))
     .orderBy(desc(decisionBoards.updatedAt))
+
+  return rows.map((row) => ({
+    ...row.board,
+    candidateCount: Number(row.candidateCount ?? 0),
+  }))
 }
 
 /** 一个工作台；不属于 `ownerId` 时返回 null。 */
@@ -194,7 +224,7 @@ export async function addCandidate(
     throw new Error(`No board ${input.boardId} owned by ${input.ownerId}`)
 
   const [dupe] = await db
-    .select()
+    .select({ id: decisionCandidates.id })
     .from(decisionCandidates)
     .where(
       and(
@@ -204,11 +234,22 @@ export async function addCandidate(
     )
     .limit(1)
 
-  // Checked before the limit so that re-adding a repository that is already on
-  // the board is idempotent rather than an error: a double-click on a full
-  // shortlist should read as "already there", not as "you hit the ceiling" — the
-  // first tells the reader nothing new, the second tells them something false.
-  if (dupe) return toCandidate(dupe, repo)
+  // A repository already on the board is refused, not answered with the row that
+  // is already there. Returning it made the write look like it had happened: the
+  // caller got a candidate back and the board was unchanged, so a second click on
+  // the same repository — which the reader experiences as "my first click did
+  // nothing" — was answered by silence about which of the two it was. Putting a
+  // repository on the shortlist is the whole point of the click; a call that
+  // cannot say it did not happen leaves the reader to guess.
+  //
+  // Before the ceiling check, because the duplicate is the more specific truth:
+  // a full board that already contains this repository is at the ceiling *and*
+  // has the repository, and the reader can act on only one of those.
+  if (dupe) {
+    throw new Error(
+      `${input.repoId} is already a candidate on this board; it cannot be added twice`
+    )
+  }
 
   const count = await db
     .select({ n: sql<number>`count(*)::int` })

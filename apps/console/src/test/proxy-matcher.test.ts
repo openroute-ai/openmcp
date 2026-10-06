@@ -93,9 +93,10 @@ describe("the proxy matcher", () => {
   })
 
   it("runs for a child's path, which is where a gate has to be careful", () => {
-    // The reason `isPublicPath` prefix-matches: `/rankings` is a section root and
-    // `/console` is the only `/console*` page, so both children of the first must
-    // reach the proxy while the second keeps being gated.
+    // The reason `isPublicPath` prefix-matches: `/rankings` and `/console` are
+    // section roots, so a child of either must reach the proxy while the section
+    // itself keeps being gated. `/console/repos` being the list rather than the
+    // dashboard is what makes the second of these a real path.
     expect(gated("/rankings/week")).toBe(true)
     expect(gated("/console/repos/42")).toBe(true)
   })

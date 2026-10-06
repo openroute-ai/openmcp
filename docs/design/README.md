@@ -7,6 +7,7 @@
 | 文档 | 说明 |
 |------|------|
 | [SKILLS_PUBLISH_POLICY.md](./SKILLS_PUBLISH_POLICY.md) | **上架 / 扫描门控 / certified 统一规范** |
+| [SKILL_SECURITY_SCAN_PIPELINE.md](./SKILL_SECURITY_SCAN_PIPELINE.md) | **扫描流水线：独立模块 `packages/security-scan` + console 按部署环境取源（Vercel Sandbox / 本地 clone）** |
 | [USER_MARKETPLACE.md](./USER_MARKETPLACE.md) | 普通用户浏览与免费/付费获取 |
 | [SKILL_USER_DOWNLOAD_INSTALL.md](./SKILL_USER_DOWNLOAD_INSTALL.md) | 下载 / 安装 / 下载列表 / Agent OAuth（登录必需） |
 | [AGENT_INSTALL.md](./AGENT_INSTALL.md) | 「装进 Agent」提示词 + Store MCP |

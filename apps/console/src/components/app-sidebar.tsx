@@ -35,6 +35,15 @@ import {
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
 
+/**
+ * The operator's own account page, named once.
+ *
+ * It is both a row of this sidebar and the settings entry in the account menu
+ * at its foot, and the two have to agree: the same page reached from two places
+ * is not a small thing to let drift.
+ */
+const DASHBOARD_SETTINGS_PATH = "/dashboard/settings"
+
 // The label is a message key rather than text, so the sidebar translates with
 // everything else. The url stays here: it is routing, not presentation.
 //
@@ -131,10 +140,12 @@ const navMain: NavMainItem[] = [
   },
   // Last, because it is about the reader rather than about anyone else: the
   // rows above are the operator's view of other accounts, this one is the
-  // operator's own.
+  // operator's own. `/dashboard/settings` rather than a shared top-level
+  // `/settings`, so that following it keeps this menu on screen — see the note
+  // on `Routes.dashboardSettings`.
   {
     key: "settings",
-    url: "/settings",
+    url: DASHBOARD_SETTINGS_PATH,
     icon: <IconSettings />,
     group: "groupManagement",
   },
@@ -198,7 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={user} settingsHref={DASHBOARD_SETTINGS_PATH} />
       </SidebarFooter>
     </Sidebar>
   )

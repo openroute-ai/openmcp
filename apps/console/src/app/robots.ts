@@ -25,22 +25,18 @@ import { Routes } from "@/lib/routes"
 /**
  * Signed-in surfaces.
  *
- * Listed as prefixes, which is why `/console` covers `/console/repos/[id]` and
- * `/dashboard` covers every list under it without naming each. Nothing here is
- * reachable without a session, so there is nothing for a crawler to index — the
- * redirect to the sign-in form is not a 404, and a crawler that follows it would
- * record the login page as the content of twenty URLs.
+ * Listed as prefixes, which is why `/console` covers `/console/settings` and
+ * `/console/repos/[id]` while `/dashboard` covers every list under it without
+ * naming each. Nothing here is reachable without a session, so there is nothing
+ * for a crawler to index — the redirect to the sign-in form is not a 404, and a
+ * crawler that follows it would record the login page as the content of twenty
+ * URLs.
  *
  * `/console/decisions` is listed separately rather than folded into `/console`:
  * the proxy's `isPublicPath` prefix-matches these, so folding it would read as
  * though the guard covers it when it does not.
  */
-const PRIVATE_PREFIXES = [
-  Routes.dashboard,
-  Routes.console,
-  Routes.decisions,
-  Routes.settings,
-]
+const PRIVATE_PREFIXES = [Routes.dashboard, Routes.console, Routes.decisions]
 
 /**
  * The machine endpoints.

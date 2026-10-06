@@ -22,7 +22,7 @@ export const Routes = {
   signUp: "/sign-up",
   /** The operator console: overview, tasks, projects, rankings, sync. */
   dashboard: "/dashboard",
-  /** The user console: the repository list. */
+  /** The user console: the dashboard, then the repository list under it. */
   console: "/console",
   /**
    * The decision workbench.
@@ -36,12 +36,19 @@ export const Routes = {
   /**
    * Account settings: avatar, name, email, phone number, password.
    *
-   * Its own top-level path rather than a child of either console, because both
-   * console layouts redirect the *other* role away: settings that only existed
-   * under `/console` would be unreachable for admins. It is gated by its own
-   * layout instead.
+   * One per console rather than one shared top-level path. A single `/settings`
+   * could not have lived under either console — each console layout sends the
+   * other role away — so it was a top-level path gated by a layout of its own,
+   * and a page with a layout of its own is a page with no sidebar: its only way
+   * out was a "back to console" link, while the way in was one of the two
+   * sidebars' own rows. A settings page is per-account data like every other
+   * row in those sidebars, so it belongs in both of them, and each console's
+   * layout is already the gate that keeps the two apart. The content is one
+   * component (`components/settings/settings-content.tsx`); only the frame and
+   * the path differ.
    */
-  settings: "/settings",
+  consoleSettings: "/console/settings",
+  dashboardSettings: "/dashboard/settings",
 } as const
 
 export type RoutePath = (typeof Routes)[keyof typeof Routes]
@@ -82,6 +89,24 @@ export const PublicRoutes = {
   categories: "/categories",
   /** A single project's public detail, by id. */
   project: "/projects",
+  /**
+   * The exit ramp for external links.
+   *
+   * Every outbound link on the public pages points here first (see
+   * `lib/outbound.ts`), so it has to be reachable without a session — a reader
+   * who clicks "打开仓库" is not going to log in first. It is also deliberately
+   * short: the route is a redirect endpoint, nothing renders.
+   */
+  out: "/out",
+  /**
+   * One author's page, by username.
+   *
+   * The detail page's byline links here, and the author page links back to the
+   * projects list, so the pair is part of the same crawlable surface: an agent
+   * that can reach a project must be able to reach the person behind it
+   * without an account.
+   */
+  authors: "/authors",
   /**
    * The FAQ. A question often arrives before the product does — as a shared
    * link or a search result — so this one is a destination rather than a

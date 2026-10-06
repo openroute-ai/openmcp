@@ -27,6 +27,12 @@ export const API_SCOPES = [
    * 不是用户对自己数据的操作。
    */
   "projects:write",
+  /**
+   * 执行 Skill 安全扫描（规则 + LLM 复核），并返回扫描文件与结论。
+   *
+   * 仅内部服务（Web → Console）使用，不开放自助签发。
+   */
+  "skills:scan",
 ] as const
 
 export type ApiScope = (typeof API_SCOPES)[number]

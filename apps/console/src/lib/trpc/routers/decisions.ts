@@ -28,17 +28,52 @@ import {
   updateCandidate,
 } from "@/lib/radar/decisions"
 import { createTRPCRouter, protectedProcedure } from "../init"
+import { ERROR_CODES } from "@/lib/trpc/error-codes"
 
 const verdict = z.enum(DECISION_VERDICTS)
+
+/** PostgreSQL 的 unique violation，唯一索引兜底时的那一个错误码。 */
+const PG_UNIQUE_VIOLATION = "23505"
 
 /** 本层自己生成的 id，与 tRPC 的调用 id 无关，避免客户端能指定它。 */
 function newId(): string {
   return crypto.randomUUID()
 }
 
-/** 服务层的 `Error` 里只有两种：找不到，和超过了对比上限。 */
+/**
+ * 服务层的 `Error` 里只有三种：找不到，以及这块板子此刻不接受这一行。
+ *
+ * 后者有两种说法——已经满了，以及这个仓库已经在候选里——都是 `CONFLICT`：行和身
+ * 份都没问题，只是这一刻写不进去。重复的那一种另带一个 `appCode`，因为它是用户在
+ * 界面上**自己会撞到**的一种失败（重复点击，或者同一份工作台开在两个标签页里），
+ * 界面把它翻译成读者的语言，而不是把服务层的英文原样弹出来。
+ *
+ * 重复还认数据库的约束，而不只认服务层那一次查重：两个标签页可以同时通过查重然后
+ * 一起写进去，落败的那一个撞上的是 `decision_candidates_board_repo_unique`。查重是
+ * 为了给出人话，唯一索引才是保证，两件事各管一段。
+ */
 function asTrpcError(error: unknown): never {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined
+
+  if (code === PG_UNIQUE_VIOLATION) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "that repository is already a candidate on this board",
+      cause: { code: ERROR_CODES.duplicateCandidate },
+    })
+  }
+
   const message = error instanceof Error ? error.message : String(error)
+  if (message.includes("already a candidate")) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message,
+      cause: { code: ERROR_CODES.duplicateCandidate },
+    })
+  }
   if (message.includes("at most")) {
     throw new TRPCError({ code: "CONFLICT", message })
   }
@@ -46,10 +81,16 @@ function asTrpcError(error: unknown): never {
 }
 
 export const decisionsRouter = createTRPCRouter({
-  /** 这个账户的工作台清单。 */
-  list: protectedProcedure.query(({ ctx }) =>
-    listBoards(ctx.db, ctx.session.user.id)
-  ),
+  /**
+   * 这个账户的工作台清单。
+   *
+   * 带上候选上限，是为了让列表页把计数读作「2 / 5」而不用在前端复制一份常量。
+   * 上限是产品决定（见 `MAX_CANDIDATES` 的注释），复制一份迟早会只改一处。
+   */
+  list: protectedProcedure.query(async ({ ctx }) => ({
+    boards: await listBoards(ctx.db, ctx.session.user.id),
+    maxCandidates: MAX_CANDIDATES,
+  })),
 
   /** 一个工作台，含它的候选与各自冻结的体征。 */
   read: protectedProcedure

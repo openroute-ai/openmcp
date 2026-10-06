@@ -62,6 +62,14 @@ export const INDEXABLE_PAGES: IndexablePage[] = [
     changeFrequency: "weekly",
   },
   {
+    path: "/projects",
+    title: "项目库",
+    description:
+      "全部公开项目，按类型、分类与标签筛选，支持关键词搜索，可按最新入库、星数与增长最快排序。",
+    priority: 0.8,
+    changeFrequency: "weekly",
+  },
+  {
     path: "/categories",
     title: "应用分类",
     description:

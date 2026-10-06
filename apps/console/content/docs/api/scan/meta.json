@@ -1,0 +1,5 @@
+{
+  "title": "扫描 API",
+  "description": "需要 skills:scan：执行 Skill 安全扫描。仅内部服务 key。",
+  "pages": ["scanSkill"]
+}

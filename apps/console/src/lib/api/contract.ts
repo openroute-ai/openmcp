@@ -599,3 +599,115 @@ export function rankingsPayload(
     byRelativeGrowth: rankings.byRelativeGrowth.map(row),
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * `POST /api/v1/skills/scan`
+ *
+ * 内部端点（Web → Console），scope `skills:scan`。契约里刻意只有**请求**而没有
+ * 响应 schema：响应里的 `flags` 是 `@workspace/security-scan` 的
+ * `SecurityFlagHit[]`，而那个包的 `types.ts` 才是它唯一的真相来源。在这里再抄
+ * 一份 `securityFlagHitSchema` 就是下一次漂移的起点——OpenAPI 里用一个
+ * 宽松的 object 指过去，并在 `description` 里写明权威位置。
+ * ------------------------------------------------------------------ */
+
+/** `owner/repo`，正好一个斜杠，斜杠两侧非空。 */
+const repoSlugSchema = z
+  .string()
+  .regex(/^[^/\s]+\/[^/\s]+$/, "必须是 owner/repo")
+  .describe("GitHub 仓库全名，例如 anthropics/skills")
+
+/**
+ * 扫描请求。
+ *
+ * **不给文件，只给地址。** Console 自己取源码是有意的：调用方手里那份文件快照
+ * 是它自己某一时刻的副本，让它落进扫描结论等于让"同一个提交"在两次扫描里得到
+ * 两个不同的结果。地址相同 → 取到的提交相同 → 结论相同，这条链不能从中间断。
+ *
+ * `ref` 缺省即仓库默认分支。`skillDir` 缺省即整个仓库：多数 Skill 仓库的
+ * `SKILL.md` 就在根目录，而猜一个子目录前缀猜错的表现是"扫了个空目录并报告
+ * 干净"。
+ */
+export const skillScanRequestSchema = z
+  .object({
+    repoFullName: repoSlugSchema,
+    ref: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe("分支、tag 或 commit sha。缺省取默认分支"),
+    skillDir: z
+      .string()
+      .min(1)
+      .max(400)
+      .optional()
+      .describe("仓库内的相对目录，例如 `skills/pdf`。缺省扫描整个仓库"),
+    /** 是否跑阶段 2 的 LLM 复核。缺省 true——只跑规则会把 `unsafe` 读成结论。 */
+    includeLlm: z.boolean().optional().describe("缺省 true"),
+  })
+  .strict()
+
+/**
+ * `POST /api/v1/skills/scan` 的响应。
+ *
+ * 结构与 `@workspace/security-scan` 的 `types.ts` 一一对应——`flags` 是
+ * `SecurityFlagHit[]`、`context` 是 `ScanContext`、`llmAnalysis` 是 `LlmAnalysis`。
+ * 这里是那套类型的**消费者**而不是它的第二份定义：改动规则包时不许先改这里。
+ * `flags` 的字段写得略有差别（`file`/`line` 可选、`severity` 收窄到实际出现的四档），
+ * 因为那是 z.toJSONSchema 能表达的极限；权威定义始终回指规则包。
+ */
+const scanContextSchema = z
+  .object({
+    owner: z.string().nullable().optional(),
+    homepage: z.string().nullable().optional(),
+    stars: z.number().nullable().optional(),
+    license: z.string().nullable().optional(),
+  })
+  .describe("来源：@workspace/security-scan/src/types.ts 的 ScanContext")
+
+const securityFlagHitSchema = z
+  .object({
+    name: z.string(),
+    severity: z.enum(["critical", "high", "medium", "low"]),
+    description: z.string(),
+    file: z.string().optional(),
+    line: z.number().optional(),
+    snippet: z.string().optional(),
+    inCodeBlock: z.boolean().optional(),
+    citedOrNegated: z.boolean().optional(),
+  })
+  .describe("来源：@workspace/security-scan/src/types.ts 的 SecurityFlagHit")
+
+export const skillScanResponseSchema = z.object({
+  repoFullName: z.string(),
+  skillDir: z.string().optional(),
+  ref: z.string().optional(),
+  source: z.enum(["local-clone", "vercel-sandbox", "vercel-sandbox-serverless"]),
+  context: scanContextSchema,
+  grade: z.enum(["safe", "caution", "unsafe", "reject", "unknown"]),
+  flags: z.array(securityFlagHitSchema),
+  trustTier: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+  ]),
+  llmGrade: z
+    .enum(["safe", "caution", "unsafe", "reject", "unknown"])
+    .optional()
+    .describe("阶段 2 的评级；跳过阶段 2 时缺省"),
+  llmAnalysis: z
+    .unknown()
+    .optional()
+    .describe("阶段 2 的完整分析。来源：@workspace/security-scan 的 LlmAnalysis"),
+  scannedAt: isoDateTime,
+  rulesVersion: z.string().describe("本次执行所用的规则版本，例如 v1.0.0"),
+  fileCount: z.number(),
+  truncated: z.boolean().describe("是否在达到文件/体积上限后提前停止"),
+  truncatedReason: z
+    .string()
+    .optional()
+    .describe("`max_files` / `max_total_bytes` / `file_too_large`"),
+  files: z.array(z.object({ path: z.string(), size: z.number() })),
+})

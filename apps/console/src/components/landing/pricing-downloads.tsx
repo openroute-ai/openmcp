@@ -291,7 +291,7 @@ export function FinalCta() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-24">
       <Reveal>
-        <div className="rounded-3xl bg-border p-1">
+        <div className="rounded-3xl p-1">
           <div className="rounded-[calc(1.5rem-4px)] border border-border bg-card/85 p-8 text-center backdrop-blur-xl md:p-14">
             {/* Foreground tokens, not `primary-foreground`: this panel sits on
                 `bg-card`, and `primary-foreground` is the near-white that belongs

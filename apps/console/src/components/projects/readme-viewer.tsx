@@ -35,6 +35,7 @@ import {
 } from "@workspace/ui/components/collapsible"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { outboundHref } from "@/lib/outbound"
 
 /**
  * Tags a README may use beyond GitHub's own defaults.
@@ -182,12 +183,27 @@ export function ReadmeViewer({
  * re-renders on every parent state change — including the resync button's.
  */
 function ReadmeBody({ source }: { source: string }) {
+  // The element map is the README's typography. Almost every tag has to be
+  // restyled because a third-party Markdown file carries no awareness of this
+  // design system: without the overrides below a README renders as browser
+  // defaults — Times for headings, full-width list markers, blue links — next
+  // to the site's own `font-display` headings and muted secondary text. Each
+  // override sticks to the tokens already in use on the page so the document
+  // reads as part of the card it sits in, and the spacing is vertical rhythm
+  // rather than margin soup: `my-` on block elements, nothing horizontal.
   const components = useMemo(
     () => ({
       a: ({ children, href, ...props }: React.ComponentProps<"a">) => (
         <a
           {...props}
-          href={href}
+          href={href ? (outboundHref(href) ?? href) : href}
+          // `processReadMeMd` rewrites the links to absolute first, so almost
+          // every href arrives as a full URL; `outboundHref` routes those
+          // through the console's own `/out` link so the exit is observable
+          // here — the destination is a third party's file, but the *exit from
+          // this site* is ours to count. Links that are not absolute http(s)
+          // URLs (`mailto:`, a stray relative path) are left alone.
+          className="break-words text-primary underline-offset-4 hover:underline"
           // READMEs are full of links meant to leave the site, and a README
           // that can navigate the console away from itself is a phishing
           // surface in an authenticated page.
@@ -203,15 +219,16 @@ function ReadmeBody({ source }: { source: string }) {
           {...props}
           alt={alt ?? ""}
           loading="lazy"
-          className="inline-block max-w-full rounded-md"
+          className="my-4 inline-block max-w-full rounded-md"
         />
       ),
       // A fenced block with a language renders as inline-ish text otherwise,
-      // and the vertical scroll is what makes a long README readable.
+      // and the vertical scroll is what makes a long README readable. The
+      // margin is the block rhythm, matching the paragraph steps around it.
       pre: ({ children, ...props }: React.ComponentProps<"pre">) => (
         <pre
           {...props}
-          className="overflow-x-auto rounded-lg bg-muted p-4 text-sm"
+          className="my-4 overflow-x-auto rounded-lg bg-muted p-4 text-sm leading-relaxed"
         >
           {children}
         </pre>
@@ -222,17 +239,119 @@ function ReadmeBody({ source }: { source: string }) {
         ...props
       }: React.ComponentProps<"code">) =>
         className ? (
+          // A fenced block's code: the language class arrives here and the
+          // surrounding `pre` owns the panel, so the snippet itself is plain.
           <code {...props} className={className}>
             {children}
           </code>
         ) : (
           <code
             {...props}
-            className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]"
+            className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]"
           >
             {children}
           </code>
         ),
+      h1: ({ children, ...props }: React.ComponentProps<"h1">) => (
+        <h1
+          {...props}
+          className="mt-8 mb-4 border-b border-border pb-2 font-display text-2xl font-bold tracking-tight first:mt-0"
+        >
+          {children}
+        </h1>
+      ),
+      h2: ({ children, ...props }: React.ComponentProps<"h2">) => (
+        <h2
+          {...props}
+          className="mt-8 mb-3 border-b border-border pb-2 font-display text-xl font-semibold tracking-tight"
+        >
+          {children}
+        </h2>
+      ),
+      h3: ({ children, ...props }: React.ComponentProps<"h3">) => (
+        <h3
+          {...props}
+          className="mt-6 mb-2 font-display text-lg font-semibold tracking-tight"
+        >
+          {children}
+        </h3>
+      ),
+      h4: ({ children, ...props }: React.ComponentProps<"h4">) => (
+        <h4 {...props} className="mt-5 mb-2 font-display text-base font-semibold">
+          {children}
+        </h4>
+      ),
+      h5: ({ children, ...props }: React.ComponentProps<"h5">) => (
+        <h5 {...props} className="mt-4 mb-1 font-display text-sm font-semibold">
+          {children}
+        </h5>
+      ),
+      h6: ({ children, ...props }: React.ComponentProps<"h6">) => (
+        <h6
+          {...props}
+          className="mt-4 mb-1 text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+        >
+          {children}
+        </h6>
+      ),
+      p: ({ children, ...props }: React.ComponentProps<"p">) => (
+        <p {...props} className="my-3 first:mt-0">
+          {children}
+        </p>
+      ),
+      ul: ({ children, ...props }: React.ComponentProps<"ul">) => (
+        <ul
+          {...props}
+          className="my-3 list-disc pl-6 marker:text-muted-foreground"
+        >
+          {children}
+        </ul>
+      ),
+      ol: ({ children, ...props }: React.ComponentProps<"ol">) => (
+        <ol
+          {...props}
+          className="my-3 list-decimal pl-6 marker:text-muted-foreground"
+        >
+          {children}
+        </ol>
+      ),
+      li: ({ children, ...props }: React.ComponentProps<"li">) => (
+        <li {...props} className="my-1.5">
+          {children}
+        </li>
+      ),
+      blockquote: ({ children, ...props }: React.ComponentProps<"blockquote">) => (
+        <blockquote
+          {...props}
+          className="my-4 border-l-2 border-border pl-4 text-muted-foreground"
+        >
+          {children}
+        </blockquote>
+      ),
+      hr: () => <hr className="my-6 border-border" />,
+      strong: ({ children, ...props }: React.ComponentProps<"strong">) => (
+        <strong {...props} className="font-semibold">
+          {children}
+        </strong>
+      ),
+      kbd: ({ children, ...props }: React.ComponentProps<"kbd">) => (
+        <kbd
+          {...props}
+          className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs"
+        >
+          {children}
+        </kbd>
+      ),
+      details: ({ children, ...props }: React.ComponentProps<"details">) => (
+        <details {...props} className="my-3">
+          {children}
+        </details>
+      ),
+      summary: ({ children, ...props }: React.ComponentProps<"summary">) => (
+        <summary {...props} className="cursor-pointer font-medium">
+          {children}
+        </summary>
+      ),
       table: ({ children, ...props }: React.ComponentProps<"table">) => (
         <div className="my-4 overflow-x-auto">
           <table {...props} className="w-full border-collapse text-sm">
@@ -258,7 +377,9 @@ function ReadmeBody({ source }: { source: string }) {
   )
 
   return (
-    <article className="readme max-w-none text-sm leading-relaxed">
+    // The document's type scale sits on the card's own body size and a taller
+    // line, so a paragraph that ran six words a line becomes readable prose.
+    <article className="readme max-w-none text-[0.925rem] leading-7">
       <Markdown
         remarkPlugins={[remarkGfm]}
         // `rehype-raw` first, so the README's own HTML becomes nodes, then the

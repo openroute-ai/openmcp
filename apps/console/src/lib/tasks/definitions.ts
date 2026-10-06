@@ -173,6 +173,16 @@ export const TASK_SEEDS: TaskSeed[] = [
     taskType: "weekly",
     isWeekly: true,
   },
+  {
+    // 03:00（上海时间）在凌晨窗口里，而它清的是本地 clone 的临时目录——那些目录
+    // 的生存周期本来就以小时计，晚一小时清没有成本。每天跑而不是每次扫描后跑，是
+    // 因为正常路径在扫描结束时就已经自删，这个任务只是兜底。
+    name: "cleanup-skill-scan-tmp",
+    description: "Remove skill-scan temporary checkouts older than a day",
+    cronExpression: "0 3 * * *",
+    taskType: "daily",
+    isDaily: true,
+  },
 ]
 
 /**

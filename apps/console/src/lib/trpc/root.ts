@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from "./init"
 import { apiKeysRouter } from "./routers/api-keys"
 import { authorsRouter } from "./routers/authors"
+import { consoleRouter } from "./routers/console"
 import { decisionsRouter } from "./routers/decisions"
 import { overviewRouter } from "./routers/overview"
 import { projectsRouter } from "./routers/projects"
@@ -19,6 +20,9 @@ export const appRouter = createTRPCRouter({
   // 的文件头。
   apiKeys: apiKeysRouter,
   authors: authorsRouter,
+  // The user console's own numbers, scoped to the caller's submissions. Separate
+  // from `overview`, which counts the whole registry for an operator.
+  console: consoleRouter,
   decisions: decisionsRouter,
   overview: overviewRouter,
   projects: projectsRouter,

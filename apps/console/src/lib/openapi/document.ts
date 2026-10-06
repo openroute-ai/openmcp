@@ -41,6 +41,8 @@ import {
   repoRegisteredSchema,
   repoRegisterRequestSchema,
   repoStatsRangeSchema,
+  skillScanRequestSchema,
+  skillScanResponseSchema,
   statsPeriodSchema,
   subscriptionCreatedSchema,
   subscriptionDetailSchema,
@@ -802,6 +804,41 @@ const paths: Record<string, ContractPathItem> = {
       },
     },
   },
+  "/api/v1/skills/scan": {
+    post: {
+      tags: ["扫描 API"],
+      operationId: "scanSkill",
+      summary: "执行 Skill 安全扫描",
+      "x-nav-description": "对 owner/repo（可指定 ref 与子目录）跑一遍规则 + LLM 复核。",
+      description:
+        "给内部服务用的端点：`skills:scan` 只配给 Web 侧的服务 key，不在任何自助签发" +
+        "范围内。请求**只带地址、不带文件**——源码由 Console 自己取，这样同一个提交在" +
+        "任何一次扫描里都得到同一个结论。规则在仓库所属环境里执行（Vercel Sandbox 或" +
+        "本地 clone），`source` 字段回传实际执行位置。最长 300 秒。",
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        description:
+          "`repoFullName` 必填；`ref` / `skillDir` / `includeLlm` 可选，`includeLlm` 缺省 true",
+        content: jsonContent(ref("#/components/schemas/SkillScanRequest")),
+      },
+      responses: {
+        "200": response("扫描完成", ref("#/components/schemas/SkillScanResponse")),
+        "400": v1BadRequest(
+          "invalid_body / invalid_skill_dir",
+          "不是合法 JSON、`repoFullName` 缺失或不是 `owner/repo`，或 `skillDir` 越出仓库（后者是恶意调用）"
+        ),
+        "401": unauthorized,
+        "403": insufficientScope("skills:scan"),
+        "404": notFound,
+        "429": rateLimited,
+        "502": response(
+          "source_unavailable / scan_failed —— 仓库取不到或扫描执行失败，可重试",
+          errorBody
+        ),
+      },
+    },
+  },
 }
 
 /** 文档本身。每条 operation 都逐个标注所需 scope。 */
@@ -836,6 +873,11 @@ export function buildOpenAPIDocument(): ContractDocument {
         name: "订阅 API",
         description:
         "`subscriptions:write`：创建、改过滤器、暂停、轮换 secret、发探测事件。",
+      },
+      {
+        name: "扫描 API",
+        description:
+        "`skills:scan`：执行 Skill 安全扫描，返回规则与 LLM 结论。仅内部服务 key 可用。",
       },
     ],
     paths,
@@ -887,6 +929,8 @@ export function buildOpenAPIDocument(): ContractDocument {
         SubscriptionUpdate: jsonSchema(subscriptionUpdateSchema, "input"),
         SubscriptionRotated: jsonSchema(subscriptionRotatedSchema, "output"),
         SubscriptionTest: jsonSchema(subscriptionTestSchema, "output"),
+        SkillScanRequest: jsonSchema(skillScanRequestSchema, "input"),
+        SkillScanResponse: jsonSchema(skillScanResponseSchema, "output"),
       },
     },
   }
@@ -940,6 +984,7 @@ const SCOPES: Record<string, string> = {
   deleteSubscription: "subscriptions:write",
   rotateSubscriptionSecret: "subscriptions:write",
   testSubscription: "subscriptions:write",
+  scanSkill: "skills:scan",
 }
 
 /**

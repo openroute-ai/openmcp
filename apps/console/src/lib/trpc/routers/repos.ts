@@ -28,6 +28,7 @@ import {
   getUserRepo,
   linkUserToRepo,
   listRepoSubmitters,
+  ownedByUser,
   recomputePlatformStates,
   updateUserRepo,
 } from "@/lib/github/service/user-repo"
@@ -39,34 +40,6 @@ const CHART_MONTHS = 12
 
 /** How many weeks of star history the chart shows. */
 const CHART_WEEKS = 12
-
-/**
- * 一个账号在 `/console` 里能看到的那部分仓库集合。
- *
- * 两个来源取**并集**，而不是只读其中一个：
- *
- * - `repos.created_by` —— 谁**第一个**把这个仓库记进库里。`repos.create` 会写它，
- *   所以在 console 里亲手粘贴的仓库走这一条。
- * - `user_repos` —— 谁**提交过**它。这一对关系可以有很多用户，而 API 提交
- *   （`POST /api/v1/repos` 与 `POST /api/v1/projects`）只写这里：`repos.created_by`
- *   按设计不能被改写，否则谁先提交就决定了后来者还能不能看到它。
- *
- * 只读 `created_by` 时，API 提交的仓库对提交者本人是不可见的——这就是"我的仓库"
- * 一直为空的原因；只读 `user_repos` 又会漏掉这张表存在之前由 console 亲手记下的
- * 行，所以两个来源都得在。
- *
- * 写成 `exists` 而不是 join：同一个仓库可以同时被 `created_by` 和多条提交命中，
- * join 会让它在结果里出现两次，而分页里的重复行比看不见更难解释。
- */
-function ownedByUser(userId: string): SQL {
-  return or(
-    eq(repos.createdBy, userId),
-    sql`exists (
-      select 1 from ${userRepos}
-      where ${userRepos.repoId} = ${repos.id} and ${userRepos.userId} = ${userId}
-    )`
-  )!
-}
 
 /**
  * The repository registry.

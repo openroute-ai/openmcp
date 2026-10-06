@@ -38,6 +38,10 @@ const SCOPE_EFFECT: Record<ApiScope, { en: string; zh: string }> = {
     en: "Create and update email subscriptions",
     zh: "创建与更新邮件订阅",
   },
+  "skills:scan": {
+    en: "Run the skill security scan against a repository",
+    zh: "对仓库执行 Skill 安全扫描",
+  },
 }
 
 /**
