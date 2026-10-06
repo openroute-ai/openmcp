@@ -21,7 +21,7 @@ import {
 } from "@/lib/github/service/stats"
 import { lastNWeeks } from "@/lib/github/snapshot-dates"
 import { createConsoleLogger } from "@/lib/tasks/runner"
-import { projects, repos, userRepos, USER_REPO_STATUSES } from "@/db/schema"
+import { projects, repos, USER_REPO_STATUSES } from "@/db/schema"
 import { countProjectsForRepo } from "@/lib/github/service/project"
 import {
   countRepoSubmitters,

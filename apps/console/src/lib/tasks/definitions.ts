@@ -47,6 +47,16 @@ export const TASK_SEEDS: TaskSeed[] = [
     isDaily: true,
   },
   {
+    name: "classify-projects",
+    description: "AI classification of projects into categories and capabilities",
+    // Fifteen minutes after `update-github-data`, on the project data it
+    // refreshed. The run skips itself when no model or no active category is
+    // configured, and stops when it hits the unreviewed cap.
+    cronExpression: "15 2 * * *",
+    taskType: "daily",
+    isDaily: true,
+  },
+  {
     name: "update-package-data",
     description: "Refresh npm package metadata and monthly download counts",
     cronExpression: "30 2 * * *",
