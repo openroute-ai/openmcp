@@ -2,10 +2,10 @@ import { eq } from 'drizzle-orm'
 import { db } from "@/lib/db"
 import { skillReviews, skillScans, skills } from "@workspace/db"
 import { notifyAdmins } from "@/lib/notifications"
-import { analyzeWithLlm } from './llm-analyzer'
-import { SCAN_RULES_VERSION } from './types'
-import { scanFiles } from './rule-scanner'
-import type { ScanContext, ScanFileInput, ScanResult, SecurityGrade } from './types'
+import { analyzeWithLlm } from '@workspace/security-scan'
+import { SCAN_RULES_VERSION } from '@workspace/security-scan'
+import { scanFiles } from '@workspace/security-scan'
+import type { ScanContext, ScanFileInput, ScanResult, SecurityGrade } from '@workspace/security-scan'
 import { computeAndPersistEvalReport } from "@/lib/skills/eval-report-persist"
 
 const MAX_FILE_BYTES = Number(process.env.SCAN_FILE_MAX_SIZE || 5 * 1024 * 1024)

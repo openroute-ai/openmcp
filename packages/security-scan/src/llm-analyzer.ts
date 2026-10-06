@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { generateText, Output } from 'ai'
+import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { LlmAnalysis, ScanFileInput, SecurityFlagHit, SecurityGrade } from './types'
 
@@ -64,14 +64,14 @@ Return structured JSON only.`
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(1000 * 2 ** attempt)
     try {
-      const res = await generateText({
-        model: openai.chat(modelId()),
-        output: Output.object({ schema: LlmSchema }),
+      const res = await generateObject({
+        model: openai.chat(modelId()) as any,
+        schema: LlmSchema,
         prompt,
         system:
           'You review Skill packages. Prefer safe when the hit is a documented installer or negated example. Prefer unsafe when data is sent out or persistence is installed.',
       })
-      return (res.output ?? null) as LlmAnalysis | null
+      return res.object as LlmAnalysis | null
     } catch (error) {
       lastError = error
     }

@@ -38,6 +38,8 @@
     "@upstash/redis": "^1.35.3",
     "@vercel/postgres": "^0.10.0",
     "@workspace/mail": "workspace:*",
+    "@workspace/security-scan": "workspace:*",
+    "@workspace/shared-next": "workspace:*",
     "@workspace/sms-captcha": "workspace:^",
     "@workspace/ui": "workspace:*",
     "ai": "^7.0.0",
