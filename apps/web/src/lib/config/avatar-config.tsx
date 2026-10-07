@@ -31,7 +31,7 @@ export function getAvatarLinks(): MenuItem[] {
     },
     {
       title: t('settings'),
-      href: Routes.SettingsOverview,
+      href: Routes.SettingsSetup,
       icon: <Settings2Icon className='size-4 shrink-0' />,
     },
   ]

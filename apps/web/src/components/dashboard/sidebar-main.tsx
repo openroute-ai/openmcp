@@ -8,7 +8,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@workspace/ui/components/sidebar'
-import { useSearchParams } from 'next/navigation'
 import { LocaleLink, useLocalePathname } from '@/i18n/navigation'
 import type { NestedMenuItem } from '@/lib/types'
 
@@ -17,23 +16,12 @@ import type { NestedMenuItem } from '@/lib/types'
  */
 export function SidebarMain({ items }: { items: NestedMenuItem[] }) {
   const pathname = useLocalePathname()
-  const searchParams = useSearchParams()
-  const section = searchParams.get('section')
 
   // Function to check if a path is active
   const isActive = (href: string | undefined): boolean => {
     if (!href) return false
 
-    const [path, query] = href.split('?')
-
-    // Hub page (/settings): account info is the default section, while security
-    // settings are distinguished by ?section=security.
-    if (path === '/settings') {
-      if (query?.startsWith('section=')) {
-        return pathname === '/settings' && section === query.split('=')[1]
-      }
-      return pathname === '/settings' && section !== 'security'
-    }
+    const [path] = href.split('?')
 
     // Special handling for /dashboard
     if (path === '/dashboard') {

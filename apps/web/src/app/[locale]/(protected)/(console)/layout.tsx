@@ -10,8 +10,8 @@ import { SidebarInset } from '@workspace/ui/components/sidebar'
 export default function ConsoleLayout({ children }: PropsWithChildren) {
   return (
     <>
-      {/* The sidebar reads `?section=` to highlight the active settings tab, so it
-          needs a boundary of its own to stay out of the static prerender. */}
+      {/* The sidebar resolves the session on the client, so it needs a boundary
+          of its own to stay out of the static prerender. */}
       <Suspense fallback={null}>
         <DashboardSidebar variant='inset' type='user' />
       </Suspense>

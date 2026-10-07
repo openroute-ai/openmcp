@@ -53,6 +53,106 @@
     "dashboard": {
       "title": "概览"
     },
+    "overview": {
+      "welcome": "欢迎回来，{name}",
+      "creatorWorkspace": "创作工作台，{name}",
+      "tabs": {
+        "downloads": "最近下载",
+        "favorites": "最近收藏"
+      }
+    },
+    "consumer": {
+      "stats": {
+        "balance": "账户余额",
+        "recharge": "充值",
+        "monthSpend": "本月消费",
+        "monthSpendHint": "技能购买与网关调用",
+        "vsLastMonthUp": "较上月上升 {percentage}",
+        "vsLastMonthDown": "较上月下降 {percentage}",
+        "vsLastMonthFlat": "与上月持平",
+        "noLastMonth": "上月无消费",
+        "favorites": "我的收藏",
+        "installs": "我的安装",
+        "view": "查看"
+      },
+      "trend": {
+        "title": "用量趋势",
+        "description": "近 30 天的消费与下载",
+        "last7Days": "近 7 天",
+        "last30Days": "近 30 天",
+        "spend": "消费",
+        "downloads": "下载",
+        "empty": "暂无用量数据，创建 API 密钥后即可开始调用"
+      },
+      "quickActions": {
+        "title": "快捷操作",
+        "createApiKey": "创建 API 密钥",
+        "createApiKeyHint": "用密钥调用网关模型",
+        "recharge": "充值余额",
+        "rechargeHint": "支持在线支付与银行转账",
+        "browse": "浏览市场",
+        "browseHint": "发现技能、MCP 与 A2A 资产",
+        "becomeCreator": "成为创作者",
+        "becomeCreatorHint": "发布资产并获得收益"
+      },
+      "onboarding": {
+        "title": "开始使用",
+        "description": "三步开始你的第一次调用",
+        "step1": "创建 API 密钥",
+        "step2": "充值余额",
+        "step3": "调用网关模型"
+      }
+    },
+    "creator": {
+      "verified": "已认证创作者",
+      "publish": "发布新资产",
+      "payout": "管理收款",
+      "earningsCenter": "收益中心",
+      "alert": {
+        "pendingStatement": "{period} 账单待确认，请于 {deadline} 前确认，逾期自动确认",
+        "confirm": "去确认"
+      },
+      "earnings": {
+        "title": "收益概览",
+        "netTotal": "累计净收益",
+        "pending": "待结算",
+        "paid": "已打款",
+        "latest": "最新账单",
+        "empty": "暂无账单",
+        "viewAll": "查看全部"
+      },
+      "statementStatus": {
+        "pending": "待确认",
+        "confirmed": "待打款",
+        "paid": "已打款",
+        "rolled": "已滚存"
+      },
+      "topAssets": {
+        "title": "资产表现",
+        "description": "近 30 天网关调用与累计下载",
+        "colAsset": "资产",
+        "colType": "类型",
+        "colCalls": "调用",
+        "colDownloads": "下载",
+        "colFavorites": "收藏",
+        "viewAll": "查看全部",
+        "empty": "暂无已发布资产",
+        "type": {
+          "skill": "技能",
+          "mcp": "MCP",
+          "a2a": "A2A",
+          "persona": "角色"
+        }
+      },
+      "activity": {
+        "title": "最近动态",
+        "earning": "收益入账",
+        "statement": "账单已生成",
+        "download": "被下载",
+        "favorite": "被收藏",
+        "empty": "暂无动态"
+      }
+    },
     "firstLoginPrompt": {
       "message": "首次登录？",
       "action": "联系技术支持",
@@ -1252,7 +1352,8 @@
       "onboarding": "入驻与收款",
       "profile": "个人资料",
       "security": "安全与登录",
-      "userGuide": "使用指南"
+      "userGuide": "使用指南",
+      "helpDocs": "帮助文档"
     },
     "usage": {
       "title": "用量与花费",
@@ -1304,95 +1405,22 @@
       "retry": "重试"
     },
     "earnings": {
-      "title": "收益与打款",
-      "description": "查看技能销售、网关调用收益与提现申请",
-      "gatewayCall": "网关调用",
-      "comingSoon": "收益中心即将完善",
+      "title": "我的收益",
+      "description": "按月结算的收益账单：次月 5 日出账、19 日确认截止、20 日线下打款，逾期自动确认。",
       "notProvider": "您还不是 Provider，请先完成入驻",
       "goOnboarding": "前往入驻",
-      "tabs": {
-        "skills": "技能销售",
-        "gateway": "网关调用收益",
-        "payouts": "提现申请",
-        "statements": "月度账单"
-      },
-      "stats": {
-        "calls30": "近30天调用",
-        "income30": "近30天收益（元）",
-        "callsTotal": "累计调用",
-        "incomeTotal": "累计收益（元）"
-      },
-      "chart": {
-        "title": "近30天收入与调用趋势",
-        "calls": "调用次数",
-        "income": "收益（元）",
-        "empty": "暂无收入数据"
-      },
-      "overview": {
-        "title": "收益概览",
-        "perCall": "平均单次调用收入"
-      },
-      "loadFailed": "加载失败",
-      "retry": "重试",
-      "payoutAccount": "收款账号",
-      "payoutAccountHint": "绑定微信 / 支付宝账号以便平台汇款",
-      "managePayoutAccount": "管理收款账户",
-      "statusLabel": "状态：{status}",
-      "payReady": "已绑定，可申请提现",
-      "payNotReady": "未绑定 — 提现前请先完成绑定",
-      "skillsShareTitle": "技能销售分成",
-      "skillsShareDescription": "付费技能售出后按 {share}% 计入可提现余额（平台抽成 {fee}%）",
-      "requestPayout": "申请提现",
-      "requesting": "提交中…",
-      "summary": {
-        "payable": "可提现",
-        "paid": "已结算",
-        "total": "累计净收入"
-      },
-      "skillsTable": {
-        "skill": "技能",
-        "gross": "成交额",
-        "platformFee": "平台费",
-        "net": "净收入",
-        "status": "状态",
-        "createdAt": "时间",
-        "empty": "暂无技能销售记录"
-      },
-      "payouts": {
-        "title": "提现申请",
-        "amount": "金额",
-        "channel": "渠道",
-        "status": "状态",
-        "createdAt": "时间",
-        "note": "备注",
-        "empty": "—"
-      },
-      "channel": {
-        "wechat": "微信",
-        "alipay": "支付宝",
-        "unknown": "—"
-      },
-      "status": {
-        "payable": "可提现",
-        "paid": "已结算",
-        "pending": "待确认",
-        "approved": "已批准",
-        "rejected": "已驳回",
-        "unknown": "未知"
-      },
-      "toast": {
-        "requested": "提现申请已提交",
-        "requestFailed": "申请提现失败",
-        "payAccountRequired": "请先绑定微信 / 支付宝收款账户"
+      "managePayoutAccount": "管理收款账号",
+      "kpi": {
+        "netTotal": "累计净收入",
+        "netTotalHint": "全部账单的本期结算合计",
+        "paidTotal": "累计已打款",
+        "paidTotalHint": "已完成打款的账单合计",
+        "pendingTotal": "待到账",
+        "pendingTotalHint": "待确认与待打款合计"
       },
       "statements": {
-        "tab": "月度账单",
-        "title": "月度账单",
+        "title": "月度收益账单",
         "description": "次月 5 日出账、19 日确认截止、20 日线下打款。逾期未确认将自动确认。",
-        "summaryPending": "待确认",
-        "summaryConfirmed": "待打款",
-        "summaryPaid": "已打款",
-        "summaryRolled": "待抵扣",
         "tablePeriod": "结算月份",
         "tableNet": "当月净收入",
         "tableCarryover": "上月抵扣",
@@ -1400,19 +1428,60 @@
         "tableStatus": "状态",
         "tableAction": "操作",
         "tableEmpty": "暂无账单，每月 5 日出账",
+        "view": "查看",
         "statusPending": "待确认",
         "statusConfirmed": "待打款",
         "statusPaid": "已打款",
         "statusRolled": "负数，已滚入下月抵扣",
+        "rollHint": "本期结算为负（退款冲回超过收入），缺口将在下月抵扣"
+      },
+      "detail": {
+        "back": "返回账单列表",
+        "title": "{period} 月度收益详情",
+        "gross": "成交额",
+        "platformFee": "平台费",
+        "net": "当月净收入",
+        "carryover": "上月抵扣",
+        "settlement": "本期结算",
+        "timelineGenerate": "出账日",
+        "timelineConfirm": "确认截止",
+        "timelinePayout": "打款日",
+        "breakdownTitle": "当月收益构成",
+        "breakdownDescription": "按收入来源汇总，已含退款冲回",
+        "breakdownSource": "来源",
+        "breakdownKind": "类型",
+        "breakdownCount": "笔数",
+        "breakdownGross": "成交额",
+        "breakdownFee": "平台费",
+        "breakdownNet": "净收入",
+        "breakdownEmpty": "暂无收益明细",
+        "ledgerTitle": "逐笔明细",
+        "ledgerTime": "时间",
+        "ledgerKind": "类型",
+        "ledgerSource": "来源",
+        "ledgerGross": "成交额",
+        "ledgerFee": "平台费",
+        "ledgerNet": "净收入",
+        "ledgerEmpty": "暂无明细",
+        "kindSale": "销售",
+        "kindClawback": "退款冲回",
+        "gatewaySource": "网关调用",
+        "payoutTitle": "打款信息",
+        "payoutChannel": "收款渠道",
+        "payoutAccount": "账号快照",
+        "payoutReference": "打款凭证号",
+        "channelWechat": "微信",
+        "channelAlipay": "支付宝",
+        "channelNone": "未绑定",
+        "confirmedAt": "确认时间",
+        "paidAt": "打款时间",
         "confirm": "确认账单",
         "confirming": "提交中…",
-        "rollHint": "本期结算为负（退款冲回超过收入），不确认也不打款，缺口将在下月抵扣",
-        "deadlineHint": "{date} 前可确认，逾期系统自动确认",
-        "deadlinePassed": "已过确认截止日，系统已自动确认",
         "toastConfirmed": "账单已确认",
         "toastConfirmFailed": "确认账单失败",
-        "detailTitle": "账单明细",
-        "detailEmpty": "暂无明细"
+        "loadFailed": "账单加载失败",
+        "retry": "重试",
+        "notFound": "账单不存在"
       }
     },
     "organization": {
@@ -3635,14 +3704,6 @@
     "authGate": {
       "loading": "加载中..."
     },
-    "submit": {
-      "progress": "发布进度",
-      "steps": {
-        "login": "登录",
-        "verify": "实名认证",
-        "upload": "上传/设置"
-      }
-    },
     "gate": {
       "loading": "正在获取入驻状态...",
       "statusErrorTitle": "无法获取入驻状态",
@@ -3708,6 +3769,96 @@
       },
       "pageTitle": "提供者入驻",
       "pageDescription": "完成实名认证后即可在 OpenMCP 发布资产。",
+      "loading": "正在加载入驻信息...",
+      "done": {
+        "title": "实名认证已通过",
+        "body": "{type}已通过，现在可以发布资产并收款。"
+      },
+      "assets": {
+        "skills": {
+          "title": "发布 Skill",
+          "description": "提交你的 Skill，通过审核后上架到市场。"
+        },
+        "mcp": {
+          "title": "发布 MCP Server",
+          "description": "登记你的 MCP Server，供 Agent 发现与调用。"
+        },
+        "a2a": {
+          "title": "发布 A2A Agent",
+          "description": "上架你的 A2A 智能体，接入协作网络。"
+        }
+      },
+      "payoutStep": {
+        "hint": "绑定收款通道后才能提交审核，通常 1-3 个工作日出结果。",
+        "back": "返回上一步",
+        "bindRequired": "请先绑定收款通道",
+        "agreedTermsRequired": "请先在上一步同意服务协议",
+        "submitFailed": "提交审核失败，请重试",
+        "submitNoop": "状态没有变化，请稍后重试",
+        "loadError": {
+          "title": "无法加载入驻信息",
+          "body": "请检查网络后重试。",
+          "retry": "重新加载"
+        },
+        "missingProfile": {
+          "title": "还没有实名资料",
+          "body": "收款通道要在实名资料的基础上绑定，先完成前两步。",
+          "cta": "返回实名认证"
+        },
+        "alipay": {
+          "cardTitle": "绑定支付宝收款账号",
+          "cardDescription": "平台把分成打到这个账号，实名通过后可随时更换。",
+          "boundTitle": "已绑定支付宝",
+          "boundBody": "当前收款账号：{phone}",
+          "notBoundTitle": "尚未绑定支付宝账号",
+          "notBoundBody": "绑定后平台才能向你结算分成。",
+          "open": "绑定支付宝",
+          "rebind": "更换绑定",
+          "title": "绑定支付宝账号",
+          "description": "用手机号验证身份后完成绑定，账号需与实名信息一致。",
+          "phone": "手机号",
+          "phonePlaceholder": "支付宝绑定的手机号",
+          "code": "短信验证码",
+          "codePlaceholder": "6 位验证码",
+          "countdown": "{seconds}秒后重发",
+          "sendCode": "获取验证码",
+          "codeSent": "验证码已发送",
+          "sendFailed": "验证码发送失败，请重试",
+          "agreement": "我已阅读并同意支付宝收款账号绑定说明",
+          "cancel": "取消",
+          "confirm": "确认绑定",
+          "confirming": "绑定中...",
+          "success": "支付宝账号绑定成功",
+          "bindFailed": "绑定失败",
+          "errors": {
+            "invalidPhone": "请输入正确的 11 位手机号",
+            "codeRequired": "请输入 6 位短信验证码",
+            "agreementRequired": "请先勾选同意说明",
+            "verifyFailed": "验证码校验失败，请重试",
+            "INVALID_OTP": "验证码不正确",
+            "OTP_EXPIRED": "验证码已过期，请重新获取",
+            "TOO_MANY_ATTEMPTS": "尝试次数过多，请稍后再试",
+            "PHONE_NUMBER_EXIST": "该手机号已绑定其他账户"
+          }
+        },
+        "wechat": {
+          "cardTitle": "微信支付商户入驻",
+          "cardDescription": "平台作为微信支付服务商，扫码按提示完成商户入驻。",
+          "boundTitle": "已登记微信支付商户号",
+          "boundBody": "该通道已可用于平台结算。",
+          "qrAlt": "微信支付服务商拓展二维码",
+          "step1": "用微信扫描右侧二维码",
+          "step2": "按提示完成商户入驻并拿到商户号",
+          "step3": "回填商户号，点下方按钮完成绑定",
+          "merchantId": "微信支付商户号",
+          "merchantIdPlaceholder": "例如 1600000000",
+          "merchantIdHint": "还没有商户号可以先留空，用上方二维码完成入驻后再回来填写。",
+          "bind": "绑定微信商户号",
+          "binding": "绑定中...",
+          "success": "微信支付商户号已登记",
+          "bindFailed": "绑定失败"
+        }
+      },
       "entry": {
         "title": "选择认证主体",
         "description": "请选择个人或企业实名认证。两者需要提交的材料不同，也决定了可用的收款与开票方式。",
@@ -3742,7 +3893,9 @@
         "entity": "选主体",
         "details": "填资料",
         "pending": "审核中",
-        "verified": "已通过"
+        "verified": "已通过",
+        "payout": "配收款",
+        "review": "核对提交"
       },
       "status": {
         "unverified": {
@@ -3794,6 +3947,13 @@
         "idNumber": "证件号码",
         "idNumberPlaceholder": "身份证号 / 统一社会信用代码",
         "idNumberHint": "企业请填写统一社会信用代码，仅用于实名审核。",
+        "taxId": "统一社会信用代码",
+        "taxIdPlaceholder": "18 位统一社会信用代码",
+        "taxIdHint": "用于核验企业主体，仅平台实名审核可见。",
+        "contactSection": "联系方式",
+        "contactPhone": "联系电话",
+        "contactPhonePlaceholder": "11 位手机号",
+        "contactPhoneHint": "选填。审核需要补充材料时会通过该号码联系你。",
         "payChannel": "收款通道",
         "payChannelHint": "用于告知平台打款渠道。实名通过后可再绑定收款账号或二维码。",
         "agreedTermsPrefix": "我已阅读并同意",
@@ -3819,6 +3979,8 @@
       },
       "validation": {
         "contactName": "请填写联系人姓名",
+        "taxId": "请填写统一社会信用代码",
+        "contactPhone": "请填写正确的 11 位手机号",
         "idNumber": "请填写证件号码",
         "companyName": "请填写企业名称",
         "payChannelType": "请选择收款通道",
@@ -3850,10 +4012,16 @@
       },
       "submit": {
         "label": "提交审核",
+        "next": "下一步",
+        "saving": "保存中...",
         "sending": "提交中..."
       },
       "actions": {
         "refresh": "刷新状态"
+      },
+      "reviewing": {
+        "title": "资料审核中",
+        "body": "你的{type}资料正在审核，通过后我们会通知你。"
       }
     },
     "payout": {
@@ -3903,7 +4071,8 @@
       "upload": {
         "choose": "上传收款二维码",
         "uploading": "上传中...",
-        "remove": "移除二维码"
+        "remove": "移除二维码",
+        "failed": "上传失败，请重试。"
       },
       "validation": {
         "accountRequired": "请至少填写收款账号或上传收款二维码"

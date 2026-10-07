@@ -69,6 +69,106 @@
     "dashboard": {
       "title": "Overview"
     },
+    "overview": {
+      "welcome": "Welcome back, {name}",
+      "creatorWorkspace": "Creator workspace, {name}",
+      "tabs": {
+        "downloads": "Recent downloads",
+        "favorites": "Recent favorites"
+      }
+    },
+    "consumer": {
+      "stats": {
+        "balance": "Account balance",
+        "recharge": "Recharge",
+        "monthSpend": "Spend this month",
+        "monthSpendHint": "Skill purchases and gateway calls",
+        "vsLastMonthUp": "Up {percentage} vs last month",
+        "vsLastMonthDown": "Down {percentage} vs last month",
+        "vsLastMonthFlat": "Flat vs last month",
+        "noLastMonth": "No spend last month",
+        "favorites": "Favorites",
+        "installs": "Installs",
+        "view": "View"
+      },
+      "trend": {
+        "title": "Usage trend",
+        "description": "Spend and downloads over the last 30 days",
+        "last7Days": "Last 7 days",
+        "last30Days": "Last 30 days",
+        "spend": "Spend",
+        "downloads": "Downloads",
+        "empty": "No usage yet — create an API key to start calling"
+      },
+      "quickActions": {
+        "title": "Quick actions",
+        "createApiKey": "Create API key",
+        "createApiKeyHint": "Call gateway models with your key",
+        "recharge": "Recharge balance",
+        "rechargeHint": "Online payment and bank transfer",
+        "browse": "Browse marketplace",
+        "browseHint": "Discover skills, MCP and A2A assets",
+        "becomeCreator": "Become a creator",
+        "becomeCreatorHint": "Publish assets and earn revenue"
+      },
+      "onboarding": {
+        "title": "Get started",
+        "description": "Three steps to your first call",
+        "step1": "Create an API key",
+        "step2": "Recharge your balance",
+        "step3": "Call a gateway model"
+      }
+    },
+    "creator": {
+      "verified": "Verified creator",
+      "publish": "Publish new asset",
+      "payout": "Manage payout",
+      "earningsCenter": "Earnings center",
+      "alert": {
+        "pendingStatement": "Statement {period} needs confirmation by {deadline}; it auto-confirms after that",
+        "confirm": "Review"
+      },
+      "earnings": {
+        "title": "Earnings snapshot",
+        "netTotal": "Net earnings",
+        "pending": "Pending settlement",
+        "paid": "Paid out",
+        "latest": "Latest statement",
+        "empty": "No statements yet",
+        "viewAll": "View all"
+      },
+      "statementStatus": {
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "paid": "Paid",
+        "rolled": "Rolled over"
+      },
+      "topAssets": {
+        "title": "Asset performance",
+        "description": "Gateway calls in the last 30 days and lifetime downloads",
+        "colAsset": "Asset",
+        "colType": "Type",
+        "colCalls": "Calls",
+        "colDownloads": "Downloads",
+        "colFavorites": "Favorites",
+        "viewAll": "View all",
+        "empty": "No published assets yet",
+        "type": {
+          "skill": "Skill",
+          "mcp": "MCP",
+          "a2a": "A2A",
+          "persona": "Persona"
+        }
+      },
+      "activity": {
+        "title": "Recent activity",
+        "earning": "Earning credited",
+        "statement": "Statement generated",
+        "download": "Downloaded",
+        "favorite": "Favorited",
+        "empty": "No activity yet"
+      }
+    },
     "firstLoginPrompt": {
       "message": "First time here?",
       "action": "Contact Support",
@@ -1252,7 +1352,8 @@
       "onboarding": "Onboarding & Payout",
       "profile": "Profile",
       "security": "Security & Login",
-      "userGuide": "User Guide"
+      "userGuide": "User Guide",
+      "helpDocs": "Help Docs"
     },
     "usage": {
       "title": "Usage & Spend",
@@ -1304,115 +1405,83 @@
       "retry": "Retry"
     },
     "earnings": {
-      "title": "Earnings & Payouts",
-      "description": "Skill sales, gateway usage income, and payout requests",
-      "gatewayCall": "Gateway call",
-      "comingSoon": "Earnings center coming soon",
+      "title": "My Earnings",
+      "description": "Monthly settlement: issued on the 5th, confirm by the 19th, paid on the 20th of the following month. Unconfirmed statements are confirmed automatically.",
       "notProvider": "You are not a provider yet. Please complete onboarding first.",
       "goOnboarding": "Go to onboarding",
-      "tabs": {
-        "skills": "Skill sales",
-        "gateway": "Gateway income",
-        "payouts": "Payout requests",
-        "statements": "Monthly statements"
-      },
-      "stats": {
-        "calls30": "Calls (Last 30 Days)",
-        "income30": "Income (Last 30 Days, CNY)",
-        "callsTotal": "Total Calls",
-        "incomeTotal": "Total Income (CNY)"
-      },
-      "chart": {
-        "title": "Income & Calls Trend (Last 30 Days)",
-        "calls": "Calls",
-        "income": "Income (CNY)",
-        "empty": "No income data yet"
-      },
-      "overview": {
-        "title": "Income Overview",
-        "perCall": "Average Income Per Call"
-      },
-      "loadFailed": "Failed to load",
-      "retry": "Retry",
-      "payoutAccount": "Payout account",
-      "payoutAccountHint": "Bind a WeChat / Alipay account so the platform can remit your earnings",
       "managePayoutAccount": "Manage payout account",
-      "statusLabel": "Status: {status}",
-      "payReady": "Bound — you can request a payout",
-      "payNotReady": "Not bound — bind an account before requesting a payout",
-      "skillsShareTitle": "Skill sales share",
-      "skillsShareDescription": "Paid Skills add {share}% to your withdrawable balance (platform fee {fee}%)",
-      "requestPayout": "Request payout",
-      "requesting": "Submitting…",
-      "summary": {
-        "payable": "Withdrawable",
-        "paid": "Settled",
-        "total": "Total net income"
-      },
-      "skillsTable": {
-        "skill": "Skill",
-        "gross": "Gross",
-        "platformFee": "Platform fee",
-        "net": "Net income",
-        "status": "Status",
-        "createdAt": "Time",
-        "empty": "No Skill sales yet"
-      },
-      "payouts": {
-        "title": "Payout requests",
-        "amount": "Amount",
-        "channel": "Channel",
-        "status": "Status",
-        "createdAt": "Time",
-        "note": "Note",
-        "empty": "—"
-      },
-      "channel": {
-        "wechat": "WeChat",
-        "alipay": "Alipay",
-        "unknown": "—"
-      },
-      "status": {
-        "payable": "Withdrawable",
-        "paid": "Settled",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "unknown": "Unknown"
-      },
-      "toast": {
-        "requested": "Payout request submitted",
-        "requestFailed": "Failed to request payout",
-        "payAccountRequired": "Bind a WeChat / Alipay payout account first"
+      "kpi": {
+        "netTotal": "Net earnings to date",
+        "netTotalHint": "Sum of settlement across all statements",
+        "paidTotal": "Paid to date",
+        "paidTotalHint": "Sum of statements already paid out",
+        "pendingTotal": "Awaiting payout",
+        "pendingTotalHint": "Pending confirmation plus confirmed"
       },
       "statements": {
-        "tab": "Monthly statements",
-        "title": "Monthly statements",
-        "description": "Generated on the 5th of the following month, due for confirmation by the 19th, paid offline on the 20th. Unconfirmed statements are confirmed automatically.",
-        "summaryPending": "Awaiting confirmation",
-        "summaryConfirmed": "Awaiting payout",
-        "summaryPaid": "Paid",
-        "summaryRolled": "To be offset",
-        "tablePeriod": "Period",
+        "title": "Monthly earnings statements",
+        "description": "Issued on the 5th, confirm by the 19th, paid offline on the 20th of the following month. Unconfirmed statements are confirmed automatically.",
+        "tablePeriod": "Settlement month",
         "tableNet": "Net income",
-        "tableCarryover": "Offset from last month",
+        "tableCarryover": "Carryover",
         "tableSettlement": "Settlement",
         "tableStatus": "Status",
         "tableAction": "Action",
-        "tableEmpty": "No statements yet — one is generated on the 5th of each month",
-        "statusPending": "Awaiting confirmation",
+        "tableEmpty": "No statements yet. Statements are issued on the 5th of each month.",
+        "view": "View",
+        "statusPending": "Pending confirmation",
         "statusConfirmed": "Awaiting payout",
         "statusPaid": "Paid",
-        "statusRolled": "Negative — carried into next month",
+        "statusRolled": "Negative, carried to next month",
+        "rollHint": "Settlement is negative (refunds exceed income); the shortfall offsets next month"
+      },
+      "detail": {
+        "back": "Back to statements",
+        "title": "{period} earnings detail",
+        "gross": "Gross",
+        "platformFee": "Platform fee",
+        "net": "Net income",
+        "carryover": "Carryover",
+        "settlement": "Settlement",
+        "timelineGenerate": "Issued",
+        "timelineConfirm": "Confirm by",
+        "timelinePayout": "Payout date",
+        "breakdownTitle": "Income breakdown",
+        "breakdownDescription": "Grouped by source, refunds included",
+        "breakdownSource": "Source",
+        "breakdownKind": "Type",
+        "breakdownCount": "Count",
+        "breakdownGross": "Gross",
+        "breakdownFee": "Platform fee",
+        "breakdownNet": "Net",
+        "breakdownEmpty": "No earnings yet",
+        "ledgerTitle": "Line items",
+        "ledgerTime": "Time",
+        "ledgerKind": "Type",
+        "ledgerSource": "Source",
+        "ledgerGross": "Gross",
+        "ledgerFee": "Platform fee",
+        "ledgerNet": "Net",
+        "ledgerEmpty": "No line items",
+        "kindSale": "Sale",
+        "kindClawback": "Refund reversal",
+        "gatewaySource": "Gateway calls",
+        "payoutTitle": "Payout info",
+        "payoutChannel": "Channel",
+        "payoutAccount": "Account snapshot",
+        "payoutReference": "Payout reference",
+        "channelWechat": "WeChat",
+        "channelAlipay": "Alipay",
+        "channelNone": "Not bound",
+        "confirmedAt": "Confirmed at",
+        "paidAt": "Paid at",
         "confirm": "Confirm statement",
         "confirming": "Submitting…",
-        "rollHint": "This period settles negative (refunds exceed income). It is neither confirmed nor paid; the shortfall is offset next month.",
-        "deadlineHint": "Confirm by {date}; after that it is confirmed automatically",
-        "deadlinePassed": "The confirmation deadline has passed, so this was confirmed automatically",
         "toastConfirmed": "Statement confirmed",
-        "toastConfirmFailed": "Failed to confirm the statement",
-        "detailTitle": "Statement breakdown",
-        "detailEmpty": "No breakdown"
+        "toastConfirmFailed": "Failed to confirm statement",
+        "loadFailed": "Failed to load statement",
+        "retry": "Retry",
+        "notFound": "Statement not found"
       }
     },
     "organization": {
@@ -3686,14 +3755,6 @@
     "authGate": {
       "loading": "Loading..."
     },
-    "submit": {
-      "progress": "Publishing progress",
-      "steps": {
-        "login": "Sign in",
-        "verify": "Verification",
-        "upload": "Upload / configure"
-      }
-    },
     "gate": {
       "loading": "Loading your provider status...",
       "statusErrorTitle": "Could not load your provider status",
@@ -3759,6 +3820,96 @@
       },
       "pageTitle": "Provider onboarding",
       "pageDescription": "Complete identity verification to start publishing on OpenMCP.",
+      "loading": "Loading your onboarding details...",
+      "done": {
+        "title": "Verification approved",
+        "body": "Your {type} is approved. You can publish assets and receive payouts now."
+      },
+      "assets": {
+        "skills": {
+          "title": "Publish a Skill",
+          "description": "Submit your Skill and list it on the marketplace once it passes review."
+        },
+        "mcp": {
+          "title": "Publish an MCP server",
+          "description": "Register your MCP server so agents can discover and call it."
+        },
+        "a2a": {
+          "title": "Publish an A2A agent",
+          "description": "List your A2A agent and connect it to the collaboration network."
+        }
+      },
+      "payoutStep": {
+        "hint": "Bind a payout channel before submitting for review. It usually takes 1-3 business days.",
+        "back": "Back to the previous step",
+        "bindRequired": "Bind a payout channel first",
+        "agreedTermsRequired": "Accept the service agreement on the previous step first",
+        "submitFailed": "Could not submit for review. Please try again.",
+        "submitNoop": "Nothing changed. Please try again in a moment.",
+        "loadError": {
+          "title": "Could not load your onboarding details",
+          "body": "Check your connection and try again.",
+          "retry": "Reload"
+        },
+        "missingProfile": {
+          "title": "No verification details yet",
+          "body": "A payout channel is built on your verification details. Complete the first two steps.",
+          "cta": "Back to verification"
+        },
+        "alipay": {
+          "cardTitle": "Bind an Alipay payout account",
+          "cardDescription": "The platform sends your earnings here. You can change it after verification is approved.",
+          "boundTitle": "Alipay bound",
+          "boundBody": "Current payout account: {phone}",
+          "notBoundTitle": "No Alipay account bound yet",
+          "notBoundBody": "Bind an account so the platform can settle your earnings.",
+          "open": "Bind Alipay",
+          "rebind": "Change binding",
+          "title": "Bind an Alipay account",
+          "description": "Verify your phone number to bind. The account should match your verified identity.",
+          "phone": "Phone number",
+          "phonePlaceholder": "Phone number bound to Alipay",
+          "code": "SMS code",
+          "codePlaceholder": "6-digit code",
+          "countdown": "Resend in {seconds}s",
+          "sendCode": "Get code",
+          "codeSent": "Code sent",
+          "sendFailed": "Could not send the code. Please try again.",
+          "agreement": "I have read and agree to the Alipay payout account binding terms",
+          "cancel": "Cancel",
+          "confirm": "Confirm binding",
+          "confirming": "Binding...",
+          "success": "Alipay account bound",
+          "bindFailed": "Binding failed",
+          "errors": {
+            "invalidPhone": "Enter a valid 11-digit phone number",
+            "codeRequired": "Enter the 6-digit code",
+            "agreementRequired": "Accept the terms first",
+            "verifyFailed": "The code could not be verified. Please try again.",
+            "INVALID_OTP": "Incorrect code",
+            "OTP_EXPIRED": "The code expired. Get a new one.",
+            "TOO_MANY_ATTEMPTS": "Too many attempts. Try again later.",
+            "PHONE_NUMBER_EXIST": "This phone number is bound to another account"
+          }
+        },
+        "wechat": {
+          "cardTitle": "WeChat Pay merchant onboarding",
+          "cardDescription": "The platform acts as a WeChat Pay service provider. Scan the QR code and follow the steps.",
+          "boundTitle": "WeChat Pay merchant recorded",
+          "boundBody": "This channel can be used for settlement.",
+          "qrAlt": "WeChat Pay service provider onboarding QR code",
+          "step1": "Scan the QR code on the right with WeChat",
+          "step2": "Complete merchant onboarding and get a merchant ID",
+          "step3": "Enter the merchant ID below and bind it",
+          "merchantId": "WeChat Pay merchant ID",
+          "merchantIdPlaceholder": "e.g. 1600000000",
+          "merchantIdHint": "Leave this blank if you do not have a merchant ID yet, then come back after onboarding with the QR code.",
+          "bind": "Bind merchant ID",
+          "binding": "Binding...",
+          "success": "WeChat Pay merchant ID recorded",
+          "bindFailed": "Binding failed"
+        }
+      },
       "entry": {
         "title": "Choose your verification type",
         "description": "Pick individual or company verification. The documents you need to provide differ, and the choice decides which payout and invoicing options are available.",
@@ -3793,7 +3944,9 @@
         "entity": "Choose entity",
         "details": "Add details",
         "pending": "Under review",
-        "verified": "Approved"
+        "verified": "Approved",
+        "payout": "Add payout",
+        "review": "Review & submit"
       },
       "status": {
         "unverified": {
@@ -3845,6 +3998,13 @@
         "idNumber": "ID number",
         "idNumberPlaceholder": "ID or unified social credit code",
         "idNumberHint": "For companies this is the unified social credit code, used only for verification.",
+        "taxId": "Unified social credit code",
+        "taxIdPlaceholder": "18-digit unified social credit code",
+        "taxIdHint": "Used to verify the company. Only visible to platform reviewers.",
+        "contactSection": "Contact details",
+        "contactPhone": "Contact phone",
+        "contactPhonePlaceholder": "11-digit phone number",
+        "contactPhoneHint": "Optional. We call this number if the review needs more documents.",
         "payChannel": "Payout channel",
         "payChannelHint": "Tells the platform where to send your earnings. You can bind the account or QR code itself after verification is approved.",
         "agreedTermsPrefix": "I have read and agree to the",
@@ -3870,6 +4030,8 @@
       },
       "validation": {
         "contactName": "Enter the contact name",
+        "taxId": "Enter the unified social credit code",
+        "contactPhone": "Enter a valid 11-digit phone number",
         "idNumber": "Enter the ID number",
         "companyName": "Enter the registered company name",
         "payChannelType": "Choose a payout channel",
@@ -3901,10 +4063,16 @@
       },
       "submit": {
         "label": "Submit for review",
+        "next": "Next",
+        "saving": "Saving...",
         "sending": "Submitting..."
       },
       "actions": {
         "refresh": "Refresh status"
+      },
+      "reviewing": {
+        "title": "Submission in review",
+        "body": "Your {type} application is being reviewed. We will notify you when it is approved."
       }
     },
     "payout": {
@@ -3954,7 +4122,8 @@
       "upload": {
         "choose": "Upload QR code",
         "uploading": "Uploading...",
-        "remove": "Remove QR code"
+        "remove": "Remove QR code",
+        "failed": "Upload failed. Please try again."
       },
       "validation": {
         "accountRequired": "Enter an account or upload a payment QR code"
