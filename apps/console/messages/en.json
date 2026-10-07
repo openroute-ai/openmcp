@@ -1517,5 +1517,16 @@
     },
     "emptySubscriptions": "No paid subscription matches.",
     "emptyOrders": "No payment record matches."
+  },
+  "Support": {
+    "title": "Tech support",
+    "openLabel": "Open tech support",
+    "dismissLabel": "Stop showing tech support",
+    "description": "Scan to add our WeChat — we are online during working hours.",
+    "qrAlt": "Tech support WeChat QR code",
+    "wechatIdLabel": "WeChat ID",
+    "copy": "Copy",
+    "copied": "Copied",
+    "emailLabel": "Email"
   }
 }

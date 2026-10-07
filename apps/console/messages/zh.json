@@ -1517,5 +1517,16 @@
     },
     "emptySubscriptions": "没有匹配的付费订阅。",
     "emptyOrders": "没有匹配的付款记录。"
+  },
+  "Support": {
+    "title": "技术支持",
+    "openLabel": "打开技术支持",
+    "dismissLabel": "不再显示技术支持",
+    "description": "扫码添加我们的微信，工作日在线答疑。",
+    "qrAlt": "技术支持微信二维码",
+    "wechatIdLabel": "微信号",
+    "copy": "复制",
+    "copied": "已复制",
+    "emailLabel": "邮箱"
   }
 }
