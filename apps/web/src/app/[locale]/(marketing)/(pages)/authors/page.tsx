@@ -136,7 +136,7 @@ export default function AuthorsPage() {
 
   return (
     <section className='py-8'>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         {/* Header Section */}
         <div className='mb-8 text-center'>
           <div className='flex flex-wrap items-center justify-center gap-x-3 gap-y-1'>

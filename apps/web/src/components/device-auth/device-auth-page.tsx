@@ -102,7 +102,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
 
   if (step === 'success') {
     return (
-      <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
         <Card>
           <CardHeader className='text-center'>
             <div className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100'>
@@ -127,7 +127,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
 
   if (step === 'denied') {
     return (
-      <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
         <Card>
           <CardHeader className='text-center'>
             <div className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100'>
@@ -151,7 +151,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
 
   if (step === 'confirm') {
     return (
-      <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
         <Card>
           <CardHeader className='text-center'>
             <div className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100'>
@@ -201,7 +201,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
   }
 
   return (
-    <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
       <Card>
         <CardHeader className='text-center'>
           <CardTitle className='text-2xl'>设备授权</CardTitle>

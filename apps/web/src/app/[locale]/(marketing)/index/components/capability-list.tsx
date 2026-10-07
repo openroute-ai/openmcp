@@ -36,8 +36,8 @@ export async function CapabilityList() {
   const t = await getTranslations('HomePage.capabilities')
 
   return (
-    <section id='features' className='py-section lg:py-section-lg'>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+    <section id='features' className='py-18 lg:py-24'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         <div className='mb-12 flex flex-col gap-4 md:flex-row md:items-end md:justify-between'>
           <div className='max-w-2xl'>
             <h2 className='mb-4 text-balance font-medium text-title tracking-tight'>{t('title')}</h2>

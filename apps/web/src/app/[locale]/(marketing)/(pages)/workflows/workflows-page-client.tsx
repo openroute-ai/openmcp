@@ -278,7 +278,7 @@ function WorkflowsPageInner() {
         initialSearch={filters.search || ''}
       />
       <section className='py-8'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <div className='flex flex-col gap-8 lg:flex-row'>
             <WorkflowsFilters filters={filters} onFilterChange={handleFilterChange} />
             <div className='flex-1'>

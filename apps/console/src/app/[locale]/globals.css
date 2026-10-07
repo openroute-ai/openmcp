@@ -14,7 +14,52 @@
  * typography plugin, the shiki code theme and the layout utilities the docs
  * components use. They are inert on every other page — they define no element
  * styles outside `fd-*` / `prose` selectors.
+ *
+ * Everything below the imports is console's own: the workspace theme stays
+ * base-only (shadcn colours, radius, fonts), so web's layout/typography tokens
+ * and this app's radar semantics never land in each other's bundles.
  */
 @import "@workspace/ui/globals.css";
 @import "fumadocs-ui/css/shadcn.css";
 @import "fumadocs-ui/css/preset.css";
+
+/* 只扫本 app：共享层的 @source 只覆盖 packages/ui/src。 */
+@source "../../**/*.{ts,tsx}";
+
+/* Set on <html> for one frame around a theme change, so colours swap without
+   animating every element on the page. See apps/console theme-provider.tsx. */
+.theme-transition-none * {
+  transition: none !important;
+}
+
+/*
+ * 涨跌语义色（OpenMCP 雷达）。
+ *
+ * 这里只「注册」名字，不给值，值在下面的 :root / .dark。
+ *
+ * 为什么注册必须写在这个入口：本文件 `@import "tailwindcss"`（经由
+ * @workspace/ui/globals.css），只有同一个编译单元内的 `@theme` 才会被 Tailwind
+ * 展开。单独 import 的样式表（历史上是 theme.css）里的 `@theme` 不会生成
+ * `text-radar-up` 这类工具类——原生 CSS 能透传，Tailwind 的 at-rule 不行。
+ *
+ * 原生主题表达不了涨跌——它的绿只做 hover 底色，红只做 --destructive，两个都
+ * 不是「涨」和「跌」——所以这三个 token 只在这里出现，web 与 doc 不引用。
+ */
+@theme inline {
+    --color-radar-up: var(--radar-up);
+    --color-radar-down: var(--radar-down);
+    --color-radar-flat: var(--radar-flat);
+}
+
+:root {
+    --radar-up: oklch(0.58 0.105 168);
+    --radar-down: oklch(0.577 0.222 27);
+    --radar-flat: oklch(0.62 0.01 240);
+}
+
+.dark {
+    /* 暗底上红与绿都要提亮，否则压到背景里去 */
+    --radar-up: oklch(0.7 0.115 168);
+    --radar-down: oklch(0.66 0.215 27);
+    --radar-flat: oklch(0.62 0.012 240);
+}

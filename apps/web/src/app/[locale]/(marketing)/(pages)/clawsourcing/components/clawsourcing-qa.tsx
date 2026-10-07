@@ -9,7 +9,7 @@ export function ClawsourcingQa() {
   const t = useTranslations('ClawsourcingPage.qa')
 
   return (
-    <section className='border-border border-b bg-card px-6 py-section'>
+    <section className='border-border border-b bg-card px-6 py-18'>
       <div className='mx-auto max-w-5xl'>
         <div className='mb-10 text-center'>
           <h2 className='font-bold text-3xl text-foreground md:text-4xl'>{t('title')}</h2>

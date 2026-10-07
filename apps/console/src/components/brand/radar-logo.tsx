@@ -16,9 +16,9 @@
  * the other; change a number here and change it there.
  *
  * Colours are the theme's primary and primary foreground, matching the SVG: the
- * app has no brand palette of its own (see `theme.css` — the landing page
- * deliberately uses the shadcn theme the rest of the console uses), so the
- * theme's primary *is* the brand colour.
+ * app has no brand palette of its own (see `src/app/[locale]/globals.css` —
+ * the landing page deliberately uses the shadcn theme the rest of the console
+ * uses), so the theme's primary *is* the brand colour.
  *
  * `aria-hidden`: every call site puts the wordmark next to it, so announcing the
  * mark as well makes a screen reader say the site name twice per page.

@@ -16,7 +16,7 @@ export default function CategoriesPage() {
 
   if (isLoading) {
     return (
-      <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
         <div className='flex min-h-[400px] items-center justify-center'>
           <Loader2 className='h-8 w-8 animate-spin text-primary' />
         </div>
@@ -26,7 +26,7 @@ export default function CategoriesPage() {
 
   if (error || !data?.success) {
     return (
-      <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
         <div className='text-center'>
           <p className='text-destructive'>{t('loadError')}</p>
         </div>
@@ -45,7 +45,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
       {/* Header Section */}
       <div className='mb-8'>
         <LocaleLink href='/' className='mb-4 inline-flex items-center gap-1 text-primary hover:text-primary/80'>

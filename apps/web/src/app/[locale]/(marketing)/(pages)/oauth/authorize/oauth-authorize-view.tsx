@@ -24,7 +24,7 @@ export function OAuthAuthorizeView() {
 
   if (!clientId || !redirectUri) {
     return (
-      <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
         <Alert variant='destructive'>
           <AlertCircle className='h-4 w-4' />
           <AlertDescription>缺少必需参数，请检查授权链接是否正确。</AlertDescription>
@@ -84,7 +84,7 @@ export function OAuthAuthorizeView() {
 
   if (success) {
     return (
-      <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
         <Card>
           <CardContent className='py-12 text-center'>
             <CheckCircle className='mx-auto mb-4 h-12 w-12 text-green-600' />
@@ -97,7 +97,7 @@ export function OAuthAuthorizeView() {
   }
 
   return (
-    <div className='mx-auto w-full max-w-md px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-md px-5 py-12 sm:px-6 lg:px-10'>
       <Card>
         <CardHeader>
           <div className='flex items-center gap-3'>

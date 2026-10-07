@@ -6,9 +6,9 @@
   Colours are the theme's primary (oklch 0.518 0.253 323.949) and primary
   foreground (oklch 0.977 0.017 320.058), converted out of OKLCH and gamut
   mapped so a rasteriser that cannot parse oklch() does not fall back to black.
-  The app has no brand palette of its own (see theme.css), so the theme's primary
-  *is* the brand colour — pinning it here means a rebrand is one token in
-  packages/ui/src/styles/globals.css, not an edit per call site.
+  The app has no brand palette of its own (see src/app/[locale]/globals.css), so
+  the theme's primary *is* the brand colour — pinning it here means a rebrand is
+  one token in packages/ui/src/styles/globals.css, not an edit per call site.
 
   Pinned to the light-theme values rather than switched on prefers-color-scheme:
   the header and footer render this as an img, and CSS inside a referenced SVG

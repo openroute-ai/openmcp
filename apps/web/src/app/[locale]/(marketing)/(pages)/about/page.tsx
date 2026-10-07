@@ -37,7 +37,7 @@ export default async function AboutPage() {
   const t = await getTranslations('AboutPage')
 
   return (
-    <Container className='px-4 py-16'>
+    <Container className='px-5 py-16'>
       <div className='mx-auto max-w-4xl space-y-8'>
         {/* about section */}
         <div className='relative mx-auto mt-8 mb-24 max-w-(--breakpoint-md) md:mt-16'>

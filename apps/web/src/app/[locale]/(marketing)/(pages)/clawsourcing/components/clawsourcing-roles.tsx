@@ -54,7 +54,7 @@ const roles = [
 
 export function ClawsourcingRoles() {
   return (
-    <section id='roles' className='border-border border-b px-6 py-section'>
+    <section id='roles' className='border-border border-b px-6 py-18'>
       <div className='mx-auto max-w-7xl'>
         <div className='mb-12 text-center'>
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>{'预置 AI 角色'}</h2>

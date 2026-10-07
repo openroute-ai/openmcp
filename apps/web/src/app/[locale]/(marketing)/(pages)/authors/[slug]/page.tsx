@@ -157,7 +157,7 @@ function parsePage(searchParams: URLSearchParams, key: string): number {
 function AuthorPageSkeleton() {
   return (
     <div className='pt-4'>
-      <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
         <div className='flex flex-col items-center gap-6 md:flex-row md:items-start'>
           <Skeleton className='h-24 w-24 rounded-full md:h-32 md:w-32' />
           <div className='flex-1 space-y-4 text-center md:text-left'>
@@ -175,7 +175,7 @@ function AuthorPageSkeleton() {
       </div>
 
       <section className='py-4'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <div className='flex flex-col gap-8 lg:flex-row'>
             <div className='w-full space-y-4 lg:w-64'>
               <Skeleton className='h-32 w-full rounded-lg' />
@@ -677,7 +677,7 @@ export default function AuthorPage() {
 
   if (!authorLoading && (!authorData?.success || !authorData.data)) {
     return (
-      <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-12 sm:px-6 lg:px-10'>
         <div className='text-center'>
           <h1 className='mb-4 font-bold text-2xl'>{tAuthors('notFound.title')}</h1>
           <p className='text-muted-foreground'>{tAuthors('notFound.description')}</p>
@@ -812,7 +812,7 @@ export default function AuthorPage() {
     <div className='pt-4'>
       <AuthorHero author={formattedAuthor} />
       <section className='py-4'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <div className='flex flex-col gap-8 lg:flex-row'>
             <div className='w-full shrink-0 space-y-6 lg:w-64'>
               <AuthorContentTypeFilter value={view} onChange={onViewChange} />

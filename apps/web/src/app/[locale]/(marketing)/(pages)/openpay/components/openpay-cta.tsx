@@ -8,7 +8,7 @@ export async function OpenpayCta() {
   const t = await getTranslations('OpenPayPage.cta')
 
   return (
-    <section className='px-gutter py-16 sm:px-gutter-sm md:py-section lg:px-gutter-lg'>
+    <section className='px-5 py-16 sm:px-6 md:py-18 lg:px-10'>
       <div className='mx-auto max-w-4xl'>
         <div className='rounded-2xl border border-primary/30 bg-primary/5 px-8 py-16 text-center'>
           <BadgeDollarSign className='mx-auto mb-6 size-12 text-primary' />

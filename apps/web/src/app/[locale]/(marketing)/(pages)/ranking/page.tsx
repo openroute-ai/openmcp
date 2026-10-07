@@ -82,7 +82,7 @@ export default function RankingPage() {
   ]
 
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 flex flex-wrap items-center justify-between gap-4'>
         <h1 className='font-bold text-title'>{t('title')}</h1>
 

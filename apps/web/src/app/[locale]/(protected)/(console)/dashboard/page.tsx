@@ -34,10 +34,10 @@ export default function DashboardPage() {
     return (
       <>
         <DashboardHeader breadcrumbs={breadcrumbs} />
-        <div className='flex flex-1 flex-col'>
-          <div className='@container/main flex flex-1 flex-col gap-2'>
-            <div className='flex flex-col gap-4 py-4 md:gap-6 md:py-6'>
-              <div className='px-4 lg:px-6'>
+        <div className='flex-1 px-5 py-8 sm:px-6 lg:px-10'>
+          <div className='mx-auto flex w-full max-w-7xl flex-1 flex-col'>
+            <div className='@container/main flex flex-1 flex-col gap-2'>
+              <div className='flex flex-col gap-4 md:gap-6'>
                 <div className='rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20'>
                   <p className='text-red-600 dark:text-red-400'>{error?.message || t('Dashboard.loadError')}</p>
                 </div>
@@ -53,10 +53,10 @@ export default function DashboardPage() {
     <>
       <DashboardHeader breadcrumbs={breadcrumbs} />
 
-      <div className='flex flex-1 flex-col'>
-        <div className='@container/main flex flex-1 flex-col gap-2'>
-          <div className='flex flex-col gap-4 py-4 md:gap-6 md:py-6'>
-            <div className='px-4 lg:px-6'>
+      <div className='flex-1 px-5 py-8 sm:px-6 lg:px-10'>
+        <div className='mx-auto flex w-full max-w-7xl flex-1 flex-col'>
+          <div className='@container/main flex flex-1 flex-col gap-2'>
+            <div className='flex flex-col gap-4 md:gap-6'>
               {dashboardData?.isProvider ? (
                 <CreatorDashboard
                   data={dashboardData}

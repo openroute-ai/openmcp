@@ -23,7 +23,7 @@ Shared component library built with shadcn/ui, Radix UI, and Tailwind CSS v4.
 | `./components/*` | `src/components/*.tsx` | Individual UI components |
 | `./lib/*` | `src/lib/*.ts` | Utilities (`utils.ts` with `cn()`) |
 | `./hooks/*` | `src/hooks/*.ts` | React hooks (`use-mobile.ts`) |
-| `./globals.css` | `src/styles/globals.css` | Global stylesheet |
+| `./globals.css` | `src/styles/globals.css` | Base theme stylesheet (shadcn tokens, `@layer base`, `@source` for this package). App-specific tokens and rules live in each app's own `globals.css`, which imports this file. |
 | `./postcss.config` | `postcss.config.mjs` | Shared PostCSS config |
 
 ## Adding components

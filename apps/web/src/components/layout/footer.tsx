@@ -17,7 +17,7 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
 
   return (
     <footer className={cn('border-t', className)}>
-      <Container className='px-4'>
+      <Container className='px-5'>
         <div className='grid grid-cols-2 gap-8 py-16 md:grid-cols-6'>
           <div className='col-span-full flex flex-col items-start md:col-span-2'>
             <div className='space-y-4'>
@@ -81,7 +81,7 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
       </Container>
 
       <div className='border-t py-5'>
-        <Container className='px-4'>
+        <Container className='px-5'>
           <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-8'>
             <div className='flex flex-col gap-1 md:max-w-[559px]'>
               <p className='text-black/50 text-xs leading-[1.67]'>

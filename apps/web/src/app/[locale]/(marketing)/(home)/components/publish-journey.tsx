@@ -182,7 +182,7 @@ export function PublishJourney() {
       <div className="w-full lg:sticky lg:top-24">
         <div
           ref={rowRef}
-          className="py-section mx-auto flex w-full max-w-page flex-col gap-10 px-gutter sm:px-gutter-sm lg:min-h-[460px] lg:flex-row lg:gap-16 lg:px-gutter-lg"
+          className="py-18 mx-auto flex w-full max-w-page flex-col gap-10 px-5 sm:px-6 lg:min-h-[460px] lg:flex-row lg:gap-16 lg:px-10"
         >
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">

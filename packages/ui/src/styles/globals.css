@@ -4,13 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Set on <html> for one frame around a theme change, so colours swap without
-   animating every element on the page. See apps/console theme-provider.tsx. */
-.theme-transition-none * {
-  transition: none !important;
-}
-@source "../../../apps/**/*.{ts,tsx}";
-@source "../../../components/**/*.{ts,tsx}";
+/*
+ * Base theme only: every app imports this file from its own `globals.css`,
+ * which is also where that app's own tokens, rules and `@source` live. Nothing
+ * app-specific belongs here — see apps/console and apps/web entries.
+ *
+ * Sources are deliberately scoped to this package. The app-wide globs that
+ * used to sit here resolved to `packages/apps/**` (one level short) and never
+ * matched anything, so class detection has always come from each app's own
+ * entry.
+ */
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
@@ -54,102 +57,11 @@
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
     --font-sans: var(--font-sans);
-
-    /*
-     * 涨跌语义色（OpenMCP 雷达）。
-     *
-     * 这里只「注册」名字，不给值。值在 apps/console/src/app/[locale]/theme.css。
-     *
-     * 为什么注册必须放在本文件：本文件是唯一 `@import "tailwindcss"` 的样式表，
-     * 只有被 Tailwind 自己处理的文件才会展开 `@theme`。放在 theme.css 里
-     * `text-radar-up` 这类工具类不会生成（原生 CSS 能透传，Tailwind at-rule 不能）。
-     *
-     * 只剩这三个：雷达的自定义配色（--brand / --aqua / --glass 一族）已随落地页
-     * 回归原生 shadcn 主题一并移除。这三个保留是因为原生主题表达不了涨跌——
-     * 它的绿只做 hover 底色，红只做 --destructive，两个都不是「涨」和「跌」。
-     *
-     * 对 web 是惰性的：web 不引用这些类名，未定义的值不会被用到。
-     */
-    --color-radar-up: var(--radar-up);
-    --color-radar-down: var(--radar-down);
-    --color-radar-flat: var(--radar-flat);
     --font-display: var(--font-sans);
-
-    /* Layout: max-w-page / max-w-wide / max-w-article / max-w-form */
-    --container-page: var(--layout-page-max);
-    --container-wide: var(--layout-content-max);
-    --container-article: var(--layout-article-max);
-    --container-form: var(--layout-form-max);
-
-    /* Gutter: px-gutter / px-gutter-sm / px-gutter-lg */
-    --spacing-gutter: var(--layout-gutter);
-    --spacing-gutter-sm: var(--layout-gutter-sm);
-    --spacing-gutter-lg: var(--layout-gutter-lg);
-
-    /* Typography scale: text-display / text-title / text-subtitle / ... */
-    --text-display: var(--type-display);
-    --text-display--line-height: var(--type-display-lh);
-    --text-title: var(--type-title);
-    --text-title--line-height: var(--type-title-lh);
-    --text-subtitle: var(--type-subtitle);
-    --text-subtitle--line-height: var(--type-subtitle-lh);
-    --text-section: var(--type-section);
-    --text-section--line-height: var(--type-section-lh);
-    --text-subsection: var(--type-subsection);
-    --text-subsection--line-height: var(--type-subsection-lh);
-    --text-lead: var(--type-lead);
-    --text-lead--line-height: var(--type-lead-lh);
-    --text-body: var(--type-body);
-    --text-body--line-height: var(--type-body-lh);
-    --text-small: var(--type-small);
-    --text-small--line-height: var(--type-small-lh);
-    --text-caption: var(--type-caption);
-    --text-caption--line-height: var(--type-caption-lh);
 }
 
 :root {
     --header-height: 3.5rem;
-
-    /*
-     * Layout tokens. `page` is the full-site frame, `content` the wide content
-     * area, `article` the reading measure (~72 chars), `form` the form width.
-     */
-    --layout-page-max: 84rem;
-    --layout-content-max: 72rem;
-    --layout-article-max: 46rem;
-    --layout-form-max: 48rem;
-
-    /* Horizontal page padding; widens per breakpoint to keep blocks aligned. */
-    --layout-gutter: 1.25rem;
-    --layout-gutter-sm: 1.5rem;
-    --layout-gutter-lg: 2.5rem;
-
-    /*
-     * Typography scale: display / title / subtitle / lead / body / caption.
-     * Large sizes use clamp() for fluid scaling that settles on small screens.
-     */
-    --type-display: clamp(2.5rem, 1.83rem + 2.87vw, 3.75rem);
-    --type-display-lh: 1.08;
-    --type-title: clamp(2rem, 1.63rem + 1.59vw, 2.75rem);
-    --type-title-lh: 1.15;
-    --type-subtitle: clamp(1.5rem, 1.34rem + 0.68vw, 1.875rem);
-    --type-subtitle-lh: 1.25;
-    --type-section: 1.5rem;
-    --type-section-lh: 1.3;
-    --type-subsection: 1.25rem;
-    --type-subsection-lh: 1.4;
-    --type-lead: clamp(1.0625rem, 1rem + 0.27vw, 1.25rem);
-    --type-lead-lh: 1.7;
-    --type-body: 1rem;
-    --type-body-lh: 1.75;
-    --type-small: 0.9375rem;
-    --type-small-lh: 1.6;
-    --type-caption: 0.8125rem;
-    --type-caption-lh: 1.5;
-
-    /* Vertical rhythm for marketing sections. */
-    --section-gap: 4.5rem;
-    --section-gap-lg: 6rem;
 
     --background: oklch(1 0 0);
     --foreground: oklch(0.147 0.004 49.25);
@@ -217,21 +129,6 @@
     --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.553 0.013 58.071);
-}
-
-/*
- * Section rhythm.
- *
- * These must live in a plain (non-`inline`) `@theme` block. Tailwind only
- * registers the `spacing` namespace — and therefore the `py-section` /
- * `py-section-lg` / `gap-section` utilities — from a regular `@theme`. Inside
- * `@theme inline` the variables are emitted as inert custom properties and no
- * utility is generated, so every section that opts into the shared rhythm would
- * silently render with no vertical padding at all.
- */
-@theme {
-    --spacing-section: var(--section-gap);
-    --spacing-section-lg: var(--section-gap-lg);
 }
 
 @layer base {

@@ -11,8 +11,8 @@ export async function Metrics() {
   const t = await getTranslations('Landing.metrics')
 
   return (
-    <section className="py-16 md:py-section">
-      <div className="mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg">
+    <section className="py-16 md:py-18">
+      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
         <div className="grid gap-px overflow-hidden rounded-[20px] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => (
             <div

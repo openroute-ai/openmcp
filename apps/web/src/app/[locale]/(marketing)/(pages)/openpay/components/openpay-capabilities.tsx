@@ -13,7 +13,7 @@ export async function OpenpayCapabilities() {
   const t = await getTranslations('OpenPayPage.capabilities')
 
   return (
-    <section className='border-border border-y bg-muted/40 px-gutter py-section sm:px-gutter-sm lg:px-gutter-lg'>
+    <section className='border-border border-y bg-muted/40 px-5 py-18 sm:px-6 lg:px-10'>
       <div className='mx-auto max-w-5xl'>
         <div className='mb-12 text-center'>
           <span className='mb-4 inline-block rounded-full border border-border bg-background px-3 py-1 font-medium text-muted-foreground text-xs'>

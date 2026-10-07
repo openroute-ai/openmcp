@@ -8,6 +8,9 @@
 @import "fumadocs-ui/css/shadcn.css";
 @import "fumadocs-ui/css/preset.css";
 
+/* 只扫本 app：共享层的 @source 只覆盖 packages/ui/src。 */
+@source "../**/*.{ts,tsx}";
+
 @theme inline {
   --default-font-family: var(--font-sans);
   --default-mono-font-family: var(--font-mono);

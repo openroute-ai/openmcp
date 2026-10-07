@@ -25,7 +25,7 @@ export default async function WaitlistPage() {
   const t = await getTranslations('WaitlistPage')
 
   return (
-    <Container className='px-4 py-16'>
+    <Container className='px-5 py-16'>
       <div className='mx-auto max-w-4xl space-y-8 pb-16'>
         {/* Header */}
         <div className='space-y-4'>

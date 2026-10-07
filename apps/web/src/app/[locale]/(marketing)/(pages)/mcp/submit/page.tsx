@@ -35,7 +35,7 @@ export default async function McpSubmitPage() {
   if (!session?.user) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 py-12 sm:px-6 lg:px-10'>
           <ProviderNotLogin />
         </div>
       </div>

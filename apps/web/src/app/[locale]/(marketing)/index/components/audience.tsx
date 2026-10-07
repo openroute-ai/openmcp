@@ -36,8 +36,8 @@ export async function Audience() {
   const t = await getTranslations('HomePage.audience')
 
   return (
-    <section className='py-section'>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+    <section className='py-18'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         <div className='mx-auto mb-14 max-w-3xl text-center'>
           <span className='mb-4 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
             {t('eyebrow')}

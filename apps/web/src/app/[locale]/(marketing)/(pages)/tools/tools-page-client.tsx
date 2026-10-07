@@ -97,7 +97,7 @@ function ToolsPageInner() {
     <div className='pt-16'>
       <McpToolsHero onSearch={handleSearch} totalTools={pagination?.total ?? 0} initialSearch={filters.search ?? ''} />
       <section className='py-8'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <McpToolsGrid
             tools={tools}
             isLoading={isLoading}

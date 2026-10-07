@@ -70,7 +70,7 @@ export default async function StartPage({ params }: StartPageProps) {
           <p className='mb-8 max-w-2xl text-pretty text-lead text-muted-foreground'>{t('intro')}</p>
 
           <div className='mb-8 rounded-2xl border border-border bg-card p-5 shadow-sm'>
-            <h2 className='mb-2 font-medium text-foreground text-subsection'>
+            <h2 className='mb-2 font-medium text-foreground text-xl'>
               {loc === 'zh' ? '复制给 AI 安装 OpenMCP 商店' : 'Copy to AI to install OpenMCP store'}
             </h2>
             <p className='mb-3 text-muted-foreground text-small'>
@@ -140,7 +140,7 @@ export default async function StartPage({ params }: StartPageProps) {
                 <div className='min-w-0'>
                   <div className='mb-2 flex items-center gap-2'>
                     <step.icon className='h-4 w-4 text-primary' />
-                    <h3 className='font-medium text-foreground text-subsection'>{step.title}</h3>
+                    <h3 className='font-medium text-foreground text-xl'>{step.title}</h3>
                   </div>
                   <p className='max-w-prose text-pretty text-body text-muted-foreground'>{step.body}</p>
                 </div>
@@ -164,7 +164,7 @@ export default async function StartPage({ params }: StartPageProps) {
         </div>
       </section>
 
-      <section className='border-t py-16 md:py-section'>
+      <section className='border-t py-16 md:py-18'>
         <div className='mx-auto w-full max-w-7xl'>
           <div className='rounded-2xl border border-primary/40 border-dashed bg-background p-8 md:p-10'>
             <div className='mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 font-medium text-caption text-primary'>

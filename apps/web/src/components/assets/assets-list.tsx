@@ -209,11 +209,12 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
     <>
       <DashboardHeader breadcrumbs={breadcrumbs} />
 
-      <div className='mx-auto flex w-full max-w-7xl flex-1 flex-col'>
-        <div className='@container/main flex flex-1 flex-col gap-2'>
-          <div className='flex flex-col gap-4 py-4 md:gap-6 md:py-6'>
-            <div className='flex flex-col gap-4 px-4 md:gap-6 lg:px-6'>
-              {selectedAsset ? (
+      <div className='flex-1 px-5 py-8 sm:px-6 lg:px-10'>
+        <div className='mx-auto flex w-full max-w-7xl flex-1 flex-col'>
+          <div className='@container/main flex flex-1 flex-col gap-2'>
+            <div className='flex flex-col gap-4 md:gap-6'>
+              <div className='flex flex-col gap-4 md:gap-6'>
+                {selectedAsset ? (
                 <AssetDetailView
                   asset={selectedAsset}
                   type={type}
@@ -351,6 +352,7 @@ export function MyAssetsPage({ type }: MyAssetsPageProps) {
                   </div>
                 </>
               )}
+            </div>
             </div>
           </div>
         </div>

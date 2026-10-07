@@ -17,7 +17,7 @@ export default async function BlogListLayout({ children, params }: BlogListLayou
   const categoryList = await getAllCategories(locale as string)
 
   return (
-    <div className='mb-section'>
+    <div className='mb-18'>
       <div className='mt-10 flex w-full flex-col items-center justify-center gap-6'>
         {/* Header */}
         <div className='max-w-article space-y-3 text-center'>

@@ -13,7 +13,7 @@ type ProviderSubmitShellProps = {
  */
 export function ProviderSubmitShell({ title, description, children }: ProviderSubmitShellProps) {
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-12 sm:px-6 lg:px-10'>
       <div className='mx-auto max-w-5xl space-y-8'>
         <div className='space-y-2'>
           <h1 className='font-bold text-3xl tracking-tight'>{title}</h1>

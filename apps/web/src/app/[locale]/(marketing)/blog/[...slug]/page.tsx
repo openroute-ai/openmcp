@@ -198,7 +198,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
           <div className='space-y-5 lg:sticky lg:top-24'>
             {/* author info */}
             <div className='rounded-lg bg-muted/50 p-6'>
-              <h2 className='mb-4 font-semibold text-subsection'>{t('author')}</h2>
+              <h2 className='mb-4 font-semibold text-xl'>{t('author')}</h2>
               <div className='flex items-center gap-4'>
                 <div className='relative h-8 w-8 shrink-0'>
                   {post.author?.avatar && (
@@ -216,7 +216,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
 
             {/* categories */}
             <div className='rounded-lg bg-muted/50 p-6'>
-              <h2 className='mb-4 font-semibold text-subsection'>{t('categories')}</h2>
+              <h2 className='mb-4 font-semibold text-xl'>{t('categories')}</h2>
               <ul className='flex flex-wrap gap-4'>
                 {post.categories?.map(
                   (category) =>
@@ -234,7 +234,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
               </ul>
             </div>
             <BlogInlineTOC items={toc} defaultOpen={true} className='hidden bg-muted/50 lg:block'>
-              <h2 className='mb-4 font-semibold text-subsection'>{t('tableOfContents')}</h2>
+              <h2 className='mb-4 font-semibold text-xl'>{t('tableOfContents')}</h2>
             </BlogInlineTOC>
           </div>
         </div>

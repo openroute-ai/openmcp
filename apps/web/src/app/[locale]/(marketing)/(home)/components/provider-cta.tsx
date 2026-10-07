@@ -27,8 +27,8 @@ export async function ProviderCta() {
   const tc = await getTranslations('Landing.cta')
 
   return (
-    <section className="py-section">
-      <div className="mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg">
+    <section className="py-18">
+      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
         <div className="grid items-center gap-12 rounded-[24px] border border-border bg-muted/50 p-8 md:p-14 lg:grid-cols-2">
           <div>
             <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">

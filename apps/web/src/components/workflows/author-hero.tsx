@@ -24,7 +24,7 @@ export function AuthorHero({ author }: AuthorHeroProps) {
   const t = useTranslations('AuthorsPage.authorDetail')
 
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
       <div className='flex flex-col items-center gap-6 md:flex-row md:items-start'>
         <div className='h-24 w-24 flex-shrink-0 overflow-hidden rounded-full md:h-32 md:w-32'>
           <Avatar className='h-full w-full'>

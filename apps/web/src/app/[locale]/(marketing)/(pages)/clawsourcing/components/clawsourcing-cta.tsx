@@ -5,7 +5,7 @@ import { WeChatQRDialog } from '@/components/contact/wechat-qr-dialog'
 
 export function ClawsourcingCta() {
   return (
-    <section id='cta' className='px-6 py-section'>
+    <section id='cta' className='px-6 py-18'>
       <div className='mx-auto max-w-4xl'>
         <div className='rounded-2xl border border-primary/30 bg-primary/5 px-8 py-16 text-center'>
           <Send className='mx-auto mb-6 h-12 w-12 text-primary' />

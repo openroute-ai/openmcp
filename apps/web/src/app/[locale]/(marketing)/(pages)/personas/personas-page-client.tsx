@@ -115,7 +115,7 @@ function PersonasPageInner() {
     <div>
       <PersonasHero totalPersonas={pagination?.total ?? 0} />
       <section className='py-8'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <PersonasGrid
             personas={personas}
             isLoading={isLoading}

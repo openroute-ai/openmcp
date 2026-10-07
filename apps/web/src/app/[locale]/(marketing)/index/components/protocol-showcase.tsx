@@ -17,7 +17,7 @@ export async function ProtocolShowcase() {
 
   return (
     <section className='py-10 md:py-16'>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         <div className='grid items-center gap-10 rounded-[20px] bg-muted p-8 md:p-12 lg:grid-cols-[0.62fr_1.38fr]'>
           <div>
             <span className='mb-5 inline-block rounded-full border border-border bg-background px-3 py-1 font-medium text-muted-foreground text-xs'>

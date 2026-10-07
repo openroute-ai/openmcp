@@ -149,7 +149,7 @@ function CategoryPageInner() {
   // 只在首次加载分类详情时显示全屏 loading
   if (categoryLoading) {
     return (
-      <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-12 sm:px-6 lg:px-10'>
         <div className='flex min-h-[400px] items-center justify-center'>
           <Loader2 className='h-8 w-8 animate-spin text-primary' />
         </div>
@@ -159,7 +159,7 @@ function CategoryPageInner() {
 
   if (!categoryData?.success || !categoryData.data) {
     return (
-      <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 py-12 sm:px-6 lg:px-10'>
         <div className='text-center'>
           <h1 className='mb-4 font-bold text-2xl'>{tCategories('notFound.title')}</h1>
           <p className='text-muted-foreground'>{tCategories('notFound.description')}</p>
@@ -176,7 +176,7 @@ function CategoryPageInner() {
     <div className='pt-4'>
       <CategoryHero category={{ ...category, description: category.description ?? undefined }} />
       <section className='py-4'>
-        <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
           <div className='flex flex-col gap-8 lg:flex-row'>
             <CategoryWorkflowsFilters
               initialFilters={{

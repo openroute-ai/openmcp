@@ -14,7 +14,7 @@ export async function Hero() {
 
   return (
     <section className='relative pt-32 pb-16 md:pt-44 md:pb-24'>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         <div className='mx-auto max-w-4xl text-center'>
           <div className='mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-1.5 text-muted-foreground text-sm'>
             <Store className='h-4 w-4 text-primary' />

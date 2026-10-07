@@ -63,7 +63,7 @@ export default function RankingDetailPage() {
   const hasNextPage = rankings.length === PAGE_SIZE
 
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-6 flex flex-wrap items-center justify-between gap-4'>
         <LocaleLink href='/ranking'>
           <Button variant='ghost' className='cursor-pointer gap-1 text-muted-foreground'>

@@ -27,7 +27,7 @@ export function WorkflowsHero({ onSearch, totalWorkflows = 0, initialSearch = ''
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
+    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 text-center'>
         <h1 className='mb-2 font-bold text-foreground text-title'>{t('hero.title')}</h1>
         <div className='mb-3 text-primary text-xl md:text-2xl'>

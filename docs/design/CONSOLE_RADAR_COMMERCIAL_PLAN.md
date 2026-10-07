@@ -637,7 +637,7 @@ console → web 的数据流分两类，**方向必须单向**：
 | `--brand` / `--brand2` / `--aqua` / `--glass` / `--glass-border` / `--glass-strong` / `--font-display` / `.text-gradient-brand` / `.animate-floaty` | **全仓库无定义**，落地页原本**完全无色** | 新建 `apps/console/src/app/[locale]/landing.css` 定义值 |
 | RSC 边界 | 8 个组件用了 `useState`/`useEffect` 但无 `"use client"` | 全部标记 |
 
-**一个必须记住的 Tailwind 约束**：`theme.css` / `landing.css` 都不 `@import "tailwindcss"`，因此其中的 `@theme` at-rule **不会**被 Tailwind 展开——原生 CSS 能透传，Tailwind at-rule 不能。所以 `@theme inline` 的**注册**必须写在 `packages/ui/src/styles/globals.css`（唯一 import tailwindcss 的文件），`theme.css` 只负责**给值**。这个拆分是 §5.9.1「不 fork 共享组件库」的实现方式：注册是惰性的（web 不引用 `--brand` / `--radar-*` 任何类名），值仍是雷达私有。
+**一个必须记住的 Tailwind 约束**：不 `@import "tailwindcss"` 的样式表（例如 `landing.css`，或按页面单独 import 的 css）里的 `@theme` at-rule **不会**被 Tailwind 展开——原生 CSS 能透传，Tailwind at-rule 不能。所以 `@theme inline` 的**注册**必须写在该 app 的 Tailwind 入口里，也就是 `apps/console/src/app/[locale]/globals.css`（它 `@import` 了 `@workspace/ui/globals.css`，两者同一编译单元）；原 `theme.css` 的雷达色值已并入该入口，文件本身已删除。注册与取值同文件、且与共享层分离，正是 §5.9.1「不 fork 共享组件库」的实现方式：注册是惰性的（web 不引用 `--brand` / `--radar-*` 任何类名），值仍是雷达私有。
 
 **E3 完成情况**：`0008_console_capabilities_and_tag_review.sql` 落地 `tags` 的 `confidence` / `evidence` / `reviewed_at`、`capabilities` + `projects_to_capabilities` 两张表及其索引外键。生成这次迁移时发现一个**早于本任务的 schema 越界**，必须记在这里：
 

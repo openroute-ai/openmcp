@@ -36,8 +36,8 @@ export async function Platform() {
   const t = await getTranslations('Landing.platform')
 
   return (
-    <section id="features" className="py-section">
-      <div className="mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg">
+    <section id="features" className="py-18">
+      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-16">
           <div className="lg:sticky lg:top-24">
             <SectionHeading

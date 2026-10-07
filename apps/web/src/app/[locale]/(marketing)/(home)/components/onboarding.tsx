@@ -8,8 +8,8 @@ export async function Onboarding() {
   const t = await getTranslations('Landing.onboarding')
 
   return (
-    <section id="onboarding" className="py-section">
-      <div className="mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg">
+    <section id="onboarding" className="py-18">
+      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-[24px] bg-foreground px-8 py-16 text-center text-background md:px-16">
           <div
             aria-hidden

@@ -4,11 +4,6 @@ import { hasLocale, NextIntlClientProvider } from "next-intl"
 import { notFound } from "next/navigation"
 
 import "./globals.css"
-// The values behind --radar-up / --radar-down / --radar-flat. globals.css
-// registers the names; this is the only place that gives them light and dark
-// values, so dropping the import silently turns every 涨/跌 colour into an
-// unresolved `var()` and the anomaly feed loses its semantics.
-import "./theme.css"
 import {
   ThemeProvider,
   ThemeScript,

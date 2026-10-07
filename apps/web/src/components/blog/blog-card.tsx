@@ -59,7 +59,7 @@ export default function BlogCard({ post }: BlogCardProps) {
         <div className='flex flex-1 flex-col justify-between p-5'>
           <div>
             {/* Post title */}
-            <h3 className='line-clamp-2 font-medium text-subsection'>
+            <h3 className='line-clamp-2 font-medium text-xl'>
               <span className='bg-[length:0px_10px] bg-left-bottom bg-linear-to-r from-green-200 to-green-100 bg-no-repeat transition-[background-size] duration-500 hover:bg-[length:100%_3px] group-hover:bg-[length:100%_10px] dark:from-purple-800 dark:to-purple-900'>
                 {post.title}
               </span>

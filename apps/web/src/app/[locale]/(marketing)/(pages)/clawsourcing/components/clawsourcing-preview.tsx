@@ -44,7 +44,7 @@ const features = [
 
 export function ClawsourcingPreview() {
   return (
-    <section className='border-border border-b px-6 py-section'>
+    <section className='border-border border-b px-6 py-18'>
       <div className='mx-auto max-w-7xl'>
         <div className='grid gap-12 lg:grid-cols-2 lg:items-center'>
           {/* Left: Content */}

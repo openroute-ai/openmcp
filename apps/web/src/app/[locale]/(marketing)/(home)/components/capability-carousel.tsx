@@ -51,8 +51,8 @@ export function CapabilityCarousel() {
   const next = () => setIndex((i) => (i + 1) % count)
 
   return (
-    <section className="py-section" aria-label={t('ariaLabel')}>
-      <div className="mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg">
+    <section className="py-18" aria-label={t('ariaLabel')}>
+      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
         <SectionHeading
           align="center"
           eyebrow={t('eyebrow')}

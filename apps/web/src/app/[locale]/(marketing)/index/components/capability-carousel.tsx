@@ -49,7 +49,7 @@ export function CapabilityCarousel() {
 
   return (
     <section className='py-10 md:py-16' aria-label={t('ariaLabel')}>
-      <div className='mx-auto w-full max-w-page px-gutter sm:px-gutter-sm lg:px-gutter-lg'>
+      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
         <div className='mx-auto mb-10 max-w-3xl text-center'>
           <span className='mb-4 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
             {t('eyebrow')}

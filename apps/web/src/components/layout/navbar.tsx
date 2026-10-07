@@ -66,7 +66,7 @@ export function Navbar({ scroll }: NavBarProps) {
           : 'border-b bg-background'
       )}
     >
-      <Container className='px-4'>
+      <Container className='px-5'>
         {/* desktop navbar */}
         <nav className='hidden lg:flex'>
           {/* logo and name */}

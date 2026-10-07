@@ -35,7 +35,7 @@ const securityFeatures = [
 
 export function ClawsourcingSecurity() {
   return (
-    <section className='border-border border-b bg-card px-6 py-section'>
+    <section className='border-border border-b bg-card px-6 py-18'>
       <div className='mx-auto max-w-7xl'>
         <div className='mb-12 text-center'>
           <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-4 py-1.5'>

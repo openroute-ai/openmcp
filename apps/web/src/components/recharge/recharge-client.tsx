@@ -10,6 +10,7 @@ import { Label } from '@workspace/ui/components/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { AlertCircle, Check, Copy, Landmark, Loader2, QrCode } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { trpc } from '@/lib/trpc/client'
 
 type Order = {
@@ -75,6 +76,7 @@ const CopyButton = ({ value, label }: { value: string; label: string }) => {
 
 export const RechargeClient = () => {
   const t = useTranslations('RechargePage')
+  const tDashboard = useTranslations('Dashboard')
   const statusLabel = useStatusLabel()
   const utils = trpc.useUtils()
 
@@ -192,39 +194,42 @@ export const RechargeClient = () => {
   const bank = config.data?.bankTransfer
   const bankConfigured = Boolean(bank?.accountNumber)
 
+  const breadcrumbs = [
+    { label: tDashboard('dashboard.title'), href: '/dashboard' },
+    { label: t('title'), isCurrentPage: true },
+  ]
+
   return (
-    <div className='mx-auto w-full max-w-page space-y-6 px-gutter py-10 sm:px-gutter-sm lg:px-gutter-lg'>
-      <header className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>{t('title')}</h1>
-        <p className='text-muted-foreground text-sm'>{t('subtitle')}</p>
-      </header>
+    <>
+      <DashboardHeader breadcrumbs={breadcrumbs} />
+      <div className='flex-1 px-5 py-8 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl space-y-6'>
+          {isSimulation && (
+            <Alert>
+              <AlertCircle className='h-4 w-4' />
+              <AlertTitle>{t('simulationBanner')}</AlertTitle>
+              <AlertDescription>{t('simulateHint')}</AlertDescription>
+            </Alert>
+          )}
 
-      {isSimulation && (
-        <Alert>
-          <AlertCircle className='h-4 w-4' />
-          <AlertTitle>{t('simulationBanner')}</AlertTitle>
-          <AlertDescription>{t('simulateHint')}</AlertDescription>
-        </Alert>
-      )}
+          {error && (
+            <Alert variant='destructive'>
+              <AlertCircle className='h-4 w-4' />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      {error && (
-        <Alert variant='destructive'>
-          <AlertCircle className='h-4 w-4' />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value='online'>
-            <QrCode className='h-4 w-4' />
-            {t('tabOnline')}
-          </TabsTrigger>
-          <TabsTrigger value='bank'>
-            <Landmark className='h-4 w-4' />
-            {t('tabBank')}
-          </TabsTrigger>
-        </TabsList>
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList>
+              <TabsTrigger value='online'>
+                <QrCode className='h-4 w-4' />
+                {t('tabOnline')}
+              </TabsTrigger>
+              <TabsTrigger value='bank'>
+                <Landmark className='h-4 w-4' />
+                {t('tabBank')}
+              </TabsTrigger>
+            </TabsList>
 
         <TabsContent value='online' className='mt-4 space-y-4'>
           <Card>
@@ -490,6 +495,8 @@ export const RechargeClient = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+        </div>
+      </div>
+    </>
   )
 }

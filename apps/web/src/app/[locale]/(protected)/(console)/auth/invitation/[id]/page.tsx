@@ -35,8 +35,8 @@ export default async function AcceptInvitationPage({ params }: PageProps) {
   return (
     <>
       <DashboardHeader breadcrumbs={[{ label: t('title'), isCurrentPage: true }]} />
-      <div className="flex-1 px-gutter py-8 sm:px-gutter-sm lg:px-gutter-lg">
-        <div className="mx-auto flex w-full max-w-page flex-col items-center gap-6 text-center">
+      <div className="flex-1 px-5 py-8 sm:px-6 lg:px-10">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-6 text-center">
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
             <p className="text-muted-foreground">{t('description')}</p>
