@@ -1,0 +1,1 @@
+ALTER TABLE "subscription_orders" ADD COLUMN "renewal" boolean DEFAULT false NOT NULL;

@@ -49,6 +49,13 @@ export const Routes = {
    */
   consoleSettings: "/console/settings",
   dashboardSettings: "/dashboard/settings",
+  /**
+   * The caller's own billing page: subscription status, renew, and payment history.
+   *
+   * Listed beside `consoleSettings` because it is the same shape of page — per-account
+   * data under `/console`, distinct from the operator's whole-ledger `/dashboard/billing`.
+   */
+  consoleBilling: "/console/billing",
 } as const
 
 export type RoutePath = (typeof Routes)[keyof typeof Routes]

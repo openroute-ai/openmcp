@@ -60,6 +60,8 @@ import {
   type SubscriptionFilterValue,
 } from "@/components/subscriptions/subscription-filters-form"
 import { useTRPC } from "@/lib/trpc/client"
+import { ERROR_CODES } from "@/lib/trpc/error-codes"
+import { CheckoutButton } from "@/components/billing/checkout-launcher"
 import type { inferRouterInputs } from "@trpc/server"
 import type { appRouter } from "@/lib/trpc/root"
 
@@ -72,6 +74,10 @@ export function ConsoleSubscriptionsContent() {
   const t = useTranslations("Subscriptions")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+
+  // 付费闸：推送订阅是 Pro 专享（§6.7 之后的决定）。没有生效订阅就看不到「新建」
+  // 按钮——服务端 `subscriptions.create` 也会拦，这一层只是把付费墙表达给用户。
+  const entitlement = useQuery(trpc.billing.getMySubscription.queryOptions())
 
   // 建订阅的弹窗归这一层管，因为确认弹窗关掉时要连它一起关：两层叠着，读者会以为
   // 刚才那次提交没成功，而下一次要建还得先把上面那层点掉。
@@ -141,17 +147,32 @@ export function ConsoleSubscriptionsContent() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
-          <CardDescription>{t("description")}</CardDescription>
+          {/* 标题与「新建订阅」按钮同一行：标题居左，按钮居右；窄屏时换行、
+             按钮落到标题下方，而不是把按钮挤到看不见。 */}
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 basis-72">
+              <CardTitle>{t("title")}</CardTitle>
+              <CardDescription>{t("description")}</CardDescription>
+            </div>
+            {/* 付费闸：未付费连按钮都不给，服务端 `create` 才是真闸。 */}
+            {entitlement.data ? (
+              <CreateSubscriptionDialog
+                open={createOpen}
+                onOpenChange={setCreateOpen}
+                pending={create.isPending}
+                error={
+                  create.error &&
+                  create.error.data?.appCode === ERROR_CODES.paidPlanRequired
+                    ? t("paidRequiredError")
+                    : (create.error?.message ?? null)
+                }
+                onCreate={(input) => create.mutate(input)}
+              />
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CreateSubscriptionDialog
-            open={createOpen}
-            onOpenChange={setCreateOpen}
-            pending={create.isPending}
-            error={create.error?.message ?? null}
-            onCreate={(input) => create.mutate(input)}
-          />
+          {entitlement.data === null ? <PaidGateway /> : null}
 
           {testResult ? (
             <p className="rounded-md border bg-muted px-3 py-2 text-sm">
@@ -624,5 +645,31 @@ function ErrorNote({ message }: { message: string }) {
     <p className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm text-destructive">
       {message}
     </p>
+  )
+}
+
+/**
+ * 未付费时的建订阅入口替代物。
+ *
+ * 直接在订阅页里开结账弹窗，而不是把用户踢到落地页再找回来：弹窗就是落地页那一个
+ * （`checkout-dialog.tsx`），选月付/年付、扫码、轮询确认的流程完全一致。支付成功后
+ * 弹窗会 invalidate `billing.getMySubscription`，这里查到权益后立即换成「新建订阅」。
+ */
+function PaidGateway() {
+  const t = useTranslations("Subscriptions")
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted px-4 py-3">
+      <div className="grid gap-0.5">
+        <p className="text-sm font-medium">{t("paidGateTitle")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("paidGateDescription")}
+        </p>
+      </div>
+      {/* 支付成功「进入控制台」就回到这一页：权益刚开通，入口要立刻能建订阅。 */}
+      <CheckoutButton size="sm" returnPath="/console/subscriptions">
+        {t("paidGateCta")}
+      </CheckoutButton>
+    </div>
   )
 }

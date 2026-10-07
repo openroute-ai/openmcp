@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from "./init"
 import { apiKeysRouter } from "./routers/api-keys"
 import { authorsRouter } from "./routers/authors"
+import { billingRouter } from "./routers/billing"
 import { consoleRouter } from "./routers/console"
 import { decisionsRouter } from "./routers/decisions"
 import { overviewRouter } from "./routers/overview"
@@ -20,6 +21,9 @@ export const appRouter = createTRPCRouter({
   // 的文件头。
   apiKeys: apiKeysRouter,
   authors: authorsRouter,
+  // 付费订阅的建单、查单与价目。收单网关本身不在这条链路上——微信回调直接打
+  // `/api/webhook/wechat`，见 `routers/billing.ts` 的文件头。
+  billing: billingRouter,
   // The user console's own numbers, scoped to the caller's submissions. Separate
   // from `overview`, which counts the whole registry for an operator.
   console: consoleRouter,

@@ -2,11 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { IconDownload, IconMail } from "@tabler/icons-react";
+import { CheckoutDialog, type CheckoutConfig } from "@/components/landing/checkout-dialog";
 import { FaqAccordion } from "@/components/faq/faq-accordion";
 import { ContactDialog } from "@/components/landing/contact-dialog";
 import { Reveal } from "@/hooks/use-reveal";
 import { LocaleLink } from "@/i18n/navigation";
 import { FAQS } from "@/lib/faq";
+import type { SubscriptionPlan } from "@/lib/billing/plan-types";
 
 interface Tier {
   name: string;
@@ -58,7 +60,9 @@ const TIERS: Tier[] = [
   },
   {
     name: "Pro",
-    price: "¥99",
+    // 空串是有意的：Pro 的金额在渲染时取自服务端价目表（`checkout.prices`），
+    // 这里不留第二个 ¥99 —— 两处各写一遍，改价那天就会出现卡片 ¥99、弹窗 ¥129。
+    price: "",
     suffix: "/月",
     desc: "个人监控：盯住自己在用的项目",
     features: ["监控列表与邮件告警", "许可证变更即时推送", "贡献者流失预警", "决策留痕与回访"],
@@ -90,7 +94,38 @@ const TIERS: Tier[] = [
   },
 ];
 
-export function Pricing() {
+/**
+ * 定价区。
+ *
+ * 三份来自服务端的输入决定这四张卡能不能点：
+ *
+ * - `signedIn`：未登录时点 Pro 打开的是登录卡，不是下单；
+ * - `subscription`：已生效的订阅把 Pro 卡整个换成「已开通」，支付入口不再出现；
+ * - `checkout`：价目表与通道状态，弹窗据此显示金额、决定要不要给模拟支付按钮。
+ *
+ * `autoOpen` 来自 `?plan=pro`。登录回跳后要自动把弹窗打开，否则用户会落回首页、
+ * 看到和刚才一模一样的「开始监控」，完全不知道刚才那趟登录是为了什么。
+ */
+export function Pricing({
+  signedIn,
+  subscription,
+  checkout,
+  autoOpen,
+}: {
+  signedIn: boolean;
+  subscription: { plan: SubscriptionPlan; activeUntil: Date } | null;
+  checkout: CheckoutConfig;
+  autoOpen: boolean;
+}) {
+  // `autoOpen` 只是「有人从登录回跳过来，带着 `?plan=pro`」。已经付过费的账号不该
+  // 再被塞进一次结账——那是能真扣钱的入口，所以这个判断在组件里而不是调用方那里。
+  const [checkoutOpen, setCheckoutOpen] = useState(autoOpen && subscription === null);
+
+  // Pro 的金额来自服务端价目表，与结账弹窗里的那一个是同一份（`planCatalog()`）。
+  const proPrice =
+    checkout.prices.find((row) => row.plan === "pro" && row.cycle === "monthly")
+      ?.display ?? "—";
+
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-24">
       <Reveal>
@@ -110,14 +145,23 @@ export function Pricing() {
                   : "border-border bg-card"
               }`}
             >
-              {t.featured && (
-                <span className="mb-3 w-fit rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  最受欢迎
-                </span>
-              )}
+              {t.featured &&
+                (t.name === "Pro" && subscription ? (
+                  <span className="mb-3 w-fit rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                    Pro 生效中 · 至{" "}
+                    {subscription.activeUntil.toLocaleDateString("zh-CN", {
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </span>
+                ) : (
+                  <span className="mb-3 w-fit rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                    最受欢迎
+                  </span>
+                ))}
               <p className="font-display text-lg font-semibold">{t.name}</p>
               <p className="mt-3 font-display text-4xl font-bold tracking-tight">
-                {t.price}
+                {t.name === "Pro" ? proPrice : t.price}
                 {t.suffix && <span className="text-base font-medium text-muted-foreground">{t.suffix}</span>}
               </p>
               <ul className="mt-5 flex-1 space-y-2.5 text-sm text-muted-foreground">
@@ -125,7 +169,22 @@ export function Pricing() {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
-              {t.contact ? (
+              {t.name === "Pro" && subscription ? (
+                <LocaleLink
+                  href="/console"
+                  className="mt-6 block rounded-xl bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  已开通 · 进入控制台
+                </LocaleLink>
+              ) : t.name === "Pro" ? (
+                <button
+                  type="button"
+                  onClick={() => setCheckoutOpen(true)}
+                  className="mt-6 block w-full rounded-xl bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  {t.cta}
+                </button>
+              ) : t.contact ? (
                 <ContactDialog
                   label={t.cta}
                   className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-medium transition-opacity ${
@@ -156,6 +215,13 @@ export function Pricing() {
           <p className="text-xs text-muted-foreground/80">付费计划支持 14 天无理由退款 · 年付享 8 折</p>
         </div>
       </Reveal>
+      <CheckoutDialog
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        signedIn={signedIn}
+        checkout={checkout}
+        returnPath="/console"
+      />
     </section>
   );
 }

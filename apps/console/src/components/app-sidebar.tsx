@@ -31,6 +31,7 @@ import {
   IconKey,
   IconSettings,
   IconWebhook,
+  IconReceipt2,
 } from "@tabler/icons-react"
 import { RadarLogo } from "@/components/brand/radar-logo"
 import { SITE_NAME } from "@/lib/config/site"
@@ -111,6 +112,15 @@ const navMain: NavMainItem[] = [
     key: "users",
     url: "/dashboard/users",
     icon: <IconUsersGroup />,
+    group: "groupManagement",
+  },
+  // Billing next to accounts: the two are the same complaint looked at from two
+  // sides — "who is paying" and "what did that account pay" — and an operator
+  // fielding either wants the other under the same menu group.
+  {
+    key: "billing",
+    url: "/dashboard/billing",
+    icon: <IconReceipt2 />,
     group: "groupManagement",
   },
   {

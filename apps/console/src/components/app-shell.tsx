@@ -42,10 +42,16 @@ export type TitleKey = LeafKeys<Messages>
 export function AppShell({
   sidebar,
   title,
+  badge,
   children,
 }: {
   sidebar: ReactNode
   title: string
+  /**
+   * 页头右侧的状态标记。**只有用户控制台会传**（Pro 徽标）：运营控制台没有订阅，
+   * 这条参数留空，页头回到它本来的样子。
+   */
+  badge?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -59,7 +65,7 @@ export function AppShell({
     >
       {sidebar}
       <SidebarInset>
-        <SiteHeader title={title} />
+        <SiteHeader title={title} badge={badge} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">

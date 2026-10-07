@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server"
 import type { ReactNode } from "react"
 import { AppShell, type TitleKey } from "@/components/app-shell"
 import { ConsoleSidebar } from "@/components/console/console-sidebar"
+import { PlanBadge } from "@/components/console/plan-badge"
 
 /**
  * The frame for a page of the user console.
@@ -24,7 +25,11 @@ export async function ConsoleLayout({
   const t = await getTranslations()
   const title = t(titleKey)
   return (
-    <AppShell sidebar={<ConsoleSidebar variant="inset" />} title={title}>
+    <AppShell
+      sidebar={<ConsoleSidebar variant="inset" />}
+      title={title}
+      badge={<PlanBadge />}
+    >
       {children}
     </AppShell>
   )

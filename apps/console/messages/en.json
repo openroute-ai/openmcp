@@ -50,11 +50,15 @@
     "groupCatalog": "Catalog",
     "groupOperations": "Operations",
     "groupManagement": "Management",
+    "groupOverview": "Overview",
+    "groupWorkbench": "Workbench",
+    "groupAccount": "Account",
     "settings": "Account settings",
     "apiKeys": "API Keys",
     "groupAccess": "Access",
     "subscriptions": "Subscriptions",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "billing": "Billing"
   },
   "Status": {
     "pending": "Pending",
@@ -1447,6 +1451,71 @@
     "close": "Close",
     "signingKeyLabel": "Signing key",
     "signingKeyHint": "That key doubles as the signing key: the verification key is derived from its key_hash, so all subscriptions on it share one. Switching keys changes the verification key — the receiver must update.",
-    "signingKeyEmpty": "No usable api key yet. Issue one under \"API Keys\" first, then come back."
+    "signingKeyEmpty": "No usable api key yet. Issue one under \"API Keys\" first, then come back.",
+    "paidGateTitle": "Pro required",
+    "paidGateDescription": "Creating a repository subscription is a Pro feature. Only paid accounts can create one.",
+    "paidGateCta": "Open Pro",
+    "paidRequiredError": "Creating a subscription needs Pro. Open it and come back."
+  },
+  "Billing": {
+    "title": "Billing",
+    "description": "Payments and entitlements from the radar's own checkout. Read-only: a console never rewrites a row of money, only the settlement program does.",
+    "mySubscriptionTitle": "My subscription",
+    "mySubscriptionDescription": "Your Pro plan and when it runs out. Renewing while it is active is 20% off.",
+    "untilPrefix": "Valid until",
+    "renewNote": "Renewals are 20% off and tack onto the current expiry — early renewal never overwrites time you already paid for.",
+    "renew": "Renew · 20% off",
+    "notSubscribedTitle": "No Pro yet",
+    "notSubscribedDescription": "Pro unlocks push subscriptions and monitoring alerts. Open it here and pay by scanning WeChat Pay.",
+    "openPro": "Open Pro",
+    "historyTitle": "Payment history",
+    "historyDescription": "Every checkout order you placed, whatever it became. Amounts are shown in yuan; a renewal keeps the discounted price it was paid at.",
+    "renewalBadge": "Renewal",
+    "subscriptionsTitle": "Paid subscriptions",
+    "subscriptionsDescription": "Accounts holding an open entitlement. Expiry is the whole of the state — a row whose activeUntil is past is a former subscriber.",
+    "ordersTitle": "Payment records",
+    "ordersDescription": "Every checkout order, whatever it became. Amounts are stored in fen and shown in yuan; a rejected callback stays rejected.",
+    "searchPlaceholder": "Search name, email or order id",
+    "filterState": "Filter by entitlement",
+    "filterStatus": "Filter by order status",
+    "stateAll": "Every entitlement",
+    "statusAll": "Every order",
+    "column": {
+      "user": "Account",
+      "plan": "Plan",
+      "state": "State",
+      "until": "Valid until",
+      "sourceOrder": "Order",
+      "updated": "Updated",
+      "orderId": "Order id",
+      "cycle": "Cycle",
+      "amount": "Amount",
+      "channel": "Channel",
+      "status": "Status",
+      "created": "Ordered",
+      "paidAt": "Paid at"
+    },
+    "state": {
+      "active": "Active",
+      "expired": "Expired"
+    },
+    "plan": {
+      "pro": "Pro"
+    },
+    "cycle": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "channel": {
+      "wechat": "WeChat Pay"
+    },
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "expired": "Expired",
+      "closed": "Closed"
+    },
+    "emptySubscriptions": "No paid subscription matches.",
+    "emptyOrders": "No payment record matches."
   }
 }

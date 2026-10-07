@@ -50,11 +50,15 @@
     "groupCatalog": "内容管理",
     "groupOperations": "任务运维",
     "groupManagement": "账户管理",
+    "groupOverview": "概览",
+    "groupWorkbench": "工作台",
+    "groupAccount": "账户",
     "settings": "账号设置",
     "apiKeys": "API 密钥",
     "groupAccess": "访问",
     "subscriptions": "订阅",
-    "dashboard": "概览"
+    "dashboard": "概览",
+    "billing": "结算"
   },
   "Status": {
     "pending": "等待中",
@@ -1447,6 +1451,71 @@
     "close": "关闭",
     "signingKeyLabel": "签名 key",
     "signingKeyHint": "这把 key 同时也是签名 key：验签密钥由它的 key_hash 派生，同 key 名下所有订阅共用一个。换成另一把 key 会换掉验签密钥，投递方要同步更新。",
-    "signingKeyEmpty": "还没有可用的 api key。先到「API Keys」签发一把，再回来建订阅。"
+    "signingKeyEmpty": "还没有可用的 api key。先到「API Keys」签发一把，再回来建订阅。",
+    "paidGateTitle": "Pro 专属",
+    "paidGateDescription": "创建推送订阅是 Pro 功能，只有付费账号可以创建。",
+    "paidGateCta": "开通 Pro",
+    "paidRequiredError": "创建订阅需要 Pro，开通后即可创建。"
+  },
+  "Billing": {
+    "title": "结算",
+    "description": "雷达自建收单的付款记录与权益。只读视图：钱账里的记录从不从控制台改写，只有结算程序写。",
+    "mySubscriptionTitle": "我的订阅",
+    "mySubscriptionDescription": "你的 Pro 档位与到期日。生效期内续费享 8 折。",
+    "untilPrefix": "有效期至",
+    "renewNote": "续费 8 折，从当前到期日往后顺延——提前续费不会丢已付时间。",
+    "renew": "续费 · 8 折",
+    "notSubscribedTitle": "尚未开通 Pro",
+    "notSubscribedDescription": "Pro 解锁推送订阅与监控告警。在此开通，微信扫码支付。",
+    "openPro": "开通 Pro",
+    "historyTitle": "支付历史",
+    "historyDescription": "你下过的每一笔结账订单，无论它最终变成什么。金额以元展示；续费的订单保留它成交时的 8 折价。",
+    "renewalBadge": "续费价",
+    "subscriptionsTitle": "已购订阅",
+    "subscriptionsDescription": "持有生效权益的账号。到期日就是全部状态——activeUntil 已过的一行，就是曾经的订阅者。",
+    "ordersTitle": "付款记录",
+    "ordersDescription": "每一笔结账订单，无论它最终变成什么。金额以分存储、以元展示；被拒的回调保持被拒。",
+    "searchPlaceholder": "搜索姓名、邮箱或订单号",
+    "filterState": "按权益状态筛选",
+    "filterStatus": "按订单状态筛选",
+    "stateAll": "全部权益",
+    "statusAll": "全部订单",
+    "column": {
+      "user": "账户",
+      "plan": "档位",
+      "state": "状态",
+      "until": "有效期至",
+      "sourceOrder": "生效订单",
+      "updated": "最近更新",
+      "orderId": "订单号",
+      "cycle": "周期",
+      "amount": "金额",
+      "channel": "渠道",
+      "status": "状态",
+      "created": "下单时间",
+      "paidAt": "支付时间"
+    },
+    "state": {
+      "active": "生效中",
+      "expired": "已过期"
+    },
+    "plan": {
+      "pro": "Pro"
+    },
+    "cycle": {
+      "monthly": "月付",
+      "yearly": "年付"
+    },
+    "channel": {
+      "wechat": "微信支付"
+    },
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "expired": "已过期",
+      "closed": "已关闭"
+    },
+    "emptySubscriptions": "没有匹配的付费订阅。",
+    "emptyOrders": "没有匹配的付款记录。"
   }
 }

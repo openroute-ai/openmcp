@@ -34,12 +34,14 @@ import {
    * 详见 `schema/github.ts` 里 `snapshots` 的注释。
    */
   snapshots,
+  subscriptionOrders,
   subscriptions,
   tags,
   taskDefinitions,
   taskExecutions,
   taskStatus,
   user,
+  userSubscriptions,
   webhookDeliveries,
   userRepos,
   verification,
@@ -92,6 +94,15 @@ export { apiRequestIdempotency }
  * `subscriptions` 里那条 CHECK（归属恰好一个非空）也由 drizzle-kit 从这里读到。
  */
 export { subscriptions, webhookDeliveries }
+
+/**
+ * 付费订阅的订单与权益（`schema/billing.ts`）。
+ *
+ * 同样单独具名：`subscription_orders` 引用 `user`，`user_subscriptions` 同时引用
+ * `user` 与 `subscription_orders`——它是"跨了两个域"那一组里的第三张。金额列是
+ * 整数分，这张表里的任何计算都不出现小数。
+ */
+export { subscriptionOrders, userSubscriptions }
 
 /**
  * 谁提交了哪个仓库。

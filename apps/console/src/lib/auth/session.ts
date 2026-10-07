@@ -49,6 +49,14 @@ export interface SessionUser {
   image: string | null
   phoneNumber: string | null
   phoneNumberVerified: boolean
+  /**
+   * 平台角色，随 session 一起到达（`user.additionalFields`）。
+   *
+   * 让 `getFullSessionUser` 也能直接喂给 `landingPathFor` / `isAdmin`：落地页既要
+   * 账号的 id（查订阅），又要它的 role（决定页头那颗按钮指向哪个控制台），为此
+   * 解析两次 session 是没有必要的——那只是同一个 cookie 的同一次校验。
+   */
+  role?: string | null
 }
 
 export async function getFullSessionUser(): Promise<SessionUser | null> {
@@ -67,6 +75,7 @@ export async function getFullSessionUser(): Promise<SessionUser | null> {
     // than a crash.
     phoneNumber: user.phoneNumber ?? null,
     phoneNumberVerified: user.phoneNumberVerified ?? false,
+    role: user.role ?? null,
   }
 }
 

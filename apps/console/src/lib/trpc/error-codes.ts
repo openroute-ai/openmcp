@@ -25,6 +25,22 @@ export const ERROR_CODES = {
    * answer on a page written in another language.
    */
   duplicateCandidate: "decision.duplicateCandidate",
+  /**
+   * 商户号凭据没配齐，收单通道是关的。
+   *
+   * 与"下单失败"分开：前者是部署配置问题，用户再点一次也没用，界面该说的是
+   * "支付暂未开放"而不是"请重试"。
+   */
+  paymentNotConfigured: "billing.paymentNotConfigured",
+  /** 微信侧下单失败（网络、单号冲突、商户配置错误）。可重试。 */
+  orderCreateFailed: "billing.orderCreateFailed",
+  /**
+   * 发起一个 Pro 专享动作但账号没有生效订阅。
+   *
+   * 与 `FORBIDDEN` 一起用：这不是"没有这块数据"，而是"这块功能要钱"。界面据此把
+   * 错误翻成「去开通 Pro」，而不是把一条英文文案糊到用户脸上。
+   */
+  paidPlanRequired: "billing.paidPlanRequired",
 } as const
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]

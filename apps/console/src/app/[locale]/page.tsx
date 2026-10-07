@@ -26,8 +26,11 @@ import {
 } from "@/components/landing/sections-top"
 import { db } from "@/db/client"
 import { listOpenAnomalies } from "@/lib/radar/anomalies"
-import { getSessionUser } from "@/lib/auth/session"
+import { getFullSessionUser } from "@/lib/auth/session"
 import { landingPathFor } from "@/lib/auth/role"
+import { getActiveSubscription } from "@/lib/billing/subscriptions"
+import { planCatalog } from "@/lib/billing/plans"
+import { isGatewayConfigured, isSimulationMode } from "@/lib/payment/gateway"
 
 import "./landing.css"
 
@@ -49,8 +52,18 @@ export const dynamic = "force-dynamic"
  * anonymous and readable without an account
  * (docs/design/CONSOLE_RADAR_COMMERCIAL_PLAN.md §5.9.4).
  */
-export default async function Home() {
-  const user = await getSessionUser()
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const user = await getFullSessionUser()
+
+  // `?plan=pro` 是登录回跳带回来的（见 `checkout-dialog.tsx` 的 SIGN_IN_CALLBACK）：
+  // 用户点「开始监控」→ 去登录 → 回到首页，这一帧必须把弹窗重新打开，否则那趟登录
+  // 看起来什么都没发生。
+  const params = await searchParams
+  const autoOpenCheckout = params?.plan === "pro"
 
   // The Hero's copyable `curl` has to name a host the visitor can actually
   // reach, which is this deployment's own origin rather than the canonical one
@@ -71,6 +84,19 @@ export default async function Home() {
   // the rest of the landing page is copy that does not depend on it, and a
   // database blip is not a reason to 500 the marketing site.
   const anomalies = await listOpenAnomalies(db, { limit: 6 }).catch(() => [])
+
+  // 生效中的订阅决定 Pro 卡是「开始监控」还是「已开通」。只为已登录的访客查，
+  // 匿名访客没有权益可查——省掉的是一次对空表的查询，但也是"页面不为不存在的
+  // 用户做功"这条规矩本身。
+  const subscription = user ? await getActiveSubscription(user.id) : null
+
+  // 价目表与支付通道状态。服务端算好传下去：弹窗要在第一次渲染里就显示金额，
+  // 而且落地页不该为了知道"商户号配没配"再打一次网络请求。
+  const checkout = {
+    prices: planCatalog(),
+    simulation: isSimulationMode(),
+    gatewayConfigured: isGatewayConfigured(),
+  }
 
   // §5.9.4 要求 hero 的 feed 标注采集时间。在服务端算一次、以字符串传下去：
   // `Hero` 是 client 组件，让它自己 `new Date()` 会在服务端和客户端各算一次、
@@ -112,7 +138,12 @@ export default async function Home() {
         <Roles />
         <Neutrality />
         <Testimonials />
-        <Pricing />
+        <Pricing
+          signedIn={user !== null}
+          subscription={subscription}
+          checkout={checkout}
+          autoOpen={autoOpenCheckout}
+        />
         <ReportDownload />
         <Faq />
         <FinalCta />

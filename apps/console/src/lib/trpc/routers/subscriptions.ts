@@ -52,6 +52,8 @@ import {
   updateSubscription,
 } from "@/lib/api/subscriptions"
 import { sendTestDelivery } from "@/lib/api/subscription-delivery"
+import { getActiveSubscription } from "@/lib/billing/subscriptions"
+import { ERROR_CODES } from "@/lib/trpc/error-codes"
 import { adminProcedure, createTRPCRouter, protectedProcedure } from "../init"
 
 /**
@@ -95,6 +97,9 @@ export const subscriptionsRouter = createTRPCRouter({
    *
    * 归属检查在这里做而不在服务层：服务层拿到的 `SubscriptionCreator` 是一个可信的
    * 内部形状（v1 路径的 key 来自鉴权主体），只有这一条路径会拿到用户输入的 key id。
+   *
+   * **Pro 专享**：没有生效订阅就拒绝（`billing.paidPlanRequired`）。v1 API 那条路径
+   * 也拦（route.ts），两扇门对同一件事——页面不能成为付费墙的漏洞。
    */
   create: protectedProcedure
     .input(
@@ -107,6 +112,19 @@ export const subscriptionsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { apiKeyId, ...rest } = input
+
+      // 付费闸（§6.7）：推送订阅是 Pro 专享，建行之前先看有没有生效的权益。放这里
+      // 而不是服务层，因为只有这条路径需要"当前 session 是否有权益"——v1 API 那条
+      // 的鉴权主体是 key，闸法不同（route.ts 里用 key 归属人再查一次）。`FORBIDDEN`
+      // 不是 `NOT_FOUND`：没有权益是一个要展示的拒绝，不是"这条数据不存在"。
+      const entitlement = await getActiveSubscription(ctx.session.user.id, ctx.db)
+      if (!entitlement) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "creating a subscription requires an active paid plan",
+          cause: { code: ERROR_CODES.paidPlanRequired },
+        })
+      }
 
       // 归属条件写在 WHERE 里，不是查出来再比：拿不到就是不存在，与订阅自己的
       // notFound 同一条规则（"不是你的"与"没有这个"必须无法区分）。
