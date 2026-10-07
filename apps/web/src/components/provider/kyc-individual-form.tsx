@@ -21,10 +21,9 @@ const ENTITY: KycEntityType = 'individual'
  * Individual KYC.
  *
  * The document set is fixed by `validateKycDocuments`: an ID card, front and
- * back. Payout binding is deliberately not part of this form — `payChannelType`
- * is recorded here, while the actual account/QR is bound through
- * `providers.updatePayChannel`, which is what flips `payChannelStatus` to
- * `ready` and therefore what gates paid publishing.
+ * back. This step only collects 资料 and saves a draft (`submitForReview: false`):
+ * the 收款通道 step binds the Alipay account through `providers.updatePayChannel`,
+ * and only that step submits the application for review.
  */
 export function KycIndividualForm() {
   const t = useTranslations('ProviderPage.kyc')
@@ -71,31 +70,6 @@ export function KycIndividualForm() {
               )}
             </div>
           </div>
-
-          <fieldset className='space-y-3'>
-            <legend className='font-medium text-sm'>{t('fields.payChannel')}</legend>
-            <div className='grid gap-3 sm:grid-cols-2'>
-              {(['wechat', 'alipay'] as const).map((channel) => (
-                <label
-                  key={channel}
-                  className='flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm'
-                >
-                  <input
-                    type='radio'
-                    name='payChannelType'
-                    className='size-4'
-                    checked={form.values.payChannelType === channel}
-                    onChange={() => form.setField('payChannelType', channel)}
-                  />
-                  {t(`payChannels.${channel}`)}
-                </label>
-              ))}
-            </div>
-            {form.fieldError('payChannelType') && (
-              <p className='text-destructive text-xs'>{form.fieldError('payChannelType')}</p>
-            )}
-            <p className='text-muted-foreground text-xs'>{t('fields.payChannelHint')}</p>
-          </fieldset>
 
           <div className='grid gap-4 sm:grid-cols-2'>
             {KYC_DOCS_FOR_ENTITY[ENTITY].map((doc) => (

@@ -148,6 +148,15 @@ export function GET(): Response {
     `- [完整 API 参考](${docsUrl("/docs/api")}): 每个端点的参数、响应与错误码，逐端点一份交互式页面。`,
     `- [接入说明](${docsUrl("/docs")}): 鉴权方式、API key 的权限范围、配额与调度器。`,
     "",
+    // A2A 的两份发现文档不在 `INDEXABLE_PAGES` 里：它们不是可索引的 HTML 页面，
+    // 而是给 agent 读的协议入口。但目录里必须列出来——一个先读 `llms.txt` 的引擎
+    // 不该因为这份文件只列 HTML 页，就以为本站没有 agent 接口。
+    "## A2A（Agent2Agent）：无需 API key",
+    "",
+    `- [Agent Card](${siteUrl("/.well-known/agent-card.json")}): A2A 1.0 发现文档——端点、协议版本、每个 skill 的参数与调用示例。`,
+    `- [agent.json](${siteUrl("/.well-known/agent.json")}): 同一份 Card 的 0.3 版发现文档，供 0.3 客户端读取。`,
+    "- `POST /api/a2a`: JSON-RPC 2.0 over HTTP，只有 `SendMessage`（0.3 客户端拼作 `message/send`）。skill 参数放在 data part，形如 `{\"skill\":\"rankings\",\"cadence\":\"week\"}`；纯文本消息只会得到站点介绍。",
+    "",
     "## 机器可读文件",
     "",
     `- [llms-full.txt](${siteUrl("/llms-full.txt")}): 本站的完整文字版——判定规则全文、FAQ 原文、API 字段表、文章正文。`,

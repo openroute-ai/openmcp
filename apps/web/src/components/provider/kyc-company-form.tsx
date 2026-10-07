@@ -54,20 +54,19 @@ export function KycCompanyForm() {
     form.clearDocsExcept(KYC_DOCS_FOR_REPRESENTATIVE[next].map((doc) => doc.key))
   }
 
-  // The licence is required on every branch; the identity documents come from
-  // the selected branch only, and stay hidden until one is chosen.
-  const visibleDocs = [
-    ...KYC_DOCS_FOR_ENTITY.company.filter((doc) => doc.key === 'businessLicense'),
-    ...(representative ? KYC_DOCS_FOR_REPRESENTATIVE[representative] : []),
-  ]
+  // 营业执照属于主体材料，与办理人分支无关，固定渲染在办理人身份之前。
+  const businessLicenseDoc = KYC_DOCS_FOR_ENTITY.company.find((doc) => doc.key === 'businessLicense')
+
+  // 办理人身份材料来自所选分支，未选择前不展示。
+  const branchDocs = representative ? KYC_DOCS_FOR_REPRESENTATIVE[representative] : []
 
   // The authorisation letter gets a row of its own. It is the one document that
   // is filled in on a template, stamped and scanned, so it carries a download
   // link and needs the full width to sit beside the upload control — in a
   // two-column grid it would be squeezed next to an ID scan, and the two are
   // never the same size.
-  const letterDoc = visibleDocs.find((doc) => doc.key === 'authorizationFile')
-  const identityDocs = visibleDocs.filter((doc) => doc.key !== 'authorizationFile')
+  const letterDoc = branchDocs.find((doc) => doc.key === 'authorizationFile')
+  const identityDocs = branchDocs.filter((doc) => doc.key !== 'authorizationFile')
 
   return (
     <div className='space-y-6'>
@@ -111,44 +110,53 @@ export function KycCompanyForm() {
             </div>
           </div>
 
+          <fieldset className='space-y-3'>
+            <legend className='font-medium text-sm'>{t('fields.contactSection')}</legend>
+            <div className='space-y-2 max-w-md'>
+              <Label htmlFor='contactPhone'>{t('fields.contactPhone')}</Label>
+              <Input
+                id='contactPhone'
+                type='tel'
+                inputMode='tel'
+                autoComplete='tel'
+                maxLength={11}
+                value={form.values.contactPhone}
+                onChange={(event) => form.setField('contactPhone', event.target.value)}
+                placeholder={t('fields.contactPhonePlaceholder')}
+              />
+              <p className='text-muted-foreground text-xs'>{t('fields.contactPhoneHint')}</p>
+              {form.fieldError('contactPhone') && (
+                <p className='text-destructive text-xs'>{form.fieldError('contactPhone')}</p>
+              )}
+            </div>
+          </fieldset>
+
           <div className='space-y-2'>
-            <Label htmlFor='idNumber'>{t('fields.idNumber')}</Label>
+            <Label htmlFor='idNumber'>{t('fields.taxId')}</Label>
             <Input
               id='idNumber'
               value={form.values.idNumber}
               onChange={(event) => form.setField('idNumber', event.target.value)}
-              placeholder={t('fields.idNumberPlaceholder')}
+              placeholder={t('fields.taxIdPlaceholder')}
               className='max-w-md'
             />
-            <p className='text-muted-foreground text-xs'>{t('fields.idNumberHint')}</p>
+            <p className='text-muted-foreground text-xs'>{t('fields.taxIdHint')}</p>
             {form.fieldError('idNumber') && (
               <p className='text-destructive text-xs'>{form.fieldError('idNumber')}</p>
             )}
           </div>
 
-          <fieldset className='space-y-3'>
-            <legend className='font-medium text-sm'>{t('fields.payChannel')}</legend>
-            <div className='grid gap-3 sm:grid-cols-2'>
-              {(['wechat', 'alipay'] as const).map((channel) => (
-                <label
-                  key={channel}
-                  className='flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm'
-                >
-                  <input
-                    type='radio'
-                    name='payChannelType'
-                    className='size-4'
-                    checked={form.values.payChannelType === channel}
-                    onChange={() => form.setField('payChannelType', channel)}
-                  />
-                  {t(`payChannels.${channel}`)}
-                </label>
-              ))}
-            </div>
-            {form.fieldError('payChannelType') && (
-              <p className='text-destructive text-xs'>{form.fieldError('payChannelType')}</p>
-            )}
-          </fieldset>
+          {/* 营业执照是每条办理人分支都必传的材料，放在办理人身份之前，
+              这样用户先交主体材料，再决定用哪套身份材料。 */}
+          {businessLicenseDoc && (
+            <KycDocUpload
+              docKey={businessLicenseDoc.key}
+              label={t(businessLicenseDoc.labelKey)}
+              required
+              value={form.values.kycDocuments[businessLicenseDoc.key]}
+              onChange={(url) => form.setDoc(businessLicenseDoc.key, url)}
+            />
+          )}
 
           <fieldset className='space-y-3'>
             <legend className='font-medium text-sm'>{t('fields.representative')}</legend>

@@ -6,7 +6,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/
 import { getAuthorForUser, requireAuthorForUser } from "./author"
 import { providersDataAccess } from "./index"
 import { listMyEarnings, listMyPayoutRequests, paginatedInput, requestPayout } from "./settlement"
-import { confirmStatement, listMyStatements, settlementPeriodFor, statementTimeline } from "./statements"
+import { confirmStatement, getMyStatement, listMyStatements, settlementPeriodFor, statementTimeline } from "./statements"
 
 export const providersRouter = createTRPCRouter({
   getMyProfile: protectedProcedure.query(async ({ ctx }) => {
@@ -29,6 +29,10 @@ export const providersRouter = createTRPCRouter({
         documentationUrl: z.string().max(500).nullish(),
         payChannelType: z.enum(['none', 'wechat', 'alipay']).optional(),
         agreedTerms: z.boolean().optional(),
+        /** 联系方式（手机号），存 metadata */
+        contactPhone: z.string().max(30).nullish(),
+        /** true 才校验完整性并进入待审核；缺省只保存草稿 */
+        submitForReview: z.boolean().optional(),
         kycDocuments: z
           .object({
             idCardFront: z.string().max(500).optional(),
@@ -119,7 +123,13 @@ export const providersRouter = createTRPCRouter({
       if (!authorId)
         return {
           success: true,
-          data: { rows: [], summary: { pending: 0, confirmed: 0, paid: 0, rolled: 0 }, total: 0, page: 1, pageSize: 24 },
+          data: {
+            rows: [],
+            summary: { pending: 0, confirmed: 0, paid: 0, rolled: 0, netTotal: 0 },
+            total: 0,
+            page: 1,
+            pageSize: 24,
+          },
         }
       return {
         success: true,
@@ -145,6 +155,38 @@ export const providersRouter = createTRPCRouter({
         return { success: true, data: statementTimeline(input?.period ?? settlementPeriodFor(new Date())) }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : '获取结算时间线失败' }
+      }
+    }),
+
+  /**
+   * 单张账单详情：账单本体 + 时间线 + 收益构成 + 分页逐笔明细。
+   *
+   * 归属校验在 `getMyStatement` 的 SQL 里完成，别人的账单返回「账单不存在」。
+   */
+  getMyStatementDetail: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const { authorId } = await getAuthorForUser(ctx.user.id)
+        if (!authorId) return { success: false, error: '账单不存在', data: null }
+        const data = await getMyStatement(authorId, input.id, {
+          page: input.page,
+          pageSize: input.pageSize,
+        })
+        if (!data) return { success: false, error: '账单不存在', data: null }
+        return { success: true, data }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '获取账单详情失败',
+          data: null,
+        }
       }
     }),
 

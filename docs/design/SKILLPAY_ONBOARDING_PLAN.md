@@ -3,6 +3,12 @@
 > 状态：**方案文档（未写代码）**。本文抓取 SkillHub 使用指南中两篇入驻教程的原文，
 > 并据此给出 `openmcp` 的分阶段实现方案。
 > 抓取日期：2026-10-07。
+>
+> ⚠️ **口径更新（2026-10-07）**：业务已定为「免费线 / 收费线」两条，收费入驻品牌为 **OpenPay**
+> （个人 = 阿里云 AI 按量计费；企业 = 微信支付商家入驻，平台为微信支付服务商）。
+> **全站 UED 与完整线框图见 [OPENPAY_SITE_UED.md](./OPENPAY_SITE_UED.md)**；
+> 本文 §2.1 / §2.4 已按新口径修订，附录抓取原文保持原样（作为外部协议参考，不作为产品口径）。
+
 
 ## 0. 抓取来源与方式
 
@@ -71,16 +77,20 @@
 
 ### 2.1 与现状的对应关系
 
-| SkillHub 概念 | `openmcp` 现有物 | 状态 |
+| SkillHub / OpenPay 概念 | `openmcp` 现有物 | 状态 |
 | --- | --- | --- |
 | 双轨入驻（个人 / 企业） | `/provider/onboarding` + `/individual` + `/company`，`entityType` | ✅ 已有（`PROVIDER_ONBOARDING_UED.md` Batch A–C） |
-| 入驻状态机 | `verificationStatus`: `null/unverified/pending/verified/rejected` | ✅ 已有 |
-| 商户号绑定 / 收款账户 | `/provider/payout`，`payChannelType`（wechat/alipay）+ `metadata.payoutAccounts`，`payChannelStatus` | ⚠️ 已有「手填账户/二维码」版，**缺平台级商户号绑定与状态回执** |
-| 计费模式（免费 / 按次） | `skill.priceType`（`free`/`paid`） | ⚠️ 只有买断/授权语义，**缺 per-call 单价与按次结算** |
+| 实名认证状态机 | `verificationStatus`: `null/unverified/pending/verified/rejected` | ✅ 已有，即**第 1 层 KYC** |
+| **OpenPay 收费入驻（第 2 层）** | 无独立状态，只有 `payChannelStatus` | ❌ 需新增 `openpayStatus / openpayChannel / openpayAccount` |
+| 个人 → 阿里云 AI 按量计费 | 无 | ❌ 缺 `serviceId` 注册、密钥、402 自测回执 |
+| 企业 → 微信支付商家入驻（平台为服务商） | `/provider/payout` 手填账户 / 二维码 | ⚠️ 需改为**服务商进件 → 子商户号**回执，而非手填 |
+| 计费模式（免费 / 按次） | `skill.priceType`（`free`/`paid`） | ⚠️ 缺 per-call 单价与按次结算 |
 | 402 / A2M 调用网关 | 无 | ❌ 缺失 |
 | 充值与钱包 | `packages/payment` + `recharge_orders`（方案见 `docs/payment-plan.md`） | ⚠️ 与「按次扣款」是另一条链路，勿混 |
 | 付费才可用闸门 | `apps/web/src/web/skills/acquire.ts` 的 entitlement 校验 | ✅ 已有，可复用 |
 | 发布审核队列 | `ADMIN_REVIEW_QUEUE_UED.md` + `provider_kyc_submissions` | ✅ 已有 |
+| OpenPay 入驻审核（管理端） | 无 | ❌ 需新增 `/admin/openpay` |
+
 
 ### 2.2 目标架构（调用时序）
 
@@ -89,7 +99,7 @@ Agent / 买家
    │  ① POST /api/pay/{skillSlug}/invoke   （携带会话，不含凭证）
    ▼
 OpenMCP 计费网关（新增）
-   │  ② 校验 skill.priceType / 单价 / 结算渠道状态 payChannelStatus=ready
+   │  ② 校验 skill.priceType / 单价 / openpayStatus=active
    │  ③ 向支付通道预下单（微信 X402 预下单 / 支付宝账单）
    ▼
    │  ④ 返回 402 + 支付码（Header）+ 订单号（Header）
@@ -110,24 +120,30 @@ Agent 调用支付能力 → 买家付款
 
 ### 2.3 分阶段实施
 
-#### P0 — 入驻中心统一（UI 层，纯前端可先落）
+#### P0 — 准入中心拆分（UI 层，纯前端可先落）
 
-1. `/provider/onboarding` 升级为**双轨入驻中心**：顶部步骤条（选主体 → 填资料 → 结算绑定 → 审核中 → 完成），主体卡片直接展示两条轨的差异（下表）。
-2. 个人轨步骤 2 从「身份证 + 人脸」扩展为**手机号验证码验证**（复用 `apps/web` 现有短信验证能力）。
-3. 企业轨新增 **Step 2：结算渠道绑定**（商户号 / 收款账户），未绑定时给出「已入驻 / 未入驻」回执状态，而不是只有 `payChannelStatus`。
-4. 完成检查清单（三件事）落到成功页：支付可用、业务可封装、发布权限齐备。
+按三层准入（`AUTH → KYC → OPENPAY`）重构 `/provider/onboarding`：
 
-| 主体 | 步骤条 | Step 2 内容 |
+1. 页面拆成**两张状态卡**：`卡① 实名认证`（KYC）与 `卡② OpenPay 收费入驻`，不再把结算塞进同一条步骤条。
+2. 卡② 未完成 KYC 时为禁用态并说明原因；KYC `verified` 后自动解锁。
+3. 新增**能力解锁矩阵**（免费发布 / 收费发布 / 收益 / 提现），Dashboard 与准入中心复用同一组件。
+4. 卡② 由 `entityType` 决定通道：个人 → 阿里云 AI 按量计费；企业 → 微信支付商家入驻（平台为服务商）。
+5. 站内新增 `AdmissionBanner`（顶部准入状态条）与 `PublishMenu`（`+ 发布` 下拉按准入锁态）。
+
+| 主体 | 卡① 实名认证 | 卡② OpenPay |
 | --- | --- | --- |
-| 个人 | 选主体 → 手机号验证 → 结算绑定 → 审核中 → 完成 | 结算绑定（支付宝 / 微信，可选） |
-| 企业 | 选主体 → 企业认证 → 商户号绑定 → 审核中 → 完成 | 商户号绑定（必填，未入驻不可发布付费 Skill） |
+| 个人 | 手机号 + 证件（KYC） | 阿里云 AI 按量计费：注册服务 → 密钥 → 402 自测 |
+| 企业 | 企业认证（KYC） | 微信服务商进件：商家资料 → 验证 → 审核 → 子商户 → 能力开通 |
 
-#### P1 — 结算渠道状态化
+#### P1 — OpenPay 状态化
 
-1. `provider_profiles` 增加结算回执字段（或复用 `metadata.payoutAccounts[channel]` 扩展）：
-   `merchantNo`（平台商户号）、`bindStatus`（`unbound`/`pending`/`bound`）、`boundAt`、`channel`。
-2. 提供 `providers.checkBindStatus` 查询（前端轮询或手动「刷新状态」按钮，对应原文「回到 SkillHub 刷新状态」）。
-3. 门控：`priceType='paid'` 的发布提交要求 `bindStatus='bound'`；免费 Skill 不要求。
+1. 新增 OpenPay 状态字段（或复用 `provider_profiles.metadata`）：
+   `openpayStatus`（`none/applying/pending/active/suspended`）、`openpayChannel`（`aliyun_aipay/wechat_mch`，由主体推导）、
+   `openpayAccount`（`externalId` = `serviceId` 或子商户号、`boundAt`、`expiresAt`）。
+2. 提供 `providers.checkOpenpayStatus` 查询（手动「刷新状态」+ `pending` 时每 10s 轮询）。
+3. 门控：`priceType='paid'` 的发布提交要求 `openpayStatus==='active'`；**免费资产的提交请求不读该字段**。
+4. 管理端新增 `/admin/openpay`：进件/签约审核队列，通过后联动解锁收费发布、收益与提现。
+
 
 #### P2 — 按次计费发布
 
@@ -148,25 +164,32 @@ Agent 调用支付能力 → 买家付款
 1. 「上架后验证」引导页 / 清单（安装上架版本 → 调用 → 核对价格 → 付款 → 交付 + 履约）。
 2. 卖家侧「我的交易」查询入口（对应支付宝商家中心「我卖出的交易」）。
 
-### 2.4 门控矩阵
+### 2.4 门控矩阵（三层准入）
 
-| 能力 | 个人 verified | 企业 verified | 额外条件 |
-| --- | --- | --- | --- |
-| 发布免费 Skill | ✅ | ✅ | — |
-| 发布付费 Skill（按次） | ✅ | ✅ | `bindStatus='bound'`（结算渠道已绑定） |
-| 调用 402 网关 | ✅ | ✅ | 订单存在且未过期 |
-| 发布 MCP / A2A | ❌ | ✅ | Batch D 服务端门控（维持现状） |
-| 结算提现 | ✅ | ✅ | `payChannelStatus='ready'` |
+| 能力 | 登录 | KYC verified | `openpayStatus='active'` |
+| --- | :---: | :---: | :---: |
+| 发布**免费** skills / MCP / A2A | ✅ | ✅ | — |
+| 发布**收费**资产（按次） | ✅ | ✅ | ✅ |
+| 查看收益 / 申请提现 | ✅ | ✅ | ✅ |
+| 调用 402 网关（买家） | ✅ | — | —（订单存在且未过期） |
+| 发布 MCP / A2A | ✅ | ✅ | — |
+| 结算提现 | ✅ | ✅ | ✅ |
+
+> **口径变更**：原「MCP/A2A 仅企业主体」（Batch D）与原「`bindStatus` / `payChannelStatus` 作为收费门控」
+> 均由上表取代；差异与待确认项见 [OPENPAY_SITE_UED.md](./OPENPAY_SITE_UED.md) §0.2 与 §9。
+> 主体 → 通道映射：个人 = 阿里云 AI 按量计费；企业 = 微信支付商家入驻（平台为微信支付服务商）。
 
 ### 2.5 交付物清单（本方案只列不改码）
 
 | 文档 / 代码 | 说明 | 状态 |
 | --- | --- | --- |
 | `docs/design/SKILLPAY_ONBOARDING_PLAN.md` | 本文：抓取原文 + 实现方案 | ✅ 本次新增 |
-| `docs/design/SKILLPAY_ONBOARDING_UED.md` | 依据本方案重画的入驻 UED + 线框图 | ✅ 本次新增 |
+| `docs/design/OPENPAY_SITE_UED.md` | **全站 UED + 完整线框图（主交付）** | ✅ 本次新增 |
+| `docs/design/SKILLPAY_ONBOARDING_UED.md` | 入驻 UED（部分被全站 UED 取代，门控已修订） | ✅ 本次修订 |
 | `docs/design/PROVIDER_ONBOARDING_UED.md` | 既有入驻 UED（Batch A–F） | 不改动 |
 | `docs/payment-plan.md` | 充值 / 钱包链路 | 不改动 |
 | 应用代码 | — | **按要求本次不修改** |
+
 
 ---
 
@@ -1424,7 +1447,7 @@ node scripts/weather-paid.mjs complete --state-dir '.state/SESSION_KEY' --out-sh
 ```
 
 
-### <a id="personal-best-practice-example-flow"></a>完整链路
+### 完整链路
 
 请求资源并取得 402 账单 → 用户确认付款 → 查询原订单并取得资源 → 服务端确认履约。用于其他业务时，需要同步调整触发词、请求方式、参数、资源接口、结果解析和服务登记，并重新完成验证。
 

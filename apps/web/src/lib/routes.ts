@@ -75,6 +75,8 @@ export enum Routes {
   DashboardUsage = '/dashboard/usage',
   DashboardMonthlyBilling = '/dashboard/billing/monthly',
   DashboardEarnings = '/dashboard/earnings',
+  /** 月度收益账单详情，`[id]` 是 `provider_statements.id`。 */
+  DashboardEarningsDetail = '/dashboard/earnings/[id]',
 
   /** Public landing page, intentionally outside `userConsoleRoutes`. */
   UserGuide = '/guide',
@@ -82,8 +84,8 @@ export enum Routes {
   SettingsOverview = '/settings',
   SettingsSetup = '/settings/setup',
   SettingsProfile = '/settings/profile',
-  SettingsRecharge = '/settings/recharge',
-  SettingsRechargeHistory = '/settings/recharge/history',
+  SettingsRecharge = '/dashboard/recharge',
+  SettingsRechargeHistory = '/dashboard/recharge/history',
   SettingsNotifications = '/settings/notifications',
   SettingsBills = '/settings/bills',
   SettingsIncome = '/settings/income',
@@ -92,6 +94,8 @@ export enum Routes {
   ProviderOnboarding = '/provider/onboarding',
   ProviderOnboardingIndividual = '/provider/onboarding/individual',
   ProviderOnboardingCompany = '/provider/onboarding/company',
+  /** 入驻第 3 步：个人绑支付宝 / 企业扫微信拓展码 */
+  ProviderOnboardingPayout = '/provider/onboarding/payout',
   ProviderPayout = '/provider/payout',
 
   CMSDocs = '/admin/docs',

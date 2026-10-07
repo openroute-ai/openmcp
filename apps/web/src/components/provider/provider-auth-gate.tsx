@@ -15,11 +15,9 @@ export function ProviderAuthGate({ children }: { children: ReactNode }) {
 
   if (isPending) {
     return (
-      <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto w-full max-w-page px-gutter py-6 sm:px-gutter-sm lg:px-gutter-lg'>
           <p className='text-muted-foreground'>{t('loading')}</p>
         </div>
-      </div>
     )
   }
 
@@ -28,11 +26,9 @@ export function ProviderAuthGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className='pt-16'>
-      <div className='mx-auto w-full max-w-page px-gutter py-12 sm:px-gutter-sm lg:px-gutter-lg'>
-        <div className='mx-auto max-w-5xl space-y-12'>{children}</div>
+      <div className='mx-auto w-full max-w-page px-gutter py-6 sm:px-gutter-sm lg:px-gutter-lg'>
+        <div className='mx-auto max-w-5xl space-y-6'>{children}</div>
       </div>
-    </div>
   )
 }
 

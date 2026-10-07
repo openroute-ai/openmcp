@@ -11,7 +11,7 @@ import type { DocsLayoutProps } from "fumadocs-ui/layouts/notebook"
  * layout 里。
  *
  * 注意这里没有 `PublicShell`：`/docs` 现在用的是 fumadocs 自己的导航与侧栏，
- * 整站导航由 `nav.title` 指回首页、机器可读的三个去处由 `sidebar.footer` 给出。
+ * 整站导航由 `nav.title` 指回首页、机器可读的几个去处由 `sidebar.footer` 给出。
  *
  * 类型是 `DocsLayoutProps` 去掉 `tree`：树来自内容（`source.getPageTree()`），
  * 由 layout 现取，而不是在这里写死一份。
@@ -47,9 +47,9 @@ export function baseOptions(): Omit<DocsLayoutProps, "tree"> {
     sidebar: {
       collapsible: true,
       /**
-       * 机器读的那几份东西。文档给人看，这三份给 agent 与编辑器：一份纯文本
-       * 全文、一份 OpenAPI 契约、以及判定规则——最后这一份是散文页里唯一需要
-       * 跳转的对照材料（哪些变化算异动）。
+       * 机器读的那几份东西。文档给人看，这几份给 agent 与编辑器：一份纯文本
+       * 全文、一份 OpenAPI 契约、一份 A2A 的发现文档、以及判定规则——最后这
+       * 一份是散文页里唯一需要跳转的对照材料（哪些变化算异动）。
        *
        * 放在侧栏底部而不是页首，因为它们是入口而不是内容：读者读完一页不会想
        * 再点一次。
@@ -63,6 +63,7 @@ function DocsSidebarFooter() {
   const links = [
     { label: "llms-full.txt", href: siteUrl("/llms-full.txt") },
     { label: "OpenAPI 3.1", href: siteUrl("/openapi.json") },
+    { label: "Agent Card (A2A)", href: siteUrl("/.well-known/agent-card.json") },
     { label: "判定规则", href: "/method" },
   ]
 

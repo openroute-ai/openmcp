@@ -16,8 +16,12 @@
 | [SKILL_DETAIL_EVAL_DESIGN.md](./SKILL_DETAIL_EVAL_DESIGN.md) | 详情页 × 门控 × 评测结合方案 |
 | [OPENMCP_EVAL_V1.md](./OPENMCP_EVAL_V1.md) | **openmcp-eval-v1 维度字典与启发式公式** |
 | [PROVIDER_GATEWAY_REGISTRATION_UED.md](./PROVIDER_GATEWAY_REGISTRATION_UED.md) | Provider 注册 MCP/A2A/Skills UED |
+| [OPENPAY_SITE_UED.md](./OPENPAY_SITE_UED.md) | **全站 UED：免费线 / 收费线（OpenPay）双轨 + 完整线框图** |
+| [SKILLPAY_ONBOARDING_PLAN.md](./SKILLPAY_ONBOARDING_PLAN.md) | SkillHub 入驻教程抓取原文 + OpenPay 落地方案 |
+| [SKILLPAY_ONBOARDING_UED.md](./SKILLPAY_ONBOARDING_UED.md) | 入驻 UED（部分被 OPENPAY_SITE_UED 取代） |
 | [ADMIN_REVIEW_QUEUE_UED.md](./ADMIN_REVIEW_QUEUE_UED.md) | Admin 人工复核 UED |
 | [design-github-repos-skills-webhook-sync.md](./design-github-repos-skills-webhook-sync.md) | GitHub → openmcp webhook 同步 |
+| [design-vercel-egress-proxy-and-sandbox.md](./design-vercel-egress-proxy-and-sandbox.md) | **国内 VPC × Vercel Hobby：GitHub 出口转发代理 + Sandbox 扫描编排 + 部署步骤** |
 | [CONSOLE_OPEN_RADAR_API.md](./CONSOLE_OPEN_RADAR_API.md) | **`apps/console` 开放 API：API Key 签发 / 仓库创建 + 回调 / 统计与排行 / 订阅推送** |
 
 ## 商业 / 选型决策

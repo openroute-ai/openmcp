@@ -64,7 +64,7 @@ export class SimulatedTopUpGateway implements TopUpGateway {
       channel: this.channel,
       redirectUrl: `${params.origin}/api/pay/simulate/${params.orderId}?token=${token}`,
       qrPayload,
-      returnUrl: `${params.origin}/settings/recharge?orderId=${params.orderId}`,
+      returnUrl: `${params.origin}/dashboard/recharge?orderId=${params.orderId}`,
       expiresAt,
     }
   }

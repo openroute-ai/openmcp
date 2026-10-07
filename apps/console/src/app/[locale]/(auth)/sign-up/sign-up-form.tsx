@@ -27,8 +27,19 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { authErrorMessage } from "@/lib/auth/auth-error"
 import { landingPathFor } from "@/lib/auth/role"
+import { withCallback } from "@/lib/auth/callback"
 
-export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
+/**
+ * 与 `SignInForm` 同一套 `callbackURL` 语义：登录 ↔ 注册互跳时带着它，注册完成后
+ * 回到发起这次认证的那一页（结账弹窗会带 `?callbackURL=/?plan=pro`）。
+ */
+export function SignUpForm({
+  githubEnabled,
+  callbackURL,
+}: {
+  githubEnabled: boolean
+  callbackURL?: string
+}) {
   const t = useTranslations("Auth")
   const router = useLocaleRouter()
   const [name, setName] = useState("")
@@ -60,9 +71,11 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
           }
           toast.success(t("accountCreated"))
           // Read from the response rather than hard-coded: the account this
-          // creates is an ordinary one, so it belongs on `/console`, and asking
-          // the shared helper means a second sign-up surface cannot disagree.
-          router.push(landingPathFor(data?.user))
+          // creates is an ordinary one, so it belongs on `/console` — unless the
+          // reader arrived with a `callbackURL`, in which case that one wins and
+          // asking the shared helper means a second sign-up surface cannot
+          // disagree.
+          router.push(callbackURL ?? landingPathFor(data?.user))
           router.refresh()
         },
         onError: (ctx) => {
@@ -92,7 +105,7 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
     }
 
     toast.success(t("verifyEmailSuccess"))
-    router.push(landingPathFor(data?.user))
+    router.push(callbackURL ?? landingPathFor(data?.user))
     router.refresh()
   }
 
@@ -125,7 +138,7 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
         <CardContent className="space-y-4 pb-6">
           {githubEnabled && (
             <>
-              <GitHubButton />
+              <GitHubButton callbackURL={callbackURL} />
               <AuthDivider />
             </>
           )}
@@ -180,7 +193,7 @@ export function SignUpForm({ githubEnabled }: { githubEnabled: boolean }) {
           <p className="text-center text-sm text-muted-foreground">
             {t("haveAccount")}{" "}
             <LocaleLink
-              href="/sign-in"
+              href={withCallback("/sign-in", callbackURL)}
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               {t("signIn")}

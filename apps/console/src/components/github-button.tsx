@@ -7,7 +7,7 @@ import { IconBrandGithub } from "@tabler/icons-react"
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@workspace/ui/components/button"
 
-export function GitHubButton() {
+export function GitHubButton({ callbackURL }: { callbackURL?: string }) {
   const t = useTranslations("Auth")
   const router = useLocaleRouter()
 
@@ -18,7 +18,10 @@ export function GitHubButton() {
         // The root, not a console: the callback is a full page load that has no
         // session object to read a role from — it has cookies. The root reads
         // the session and sends the account to the console it belongs on.
-        callbackURL: "/",
+        // An explicit `?callbackURL` (from the checkout dialog's "登录后支付")
+        // wins over that: the visitor asked to come back to a specific page, and
+        // the root's own `?plan=pro` handling is what reopens the dialog there.
+        callbackURL: callbackURL ?? "/",
       })
     } catch {
       toast.error(t("githubFailed"))

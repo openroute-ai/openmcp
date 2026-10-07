@@ -1,10 +1,11 @@
 import { and, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
-import { balances, rechargeOrders, user } from '@workspace/db'
+import { rechargeOrders, user } from '@workspace/db'
 import { db } from '@/lib/db'
 import { createTRPCRouter, protectedProcedure } from '@/server/routers/trpc'
 import { isSimulationMode, getTopUpGateway, resolveOnlineChannel } from '@/server/payment/gateway'
+import { getOrCreateBalance } from './balance'
 import {
   createBankTransferVoucher,
   createRechargeOrder,
@@ -350,46 +351,19 @@ export const rechargeOrdersRouter = createTRPCRouter({
       return { success: false as const, error: 'User not found' }
     }
 
-    const readBalance = async () =>
-      (
-        await db
-          .select({
-            amount: balances.amount,
-            credits: balances.credits,
-            amountTotal: balances.amountTotal,
-            creditsTotal: balances.creditsTotal,
-            amountGifted: balances.amountGifted,
-            amountSpend: balances.amountSpend,
-            creditsGifted: balances.creditsGifted,
-            creditsSpend: balances.creditsSpend,
-          })
-          .from(balances)
-          .where(eq(balances.userId, userId))
-          .limit(1)
-      )[0]
-
-    let balance = await readBalance()
-    if (!balance) {
-      // `onConflictDoNothing` keeps this idempotent under concurrent first
-      // reads; the unique index on balances.user_id is what makes it safe.
-      await db
-        .insert(balances)
-        .values({ userId, currency: 'CNY' })
-        .onConflictDoNothing({ target: balances.userId })
-      balance = await readBalance()
-    }
+    const balance = await getOrCreateBalance(userId)
 
     return {
       success: true as const,
       data: {
-        accountBalance: Number(balance?.amountTotal ?? 0),
-        creditsBalance: Number(balance?.creditsTotal ?? 0),
-        amount: Number(balance?.amount ?? 0),
-        credits: Number(balance?.credits ?? 0),
-        amountGifted: Number(balance?.amountGifted ?? 0),
-        amountSpend: Number(balance?.amountSpend ?? 0),
-        creditsGifted: Number(balance?.creditsGifted ?? 0),
-        creditsSpend: Number(balance?.creditsSpend ?? 0),
+        accountBalance: balance.amountTotal,
+        creditsBalance: balance.creditsTotal,
+        amount: balance.amount,
+        credits: balance.credits,
+        amountGifted: balance.amountGifted,
+        amountSpend: balance.amountSpend,
+        creditsGifted: balance.creditsGifted,
+        creditsSpend: balance.creditsSpend,
         user: profile,
       },
     }

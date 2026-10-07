@@ -344,7 +344,7 @@ export async function purchaseAsset(params: {
         code: 'NEED_RECHARGE' as const,
         error: '余额不足，请先充值',
         needRecharge: true,
-        rechargeUrl: '/settings/recharge',
+        rechargeUrl: '/dashboard/recharge',
         requiredAmount: amountStr,
         balance: '0',
       }
@@ -371,7 +371,7 @@ export async function purchaseAsset(params: {
         code: 'NEED_RECHARGE' as const,
         error: '余额不足，请先充值',
         needRecharge: true,
-        rechargeUrl: '/settings/recharge',
+        rechargeUrl: '/dashboard/recharge',
         requiredAmount: amountStr,
         balance: bal.amount.toString(),
       }

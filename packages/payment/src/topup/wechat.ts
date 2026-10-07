@@ -103,7 +103,7 @@ export class WeChatTopUpGateway implements TopUpGateway {
       channel: 'wechat',
       redirectUrl: null,
       qrPayload: parsed.code_url,
-      returnUrl: `${params.origin}/settings/recharge?orderId=${params.orderId}`,
+      returnUrl: `${params.origin}/dashboard/recharge?orderId=${params.orderId}`,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     }
   }

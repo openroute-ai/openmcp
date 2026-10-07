@@ -190,7 +190,7 @@ export default function ApiKeysPage() {
                     {t('budget.insufficient')}
                   </p>
                   <Button asChild size='sm'>
-                    <LocaleLink href='/settings/recharge'>{t('budget.recharge')}</LocaleLink>
+                    <LocaleLink href='/dashboard/recharge'>{t('budget.recharge')}</LocaleLink>
                   </Button>
                 </div>
               )}

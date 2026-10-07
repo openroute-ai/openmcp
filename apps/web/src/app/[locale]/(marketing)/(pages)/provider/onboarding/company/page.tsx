@@ -53,9 +53,8 @@ export default async function ProviderOnboardingCompanyPage({
       <ProviderSubmitShell
         title={t('company.pageTitle')}
         description={t('company.pageDescription')}
-        activeStep={2}
       >
-        <StepIndicator />
+        <StepIndicator step={1} />
         <KycCompanyForm />
       </ProviderSubmitShell>
     </ProviderAuthGate>

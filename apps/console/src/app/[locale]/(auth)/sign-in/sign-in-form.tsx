@@ -35,10 +35,22 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 import { authErrorMessage } from "@/lib/auth/auth-error"
 import { landingPathFor } from "@/lib/auth/role"
+import { withCallback } from "@/lib/auth/callback"
 
 const PHONE_REGEX = /^1[3-9]\d{9}$/
 
-export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
+/**
+ * `callbackURL` 来自 URL，页面已经用 `safeCallbackPath` 过滤过（见 `page.tsx`），
+ * 所以这里可以放心地把它喂给 `router.push` / GitHub 的 OAuth 回跳 / 注册页链接。
+ * 不带它时行为与原来一致：落点由角色决定（`landingPathFor`）或回到根路径。
+ */
+export function SignInForm({
+  githubEnabled,
+  callbackURL,
+}: {
+  githubEnabled: boolean
+  callbackURL?: string
+}) {
   const t = useTranslations("Auth")
   const router = useLocaleRouter()
   const [mode, setMode] = useState<"email" | "phone">("email")
@@ -83,7 +95,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
           // Where an account belongs is a function of its role, and the role
           // comes back on the sign-in response — so the right console is one
           // navigation away rather than a bounce through the root redirect.
-          router.push(landingPathFor(data?.user))
+              router.push(callbackURL ?? landingPathFor(data?.user))
           router.refresh()
         },
         onError: (ctx) => {
@@ -147,7 +159,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
         // may have created the account, and it does not hand back the user it
         // signed in, so the role is only knowable from the session. The root
         // resolves it and redirects on, which is the same answer one hop later.
-        router.push("/")
+        router.push(callbackURL ?? "/")
         router.refresh()
       }
     } catch {
@@ -193,7 +205,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
               }
 
               toast.success(t("verifyEmailSuccess"))
-              router.push(landingPathFor(data?.user))
+          router.push(callbackURL ?? landingPathFor(data?.user))
               router.refresh()
             }}
           />
@@ -211,7 +223,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
       <CardContent className="space-y-4 pb-0">
         {githubEnabled && (
           <>
-            <GitHubButton />
+            <GitHubButton callbackURL={callbackURL} />
             <AuthDivider />
           </>
         )}
@@ -384,7 +396,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
         <p className="text-center text-sm text-muted-foreground">
           {t("noAccount")}{" "}
           <LocaleLink
-            href="/sign-up"
+            href={withCallback("/sign-up", callbackURL)}
             className="text-primary underline underline-offset-4 hover:text-primary/80"
           >
             {t("signUp")}

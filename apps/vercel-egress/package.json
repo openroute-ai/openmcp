@@ -1,0 +1,31 @@
+{
+  "name": "vercel-egress",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/sandbox": "^3.5.1",
+    "@workspace/security-scan": "workspace:*",
+    "hono": "^4.13.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@types/node": "^24.19.0",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.39.2",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  }
+}

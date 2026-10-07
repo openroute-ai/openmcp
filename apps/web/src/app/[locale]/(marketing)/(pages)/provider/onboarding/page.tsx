@@ -9,7 +9,6 @@ import { auth } from '@/lib/auth'
 import { Routes } from '@/lib/routes'
 import { OnboardingEntry } from '@/components/provider/onboarding-entry'
 import { ProviderAuthGate } from '@/components/provider/provider-auth-gate'
-import { ProviderSubmitShell } from '@/components/provider/provider-submit-shell'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +36,6 @@ export default async function ProviderOnboardingPage({
   params: Promise<{ locale: string }>
 }) {
   const locale = assertLocale((await params).locale)
-  const t = await getTranslations({ locale, namespace: 'ProviderPage.kyc' })
 
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
@@ -49,13 +47,7 @@ export default async function ProviderOnboardingPage({
 
   return (
     <ProviderAuthGate>
-      <ProviderSubmitShell
-        title={t('pageTitle')}
-        description={t('pageDescription')}
-        activeStep={2}
-      >
-        <OnboardingEntry />
-      </ProviderSubmitShell>
+      <OnboardingEntry />
     </ProviderAuthGate>
   )
 }

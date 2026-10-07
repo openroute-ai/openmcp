@@ -129,29 +129,87 @@ type KycProfileLike = {
   payChannelType?: string | null
 }
 
-/** Renders the KYC progress stepper. */
-export function StepIndicator({ status }: { status?: string | null }) {
+export type PayoutAccountLike = {
+  account?: string
+  accountName?: string | null
+  qrUrl?: string | null
+}
+
+export type KycMetadataLike = {
+  contactPhone: string
+  kycDocuments: KycDocuments
+  payoutAccounts: Partial<Record<'wechat' | 'alipay', PayoutAccountLike>>
+}
+
+/**
+ * 从 provider profile 的 metadata 里取入驻相关的三块数据。
+ *
+ * metadata 是 jsonb，形状由各写入方约定，所以这里对每一块都做兜底，
+ * 调用方拿到的永远是可用的对象而不是 null。
+ */
+export function readKycMetadata(metadata: unknown): KycMetadataLike {
+  const source =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {}
+
+  const contactPhone = typeof source.contactPhone === 'string' ? source.contactPhone : ''
+  const kycDocuments =
+    source.kycDocuments && typeof source.kycDocuments === 'object' && !Array.isArray(source.kycDocuments)
+      ? (source.kycDocuments as KycDocuments)
+      : {}
+  const payoutAccounts =
+    source.payoutAccounts && typeof source.payoutAccounts === 'object' && !Array.isArray(source.payoutAccounts)
+      ? (source.payoutAccounts as KycMetadataLike['payoutAccounts'])
+      : {}
+
+  return { contactPhone, kycDocuments, payoutAccounts }
+}
+
+/** 是否已绑定某个收款通道（账号或二维码至少有一个）。 */
+export function isPayoutBound(
+  accounts: KycMetadataLike['payoutAccounts'],
+  channel: 'wechat' | 'alipay'
+): boolean {
+  const entry = accounts[channel]
+  return Boolean(entry?.account?.trim() || entry?.qrUrl?.trim())
+}
+
+/**
+ * 入驻步骤：选主体 → 填资料 → 收款通道 → 提交审核。
+ *
+ * 顺序与文案一一对应 `ProviderPage.kyc.steps`，下标即页面高亮的步骤。
+ */
+export const KYC_STEP_KEYS = ['entity', 'details', 'payout', 'review'] as const
+
+/** 审核状态落到步骤条上的下标：审核中/已通过停在「提交审核」，驳回退回「填资料」。 */
+export function stepIndexForStatus(status?: string | null): number {
+  if (status === 'pending') return 3
+  if (status === 'verified') return KYC_STEP_KEYS.length
+  if (status === 'rejected') return 1
+  return 0
+}
+
+/**
+ * Renders the KYC progress stepper.
+ *
+ * `step` wins over `status`: pages inside the flow know exactly which step they
+ * are on, while the entry page only knows the review status and falls back to
+ * `stepIndexForStatus`.
+ */
+export function StepIndicator({ step, status }: { step?: number; status?: string | null }) {
   const t = useTranslations('ProviderPage.kyc')
 
-  const steps = [
-    { key: 'entity', label: t('steps.entity') },
-    { key: 'details', label: t('steps.details') },
-    { key: 'pending', label: t('steps.pending') },
-    { key: 'verified', label: t('steps.verified') },
-  ] as const
-
-  let activeIndex = 0
-  if (status === 'pending') activeIndex = 2
-  else if (status === 'verified') activeIndex = 3
-  else if (status === 'rejected') activeIndex = 1
+  const steps = KYC_STEP_KEYS.map((key) => ({ key, label: t(`steps.${key}`) }))
+  const activeIndex = step ?? stepIndexForStatus(status)
 
   return (
     <ol className='flex flex-wrap items-center justify-center gap-2 py-4'>
-      {steps.map((step, index) => {
+      {steps.map((item, index) => {
         const isActive = index === activeIndex
         const isDone = index < activeIndex
         return (
-          <li key={step.key} className='flex items-center gap-2'>
+          <li key={item.key} className='flex items-center gap-2'>
             <div className='flex items-center gap-2'>
               <span
                 className={cn(
@@ -169,7 +227,7 @@ export function StepIndicator({ status }: { status?: string | null }) {
                   isActive ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
-                {step.label}
+                {item.label}
               </span>
             </div>
             {index < steps.length - 1 && (
@@ -364,7 +422,7 @@ export function KycDocUpload({
   )
 }
 
-/** Submit row with the shared busy/disabled handling. */
+/** 提交行：填资料这一步保存草稿并前进到「收款通道」，所以文案是「下一步」。 */
 export function KycSubmitButton({
   isSubmitting,
   locked,
@@ -376,7 +434,7 @@ export function KycSubmitButton({
   return (
     <Button type='submit' className='w-full' disabled={isSubmitting || locked}>
       {isSubmitting && <Spinner />}
-      {isSubmitting ? t('submit.sending') : t('submit.label')}
+      {isSubmitting ? t('submit.saving') : t('submit.next')}
     </Button>
   )
 }

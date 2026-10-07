@@ -2,17 +2,17 @@
 
 import { useTranslations } from 'next-intl'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
-import { ProviderStatsSection } from '@/components/dashboard/provider-stats-section'
-import { RecentDownloadsList } from '@/components/dashboard/recent-downloads-list'
-import { RecentFavoritesList } from '@/components/dashboard/recent-favorites-list'
-import { SectionCards } from '@/components/dashboard/section-cards'
+import { ConsumerDashboard } from '@/components/dashboard/overview/consumer-dashboard'
+import { CreatorDashboard } from '@/components/dashboard/overview/creator-dashboard'
 import { trpc } from '@/lib/trpc/client'
 
 /**
- * Dashboard overview page
+ * Dashboard overview page.
  *
  * All data is fetched here in a single trpc call; the child components only
- * take care of rendering.
+ * take care of rendering. The role split is driven by `isProvider` (a real
+ * `provider_profiles.authorId`, not the platform `role`), so a creator sees
+ * the经营 view while everyone else sees the consumer view.
  */
 export default function DashboardPage() {
   const t = useTranslations()
@@ -27,6 +27,8 @@ export default function DashboardPage() {
       isCurrentPage: true,
     },
   ]
+
+  const dashboardData = data?.data
 
   if (error) {
     return (
@@ -54,36 +56,20 @@ export default function DashboardPage() {
       <div className='flex flex-1 flex-col'>
         <div className='@container/main flex flex-1 flex-col gap-2'>
           <div className='flex flex-col gap-4 py-4 md:gap-6 md:py-6'>
-            {data?.data?.isProvider ? (
-              <div className='grid grid-cols-1 gap-4'>
-                <ProviderStatsSection
-                  data={data.data.providerStats}
+            <div className='px-4 lg:px-6'>
+              {dashboardData?.isProvider ? (
+                <CreatorDashboard
+                  data={dashboardData}
                   isLoading={isLoading}
                   error={error || undefined}
                 />
-              </div>
-            ) : (
-              <SectionCards
-                data={{
-                  totals: data?.data?.totals ?? undefined,
-                  chartData: data?.data?.chartData ?? [],
-                  workflowStats: data?.data?.workflowStats,
-                }}
-                isLoading={isLoading}
-                error={error || undefined}
-              />
-            )}
-            <div className='grid grid-cols-1 gap-4 px-4 lg:px-6'>
-              <RecentDownloadsList
-                data={data?.data?.workflowStats?.recentDownloads}
-                isLoading={isLoading}
-                error={error || undefined}
-              />
-              <RecentFavoritesList
-                data={data?.data?.workflowStats?.recentFavorites}
-                isLoading={isLoading}
-                error={error || undefined}
-              />
+              ) : (
+                <ConsumerDashboard
+                  data={dashboardData}
+                  isLoading={isLoading}
+                  error={error || undefined}
+                />
+              )}
             </div>
           </div>
         </div>

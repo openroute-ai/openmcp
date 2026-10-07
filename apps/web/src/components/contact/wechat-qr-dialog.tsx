@@ -41,8 +41,8 @@ interface WeChatQRDialogProps {
  * error fallback that swaps in the text version.
  */
 export function WeChatQRDialog({
-  qrCodeUrl = '/images/pm.jpg',
-  wechatId = 'qijianbin001',
+  qrCodeUrl = '/images/contact-wechat.webp',
+  wechatId = 'OpenRouteAI',
   buttonText,
   buttonVariant = 'outline',
   showIcon = true,

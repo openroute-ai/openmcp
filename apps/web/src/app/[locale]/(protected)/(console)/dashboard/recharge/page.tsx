@@ -21,7 +21,7 @@ export default async function RechargePage() {
         <Card>
           <CardContent className='pt-6'>
             <p className='text-muted-foreground mb-4 text-sm'>{t('signInRequired')}</p>
-            <LoginWrapper callbackUrl='/settings/recharge'>
+            <LoginWrapper callbackUrl='/dashboard/recharge'>
               <span className='text-primary underline underline-offset-4'>
                 {t('title')}
               </span>

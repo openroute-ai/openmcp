@@ -24,8 +24,8 @@ export function ClawsourcingCta() {
               <ArrowRight className="h-4 w-4" />
             </a> */}
             <WeChatQRDialog
-              qrCodeUrl='/images/pm.jpg'
-              wechatId='qijianbin001'
+              qrCodeUrl='/images/contact-wechat.webp'
+              wechatId='OpenRouteAI'
               buttonText='预约免费咨询'
               buttonVariant='default'
               showIcon={true}

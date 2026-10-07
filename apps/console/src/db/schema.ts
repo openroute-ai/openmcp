@@ -22,6 +22,7 @@ export * from "./schema/api-keys"
 export * from "./schema/api-request-audit"
 export * from "./schema/api-request-idempotency"
 export * from "./schema/subscriptions"
+export * from "./schema/billing"
 
 /**
  * `repos` and the `*Stats` tables exist in both the shared schema and console's

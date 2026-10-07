@@ -84,8 +84,8 @@ export default async function AboutPage() {
                     </div>
                   )}
                   <WeChatQRDialog
-                    qrCodeUrl='/images/pm.jpg'
-                    wechatId='n8nshow'
+                    qrCodeUrl='/images/contact-wechat.webp'
+                    wechatId='OpenRouteAI'
                     buttonText={t('contactWeChat')}
                     buttonVariant='default'
                     showIcon={true}

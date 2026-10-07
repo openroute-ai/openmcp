@@ -32,7 +32,7 @@ export function ProviderSubmitGate({ title, description, children }: ProviderSub
 
   if (isLoading) {
     return (
-      <ProviderSubmitShell title={title} description={description} activeStep={2}>
+      <ProviderSubmitShell title={title} description={description}>
         <p className='text-muted-foreground'>{t('loading')}</p>
       </ProviderSubmitShell>
     )
@@ -40,7 +40,7 @@ export function ProviderSubmitGate({ title, description, children }: ProviderSub
 
   if (isError || data?.success === false) {
     return (
-      <ProviderSubmitShell title={title} description={description} activeStep={2}>
+      <ProviderSubmitShell title={title} description={description}>
         <Alert variant='destructive'>
           <AlertTitle>{t('statusErrorTitle')}</AlertTitle>
           <AlertDescription className='flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -60,7 +60,7 @@ export function ProviderSubmitGate({ title, description, children }: ProviderSub
 
   if (!profile || status === 'unverified' || status === 'rejected') {
     return (
-      <ProviderSubmitShell title={title} description={description} activeStep={2}>
+      <ProviderSubmitShell title={title} description={description}>
         <div className='space-y-4 rounded-lg border border-border bg-card p-6'>
           <div className='flex items-center gap-2'>
             <ShieldAlert className='size-5 text-amber-600' />
@@ -88,7 +88,7 @@ export function ProviderSubmitGate({ title, description, children }: ProviderSub
 
   if (status === 'pending') {
     return (
-      <ProviderSubmitShell title={title} description={description} activeStep={2}>
+      <ProviderSubmitShell title={title} description={description}>
         <div className='space-y-4 rounded-lg border border-border bg-card p-6'>
           <div className='flex items-center gap-2'>
             <Clock3 className='size-5 text-primary' />
@@ -107,7 +107,7 @@ export function ProviderSubmitGate({ title, description, children }: ProviderSub
   }
 
   return (
-    <ProviderSubmitShell title={title} description={description} activeStep={3}>
+    <ProviderSubmitShell title={title} description={description}>
       {!payReady ? (
         <Alert>
           <TriangleAlert className='size-4' />

@@ -21,8 +21,10 @@ import {
   type SkillSourceFile,
 } from "@workspace/security-scan"
 import { scanTmpDir, tmpDirMaxAgeMs, vercelScanMode, isVercelRuntime } from "./env"
+import { InvalidSkillDirError, SkillSourceUnavailableError } from "./errors"
 import { cloneAndCollect } from "./local"
 import { InSandboxScriptError, scanRepository, type SandboxScanResult } from "./sandbox"
+import { egressScanUrl, egressSecret } from "@/lib/env"
 
 export { InvalidSkillDirError, SkillSourceUnavailableError } from "./errors"
 export { InSandboxScriptError } from "./sandbox"
@@ -55,10 +57,76 @@ export async function scanRepositoryWithReview(
   const includeLlm = input.includeLlm !== false
   const context = withOwner(input.context, input)
 
+  // Egress mode: the whole scan (fetch + rules + LLM) runs on the Vercel proxy
+  // (Route B in `apps/vercel-egress`); this process never touches GitHub or the
+  // repository bytes. Takes precedence over the runtime check, which is a proxy
+  // for "is GitHub reachable from here".
+  const scanUrl = egressScanUrl()
+  if (scanUrl) {
+    return runViaEgress(scanUrl, input, context, includeLlm)
+  }
+
   if (isVercelRuntime()) {
     return runOnVercel(input, context, includeLlm)
   }
   return runLocally(input, context, includeLlm)
+}
+
+/**
+ * Forwards the scan request to Route B and maps its failures back to the same
+ * status semantics the domestic route always had.
+ */
+async function runViaEgress(
+  scanUrl: URL,
+  input: SkillScanInput,
+  context: ScanContext,
+  includeLlm: boolean
+): Promise<SkillScanReport & { context: ScanContext }> {
+  const response = await fetch(scanUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-egress-secret": egressSecret() ?? "",
+    },
+    body: JSON.stringify({
+      repoFullName: input.repoFullName,
+      ...(input.ref ? { ref: input.ref } : {}),
+      ...(input.skillDir ? { skillDir: input.skillDir } : {}),
+      ...(includeLlm === false ? { includeLlm: false } : {}),
+    }),
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string
+      message?: string
+      detail?: string
+    } | null
+
+    if (body?.error === "invalid_skill_dir") {
+      throw new InvalidSkillDirError(body.message ?? "invalid skillDir")
+    }
+    if (body?.error === "source_unavailable") {
+      throw new SkillSourceUnavailableError(
+        body.message ?? "source unavailable",
+        body.detail
+          ? new Error(body.detail)
+          : undefined
+      )
+    }
+    // scan_failed and any transport failure both read as an execution failure.
+    throw new Error(body?.message ?? `egress scan failed (${response.status})`)
+  }
+
+  const report = (await response.json()) as SkillScanReport & {
+    context: ScanContext
+  }
+  // Route B reports the real owner (from the response body), which may differ
+  // from the request-time default when the proxy enriched it.
+  return {
+    ...report,
+    context: report.context ?? context,
+  }
 }
 
 async function runLocally(

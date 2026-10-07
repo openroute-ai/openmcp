@@ -28,11 +28,14 @@
 
 import { and, asc, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm"
 import {
+  a2aAgents,
   authors,
   createId,
+  mcpServers,
   providerEarnings,
   providerProfiles,
   providerStatements,
+  skills,
 } from "@workspace/db"
 import { db } from "@/lib/db"
 import { PROVIDER_REVENUE_SHARE } from "./settlement"
@@ -696,6 +699,9 @@ export async function listMyStatements(
         confirmed: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'confirmed' then ${providerStatements.payableAmount} else 0 end), 0)`,
         paid: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'paid' then ${providerStatements.payableAmount} else 0 end), 0)`,
         rolled: sql<string>`coalesce(sum(case when ${providerStatements.status} = 'rolled' then -${providerStatements.settlement} else 0 end), 0)`,
+        // 累计净收入：所有账单的本期结算合计（含负账单、含已抵扣完的），是
+        // "这个创作者一共赚到多少"的口径，与"打出去多少钱"（paid）不同。
+        netTotal: sql<string>`coalesce(sum(${providerStatements.settlement}), 0)`,
       })
       .from(providerStatements)
       .where(eq(providerStatements.authorId, authorId)),
@@ -716,6 +722,7 @@ export async function listMyStatements(
       paid: money(sums?.paid),
       // 展示为正数的"待抵扣"，因为它是一个将要扣掉的钱。
       rolled: money(sums?.rolled),
+      netTotal: money(sums?.netTotal),
     },
   }
 }
@@ -750,6 +757,175 @@ export async function listStatementEarnings(statementId: string) {
     platformFee: money(row.platformFee),
     netAmount: money(row.netAmount),
   }))
+}
+
+/**
+ * 展示用的收入来源名：Skill 标题 → MCP/A2A 名称 → null。
+ *
+ * 三种来源互斥（`skill_id` 与 `asset_type` 不会同时有值），都没有时是解析不出
+ * 资产名的网关调用，由 UI 显示"网关调用"而不是一个空单元格。
+ */
+function sourceNameOf(row: {
+  skillTitle: string | null
+  assetType: string | null
+  mcpServerName: string | null
+  a2aAgentName: string | null
+}): string | null {
+  return (
+    row.skillTitle ??
+    (row.assetType === 'mcp'
+      ? row.mcpServerName
+      : row.assetType === 'a2a'
+        ? row.a2aAgentName
+        : null)
+  )
+}
+
+/**
+ * 创作者视角的逐笔明细：解析出来源名、按时间倒序、分页。
+ *
+ * 与 `listStatementEarnings`（后台核对用的全量升序版）分开，是因为创作者页
+ * 面要回答"最近发生了什么"，且收益行可能上千条，不封顶的全量返回会拖垮详情页。
+ */
+export async function listMyStatementEarnings(
+  statementId: string,
+  options: { page?: number; pageSize?: number } = {}
+) {
+  const page = options.page ?? 1
+  const pageSize = options.pageSize ?? 20
+  const rows = await db
+    .select({
+      id: providerEarnings.id,
+      kind: providerEarnings.kind,
+      skillId: providerEarnings.skillId,
+      skillTitle: skills.title,
+      assetType: providerEarnings.assetType,
+      assetId: providerEarnings.assetId,
+      mcpServerName: mcpServers.serverName,
+      a2aAgentName: a2aAgents.agentName,
+      grossAmount: providerEarnings.grossAmount,
+      platformFee: providerEarnings.platformFee,
+      netAmount: providerEarnings.netAmount,
+      currency: providerEarnings.currency,
+      status: providerEarnings.status,
+      createdAt: providerEarnings.createdAt,
+    })
+    .from(providerEarnings)
+    // `asset_id` 不带跨表 FK，归属由应用层按 `asset_type` 选表连接（与
+    // `listMyEarnings` 同一套 join），所以两个都是 left join。
+    .leftJoin(skills, eq(providerEarnings.skillId, skills.id))
+    .leftJoin(mcpServers, eq(providerEarnings.assetId, mcpServers.id))
+    .leftJoin(a2aAgents, eq(providerEarnings.assetId, a2aAgents.id))
+    .where(eq(providerEarnings.statementId, statementId))
+    .orderBy(desc(providerEarnings.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+
+  const [totalRow] = await db
+    .select({ n: count() })
+    .from(providerEarnings)
+    .where(eq(providerEarnings.statementId, statementId))
+
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      grossAmount: money(row.grossAmount),
+      platformFee: money(row.platformFee),
+      netAmount: money(row.netAmount),
+      sourceName: sourceNameOf(row),
+    })),
+    total: totalRow?.n ?? 0,
+    page,
+    pageSize,
+  }
+}
+
+/**
+ * 一张账单的收益构成：按「来源 + 类型」聚合，用于详情页的汇总表。
+ *
+ * `kind` 参与分组而不是只按来源聚合：退款冲回是负数行，混进销售里会让这一行
+ * 看起来像"卖了一笔负数"，创作者无从解释当月净收入为什么少了。
+ */
+export async function statementBreakdown(statementId: string) {
+  const rows = await db
+    .select({
+      kind: providerEarnings.kind,
+      skillId: providerEarnings.skillId,
+      skillTitle: skills.title,
+      assetType: providerEarnings.assetType,
+      assetId: providerEarnings.assetId,
+      mcpServerName: mcpServers.serverName,
+      a2aAgentName: a2aAgents.agentName,
+      currency: providerEarnings.currency,
+      count: count(),
+      grossAmount: sql<string>`coalesce(sum(${providerEarnings.grossAmount}), 0)`,
+      platformFee: sql<string>`coalesce(sum(${providerEarnings.platformFee}), 0)`,
+      netAmount: sql<string>`coalesce(sum(${providerEarnings.netAmount}), 0)`,
+    })
+    .from(providerEarnings)
+    .leftJoin(skills, eq(providerEarnings.skillId, skills.id))
+    .leftJoin(mcpServers, eq(providerEarnings.assetId, mcpServers.id))
+    .leftJoin(a2aAgents, eq(providerEarnings.assetId, a2aAgents.id))
+    .where(eq(providerEarnings.statementId, statementId))
+    .groupBy(
+      providerEarnings.kind,
+      providerEarnings.skillId,
+      providerEarnings.assetType,
+      providerEarnings.assetId,
+      providerEarnings.currency,
+      skills.title,
+      mcpServers.serverName,
+      a2aAgents.agentName
+    )
+    // 按净收入从大到小：创作者最先想看的是"哪块最赚钱"，冲回自然沉底。
+    .orderBy(desc(sql<string>`coalesce(sum(${providerEarnings.netAmount}), 0)`))
+
+  return rows.map((row) => ({
+    kind: row.kind,
+    currency: row.currency,
+    count: Number(row.count ?? 0),
+    grossAmount: money(row.grossAmount),
+    platformFee: money(row.platformFee),
+    netAmount: money(row.netAmount),
+    sourceName: sourceNameOf(row),
+  }))
+}
+
+/**
+ * 创作者视角的单张账单详情：账单本体 + 时间线 + 收益构成 + 分页逐笔明细。
+ *
+ * 归属校验写在 SQL 的 WHERE 里而不是查出来再比 `authorId`：越权请求要返回
+ * 「不存在」而不是「无权访问」，否则会把"这个 id 是否属于别人"泄露出去。
+ */
+export async function getMyStatement(
+  authorId: string,
+  statementId: string,
+  options: { page?: number; pageSize?: number } = {}
+) {
+  const [row] = await db
+    .select()
+    .from(providerStatements)
+    .where(
+      and(
+        eq(providerStatements.id, statementId),
+        eq(providerStatements.authorId, authorId)
+      )
+    )
+    .limit(1)
+
+  if (!row) return null
+
+  const [earnings, breakdown] = await Promise.all([
+    listMyStatementEarnings(statementId, options),
+    statementBreakdown(statementId),
+  ])
+
+  return {
+    statement: toView(row),
+    timeline: statementTimeline(row.period),
+    breakdown,
+    earnings,
+  }
 }
 
 export type AdminStatementRow = {

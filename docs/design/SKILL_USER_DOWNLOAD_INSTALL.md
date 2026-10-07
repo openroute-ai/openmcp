@@ -421,7 +421,7 @@ openmcp:
    - 调用 `skills.createPurchase`（需登录）
    - 扣除 `balances.amount`（CNY 钱包）
    - 写入 `skill_entitlements`（userId + skillId + orderId）
-   - 余额不足 → `needRecharge=true`，引导到 `/settings/recharge`
+   - 余额不足 → `needRecharge=true`，引导到 `/dashboard/recharge`
 2. 已购：点击「立即获取」
    - 校验 `skill_entitlements` 存在
    - 调用 `skills.acquire`（同免费流程）

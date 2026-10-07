@@ -39,12 +39,12 @@ const managedTables = Object.values(managed)
   .sort()
 
 describe("managed table set", () => {
-  it("is the thirty-nine tables console owns", () => {
+  it("is the forty-one tables console owns", () => {
     // Four better-auth + one submission + one API key + one API request audit
     // + one idempotency + one newsletter + one subscription + one webhook
-    // delivery + two decision workbench + twenty-six GitHub. If this list
-    // changes, the count changes with it, and the diff is the review.
-    expect(managedTables).toHaveLength(39)
+    // + two decision workbench + two radar billing + twenty-six GitHub. If this
+    // list changes, the count changes with it, and the diff is the review.
+    expect(managedTables).toHaveLength(41)
     expect(managedTables).toEqual(
       [
         "account",
@@ -82,6 +82,7 @@ describe("managed table set", () => {
         // has no permission to drop. Its presence in *this* list is what makes
         // that true -- an undeclared table is an unmanaged one.
         "snapshots",
+        "subscription_orders",
         "subscriptions",
         "tags",
         "task_definitions",
@@ -89,6 +90,7 @@ describe("managed table set", () => {
         "task_status",
         "user",
         "user_repos",
+        "user_subscriptions",
         "verification",
         "webhook_deliveries",
       ].sort()

@@ -25,7 +25,7 @@ export type CreatePurchaseResult =
 
 /**
  * MVP：从用户钱包 balances.amount（CNY）扣款并写入 skill_entitlements。
- * 余额不足返回 needRecharge → /settings/recharge。微信/支付宝直连下单可后续补齐。
+ * 余额不足返回 needRecharge → /dashboard/recharge。微信/支付宝直连下单可后续补齐。
  */
 export async function createSkillPurchase(params: {
   userId: string
@@ -70,7 +70,7 @@ export async function createSkillPurchase(params: {
         code: 'NEED_RECHARGE' as const,
         error: '余额不足，请先充值',
         needRecharge: true,
-        rechargeUrl: '/settings/recharge',
+        rechargeUrl: '/dashboard/recharge',
         requiredAmount: amountStr,
         balance: '0',
       }
@@ -83,7 +83,7 @@ export async function createSkillPurchase(params: {
         code: 'NEED_RECHARGE' as const,
         error: '余额不足，请先充值',
         needRecharge: true,
-        rechargeUrl: '/settings/recharge',
+        rechargeUrl: '/dashboard/recharge',
         requiredAmount: amountStr,
         balance: bal.amount.toString(),
       }

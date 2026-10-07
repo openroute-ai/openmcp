@@ -12,8 +12,18 @@ export type ProviderProfileInput = {
   documentationUrl?: string | null
   payChannelType?: 'none' | 'wechat' | 'alipay'
   agreedTerms?: boolean
+  /** 联系方式（手机号），仅存 metadata，不建独立列 */
+  contactPhone?: string | null
   /** 实名认证附件（OSS 地址），按主体类型校验必传项 */
   kycDocuments?: Partial<KycDocuments> | null
+  /**
+   * 是否本次调用要提交进入审核。
+   *
+   * 入驻被拆成「填资料 → 收款通道 → 提交审核」三步后，前两步只保存草稿，
+   * 必须显式传 `true` 才会校验完整性并把 `verificationStatus` 置为 `pending`。
+   * 缺省等价于只保存，避免中途保存被误判成提交。
+   */
+  submitForReview?: boolean
 }
 
 /**
@@ -62,6 +72,8 @@ export type ProviderMetadata = {
   }
   invoiceProfile?: InvoiceProfile
   kycDocuments?: KycDocuments
+  /** 联系方式（手机号），企业入驻时填写 */
+  contactPhone?: string | null
   [key: string]: unknown
 }
 
@@ -144,6 +156,7 @@ function hasKycFields(input: ProviderProfileInput): boolean {
     'companyName' in input ||
     input.contactName !== undefined ||
     input.idNumber !== undefined ||
+    input.contactPhone !== undefined ||
     'documentationUrl' in input ||
     input.kycDocuments !== undefined ||
     input.agreedTerms !== undefined
@@ -155,6 +168,11 @@ function asMetadata(raw: unknown): ProviderMetadata {
     return raw as ProviderMetadata
   }
   return {}
+}
+
+/** 手机号入库前归一化：空串存成 null，避免「空字符串」和「没填」两种状态。 */
+function normalizeContactPhone(value: string | null | undefined): string | null {
+  return value?.trim() || null
 }
 
 function hasPayoutAccount(metadata: ProviderMetadata, type: 'wechat' | 'alipay'): boolean {
@@ -401,6 +419,9 @@ export const providersDataAccess = {
 
     const existing = await providersDataAccess.getMyProfile(userId)
     const existingMeta = asMetadata(existing?.metadata)
+    // 只有显式要求提交审核的调用才会走完整性校验并进入 pending；
+    // 「填资料」「收款通道」两步保存的是草稿，不改变审核状态。
+    const wantsReview = input.submitForReview === true
     const nextType = input.payChannelType ?? existing?.payChannelType ?? 'none'
     const nextPayStatus =
       nextType !== 'none' &&
@@ -418,8 +439,8 @@ export const providersDataAccess = {
         throw new Error('实名认证审核中，资料已锁定，请等待审核通过或驳回后再修改')
       }
 
-      const submitted = isCompleteSubmission(input)
-      if (input.agreedTerms === true && !submitted) {
+      const submitted = wantsReview && isCompleteSubmission(input)
+      if (wantsReview && input.agreedTerms === true && !submitted) {
         const docError = validateKycDocuments(
           input.entityType ?? existing.entityType,
           input.kycDocuments != null ? input.kycDocuments : existingMeta.kycDocuments
@@ -442,6 +463,13 @@ export const providersDataAccess = {
         ...(input.kycDocuments ?? {}),
       }
 
+      // metadata 只在本次真的带了会改动的字段时才写，避免一次资料保存把
+      // 其它模块（发票、收款码）写入的键冲掉。
+      const writesMetadata = input.kycDocuments != null || input.contactPhone !== undefined
+      const nextMetadata: ProviderMetadata = { ...existingMeta }
+      if (input.kycDocuments != null) nextMetadata.kycDocuments = mergedDocs
+      if (input.contactPhone !== undefined) nextMetadata.contactPhone = normalizeContactPhone(input.contactPhone)
+
       // Batch C: 确定目标组织ID
       const finalEntityType = (input.entityType ?? existing.entityType) as 'individual' | 'company'
       if (submitted) {
@@ -462,6 +490,7 @@ export const providersDataAccess = {
           contactName: input.contactName ?? existing.contactName,
           idNumber: input.idNumber ?? existing.idNumber,
           documentationUrl: 'documentationUrl' in input ? input.documentationUrl : existing.documentationUrl,
+          contactPhone: nextMetadata.contactPhone ?? null,
           payChannelType: input.payChannelType ?? existing.payChannelType,
           kycDocuments: mergedDocs,
           submittedAt: new Date().toISOString(),
@@ -493,13 +522,16 @@ export const providersDataAccess = {
               : nextPayStatus,
           agreedTerms: input.agreedTerms ?? existing.agreedTerms,
           verificationStatus: nextStatus,
-          metadata: input.kycDocuments ? { ...existingMeta, kycDocuments: mergedDocs } : existing.metadata,
+          metadata: writesMetadata ? nextMetadata : existing.metadata,
           updatedAt: new Date(),
         })
         .where(eq(providerProfiles.userId, userId))
     } else {
-      const submitted = isCompleteSubmission(input)
+      const submitted = wantsReview && isCompleteSubmission(input)
       const nextStatus = submitted ? 'pending' : 'unverified'
+      const nextMetadata: ProviderMetadata = {}
+      if (input.kycDocuments != null) nextMetadata.kycDocuments = input.kycDocuments
+      if (input.contactPhone !== undefined) nextMetadata.contactPhone = normalizeContactPhone(input.contactPhone)
 
       // Batch C: 确定目标组织ID
       const finalEntityType = (input.entityType ?? 'individual') as 'individual' | 'company'
@@ -521,6 +553,7 @@ export const providersDataAccess = {
           contactName: input.contactName ?? null,
           idNumber: input.idNumber ?? null,
           documentationUrl: input.documentationUrl ?? null,
+          contactPhone: nextMetadata.contactPhone ?? null,
           payChannelType: input.payChannelType ?? 'none',
           kycDocuments: input.kycDocuments ?? {},
           submittedAt: new Date().toISOString(),
@@ -548,7 +581,7 @@ export const providersDataAccess = {
         payChannelStatus: nextPayStatus,
         agreedTerms: input.agreedTerms ?? false,
         verificationStatus: nextStatus,
-        metadata: input.kycDocuments ? { kycDocuments: input.kycDocuments } : null,
+        metadata: Object.keys(nextMetadata).length > 0 ? nextMetadata : null,
       })
     }
 

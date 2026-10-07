@@ -2,13 +2,19 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useLocaleRouter } from '@/i18n/navigation'
 import { trpc } from '@/lib/trpc/client'
+import { Routes } from '@/lib/routes'
 import {
+  readKycMetadata,
   type KycDocKey,
   type KycDocuments,
   type KycEntityType,
   type KycRepresentative,
 } from './kyc-shared'
+
+/** 大陆手机号，与短信登录/绑定手机号同一规则。 */
+const PHONE_REGEX = /^1[3-9]\d{9}$/
 
 interface KycFormOptions {
   entityType: KycEntityType
@@ -26,7 +32,7 @@ interface KycFormValues {
   contactName: string
   idNumber: string
   companyName: string
-  payChannelType: '' | 'wechat' | 'alipay'
+  contactPhone: string
   agreedTerms: boolean
   kycDocuments: KycDocuments
 }
@@ -53,13 +59,6 @@ const SERVER_ERROR_KEYS: Record<string, string> = {
   '用户不存在': 'serverErrors.userMissing',
 }
 
-const readDocMap = (metadata: unknown): KycDocuments => {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {}
-  const docs = (metadata as { kycDocuments?: unknown }).kycDocuments
-  if (!docs || typeof docs !== 'object' || Array.isArray(docs)) return {}
-  return docs as KycDocuments
-}
-
 /**
  * Shared state, validation and submission for the KYC forms.
  *
@@ -69,18 +68,21 @@ const readDocMap = (metadata: unknown): KycDocuments => {
  */
 export function useKycForm({ entityType, representative }: KycFormOptions) {
   const t = useTranslations('ProviderPage.kyc')
+  const router = useLocaleRouter()
 
   const profileQuery = trpc.providers.getMyProfile.useQuery(undefined, { retry: false })
   const utils = trpc.useUtils()
   const upsert = trpc.providers.upsertProfile.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
       void utils.providers.getMyProfile.invalidate()
+      // 资料只是草稿保存：成功后前进到「收款通道」，由那一步绑定账号并提交审核。
+      if (result.success) router.push(Routes.ProviderOnboardingPayout)
     },
   })
 
   const profile =
     profileQuery.data?.success === true ? profileQuery.data.data : undefined
-  const existingDocs = readDocMap(profile?.metadata)
+  const existingMeta = readKycMetadata(profile?.metadata)
 
   const [touched, setTouched] = useState(false)
 
@@ -89,16 +91,13 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
       contactName: profile?.contactName ?? '',
       idNumber: profile?.idNumber ?? '',
       companyName: profile?.companyName ?? '',
-      payChannelType:
-        profile?.payChannelType === 'wechat' || profile?.payChannelType === 'alipay'
-          ? profile.payChannelType
-          : '',
+      contactPhone: existingMeta.contactPhone,
       agreedTerms: false,
-      kycDocuments: { ...existingDocs },
+      kycDocuments: { ...existingMeta.kycDocuments },
     }),
     // Recomputed only when a fresh profile arrives, so typing is never reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profile?.contactName, profile?.idNumber, profile?.companyName, profile?.payChannelType, profile?.metadata]
+    [profile?.contactName, profile?.idNumber, profile?.companyName, profile?.metadata]
   )
 
   const [draft, setDraft] = useState<KycFormValues | null>(null)
@@ -111,7 +110,7 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
         contactName: '',
         idNumber: '',
         companyName: '',
-        payChannelType: '',
+        contactPhone: '',
         agreedTerms: false,
         kycDocuments: {},
       }
@@ -129,7 +128,7 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
         contactName: current?.contactName ?? '',
         idNumber: current?.idNumber ?? '',
         companyName: current?.companyName ?? '',
-        payChannelType: current?.payChannelType ?? '',
+        contactPhone: current?.contactPhone ?? '',
         agreedTerms: current?.agreedTerms ?? false,
         kycDocuments: docs,
       }
@@ -150,7 +149,7 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
         contactName: '',
         idNumber: '',
         companyName: '',
-        payChannelType: '',
+        contactPhone: '',
         agreedTerms: false,
         kycDocuments: {},
       }
@@ -166,11 +165,18 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
   const errors = useMemo<FieldErrors>(() => {
     const next: FieldErrors = {}
     if (!values.contactName.trim()) next.contactName = t('validation.contactName')
-    if (!values.idNumber.trim()) next.idNumber = t('validation.idNumber')
+    if (entityType === 'company') {
+      // 企业只填统一社会信用代码，个人填身份证号。
+      if (!values.idNumber.trim()) next.idNumber = t('validation.taxId')
+    } else if (!values.idNumber.trim()) {
+      next.idNumber = t('validation.idNumber')
+    }
     if (entityType === 'company' && !values.companyName.trim()) {
       next.companyName = t('validation.companyName')
     }
-    if (!values.payChannelType) next.payChannelType = t('validation.payChannelType')
+    // 联系方式是选填，但填了就必须是能收到回访的手机号。
+    const phone = values.contactPhone.trim()
+    if (phone && !PHONE_REGEX.test(phone)) next.contactPhone = t('validation.contactPhone')
 
     const has = (key: KycDocKey) => Boolean(values.kycDocuments[key]?.trim())
 
@@ -230,9 +236,11 @@ export function useKycForm({ entityType, representative }: KycFormOptions) {
         companyName: entityType === 'company' ? values.companyName.trim() : undefined,
         contactName: values.contactName.trim(),
         idNumber: values.idNumber.trim(),
-        payChannelType: values.payChannelType === '' ? 'none' : values.payChannelType,
+        // 收款通道在下一步绑定，这里只保存草稿，不触发提交审核。
+        contactPhone: entityType === 'company' ? values.contactPhone.trim() || null : undefined,
         agreedTerms: values.agreedTerms,
         kycDocuments: values.kycDocuments,
+        submitForReview: false,
       },
       { onError: () => void utils.providers.getMyProfile.invalidate() }
     )

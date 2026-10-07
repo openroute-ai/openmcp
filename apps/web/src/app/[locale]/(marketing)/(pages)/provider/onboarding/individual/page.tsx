@@ -53,9 +53,8 @@ export default async function ProviderOnboardingIndividualPage({
       <ProviderSubmitShell
         title={t('individual.pageTitle')}
         description={t('individual.pageDescription')}
-        activeStep={2}
       >
-        <StepIndicator />
+        <StepIndicator step={1} />
         <KycIndividualForm />
       </ProviderSubmitShell>
     </ProviderAuthGate>

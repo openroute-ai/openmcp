@@ -103,7 +103,7 @@ export class AlipayTopUpGateway implements TopUpGateway {
       channel: 'alipay',
       redirectUrl: null,
       qrPayload: result.qr_code,
-      returnUrl: `${params.origin}/settings/recharge?orderId=${params.orderId}`,
+      returnUrl: `${params.origin}/dashboard/recharge?orderId=${params.orderId}`,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     }
   }

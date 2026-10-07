@@ -185,6 +185,10 @@ function HeroAnomalyFeed({
  * 写成一条需要 key 或者早已下线的端点，等于把「你可以直接读」这句话先证伪。
  * 所以给的是 `/llms-full.txt`——站点自己的文本层，正是为「一次读完」设计的，
  * 而结构化数据要 key 这件事挪到下面那句，不藏在这里。
+ *
+ * A2A 的两个发现文档是原生 `<a>` 而不是 `LocaleLink`：它们挂在
+ * `app/.well-known/` 下，不带 locale 前缀，`LocaleLink` 会把路径翻译成
+ * `/zh/.well-known/...`，而那个地址不存在。
  */
 function AgentCommand({ origin }: { origin: string }) {
   const [copied, setCopied] = useState(false)
@@ -222,9 +226,7 @@ function AgentCommand({ origin }: { origin: string }) {
       </pre>
 
       <p className="mt-2.5 text-xs text-muted-foreground">
-        这是整个站点的文本层：结论、判定规则、字段口径都在里面，agent
-        读一遍就知道 我们说了什么、以及刻意没说什么。榜单与详情的 HTML
-        同样免登录；要取结构化 数据用{" "}
+        榜单与详情的 HTML免登录；要取结构化 数据用{" "}
         <LocaleLink href="/docs" className="underline underline-offset-2">
           /api/v1/rankings/weekly
         </LocaleLink>

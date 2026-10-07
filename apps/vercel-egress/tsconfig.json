@@ -1,0 +1,9 @@
+{
+  "extends": "@workspace/typescript-config/node.json",
+  "compilerOptions": {
+    "paths": {
+      "@workspace/security-scan": ["../../packages/security-scan/src/index.ts"]
+    }
+  },
+  "include": ["src", "api"]
+}

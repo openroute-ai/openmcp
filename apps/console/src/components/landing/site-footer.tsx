@@ -43,9 +43,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     links: [
       { label: "关于我们", href: "/about" },
       { label: "联系我们", href: "/contact" },
-      { label: "AI 网关", href: "https://www.openroute.cn" },
-      { label: "OpenMCP", href: "https://www.openmcp.cn" },
-      { label: "Agent 沙箱", href: "https://www.gpurun.cn" },
+      { label: "OpenRoute", href: "https://www.openroute.cn" },
+      { label: "OpenMCP Hub", href: "https://www.openmcp.cn" },
+      { label: "GPU模型", href: "https://www.gpurun.cn" },
     ],
   },
   {

@@ -61,6 +61,15 @@ const envSchema = {
   GITHUB_ACCESS_TOKEN: optionalString,
   CRON_SECRET: optionalString,
 
+  /**
+   * 出口代理（`apps/vercel-egress`）的端点与共享 secret。配齐后 GitHub 出站
+   * 全部改走代理，本地/测试缺省仍直连 `api.github.com`。
+   */
+  GITHUB_API_BASE_URL: optionalUrl,
+  GITHUB_GRAPHQL_URL: optionalUrl,
+  EGRESS_BASE_URL: optionalUrl,
+  EGRESS_SECRET: optionalString,
+
   GITHUB_DATA_WEBHOOK_URL: optionalList,
   GITHUB_DATA_WEBHOOK_SECRET: optionalString,
 
@@ -146,6 +155,42 @@ export function requireGitHubToken(): string {
  */
 export function cronSecret(): string | undefined {
   return syncEnv().CRON_SECRET
+}
+
+/**
+ * The GitHub outbound endpoints, defaulting to direct `api.github.com`.
+ *
+ * When {@link egressConfigured} is true these point at the Vercel proxy project
+ * (`/api/github/rest` and `/api/github/graphql` respectively), and all GitHub
+ * traffic leaves via it.
+ */
+export function gitHubEndpoints() {
+  const env = syncEnv()
+  return {
+    apiBase: env.GITHUB_API_BASE_URL?.toString() ?? "https://api.github.com",
+    graphqlUrl: env.GITHUB_GRAPHQL_URL?.toString() ?? "https://api.github.com/graphql",
+  }
+}
+
+/**
+ * True when the egress proxy is configured. A base URL alone is not enough:
+ * the shared secret is what authenticates every forwarded request, so both
+ * must be present for the proxy to be used.
+ */
+export function egressConfigured(): boolean {
+  const env = syncEnv()
+  return Boolean(env.EGRESS_BASE_URL && env.EGRESS_SECRET)
+}
+
+/** The shared secret that authenticates calls to the egress proxy. */
+export function egressSecret(): string | undefined {
+  return syncEnv().EGRESS_SECRET
+}
+
+/** `EGRESS_BASE_URL` + `/api/scan`, for the scan route that forwards to Route B. */
+export function egressScanUrl(): URL | undefined {
+  const env = syncEnv()
+  return env.EGRESS_BASE_URL ? new URL("/api/scan", env.EGRESS_BASE_URL) : undefined
 }
 
 export function hasAliyunOss(): boolean {

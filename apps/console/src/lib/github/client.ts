@@ -1,4 +1,9 @@
-import { requireGitHubToken } from "@/lib/env"
+import {
+  egressConfigured,
+  egressSecret,
+  gitHubEndpoints,
+  requireGitHubToken,
+} from "@/lib/env"
 import { processReadMeHtml } from "./process-readme-html"
 import { processReadMeMd } from "./process-readme-md"
 import {
@@ -23,8 +28,27 @@ import {
   toGitHubError,
 } from "./errors"
 
-const GITHUB_API = "https://api.github.com"
-const GITHUB_GRAPHQL = "https://api.github.com/graphql"
+/**
+ * The header that authenticates a request.
+ *
+ * Through the proxy it is the shared `X-Egress-Secret`; the GitHub token never
+ * leaves the proxy. Direct it is the caller-supplied token, via `authorization`
+ * exactly as the sync domain has always sent it. Callers pass the scheme
+ * (`token` for REST, `bearer` for GraphQL) and the token itself.
+ */
+function requestHeaders(
+  scheme: "token" | "bearer",
+  accessToken: string | undefined,
+  extra: Record<string, string> = {}
+): Record<string, string> {
+  if (egressConfigured()) {
+    // The proxy holds the GitHub credentials and validates our shared secret.
+    // `authorization` is deliberately not forwarded from here — the proxy
+    // injects the real one, so we cannot leak a token we don't have.
+    return { "x-egress-secret": egressSecret() ?? "", ...extra }
+  }
+  return { authorization: `${scheme} ${accessToken}`, ...extra }
+}
 
 /** Warn below this many remaining requests, then again at these levels. */
 const RATE_LIMIT_WARN_THRESHOLDS = [1000, 500, 100, 10, 0]
@@ -157,7 +181,11 @@ type ReposBatchResult = {
  *   of issuing one request per repository.
  */
 export function createGitHubClient() {
-  const accessToken = requireGitHubToken()
+  // Direct mode needs a GitHub token; through the proxy the token stays at the
+  // proxy and only the shared secret is sent. Requiring the token in egress
+  // mode would force a secret we no longer hold into the domestic process.
+  const accessToken = egressConfigured() ? undefined : requireGitHubToken()
+  const { apiBase, graphqlUrl } = gitHubEndpoints()
 
   // --- rate limit bookkeeping ---------------------------------------------
 
@@ -193,8 +221,8 @@ export function createGitHubClient() {
     endpoint: string,
     accept = "application/vnd.github.v3+json"
   ): Promise<Response> {
-    const response = await fetch(`${GITHUB_API}/${endpoint}`, {
-      headers: { accept, authorization: `token ${accessToken}` },
+    const response = await fetch(`${apiBase}/${endpoint}`, {
+      headers: requestHeaders("token", accessToken, { accept }),
     })
     trackRateLimit(response.headers)
     return response
@@ -231,13 +259,12 @@ export function createGitHubClient() {
   ): Promise<T> {
     let response: Response
     try {
-      response = await fetch(GITHUB_GRAPHQL, {
+      response = await fetch(graphqlUrl, {
         method: "POST",
-        headers: {
+        headers: requestHeaders("bearer", accessToken, {
           accept: "application/json",
           "content-type": "application/json",
-          authorization: `bearer ${accessToken}`,
-        },
+        }),
         body: JSON.stringify({ query, variables }),
       })
     } catch (error) {

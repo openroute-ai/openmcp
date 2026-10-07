@@ -1,20 +1,24 @@
-import { and, count, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import {
   a2aAgents,
   authors,
   categories,
+  gatewaySpendRecords,
   mcpServers,
   personaDownloads,
   personaFavorites,
   personas,
   providerDailyUsage,
+  providerEarnings,
   providerProfiles,
+  providerStatements,
   rechargeOrders,
   skillDownloads,
   skillEntitlements,
   skillFavorites,
+  skillInstalls,
   skills,
   workflowCategories,
   workflowDownloads,
@@ -23,6 +27,9 @@ import {
 } from '@workspace/db'
 import { createTRPCRouter, protectedProcedure } from '@/server/routers/trpc'
 import { marketVisible } from '@/web/assets/visibility'
+import { getAuthorUsageSummaries, type AssetUsageKey } from '@/web/assets/usage'
+import { listMyStatements, statementConfirmDeadline } from '@/web/providers/statements'
+import { getOrCreateBalance } from '@/web/recharge-orders/balance'
 
 /**
  * Provider dashboard statistics.
@@ -160,6 +167,330 @@ async function getProviderStats(authorId: string): Promise<ProviderStats> {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Consumer overview: wallet, monthly usage rollups, daily trend.
+ * ------------------------------------------------------------------ */
+
+export interface ConsumerUsageSummary {
+  /** 本月消费（技能购买 + 网关调用），CNY */
+  monthSpend: number
+  /** 上月消费（同一口径），用于卡片环比 */
+  prevMonthSpend: number
+  /** 本月技能购买笔数 */
+  monthPurchases: number
+  /** 本月下载次数 */
+  monthDownloads: number
+  /** 本月网关调用次数 */
+  monthCalls: number
+}
+
+export interface ConsumerUsageDay {
+  date: string
+  spend: number
+  downloads: number
+}
+
+/**
+ * 当月与上月的消费汇总。
+ *
+ * 消费口径 = 技能购买（`skill_entitlements.amount`）+ 网关调用扣费
+ * （`gateway_spend_records.spend`），两笔都真金白银地从余额里扣，与
+ * `balances.amountSpend` 的累计口径同源，只是按月切片。
+ */
+async function getConsumerUsageSummary(userId: string): Promise<ConsumerUsageSummary> {
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const prevMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+
+  const spendSum = sql<string>`coalesce(sum(${skillEntitlements.amount}), 0)`
+  const gatewaySum = sql<string>`coalesce(sum(${gatewaySpendRecords.spend}), 0)`
+
+  const [purchases, prevPurchases, gateway, prevGateway, downloads] = await Promise.all([
+    db
+      .select({ spend: spendSum, n: count() })
+      .from(skillEntitlements)
+      .where(and(eq(skillEntitlements.userId, userId), gte(skillEntitlements.createdAt, monthStart))),
+    db
+      .select({ spend: spendSum })
+      .from(skillEntitlements)
+      .where(
+        and(
+          eq(skillEntitlements.userId, userId),
+          gte(skillEntitlements.createdAt, prevMonthStart),
+          lt(skillEntitlements.createdAt, monthStart)
+        )
+      ),
+    db
+      .select({ spend: gatewaySum, n: count() })
+      .from(gatewaySpendRecords)
+      .where(and(eq(gatewaySpendRecords.userId, userId), gte(gatewaySpendRecords.occurredAt, monthStart))),
+    db
+      .select({ spend: gatewaySum })
+      .from(gatewaySpendRecords)
+      .where(
+        and(
+          eq(gatewaySpendRecords.userId, userId),
+          gte(gatewaySpendRecords.occurredAt, prevMonthStart),
+          lt(gatewaySpendRecords.occurredAt, monthStart)
+        )
+      ),
+    db
+      .select({ n: count() })
+      .from(skillDownloads)
+      .where(and(eq(skillDownloads.userId, userId), gte(skillDownloads.downloadedAt, monthStart))),
+  ])
+
+  const monthSpend = Number(purchases[0]?.spend ?? 0) + Number(gateway[0]?.spend ?? 0)
+  const prevMonthSpend = Number(prevPurchases[0]?.spend ?? 0) + Number(prevGateway[0]?.spend ?? 0)
+
+  return {
+    monthSpend,
+    prevMonthSpend,
+    monthPurchases: Number(purchases[0]?.n ?? 0),
+    monthDownloads: Number(downloads[0]?.n ?? 0),
+    monthCalls: Number(gateway[0]?.n ?? 0),
+  }
+}
+
+/** 近 N 天逐日消费与下载，供图表绘制；没有活动的日期不出现在结果里。 */
+async function getConsumerUsageDaily(userId: string, days = 30): Promise<ConsumerUsageDay[]> {
+  const since = new Date()
+  since.setUTCDate(since.getUTCDate() - days)
+
+  const [spendRows, gatewayRows, downloadRows] = await Promise.all([
+    db
+      .select({
+        day: sql<string>`to_char(${skillEntitlements.createdAt}, 'YYYY-MM-DD')`,
+        spend: sql<string>`coalesce(sum(${skillEntitlements.amount}), 0)`,
+      })
+      .from(skillEntitlements)
+      .where(and(eq(skillEntitlements.userId, userId), gte(skillEntitlements.createdAt, since)))
+      .groupBy(sql`to_char(${skillEntitlements.createdAt}, 'YYYY-MM-DD')`),
+    db
+      .select({
+        day: sql<string>`to_char(${gatewaySpendRecords.occurredAt}, 'YYYY-MM-DD')`,
+        spend: sql<string>`coalesce(sum(${gatewaySpendRecords.spend}), 0)`,
+      })
+      .from(gatewaySpendRecords)
+      .where(and(eq(gatewaySpendRecords.userId, userId), gte(gatewaySpendRecords.occurredAt, since)))
+      .groupBy(sql`to_char(${gatewaySpendRecords.occurredAt}, 'YYYY-MM-DD')`),
+    db
+      .select({
+        day: sql<string>`to_char(${skillDownloads.downloadedAt}, 'YYYY-MM-DD')`,
+        n: count(),
+      })
+      .from(skillDownloads)
+      .where(and(eq(skillDownloads.userId, userId), gte(skillDownloads.downloadedAt, since)))
+      .groupBy(sql`to_char(${skillDownloads.downloadedAt}, 'YYYY-MM-DD')`),
+  ])
+
+  const byDay = new Map<string, ConsumerUsageDay>()
+  const ensure = (date: string) => {
+    let row = byDay.get(date)
+    if (!row) {
+      row = { date, spend: 0, downloads: 0 }
+      byDay.set(date, row)
+    }
+    return row
+  }
+
+  for (const row of spendRows) ensure(row.day).spend += Number(row.spend ?? 0)
+  for (const row of gatewayRows) ensure(row.day).spend += Number(row.spend ?? 0)
+  for (const row of downloadRows) ensure(row.day).downloads += Number(row.n ?? 0)
+
+  return Array.from(byDay.values()).sort((a, b) => (a.date < b.date ? -1 : 1))
+}
+
+/* ------------------------------------------------------------------ *
+ * Creator overview: asset leaderboard, settlement snapshot, activity.
+ * ------------------------------------------------------------------ */
+
+export type TopAssetType = 'skill' | 'mcp' | 'a2a' | 'persona'
+
+export interface TopAsset {
+  id: string
+  type: TopAssetType
+  title: string
+  /** 近 30 天网关计费调用；技能 / Persona 不走网关，恒为 0 */
+  calls: number
+  views: number
+  downloads: number
+  favorites: number
+}
+
+/**
+ * 资产表现 Top：把四张资产表的累计指标与近 30 天网关调用合并。
+ *
+ * 排序用 downloads 打头而不是 calls —— 技能与 Persona 没有网关调用概念，
+ * 按 calls 排会把它们全部沉底，看起来像"没人用"。
+ */
+async function getTopAssets(authorId: string): Promise<TopAsset[]> {
+  const [skillRows, mcpRows, a2aRows, personaRows, usage] = await Promise.all([
+    db
+      .select({
+        id: skills.id,
+        title: skills.title,
+        views: skills.views,
+        downloads: skills.downloads,
+        favorites: skills.likes,
+      })
+      .from(skills)
+      .where(and(eq(skills.authorId, authorId), eq(skills.status, 'published'))),
+    db
+      .select({
+        id: mcpServers.id,
+        title: mcpServers.name,
+        views: mcpServers.views,
+        downloads: mcpServers.downloads,
+      })
+      .from(mcpServers)
+      .where(and(eq(mcpServers.authorId, authorId), marketVisible(mcpServers))),
+    db
+      .select({
+        id: a2aAgents.id,
+        title: a2aAgents.name,
+        views: a2aAgents.views,
+        downloads: a2aAgents.downloads,
+      })
+      .from(a2aAgents)
+      .where(and(eq(a2aAgents.authorId, authorId), marketVisible(a2aAgents))),
+    db
+      .select({
+        id: personas.id,
+        title: personas.title,
+        views: personas.views,
+        downloads: personas.downloads,
+        favorites: personas.likes,
+      })
+      .from(personas)
+      .where(and(eq(personas.authorId, authorId), eq(personas.status, 'published'))),
+    getAuthorUsageSummaries(authorId, 30),
+  ])
+
+  const callsOf = (type: 'mcp' | 'a2a', id: string) =>
+    Number(usage.get(`${type}:${id}` as AssetUsageKey)?.calls ?? 0)
+
+  const rows: TopAsset[] = [
+    ...skillRows.map((r) => ({
+      id: r.id,
+      type: 'skill' as const,
+      title: r.title,
+      calls: 0,
+      views: Number(r.views ?? 0),
+      downloads: Number(r.downloads ?? 0),
+      favorites: Number(r.favorites ?? 0),
+    })),
+    ...mcpRows.map((r) => ({
+      id: r.id,
+      type: 'mcp' as const,
+      title: r.title,
+      calls: callsOf('mcp', r.id),
+      views: Number(r.views ?? 0),
+      downloads: Number(r.downloads ?? 0),
+      favorites: 0,
+    })),
+    ...a2aRows.map((r) => ({
+      id: r.id,
+      type: 'a2a' as const,
+      title: r.title,
+      calls: callsOf('a2a', r.id),
+      views: Number(r.views ?? 0),
+      downloads: Number(r.downloads ?? 0),
+      favorites: 0,
+    })),
+    ...personaRows.map((r) => ({
+      id: r.id,
+      type: 'persona' as const,
+      title: r.title,
+      calls: 0,
+      views: Number(r.views ?? 0),
+      downloads: Number(r.downloads ?? 0),
+      favorites: Number(r.favorites ?? 0),
+    })),
+  ]
+
+  return rows
+    .sort((a, b) => b.downloads - a.downloads || b.calls - a.calls || b.views - a.views)
+    .slice(0, 5)
+}
+
+/** 结算快照：收益中心三个 KPI + 最新一张账单（含确认截止日）。 */
+export interface ProviderEarningsSnapshot {
+  netTotal: number
+  paid: number
+  pending: number
+  confirmed: number
+  rolled: number
+  total: number
+  latest: {
+    id: string
+    period: string
+    status: 'pending' | 'confirmed' | 'paid' | 'rolled'
+    settlement: number
+    /** 确认截止日（ISO），UI 据此提示"请于 X 前确认" */
+    confirmDeadline: string
+  } | null
+}
+
+export interface ActivityEvent {
+  id: string
+  kind: 'earning' | 'statement' | 'download' | 'favorite'
+  time: string
+  /** kind=earning：本笔净收入，CNY */
+  amount?: number
+  /** kind=statement：账单结算月 `YYYY-MM` */
+  period?: string
+  /** kind=statement：pending / confirmed / paid / rolled */
+  status?: string
+  /** kind=download / favorite：工作流标题 */
+  title?: string | null
+  titleEn?: string | null
+}
+
+/** 创作者最近的收入入账与账单事件，与下载 / 收藏动态在 UI 侧合并排序。 */
+async function getProviderMoneyEvents(authorId: string): Promise<ActivityEvent[]> {
+  const [earnRows, stmtRows] = await Promise.all([
+    db
+      .select({
+        id: providerEarnings.id,
+        netAmount: providerEarnings.netAmount,
+        createdAt: providerEarnings.createdAt,
+      })
+      .from(providerEarnings)
+      .where(eq(providerEarnings.authorId, authorId))
+      .orderBy(desc(providerEarnings.createdAt))
+      .limit(3),
+    db
+      .select({
+        id: providerStatements.id,
+        period: providerStatements.period,
+        status: providerStatements.status,
+        generatedAt: providerStatements.generatedAt,
+      })
+      .from(providerStatements)
+      .where(eq(providerStatements.authorId, authorId))
+      .orderBy(desc(providerStatements.generatedAt))
+      .limit(1),
+  ])
+
+  const events: ActivityEvent[] = earnRows.map((row) => ({
+    id: row.id,
+    kind: 'earning',
+    time: row.createdAt.toISOString(),
+    amount: Number(row.netAmount ?? 0),
+  }))
+  for (const row of stmtRows) {
+    events.push({
+      id: row.id,
+      kind: 'statement',
+      time: row.generatedAt.toISOString(),
+      period: row.period,
+      status: row.status,
+    })
+  }
+  return events
+}
+
 export const dashboardRouter = createTRPCRouter({
   /**
    * Whether the current user has an approved provider profile. The sidebar
@@ -195,82 +526,148 @@ export const dashboardRouter = createTRPCRouter({
         days: z.number().min(1).max(365).default(60),
       })
     )
-    .query(async ({ ctx }) => {
+    .query(async ({ ctx, input }) => {
       try {
         const userId = ctx.user.id
 
-        // 1. Total favourites and downloads.
-        const [favoritesCountResult] = await db
-          .select({ count: count() })
-          .from(workflowFavorites)
-          .where(eq(workflowFavorites.userId, userId))
+        // Consumer half: wallet, monthly rollups, daily trend, and the
+        // favourite/download lists — one round trip.
+        const [
+          balance,
+          usageSummary,
+          usageDaily,
+          installCountResult,
+          favoritesCountResult,
+          downloadsCountResult,
+          recentDownloads,
+          recentFavorites,
+          providerProfile,
+        ] = await Promise.all([
+          getOrCreateBalance(userId),
+          getConsumerUsageSummary(userId),
+          getConsumerUsageDaily(userId, Math.min(input.days, 90)),
+          db.select({ count: count() }).from(skillInstalls).where(eq(skillInstalls.userId, userId)),
+          db
+            .select({ count: count() })
+            .from(workflowFavorites)
+            .where(eq(workflowFavorites.userId, userId)),
+          db
+            .select({ count: count() })
+            .from(workflowDownloads)
+            .where(eq(workflowDownloads.userId, userId)),
+          db
+            .select({
+              id: workflowDownloads.id,
+              workflowId: workflowDownloads.workflowId,
+              downloadedAt: workflowDownloads.downloadedAt,
+              workflow: {
+                id: workflows.id,
+                title: workflows.title,
+                titleEn: workflows.titleEn,
+                slug: workflows.slug,
+              },
+            })
+            .from(workflowDownloads)
+            .innerJoin(workflows, eq(workflowDownloads.workflowId, workflows.id))
+            .where(eq(workflowDownloads.userId, userId))
+            .orderBy(desc(workflowDownloads.downloadedAt))
+            .limit(5),
+          db
+            .select({
+              id: workflowFavorites.id,
+              workflowId: workflowFavorites.workflowId,
+              createdAt: workflowFavorites.createdAt,
+              workflow: {
+                id: workflows.id,
+                title: workflows.title,
+                titleEn: workflows.titleEn,
+                slug: workflows.slug,
+              },
+            })
+            .from(workflowFavorites)
+            .innerJoin(workflows, eq(workflowFavorites.workflowId, workflows.id))
+            .where(eq(workflowFavorites.userId, userId))
+            .orderBy(desc(workflowFavorites.createdAt))
+            .limit(5),
+          db
+            .select({ authorId: providerProfiles.authorId })
+            .from(providerProfiles)
+            .where(eq(providerProfiles.userId, userId))
+            .limit(1),
+        ])
 
-        const [downloadsCountResult] = await db
-          .select({ count: count() })
-          .from(workflowDownloads)
-          .where(eq(workflowDownloads.userId, userId))
+        const totalFavorites = Number(favoritesCountResult[0]?.count ?? 0)
+        const totalDownloads = Number(downloadsCountResult[0]?.count ?? 0)
+        const installCount = Number(installCountResult[0]?.count ?? 0)
+        const providerRow = providerProfile[0]
+        const isProvider = Boolean(providerRow?.authorId)
 
-        const totalFavorites = favoritesCountResult?.count || 0
-        const totalDownloads = downloadsCountResult?.count || 0
-
-        // 2. Five most recent downloads.
-        const recentDownloads = await db
-          .select({
-            id: workflowDownloads.id,
-            workflowId: workflowDownloads.workflowId,
-            downloadedAt: workflowDownloads.downloadedAt,
-            workflow: {
-              id: workflows.id,
-              title: workflows.title,
-              titleEn: workflows.titleEn,
-              slug: workflows.slug,
-            },
-          })
-          .from(workflowDownloads)
-          .innerJoin(workflows, eq(workflowDownloads.workflowId, workflows.id))
-          .where(eq(workflowDownloads.userId, userId))
-          .orderBy(desc(workflowDownloads.downloadedAt))
-          .limit(5)
-
-        // 3. Five most recent favourites.
-        const recentFavorites = await db
-          .select({
-            id: workflowFavorites.id,
-            workflowId: workflowFavorites.workflowId,
-            createdAt: workflowFavorites.createdAt,
-            workflow: {
-              id: workflows.id,
-              title: workflows.title,
-              titleEn: workflows.titleEn,
-              slug: workflows.slug,
-            },
-          })
-          .from(workflowFavorites)
-          .innerJoin(workflows, eq(workflowFavorites.workflowId, workflows.id))
-          .where(eq(workflowFavorites.userId, userId))
-          .orderBy(desc(workflowFavorites.createdAt))
-          .limit(5)
-
-        // 4. Provider identity and stats (provider view only).
-        const [providerProfile] = await db
-          .select({ authorId: providerProfiles.authorId })
-          .from(providerProfiles)
-          .where(eq(providerProfiles.userId, userId))
-          .limit(1)
-        const isProvider = Boolean(providerProfile?.authorId)
-
+        // Creator half: only fetched for providers so a regular account never
+        // pays for statement/top-asset queries it cannot see.
         let providerStats: ProviderStats | null = null
-        if (isProvider && providerProfile?.authorId) {
-          providerStats = await getProviderStats(providerProfile.authorId)
+        let earnings: ProviderEarningsSnapshot | null = null
+        let topAssets: TopAsset[] | null = null
+        let activity: ActivityEvent[] | null = null
+
+        if (isProvider && providerRow?.authorId) {
+          const authorId = providerRow.authorId
+          const [stats, statements, assets, moneyEvents] = await Promise.all([
+            getProviderStats(authorId),
+            listMyStatements(authorId, { page: 1, pageSize: 1 }),
+            getTopAssets(authorId),
+            getProviderMoneyEvents(authorId),
+          ])
+
+          providerStats = stats
+          topAssets = assets
+
+          const latest = statements.rows[0] ?? null
+          earnings = {
+            netTotal: statements.summary.netTotal,
+            paid: statements.summary.paid,
+            pending: statements.summary.pending,
+            confirmed: statements.summary.confirmed,
+            rolled: statements.summary.rolled,
+            total: statements.total,
+            latest: latest
+              ? {
+                  id: latest.id,
+                  period: latest.period,
+                  status: latest.status,
+                  settlement: latest.settlement,
+                  confirmDeadline: statementConfirmDeadline(latest.period).toISOString(),
+                }
+              : null,
+          }
+
+          const workflowEvents: ActivityEvent[] = [
+            ...recentDownloads.map((row) => ({
+              id: `dl_${row.id}`,
+              kind: 'download' as const,
+              time: row.downloadedAt.toISOString(),
+              title: row.workflow.title,
+              titleEn: row.workflow.titleEn,
+            })),
+            ...recentFavorites.map((row) => ({
+              id: `fv_${row.id}`,
+              kind: 'favorite' as const,
+              time: row.createdAt.toISOString(),
+              title: row.workflow.title,
+              titleEn: row.workflow.titleEn,
+            })),
+          ]
+          activity = [...moneyEvents, ...workflowEvents]
+            .sort((a, b) => (a.time < b.time ? 1 : -1))
+            .slice(0, 6)
         }
 
         return {
           success: true,
           data: {
-            totals: null,
-            chartData: [],
-            topApiKeys: null,
-            topModels: null,
+            balance,
+            usageSummary,
+            usageDaily,
+            installCount,
             workflowStats: {
               totalFavorites,
               totalDownloads,
@@ -279,7 +676,9 @@ export const dashboardRouter = createTRPCRouter({
             },
             isProvider,
             providerStats,
-            hasTodayData: false,
+            earnings,
+            topAssets,
+            activity,
           },
         }
       } catch (error) {
