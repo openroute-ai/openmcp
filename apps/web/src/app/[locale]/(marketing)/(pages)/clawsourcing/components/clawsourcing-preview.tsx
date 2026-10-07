@@ -60,7 +60,7 @@ export function ClawsourcingPreview() {
               <span className='text-primary'>{'试试 AI 员工托管服务'}</span>
             </h2>
 
-            <p className='mb-8 max-w-lg text-pretty text-lead text-muted-foreground'>
+            <p className='mb-8 max-w-lg text-pretty text-xl text-muted-foreground'>
               {'Clawsourcing 提供全托管的 AI 员工定制服务，不同于简单的配置包，我们为你的业务量身打造、持续优化。'}
             </p>
 

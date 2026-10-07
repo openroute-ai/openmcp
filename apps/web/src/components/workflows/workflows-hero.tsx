@@ -27,9 +27,9 @@ export function WorkflowsHero({ onSearch, totalWorkflows = 0, initialSearch = ''
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 text-center'>
-        <h1 className='mb-2 font-bold text-foreground text-title'>{t('hero.title')}</h1>
+        <h1 className='mb-2 font-bold text-foreground text-5xl'>{t('hero.title')}</h1>
         <div className='mb-3 text-primary text-xl md:text-2xl'>
           <span className='font-semibold'>{totalWorkflows.toLocaleString()}</span>
           <span className='ml-2'>{t('hero.countSuffix')}</span>

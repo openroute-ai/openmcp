@@ -21,7 +21,7 @@ export function OpenpayFaq() {
           <span className='mb-4 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
             {t('eyebrow')}
           </span>
-          <h2 className='text-balance font-medium text-foreground text-subtitle tracking-tight md:text-4xl'>
+          <h2 className='text-balance font-medium text-foreground text-3xl tracking-tight md:text-4xl'>
             {t('title')}
           </h2>
         </div>

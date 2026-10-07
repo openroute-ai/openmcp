@@ -12,7 +12,7 @@ export function ClawsourcingCta() {
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>
             {'准备好拥有你的 AI 员工了吗？'}
           </h2>
-          <p className='mx-auto mb-8 max-w-2xl text-pretty text-lead text-muted-foreground'>
+          <p className='mx-auto mb-8 max-w-2xl text-pretty text-xl text-muted-foreground'>
             {'预约 30 分钟免费咨询，我们将深入了解你的需求并提供定制方案建议。'}
           </p>
           <div className='flex flex-col items-center justify-center gap-4 sm:flex-row'>

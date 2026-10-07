@@ -154,7 +154,7 @@ export function McpMarketPageClient(props: McpMarketPageClientProps) {
         initialSearch={filters.search ?? ''}
       />
       <section className='pb-16'>
-        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
           {isLoading ? (
             <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3'>
               {Array.from({ length: 6 }).map((_, i) => (

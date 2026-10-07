@@ -134,26 +134,26 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             <div className='flex items-center justify-between gap-2'>
               <div className='flex items-center gap-2'>
                 <CalendarIcon className='size-4 text-muted-foreground' />
-                <span className='my-auto text-muted-foreground text-small leading-none'>{date}</span>
+                <span className='my-auto text-muted-foreground text-sm leading-none'>{date}</span>
               </div>
               <div className='flex items-center gap-2'>
                 <ClockIcon className='size-4 text-muted-foreground' />
-                <span className='my-auto text-muted-foreground text-small leading-none'>
+                <span className='my-auto text-muted-foreground text-sm leading-none'>
                   {t('readTime', { minutes: post?.estimatedTime || 0 })}
                 </span>
               </div>
             </div>
 
             {/* blog post title */}
-            <h1 className='text-balance font-bold text-title'>{post.title}</h1>
+            <h1 className='text-balance font-bold text-5xl'>{post.title}</h1>
 
             {/* blog post description */}
-            <p className='text-pretty text-lead text-muted-foreground'>{post.description}</p>
+            <p className='text-pretty text-xl text-muted-foreground'>{post.description}</p>
           </div>
 
           {/* blog post content */}
           {/* `prose` 由 Fumadocs 的 typography 插件提供，见 `src/app/globals.css` */}
-          <div className='prose mt-10 max-w-article prose-headings:scroll-mt-24 prose-headings:font-medium prose-headings:tracking-tight prose-img:rounded-lg'>
+          <div className='prose mt-10 max-w-3xl prose-headings:scroll-mt-24 prose-headings:font-medium prose-headings:tracking-tight prose-img:rounded-lg'>
             <Mdx
               components={getMDXComponents({
                 a: ({ href, ...props }) => {
@@ -224,7 +224,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                       <li key={category.slug}>
                         <LocaleLink
                           href={`/blog/category/${category.slug}`}
-                          className='font-medium text-muted-foreground text-small hover:text-primary'
+                          className='font-medium text-muted-foreground text-sm hover:text-primary'
                         >
                           {category.name}
                         </LocaleLink>
@@ -245,7 +245,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
         <div className='mt-4 flex flex-col gap-6'>
           <div className='flex items-center gap-2'>
             <FileTextIcon className='size-4 text-muted-foreground' />
-            <h2 className='font-semibold text-gradient_indigo-purple text-section tracking-wider'>{t('morePosts')}</h2>
+            <h2 className='font-semibold text-gradient_indigo-purple text-2xl tracking-wider'>{t('morePosts')}</h2>
           </div>
 
           <BlogGrid posts={relatedPosts as unknown as ExtendedPost[]} />

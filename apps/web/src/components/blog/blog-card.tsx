@@ -67,7 +67,7 @@ export default function BlogCard({ post }: BlogCardProps) {
 
             {/* Post excerpt */}
             <div className='mt-2'>
-              {post.description && <p className='line-clamp-2 text-muted-foreground text-small'>{post.description}</p>}
+              {post.description && <p className='line-clamp-2 text-muted-foreground text-sm'>{post.description}</p>}
             </div>
           </div>
 
@@ -84,10 +84,10 @@ export default function BlogCard({ post }: BlogCardProps) {
                   />
                 )}
               </div>
-              <span className='truncate text-small'>{post?.author?.name}</span>
+              <span className='truncate text-sm'>{post?.author?.name}</span>
             </div>
 
-            <time className='truncate text-small' dateTime={date}>
+            <time className='truncate text-sm' dateTime={date}>
               {date}
             </time>
           </div>

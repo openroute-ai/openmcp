@@ -31,7 +31,7 @@ export function SkillDetailPageClient() {
   if (isLoading) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='flex min-h-[400px] items-center justify-center'>
             <Loader2 className='size-8 animate-spin text-primary' />
           </div>
@@ -43,7 +43,7 @@ export function SkillDetailPageClient() {
   if (!resolved?.success || !resolved.data) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='text-center'>
             <h1 className='mb-4 font-bold text-2xl'>{t('notFoundHeading')}</h1>
             <p className='text-muted-foreground'>{t('notFoundHint')}</p>
@@ -60,7 +60,7 @@ export function SkillDetailPageClient() {
     : []
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <SkillDetailHero
         skill={{
           id: skill.id,

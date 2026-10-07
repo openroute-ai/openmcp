@@ -24,7 +24,7 @@ export function CustomPage({ title, description, date, content }: CustomPageProp
     <div className="mx-auto max-w-4xl space-y-8">
       {/* Header */}
       <div className="space-y-4">
-        <h1 className="text-center font-bold text-title tracking-tight">{title}</h1>
+        <h1 className="text-center font-bold text-5xl tracking-tight">{title}</h1>
         <p className="text-center text-lg text-muted-foreground">{description}</p>
         {formattedDate ? (
           <div className="flex items-center justify-center gap-2">

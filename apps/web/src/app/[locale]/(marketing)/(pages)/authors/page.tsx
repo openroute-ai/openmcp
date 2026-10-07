@@ -136,14 +136,14 @@ export default function AuthorsPage() {
 
   return (
     <section className='py-8'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         {/* Header Section */}
         <div className='mb-8 text-center'>
           <div className='flex flex-wrap items-center justify-center gap-x-3 gap-y-1'>
             <span className='font-bold text-4xl text-primary'>{totalAuthors}</span>
-            <h1 className='font-bold text-title'>{t('authors')}</h1>
+            <h1 className='font-bold text-5xl'>{t('authors')}</h1>
             <span className='text-muted-foreground text-xl'>·</span>
-            <h1 className='font-bold text-title'>{t('title')}</h1>
+            <h1 className='font-bold text-5xl'>{t('title')}</h1>
           </div>
           <p className='mx-auto mb-4 max-w-3xl text-muted-foreground text-xl'>{t('description')}</p>
         </div>

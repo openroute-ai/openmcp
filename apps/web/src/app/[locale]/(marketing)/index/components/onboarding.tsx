@@ -9,7 +9,7 @@ export async function Onboarding() {
 
   return (
     <section id='onboarding' className='py-18'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='relative overflow-hidden rounded-[24px] bg-foreground px-8 py-16 text-center text-background md:px-16 md:py-18'>
           <div
             aria-hidden
@@ -31,7 +31,7 @@ export async function Onboarding() {
               <Rocket className='h-4 w-4' />
               {t('eyebrow')}
             </span>
-            <h2 className='mx-auto mb-5 max-w-2xl text-balance font-medium text-background text-title tracking-tight'>
+            <h2 className='mx-auto mb-5 max-w-2xl text-balance font-medium text-background text-5xl tracking-tight'>
               {t('title')}
             </h2>
             <p className='mx-auto mb-10 max-w-2xl text-pretty text-background/80 leading-relaxed'>

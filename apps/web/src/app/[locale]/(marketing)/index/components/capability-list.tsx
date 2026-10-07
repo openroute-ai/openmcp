@@ -37,11 +37,11 @@ export async function CapabilityList() {
 
   return (
     <section id='features' className='py-18 lg:py-24'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='mb-12 flex flex-col gap-4 md:flex-row md:items-end md:justify-between'>
           <div className='max-w-2xl'>
-            <h2 className='mb-4 text-balance font-medium text-title tracking-tight'>{t('title')}</h2>
-            <p className='text-pretty text-lead text-muted-foreground'>{t('subtitle')}</p>
+            <h2 className='mb-4 text-balance font-medium text-5xl tracking-tight'>{t('title')}</h2>
+            <p className='text-pretty text-xl text-muted-foreground'>{t('subtitle')}</p>
           </div>
           <LocaleLink
             href={Routes.SkillSubmit}

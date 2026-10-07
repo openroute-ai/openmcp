@@ -12,14 +12,14 @@ export async function Metrics() {
 
   return (
     <section className="py-16 md:py-18">
-      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10">
         <div className="grid gap-px overflow-hidden rounded-[20px] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => (
             <div
               key={metric.key}
               className="flex flex-col items-center justify-center gap-1 bg-card p-8 text-center lg:p-10"
             >
-              <div className="text-title font-semibold tracking-tight">
+              <div className="text-4xl font-semibold tracking-tight">
                 {metric.value}
               </div>
               <div className="mt-1 font-medium text-muted-foreground">

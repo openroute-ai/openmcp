@@ -49,12 +49,12 @@ export function CapabilityCarousel() {
 
   return (
     <section className='py-10 md:py-16' aria-label={t('ariaLabel')}>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='mx-auto mb-10 max-w-3xl text-center'>
           <span className='mb-4 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
             {t('eyebrow')}
           </span>
-          <h2 className='mb-4 text-balance font-medium text-foreground text-title tracking-tight'>
+          <h2 className='mb-4 text-balance font-medium text-foreground text-5xl tracking-tight'>
             {t('title')}
           </h2>
           <p className='text-pretty text-muted-foreground leading-relaxed'>{t('subtitle')}</p>
@@ -77,7 +77,7 @@ export function CapabilityCarousel() {
                         {protocol}
                       </span>
                     </div>
-                    <h3 className='mb-4 text-pretty font-medium text-foreground text-subtitle tracking-tight'>
+                    <h3 className='mb-4 text-pretty font-medium text-foreground text-3xl tracking-tight'>
                       {t(`shelves.${key}.title`)}
                     </h3>
                     <p className='mb-6 text-pretty text-muted-foreground leading-relaxed'>

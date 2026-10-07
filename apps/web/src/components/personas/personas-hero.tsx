@@ -23,7 +23,7 @@ export function PersonasHero({ totalPersonas = 0 }: PersonasHeroProps) {
       <div className='container relative mx-auto px-4 py-12'>
         <div className='flex flex-col items-center'>
           <div className='flex flex-col items-center gap-6 text-center'>
-            <h1 className='font-bold text-foreground text-title tracking-tight'>{t('title')}</h1>
+            <h1 className='font-bold text-foreground text-5xl tracking-tight'>{t('title')}</h1>
             <p className='max-w-2xl font-light text-base text-muted-foreground leading-[1.5em]'>
               {t('subtitle')}
             </p>

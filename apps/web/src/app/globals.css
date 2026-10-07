@@ -11,75 +11,9 @@
 /* 只扫本 app：共享层的 @source 只覆盖 packages/ui/src。 */
 @source "../**/*.{ts,tsx}";
 
-/*
- * Web 专属的 token——只留 Tailwind **没有对应档位**的那几个。
- *
- * 能对上标准档位的都已换成内置类，本文件不再为它们注册 token：
- *
- *   gutter   px-gutter/-sm/-lg   → px-5 / sm:px-6 / lg:px-10
- *   section  py-section(-lg)     → py-18 / py-24、gap-section → gap-18
- *   layout   max-w-wide(72rem)   → max-w-6xl、max-w-form(48rem) → max-w-3xl
- *   type     text-subsection     → text-xl
- *
- * 下面这些是真正没有标准档位的：页面与文章的 measure（84rem / 46rem 没有
- * 内置 max-w），以及一整套流体字号——clamp() 随视口缩放，内置 text-* 全是
- * 固定值，换过去小屏标题会直接塌掉。行高也是自定义的，和内置 text-* 自带的
- * 行高不一致（如 text-body 1.75 vs text-base 1.5）。
- *
- * 注册必须写在本入口或共享层——两者都在同一个 Tailwind 编译单元内，
- * `@theme` 才会展开；单独被 import 的样式表里的 `@theme` 不会生成
- * `max-w-page` / `text-title` 这类工具类。
- */
-@theme inline {
-    /* Layout: max-w-page / max-w-article（wide、form 已换标准档位） */
-    --container-page: var(--layout-page-max);
-    --container-article: var(--layout-article-max);
-
-    /* Typography scale: text-display / text-title / text-subtitle / ... */
-    --text-display: var(--type-display);
-    --text-display--line-height: var(--type-display-lh);
-    --text-title: var(--type-title);
-    --text-title--line-height: var(--type-title-lh);
-    --text-subtitle: var(--type-subtitle);
-    --text-subtitle--line-height: var(--type-subtitle-lh);
-    --text-section: var(--type-section);
-    --text-section--line-height: var(--type-section-lh);
-    --text-lead: var(--type-lead);
-    --text-lead--line-height: var(--type-lead-lh);
-    --text-body: var(--type-body);
-    --text-body--line-height: var(--type-body-lh);
-    --text-small: var(--type-small);
-    --text-small--line-height: var(--type-small-lh);
-    --text-caption: var(--type-caption);
-    --text-caption--line-height: var(--type-caption-lh);
-}
-
-:root {
-    /*
-     * Layout tokens. `page` is the full-site frame, `article` the reading
-     * measure (~72 chars). Both are widths Tailwind has no built-in step for.
-     */
-    --layout-page-max: 84rem;
-    --layout-article-max: 46rem;
-
-    /*
-     * Typography scale: display / title / subtitle / lead / body / caption.
-     * Large sizes use clamp() for fluid scaling that settles on small screens.
-     */
-    --type-display: clamp(2.5rem, 1.83rem + 2.87vw, 3.75rem);
-    --type-display-lh: 1.08;
-    --type-title: clamp(2rem, 1.63rem + 1.59vw, 2.75rem);
-    --type-title-lh: 1.15;
-    --type-subtitle: clamp(1.5rem, 1.34rem + 0.68vw, 1.875rem);
-    --type-subtitle-lh: 1.25;
-    --type-section: 1.5rem;
-    --type-section-lh: 1.3;
-    --type-lead: clamp(1.0625rem, 1rem + 0.27vw, 1.25rem);
-    --type-lead-lh: 1.7;
-    --type-body: 1rem;
-    --type-body-lh: 1.75;
-    --type-small: 0.9375rem;
-    --type-small-lh: 1.6;
-    --type-caption: 0.8125rem;
-    --type-caption-lh: 1.5;
-}
+/* 本 app 不再注册任何专属 token：原先的容器 measure 与流体字号已全部换成
+   标准档位——max-w-page(84rem) → max-w-7xl(80rem)、max-w-article(46rem) →
+   max-w-3xl(48rem)，text-display/title/subtitle/lead/section/body/small/
+   caption → text-6xl/5xl/3xl/xl/2xl/base/sm/xs。代价是 clamp() 流体缩放与
+   自定义行高（如 body 1.75 vs base 1.5）统一为内置固定值。若要恢复流体
+   字号，回填 `@theme inline { --text-*: clamp(...) }`，见 git 历史。 */

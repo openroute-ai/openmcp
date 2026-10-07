@@ -23,9 +23,9 @@ export function A2aAgentsHero({ onSearch, totalAgents = 0, initialSearch = '' }:
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 flex flex-col items-center gap-4 text-center'>
-        <h1 className='font-bold text-foreground text-title'>{t('title')}</h1>
+        <h1 className='font-bold text-foreground text-5xl'>{t('title')}</h1>
         <p className='max-w-3xl text-balance text-lg text-muted-foreground'>{t('subtitle')}</p>
         {totalAgents > 0 && (
           <p className='font-semibold text-primary text-xl md:text-2xl'>{totalAgents.toLocaleString()}</p>

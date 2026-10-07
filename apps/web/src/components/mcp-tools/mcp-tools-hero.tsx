@@ -24,9 +24,9 @@ export function McpToolsHero({ onSearch, totalTools = 0, initialSearch = '' }: M
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 text-center'>
-        <h1 className='mb-2 font-bold text-foreground text-title'>MCP 工具库</h1>
+        <h1 className='mb-2 font-bold text-foreground text-5xl'>MCP 工具库</h1>
         <div className='mb-3 text-primary text-xl md:text-2xl'>
           <span className='font-semibold'>{totalTools.toLocaleString()}</span>
           <span className='ml-2'>个可用工具</span>

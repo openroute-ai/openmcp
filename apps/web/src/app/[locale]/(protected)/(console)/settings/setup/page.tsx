@@ -72,7 +72,7 @@ export default function SettingsSetupPage() {
       <div className='flex-1 px-5 py-8 sm:px-6 lg:px-10'>
         <div className='mx-auto w-full max-w-7xl space-y-7'>
           <div>
-            <h1 className='font-bold text-section tracking-tight'>{t('title')}</h1>
+            <h1 className='font-bold text-2xl tracking-tight'>{t('title')}</h1>
             <p className='mt-2 text-muted-foreground'>{t('subtitle')}</p>
           </div>
 

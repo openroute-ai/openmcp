@@ -104,11 +104,11 @@ export function SkillsHero({
     'h-[34px] rounded-[8px] border-border border bg-card px-[12px] text-[13px] font-medium text-foreground'
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       {/* Hero：左对齐标题 + 技能总数 */}
       <div className='mb-6 flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
         <div className='min-w-0'>
-          <h1 className='font-medium text-foreground text-title tracking-tight'>{t('title')}</h1>
+          <h1 className='font-medium text-foreground text-5xl tracking-tight'>{t('title')}</h1>
           <p className='font-medium text-[14px] text-muted-foreground'>
             {t('subtitle')}
             <span className='text-muted-foreground/70'>

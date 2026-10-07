@@ -37,7 +37,7 @@ export async function Platform() {
 
   return (
     <section id="features" className="py-18">
-      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-16">
           <div className="lg:sticky lg:top-24">
             <SectionHeading

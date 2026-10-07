@@ -82,9 +82,9 @@ export default function RankingPage() {
   ]
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <div className='mb-8 flex flex-wrap items-center justify-between gap-4'>
-        <h1 className='font-bold text-title'>{t('title')}</h1>
+        <h1 className='font-bold text-5xl'>{t('title')}</h1>
 
         <Tabs value={dimension} onValueChange={(value) => setDimension(value as typeof dimension)}>
           <TabsList>

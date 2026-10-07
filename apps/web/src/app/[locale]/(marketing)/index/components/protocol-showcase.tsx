@@ -17,13 +17,13 @@ export async function ProtocolShowcase() {
 
   return (
     <section className='py-10 md:py-16'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='grid items-center gap-10 rounded-[20px] bg-muted p-8 md:p-12 lg:grid-cols-[0.62fr_1.38fr]'>
           <div>
             <span className='mb-5 inline-block rounded-full border border-border bg-background px-3 py-1 font-medium text-muted-foreground text-xs'>
               {t('eyebrow')}
             </span>
-            <h2 className='mb-5 text-balance font-medium text-title tracking-tight'>{t('title')}</h2>
+            <h2 className='mb-5 text-balance font-medium text-5xl tracking-tight'>{t('title')}</h2>
             <p className='mb-8 text-pretty text-muted-foreground leading-relaxed'>{t('subtitle')}</p>
             <div className='flex flex-wrap gap-3'>
               <Button size='lg' className='h-auto rounded-full px-5 py-2.5 text-sm' asChild>

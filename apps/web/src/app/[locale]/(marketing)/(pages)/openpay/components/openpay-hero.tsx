@@ -23,13 +23,13 @@ export async function OpenpayHero() {
           <span className='font-medium text-primary text-xs tracking-wide'>{t('eyebrow')}</span>
         </div>
 
-        <h1 className='mb-6 text-balance font-bold text-display text-foreground tracking-tight'>
+        <h1 className='mb-6 text-balance font-bold text-6xl text-foreground tracking-tight'>
           {t('titleLine1')}
           <br />
           <span className='text-primary'>{t('titleLine2')}</span>
         </h1>
 
-        <p className='mx-auto mb-8 max-w-2xl text-pretty text-lead text-muted-foreground md:text-xl'>
+        <p className='mx-auto mb-8 max-w-2xl text-pretty text-xl text-muted-foreground md:text-xl'>
           {t('subtitle')}
         </p>
 

@@ -17,7 +17,7 @@ export function ToolDetailPageClient() {
   if (isLoading) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='flex min-h-[400px] items-center justify-center'>
             <Loader2 className='h-8 w-8 animate-spin text-primary' />
           </div>
@@ -29,7 +29,7 @@ export function ToolDetailPageClient() {
   if (!data?.success || !data.data) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='text-center'>
             <h1 className='mb-4 font-bold text-2xl'>工具未找到</h1>
             <p className='text-muted-foreground'>抱歉，找不到该工具信息。</p>
@@ -53,7 +53,7 @@ export function ToolDetailPageClient() {
   }
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <McpToolDetailHero tool={heroTool} />
       <div className='grid grid-cols-1 gap-8 lg:grid-cols-3'>
         <div className='lg:col-span-3'>

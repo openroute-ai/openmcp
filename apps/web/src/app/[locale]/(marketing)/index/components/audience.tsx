@@ -37,12 +37,12 @@ export async function Audience() {
 
   return (
     <section className='py-18'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='mx-auto mb-14 max-w-3xl text-center'>
           <span className='mb-4 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
             {t('eyebrow')}
           </span>
-          <h2 className='mb-5 text-balance font-medium text-foreground text-title tracking-tight'>
+          <h2 className='mb-5 text-balance font-medium text-foreground text-5xl tracking-tight'>
             {t('title')}
           </h2>
           <p className='text-pretty text-muted-foreground leading-relaxed'>{t('subtitle')}</p>

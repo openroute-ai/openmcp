@@ -29,7 +29,7 @@ export default async function WaitlistPage() {
       <div className='mx-auto max-w-4xl space-y-8 pb-16'>
         {/* Header */}
         <div className='space-y-4'>
-          <h1 className='text-center font-bold text-title tracking-tight'>{t('title')}</h1>
+          <h1 className='text-center font-bold text-5xl tracking-tight'>{t('title')}</h1>
           <h2 className='text-center text-lg text-muted-foreground'>{t('subtitle')}</h2>
         </div>
 

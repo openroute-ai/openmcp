@@ -31,13 +31,13 @@ export function PublishTrusted() {
 
   return (
     <section className='py-18'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='grid gap-14 lg:grid-cols-2'>
           <div className='lg:sticky lg:top-24 lg:self-start'>
             <span className='mb-5 inline-block rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground text-xs'>
               {t('eyebrow')}
             </span>
-            <h2 className='mb-5 text-balance font-medium text-title tracking-tight'>{t('title')}</h2>
+            <h2 className='mb-5 text-balance font-medium text-5xl tracking-tight'>{t('title')}</h2>
             <p className='mb-8 text-pretty text-muted-foreground leading-relaxed'>{t('subtitle')}</p>
 
             <div className='mb-8 inline-flex rounded-full border border-border bg-muted/40 p-1'>

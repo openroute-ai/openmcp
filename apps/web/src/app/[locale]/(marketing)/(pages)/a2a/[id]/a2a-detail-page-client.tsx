@@ -20,7 +20,7 @@ export function A2aDetailPageClient() {
   if (isLoading) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='flex min-h-[400px] items-center justify-center'>
             <Loader2 className='h-8 w-8 animate-spin text-primary' />
           </div>
@@ -32,7 +32,7 @@ export function A2aDetailPageClient() {
   if (!data?.success || !data.data) {
     return (
       <div className='pt-16'>
-        <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
           <div className='text-center'>
             <h1 className='mb-4 font-bold text-2xl'>{t('notFoundHeading')}</h1>
           </div>
@@ -48,7 +48,7 @@ export function A2aDetailPageClient() {
   const slug = agent.slug || agent.id
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-10 sm:px-6 lg:px-10'>
       <A2aDetailHero
         agent={{
           name: agent.name,

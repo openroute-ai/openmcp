@@ -64,7 +64,7 @@ export const BankTransferAdmin = () => {
   const totalPages = Math.max(1, Math.ceil(total / 20))
 
   return (
-    <div className='mx-auto w-full max-w-page space-y-6 px-5 py-10 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-6 px-5 py-10 sm:px-6 lg:px-10'>
       <header className='space-y-1'>
         <h1 className='text-2xl font-semibold tracking-tight'>{t('title')}</h1>
         <p className='text-muted-foreground text-sm'>{t('subtitle')}</p>

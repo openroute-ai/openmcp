@@ -14,7 +14,7 @@ export async function Hero() {
 
   return (
     <section className="relative pt-20 pb-14 md:pt-28 md:pb-20">
-      <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
+      <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-1.5 text-sm text-muted-foreground">
             <Store className="h-4 w-4 text-primary" />
@@ -24,12 +24,12 @@ export async function Hero() {
             </span>
           </div>
 
-          <h1 className="mb-6 text-display font-medium tracking-tight text-balance text-foreground">
+          <h1 className="mb-6 text-5xl font-medium tracking-tight text-balance text-foreground">
             {t('titleLead')}
             <span className="text-primary">{t('titleHighlight')}</span>
           </h1>
 
-          <p className="mx-auto mb-8 max-w-3xl text-lead text-pretty text-muted-foreground">
+          <p className="mx-auto mb-8 max-w-3xl text-xl text-pretty text-muted-foreground">
             {t('subtitle')}
           </p>
 

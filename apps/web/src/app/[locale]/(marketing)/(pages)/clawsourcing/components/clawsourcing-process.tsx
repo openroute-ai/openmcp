@@ -33,7 +33,7 @@ export function ClawsourcingProcess() {
       <div className='mx-auto max-w-7xl'>
         <div className='mb-12 text-center'>
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>{'服务流程'}</h2>
-          <p className='mx-auto max-w-2xl text-pretty text-lead text-muted-foreground'>
+          <p className='mx-auto max-w-2xl text-pretty text-xl text-muted-foreground'>
             {'从需求到上线，4 个阶段完成你的 AI 员工部署。'}
           </p>
         </div>

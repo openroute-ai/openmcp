@@ -11,14 +11,14 @@ export async function OpenpayHomeCta() {
 
   return (
     <section className='py-16 md:py-18'>
-      <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+      <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
         <div className='grid items-center gap-12 overflow-hidden rounded-[24px] border border-border bg-muted/40 p-8 md:p-14 lg:grid-cols-2'>
           <div>
             <span className='mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 font-medium text-muted-foreground text-xs'>
               <BadgeDollarSign className='h-3.5 w-3.5 text-primary' />
               {t('eyebrow')}
             </span>
-            <h2 className='mb-5 text-balance font-medium text-title tracking-tight'>
+            <h2 className='mb-5 text-balance font-medium text-5xl tracking-tight'>
               {t('title')}
               <br />
               {t('titleBreak')}

@@ -52,7 +52,7 @@ export default async function AboutPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h1 className='text-foreground text-section'>{t('authorName')}</h1>
+                  <h1 className='text-foreground text-2xl'>{t('authorName')}</h1>
                   <p className='mt-2 text-base text-muted-foreground'>{t('authorBio')}</p>
                 </div>
               </div>

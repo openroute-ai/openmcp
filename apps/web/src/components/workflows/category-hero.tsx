@@ -17,7 +17,7 @@ export function CategoryHero({ category }: CategoryHeroProps) {
   const t = useTranslations('Workflows')
 
   return (
-    <div className='mx-auto w-full max-w-page px-5 py-8 sm:px-6 lg:px-10'>
+    <div className='mx-auto w-full max-w-7xl px-5 py-8 sm:px-6 lg:px-10'>
       <Card className='py-0'>
         <CardContent className='p-6'>
           <div className='flex flex-col items-center gap-6 md:items-start'>

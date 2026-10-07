@@ -153,7 +153,7 @@ export function StatementDetail({ id }: { id: string }) {
           ) : (
             <>
               <div className='flex flex-wrap items-center gap-3'>
-                <h1 className='font-bold text-section tracking-tight'>
+                <h1 className='font-bold text-2xl tracking-tight'>
                   {t('detail.title', { period: statement.period })}
                 </h1>
                 <Badge variant={statusVariant(statement.status)}>

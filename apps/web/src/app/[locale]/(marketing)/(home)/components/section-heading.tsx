@@ -45,14 +45,14 @@ export function SectionHeading({
       ) : null}
       <Title
         className={cn(
-          'mb-4 text-title font-medium tracking-tight text-balance text-foreground',
+          'mb-4 text-4xl font-medium tracking-tight text-balance text-foreground',
           titleClassName
         )}
       >
         {title}
       </Title>
       {description ? (
-        <p className="text-lead leading-relaxed text-pretty text-muted-foreground">
+        <p className="text-xl leading-relaxed text-pretty text-muted-foreground">
           {description}
         </p>
       ) : null}

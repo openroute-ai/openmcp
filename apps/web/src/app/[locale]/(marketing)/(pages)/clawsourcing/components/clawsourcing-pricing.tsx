@@ -18,7 +18,7 @@ export function ClawsourcingPricing() {
       <div className='mx-auto max-w-7xl'>
         <div className='mb-12 text-center'>
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>{'透明定价'}</h2>
-          <p className='mx-auto max-w-2xl text-pretty text-lead text-muted-foreground'>
+          <p className='mx-auto max-w-2xl text-pretty text-xl text-muted-foreground'>
             {'简单直接的定价方案，无隐藏费用。零锁定承诺，随时可退。'}
           </p>
         </div>

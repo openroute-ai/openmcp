@@ -17,7 +17,7 @@ export function ClawsourcingHero() {
           <span className='text-primary'>{'定制 AI 员工服务'}</span>
         </h1>
 
-        <p className='mx-auto mb-6 max-w-2xl text-pretty text-lead text-muted-foreground'>
+        <p className='mx-auto mb-6 max-w-2xl text-pretty text-xl text-muted-foreground'>
           {
             '不同于简单的 AI 配置，Clawsourcing 提供全托管的 AI 员工定制服务。从零构建完整的 AI 系统，每月主动优化性能，共享跨客户学习成果。'
           }

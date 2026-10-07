@@ -66,18 +66,18 @@ export default async function UserGuidePage({ params }: PageProps) {
   return (
     <>
       <section className="relative border-b border-border bg-gradient-to-b from-muted/40 to-background pt-14 pb-12 md:pt-20 md:pb-16">
-        <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
+        <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-3xl text-center">
             <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
               <BookOpenIcon className="size-3.5" />
               {t("eyebrow")}
             </span>
 
-            <h1 className="text-display font-medium tracking-tight text-balance text-foreground">
+            <h1 className="text-6xl font-medium tracking-tight text-balance text-foreground">
               {page.title}
             </h1>
 
-            <p className="mt-5 text-lead leading-relaxed text-pretty text-muted-foreground">
+            <p className="mt-5 text-xl leading-relaxed text-pretty text-muted-foreground">
               {page.description}
             </p>
 
@@ -101,7 +101,7 @@ export default async function UserGuidePage({ params }: PageProps) {
               </Button>
             </div>
 
-            <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-small text-muted-foreground">
+            <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
               {(["time", "audience", "level"] as const).map((item) => (
                 <li key={item} className="flex items-center gap-1.5">
                   <span aria-hidden className="size-1 rounded-full bg-border" />
@@ -115,7 +115,7 @@ export default async function UserGuidePage({ params }: PageProps) {
 
       <div
         id={CONTENT_ANCHOR.slice(1)}
-        className="mx-auto w-full max-w-page scroll-mt-24 px-5 py-18 sm:px-6 lg:px-10"
+        className="mx-auto w-full max-w-7xl scroll-mt-24 px-5 py-18 sm:px-6 lg:px-10"
       >
         <div className="flex flex-col gap-x-10 gap-y-10 lg:flex-row">
           <article className="min-w-0 flex-1">
@@ -129,7 +129,7 @@ export default async function UserGuidePage({ params }: PageProps) {
       </div>
 
       <section className="pb-18">
-        <div className="mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10">
+        <div className="mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10">
           <div className="relative overflow-hidden rounded-[24px] bg-foreground px-8 py-14 text-center text-background md:px-16">
             <div
               aria-hidden
@@ -143,10 +143,10 @@ export default async function UserGuidePage({ params }: PageProps) {
 
             <div className="relative">
               <Clock aria-hidden className="mx-auto mb-5 size-6" />
-              <h2 className="mx-auto mb-4 max-w-2xl text-title font-medium tracking-tight text-balance text-background">
+              <h2 className="mx-auto mb-4 max-w-2xl text-5xl font-medium tracking-tight text-balance text-background">
                 {t("footerCta.title")}
               </h2>
-              <p className="mx-auto mb-8 max-w-2xl text-lead leading-relaxed text-pretty text-background/80">
+              <p className="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-pretty text-background/80">
                 {t("footerCta.description")}
               </p>
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">

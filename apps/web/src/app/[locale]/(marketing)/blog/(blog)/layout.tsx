@@ -20,9 +20,9 @@ export default async function BlogListLayout({ children, params }: BlogListLayou
     <div className='mb-18'>
       <div className='mt-10 flex w-full flex-col items-center justify-center gap-6'>
         {/* Header */}
-        <div className='max-w-article space-y-3 text-center'>
-          <h1 className='text-balance text-center font-bold text-title tracking-tight'>{t('title')}</h1>
-          <h2 className='text-pretty text-center font-normal text-lead text-muted-foreground'>{t('subtitle')}</h2>
+        <div className='max-w-3xl space-y-3 text-center'>
+          <h1 className='text-balance text-center font-bold text-5xl tracking-tight'>{t('title')}</h1>
+          <h2 className='text-pretty text-center font-normal text-xl text-muted-foreground'>{t('subtitle')}</h2>
         </div>
 
         <BlogCategoryFilter categoryList={categoryList} />

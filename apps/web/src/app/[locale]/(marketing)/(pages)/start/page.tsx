@@ -59,26 +59,26 @@ export default async function StartPage({ params }: StartPageProps) {
     <div className='flex flex-col'>
       <section className='relative pt-12 pb-12 md:pb-16'>
         <div className='mx-auto w-full max-w-7xl'>
-          <div className='mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-1.5 text-muted-foreground text-small'>
+          <div className='mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-1.5 text-muted-foreground text-sm'>
             <Store className='h-4 w-4 text-primary' />
             <span>{t('badge')}</span>
           </div>
 
-          <h1 className='mb-4 max-w-3xl text-balance font-medium text-foreground text-title tracking-tight'>
+          <h1 className='mb-4 max-w-3xl text-balance font-medium text-foreground text-5xl tracking-tight'>
             {t('heading')}
           </h1>
-          <p className='mb-8 max-w-2xl text-pretty text-lead text-muted-foreground'>{t('intro')}</p>
+          <p className='mb-8 max-w-2xl text-pretty text-xl text-muted-foreground'>{t('intro')}</p>
 
           <div className='mb-8 rounded-2xl border border-border bg-card p-5 shadow-sm'>
             <h2 className='mb-2 font-medium text-foreground text-xl'>
               {loc === 'zh' ? '复制给 AI 安装 OpenMCP 商店' : 'Copy to AI to install OpenMCP store'}
             </h2>
-            <p className='mb-3 text-muted-foreground text-small'>
+            <p className='mb-3 text-muted-foreground text-sm'>
               {loc === 'zh'
                 ? '把下面的短提示词发给 Cursor / Claude Code / Codex，Agent 会按 /install/openmcp.md 完成商店接入与 Skill 包安装。'
                 : 'Paste the short prompt into Cursor / Claude Code / Codex. The Agent follows /install/openmcp.md to wire the store and install Skill packages.'}
             </p>
-            <div className='mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 font-mono text-caption text-muted-foreground'>
+            <div className='mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 font-mono text-xs text-muted-foreground'>
               {buildStoreBootstrapCopyPrompt({ locale: loc })}
             </div>
             <div className='flex flex-wrap gap-2'>
@@ -130,7 +130,7 @@ export default async function StartPage({ params }: StartPageProps) {
 
       <section className='pb-16 md:pb-24'>
         <div className='mx-auto w-full max-w-7xl'>
-          <h2 className='mb-8 font-medium text-foreground text-section tracking-tight'>{t('stepsHeading')}</h2>
+          <h2 className='mb-8 font-medium text-foreground text-2xl tracking-tight'>{t('stepsHeading')}</h2>
           <ol className='space-y-6'>
             {steps.map((step, i) => (
               <li key={step.title} className='flex gap-5 rounded-2xl border border-border bg-card p-6'>
@@ -142,13 +142,13 @@ export default async function StartPage({ params }: StartPageProps) {
                     <step.icon className='h-4 w-4 text-primary' />
                     <h3 className='font-medium text-foreground text-xl'>{step.title}</h3>
                   </div>
-                  <p className='max-w-prose text-pretty text-body text-muted-foreground'>{step.body}</p>
+                  <p className='max-w-prose text-pretty text-base text-muted-foreground'>{step.body}</p>
                 </div>
               </li>
             ))}
           </ol>
 
-          <div className='mt-6 flex flex-wrap gap-3 text-small'>
+          <div className='mt-6 flex flex-wrap gap-3 text-sm'>
             <LocaleLink href={Routes.Skills} className='text-primary underline-offset-4 hover:underline'>
               Skills
             </LocaleLink>
@@ -167,18 +167,18 @@ export default async function StartPage({ params }: StartPageProps) {
       <section className='border-t py-16 md:py-18'>
         <div className='mx-auto w-full max-w-7xl'>
           <div className='rounded-2xl border border-primary/40 border-dashed bg-background p-8 md:p-10'>
-            <div className='mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 font-medium text-caption text-primary'>
+            <div className='mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 font-medium text-xs text-primary'>
               <Rocket className='h-3.5 w-3.5' />
               {t('future.badge')}
             </div>
-            <h2 className='mb-3 font-medium text-foreground text-section tracking-tight'>{t('future.title')}</h2>
-            <p className='mb-6 max-w-prose text-pretty text-lead text-muted-foreground'>{t('future.body')}</p>
-            <ul className='mb-8 list-disc space-y-2 pl-5 text-muted-foreground text-small'>
+            <h2 className='mb-3 font-medium text-foreground text-2xl tracking-tight'>{t('future.title')}</h2>
+            <p className='mb-6 max-w-prose text-pretty text-xl text-muted-foreground'>{t('future.body')}</p>
+            <ul className='mb-8 list-disc space-y-2 pl-5 text-muted-foreground text-sm'>
               <li>{t('future.bullets.one')}</li>
               <li>{t('future.bullets.two')}</li>
               <li>{t('future.bullets.three')}</li>
             </ul>
-            <p className='text-caption text-muted-foreground'>{t('future.note')}</p>
+            <p className='text-xs text-muted-foreground'>{t('future.note')}</p>
           </div>
         </div>
       </section>

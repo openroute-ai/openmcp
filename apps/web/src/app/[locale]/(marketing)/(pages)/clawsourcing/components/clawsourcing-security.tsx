@@ -43,7 +43,7 @@ export function ClawsourcingSecurity() {
             <span className='font-medium text-muted-foreground text-xs'>Enterprise Security</span>
           </div>
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>{'企业级安全保障'}</h2>
-          <p className='mx-auto max-w-2xl text-pretty text-lead text-muted-foreground'>
+          <p className='mx-auto max-w-2xl text-pretty text-xl text-muted-foreground'>
             {'数据安全是我们的首要承诺。每一层架构都为安全而设计。'}
           </p>
         </div>

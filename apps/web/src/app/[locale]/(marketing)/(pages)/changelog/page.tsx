@@ -46,7 +46,7 @@ export default async function ChangelogPage(props: NextPageProps) {
       <div className='mx-auto max-w-4xl space-y-8'>
         {/* Header */}
         <div className='space-y-4'>
-          <h1 className='text-center font-bold text-title tracking-tight'>{t('title')}</h1>
+          <h1 className='text-center font-bold text-5xl tracking-tight'>{t('title')}</h1>
           <p className='text-center text-lg text-muted-foreground'>{t('subtitle')}</p>
         </div>
 

@@ -58,7 +58,7 @@ export function ClawsourcingRoles() {
       <div className='mx-auto max-w-7xl'>
         <div className='mb-12 text-center'>
           <h2 className='mb-4 text-balance font-bold text-3xl text-foreground md:text-4xl'>{'预置 AI 角色'}</h2>
-          <p className='mx-auto max-w-2xl text-pretty text-lead text-muted-foreground'>
+          <p className='mx-auto max-w-2xl text-pretty text-xl text-muted-foreground'>
             {'基于 OpenClaw 开源框架构建，每个角色都经过生产环境验证，可直接部署或深度定制。'}
           </p>
         </div>

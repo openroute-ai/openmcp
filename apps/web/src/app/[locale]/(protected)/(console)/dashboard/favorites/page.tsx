@@ -70,7 +70,7 @@ function FavoritesPageInner() {
         <div className='mx-auto flex w-full max-w-7xl flex-1 flex-col'>
           <div className='@container/main flex flex-1 flex-col gap-2'>
             <div className='flex flex-col gap-4 md:gap-6'>
-              <h1 className='mb-6 font-bold text-section'>{t('myFavorites.title')}</h1>
+              <h1 className='mb-6 font-bold text-2xl'>{t('myFavorites.title')}</h1>
 
               {isLoading ? (
                 <Card>

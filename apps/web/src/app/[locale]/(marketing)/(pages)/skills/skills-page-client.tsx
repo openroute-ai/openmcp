@@ -134,7 +134,7 @@ function SkillsPageInner() {
         filters={filters}
       />
       <section className='pb-12'>
-        <div className='mx-auto w-full max-w-page px-5 sm:px-6 lg:px-10'>
+        <div className='mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-10'>
           <SkillsList
             skills={skills}
             isLoading={isLoading}

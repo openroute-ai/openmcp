@@ -21,7 +21,7 @@ export async function OpenpayCases() {
             <Building2 className='size-3.5 text-primary' />
             {t('eyebrow')}
           </span>
-          <h2 className='text-balance font-medium text-foreground text-subtitle tracking-tight md:text-4xl'>
+          <h2 className='text-balance font-medium text-foreground text-3xl tracking-tight md:text-4xl'>
             {t('title')}
           </h2>
         </div>
