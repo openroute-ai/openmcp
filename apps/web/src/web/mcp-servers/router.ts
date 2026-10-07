@@ -6,6 +6,7 @@ import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPubli
 import { signOAuthState } from "@/lib/agent-install/oauth-state"
 import { assetIsGated, checkAssetEntitlement, purchaseAsset } from './entitlement'
 import { emptyPage, mineListInput } from '@/web/assets/mine-list'
+import { recordAssetInstall } from '@/web/assets/installs'
 import { mcpGatewayAccess } from './gateway'
 import { mcpServersDataAccess } from './index'
 
@@ -285,6 +286,13 @@ export const mcpServersRouter = createTRPCRouter({
       try {
         const { authorId } = await requireAuthorForUser(ctx.user.id)
         const data = await mcpGatewayAccess.invokeTool(authorId, input.id, input.toolName, input.args)
+        // 调用即安装：平台内能看见的 MCP 调用（作者试调）同步记一条安装。
+        await recordAssetInstall({
+          userId: ctx.user.id,
+          assetType: 'mcp',
+          assetId: input.id,
+          source: 'trial',
+        })
         return { success: true, data }
       } catch (error) {
         return failResult(error, '试调失败')

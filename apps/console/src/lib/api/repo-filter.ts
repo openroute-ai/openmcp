@@ -9,7 +9,7 @@
  *
  * 1. `repoIds` 非空 → 完全绕过下面所有规则；
  * 2. 自己的提交 且 `includeOwnSubmissions`；
- * 3. 是平台项目 且 `includePlatformProjects` 且（`platformTypes` 为空或命中）；
+ * 3. 是平台项目 且 `includePlatformProjects`；
  * 4. 有 project 行 且 `categoryCodes` 命中；
  * 5. 有 project 行 且 `projectTypes` 命中；
  * 6. 无 project 行 且 `includeUncurated`；
@@ -68,8 +68,7 @@ export function resolveIncludeUncurated(filters: RepoFilters): boolean {
   }
   const narrowed =
     (filters.projectTypes?.length ?? 0) > 0 ||
-    (filters.categoryCodes?.length ?? 0) > 0 ||
-    (filters.platformTypes?.length ?? 0) > 0
+    (filters.categoryCodes?.length ?? 0) > 0
   return !narrowed
 }
 
@@ -143,19 +142,17 @@ export function repoFilterCondition(
     )
   }
 
-  // 规则 3：平台项目（公开可见的那种），可再按形态收窄。
+  // 规则 3：平台项目（公开可见的那种）。
   //
   // `!== false` 而不是真值判断：§6.1 里 `include_platform` 的列默认值是 `true`，
   // 而「不带任何过滤器的订阅应该看到雷达跟踪的全部仓库」。真值判断会让缺省的
   // `undefined` 把这一支整个关掉，于是未过滤的列表只剩未策展仓库——已策展的公开
   // 项目凭空消失，而调用方并没有要求过任何过滤。
   if (filters.includePlatformProjects !== false) {
-    const platformTypes = filters.platformTypes ?? []
     rules.push(
       sql<boolean>`exists (
         select 1 from ${projects} p
         where p.repo_id = ${repos.id} and p.status <> 'hidden'
-        ${platformTypes.length > 0 ? sql`and p.type in ${inList(platformTypes)}` : sql``}
       )`
     )
   }
@@ -424,7 +421,7 @@ export type MatchReasonMap = Map<string, MatchReason[]>
  * 个既解释不了「为什么命中」又解释不了「为什么没命中」的 OR 表达式，所以刻意分开。
  *
  * 需要的数据已经在手上：`listFilteredRepos` 读出了 `isPlatformProject` 与
- * `projectCount`，这里只补一次 project 查询（形态 + 分类 + hidden 状态）与一次
+ * `projectCount`，这里只补一次 project 查询（形态 + 分类）与一次
  * `user_repos` 查询。
  */
 export async function loadMatchReasons(
@@ -454,14 +451,11 @@ export async function loadMatchReasons(
       reasons.push("ownSubmission")
     }
 
+    // 规则 3 不再按形态收窄，所以这一支只问「有没有未隐藏的 project 行」——
+    // 与 SQL 那一份同一个判定，`platformType` 这个值名留着是因为它标的是规则
+    // 而不是收窄方式（§6.5 的 `matchedBy` 是对外契约，改名要消费方一起改）。
     if (filters.includePlatformProjects !== false && row.isPlatformProject) {
-      const platformTypes = filters.platformTypes ?? []
-      const hit =
-        platformTypes.length === 0 ||
-        (axis?.platformTypes ?? []).some((type) =>
-          platformTypes.includes(type as ProjectType)
-        )
-      if (hit) reasons.push("platformType")
+      reasons.push("platformType")
     }
 
     if (filters.categoryCodes && filters.categoryCodes.length > 0) {
@@ -504,25 +498,25 @@ async function loadOwnSubmissions(
 }
 
 /**
- * 每个仓库的形态与分类，两组分开。
+ * 每个仓库的形态与分类。
  *
- * 形态要分「全部」与「未隐藏」两份（§6.6 陷阱三）：规则 3 只看未隐藏的，规则 5 看全部，
- * 而分类同理。用一个字段承载两份语义会让 hidden 那个仓库从「按形态订阅」里消失。
+ * 形态**不分**「全部」与「未隐藏」两份了：规则 3 不再按形态收窄，只有规则 5 需要
+ * 形态，而它看的是全部 project 行（§6.6 陷阱三里那条 hidden 的区分因此只剩分类
+ * 一条线——分类本来就不看 status）。
  */
 async function loadProjectAxes(
   db: Db,
   repoIds: string[]
-): Promise<Map<string, { projectTypes: string[]; platformTypes: string[]; categoryCodes: string[] }>> {
+): Promise<Map<string, { projectTypes: string[]; categoryCodes: string[] }>> {
   const result = new Map<
     string,
-    { projectTypes: string[]; platformTypes: string[]; categoryCodes: string[] }
+    { projectTypes: string[]; categoryCodes: string[] }
   >()
 
   const rows = await db
     .select({
       repoId: projects.repoId,
       type: projects.type,
-      status: projects.status,
       categoryCode: categories.code,
     })
     .from(projects)
@@ -533,14 +527,11 @@ async function loadProjectAxes(
     if (!row.repoId) continue
     let entry = result.get(row.repoId)
     if (!entry) {
-      entry = { projectTypes: [], platformTypes: [], categoryCodes: [] }
+      entry = { projectTypes: [], categoryCodes: [] }
       result.set(row.repoId, entry)
     }
-    if (row.type) {
-      if (!entry.projectTypes.includes(row.type)) entry.projectTypes.push(row.type)
-      if (row.status !== "hidden" && !entry.platformTypes.includes(row.type)) {
-        entry.platformTypes.push(row.type)
-      }
+    if (row.type && !entry.projectTypes.includes(row.type)) {
+      entry.projectTypes.push(row.type)
     }
     if (row.categoryCode && !entry.categoryCodes.includes(row.categoryCode)) {
       entry.categoryCodes.push(row.categoryCode)

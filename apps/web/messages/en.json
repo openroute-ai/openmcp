@@ -396,37 +396,20 @@
       "loading": "Loading...",
       "error": "Failed to load, please try again"
     },
-    "myDownloads": {
-      "title": "My Downloads",
-      "description": "Review every Skill you have downloaded, and download it again anytime",
-      "empty": {
-        "title": "No downloads yet",
-        "description": "Head to the Skills marketplace to browse and download Skills"
-      },
-      "browseSkills": "Skills marketplace",
-      "count": "{count} download record(s)",
-      "downloadAgain": "Download again",
-      "viewDetail": "View details",
-      "skillRemoved": "This skill has been unpublished or deleted",
-      "unknownSkill": "Untitled skill",
-      "grade": {
-        "safe": "Safe",
-        "caution": "Caution"
-      }
-    },
     "myInstalls": {
       "viewDetail": "View details",
       "noMatch": "No installs match the current filters",
       "title": "My Installs",
-      "description": "Review every Skill installed to your local agent, and manage or reinstall them",
+      "description": "Review the Skills you installed and the MCP/A2A assets you called, with manage and reinstall",
       "empty": {
         "title": "No installs yet",
-        "description": "Once you install a Skill through an agent, the record shows up here automatically"
+        "description": "Once you install a Skill or call an MCP/A2A asset, the record shows up here automatically"
       },
       "count": "{count} install record(s)",
       "countFiltered": "{count} of {total} install record(s)",
       "filters": {
         "runtime": "Runtime",
+        "kind": "Kind",
         "status": "Status",
         "all": "All",
         "runtimes": {
@@ -438,6 +421,11 @@
         "statuses": {
           "active": "Active",
           "removed": "Removed"
+        },
+        "kinds": {
+          "skill": "Skill",
+          "mcp": "MCP",
+          "a2a": "A2A"
         }
       },
       "installedAt": "Installed {time}",
@@ -453,7 +441,9 @@
       "grade": {
         "safe": "Safe",
         "caution": "Caution"
-      }
+      },
+      "assetRemoved": "This MCP/A2A asset has been deleted",
+      "unknownAsset": "Deleted asset"
     },
     "virtualKeys": {
       "loadFailed": "Failed to load",
@@ -779,6 +769,10 @@
         "account": "Account Info",
         "security": "Security",
         "cards": {
+          "setup": {
+            "title": "Account settings",
+            "description": "Avatar, password, phone and email, payout account, identity and company details"
+          },
           "profile": {
             "title": "Profile",
             "description": "Avatar, display name, and account info"
@@ -798,7 +792,28 @@
           "recharge": {
             "title": "Wallet & Credits",
             "description": "Top up your balance and view credit history"
+          },
+          "bills": {
+            "title": "Bills",
+            "description": "Past bills and recharge records"
           }
+        }
+      },
+      "setup": {
+        "title": "Account settings",
+        "subtitle": "Manage your avatar, password, phone and email bindings, payout account, identity and company details in one place",
+        "sections": {
+          "profile": "Profile",
+          "security": "Security",
+          "identity": "Identity",
+          "organization": "Company",
+          "payout": "Payout account"
+        },
+        "identity": {
+          "title": "Identity verification",
+          "description": "Verify your identity to publish assets and bind a payout account",
+          "goIndividual": "Verify as an individual",
+          "goCompany": "Verify as a company"
         }
       },
       "overview": {
@@ -1016,6 +1031,26 @@
           "fail": "Failed to update email",
           "invalid": "Please enter a valid email address",
           "unchanged": "Email was not changed"
+        },
+        "phone": {
+          "title": "Bind phone number",
+          "description": "Bind or change the account phone number with an SMS code",
+          "current": "Current phone number",
+          "empty": "Not bound",
+          "verified": "Verified",
+          "unverified": "Not verified",
+          "placeholder": "Enter your phone number",
+          "hint": "A phone number can be used to sign in, recover your account and receive security notices",
+          "footer": "Changing the number requires SMS verification",
+          "save": "Bind",
+          "saving": "Binding...",
+          "success": "Phone number updated",
+          "errors": {
+            "PHONE_NUMBER_EXIST": "This phone number is already bound to another account",
+            "INVALID_OTP": "Incorrect code, please try again",
+            "OTP_EXPIRED": "The code expired, please request a new one",
+            "TOO_MANY_ATTEMPTS": "Too many attempts, please try again later"
+          }
         }
       },
       "organization": {

@@ -6,23 +6,30 @@ description: "过滤器语义、水位线重投、签名与幂等。"
 订阅让你不用每天轮询：`callbackUrl` 收下，雷达在排行任务跑完之后把新数据推过来。
 
 <Callout type="info" title="订阅的全部方法共用一个 scope">
-  创建、列出、详情、改、删、轮换 secret、发探测事件，要的都是 `subscriptions:write`——
+  创建、列出、详情、改、删、发探测事件，要的都是 `subscriptions:write`——
   没有单独的只读订阅 scope。它**不在自助签发范围内**，需要管理员逐把 key 开，
   理由是 `callbackUrl` 可以填任意 URL，等于给了「让雷达替你抓任意仓库」的原语。
 </Callout>
 
 ## 三件先分清的事
 
-<Callout type="info" title="key 的 scope 管「能不能管订阅」，订阅的 scopes 管「推什么」">
-  `subscriptions:write` 只决定你能不能创建 / 改 / 停掉订阅。投递时读的是**订阅自己的**
-  scopes，**不借用调用方 key 的权限**。所以一把只带 `repos:read` 的 key 也能创建一条
-  要 `repos.stats` 的订阅。
+<Callout
+  type="info"
+  title="key 的 scope 管「能不能管订阅」，订阅的 scopes 管「推什么」"
+>
+  `subscriptions:write` 只决定你能不能创建 / 改 /
+  停掉订阅。投递时读的是**订阅自己的** scopes，**不借用调用方 key
+  的权限**。所以一把只带 `repos:read` 的 key 也能创建一条 要 `repos.stats`
+  的订阅。
 </Callout>
 
-<Callout type="info" title="`secret` 只返回一次">
-  创建响应的 `secret` 与轮换响应的新 `secret` 都是**一次性**的，之后任何接口都不再返回，
-  列表与详情里只有 `secretPrefix`（供人工比对，不是密钥）。数据库里只有它的派生值。
-  丢了只能轮换。
+<Callout type="info" title="验签密钥由一把 api key 派生">
+  订阅**不自带**第二份密钥：创建时指定 `apiKeyId`，验签密钥由那把 key 的
+  `key_hash` 算出（创建响应与详情里的 `signingKey`），同一把 key
+  名下的所有订阅共用一个。 列表里只有 `signingKeyPrefix`（那把 key
+  的前缀，供人工比对）。
+  它是可重算的派生值——要密钥就再读一次详情，不存在「只此一次」；换一把 key
+  建订阅 会得到新的验签密钥，接收端要跟着更新。
 </Callout>
 
 <Callout type="info" title="投递挂在排行任务之后">
@@ -45,8 +52,7 @@ curl -X POST "$CONSOLE_ORIGIN/api/v1/subscriptions" \
   }'
 ```
 
-订阅的 scopes 是 `repos.stats` / `repos.rankings` / `repos.metadata` / `repos.user_repos`，
-与 key 的 scope 是两套命名，不要混着填。
+订阅的 scopes 是 `repos.stats` / `repos.rankings` / `repos.metadata`，与 key 的 scope 是两套命名，不要混着填。
 
 `mode` 有两个值：`batch`（默认）按水位线增量推；`snapshot` 每次推范围内全部最新一期，
 不带水位线。
@@ -57,16 +63,16 @@ curl -X POST "$CONSOLE_ORIGIN/api/v1/subscriptions" \
 
 1. `repoIds` 非空 → 完全绕过下面所有规则；
 2. 自己的提交 且 `includeOwnSubmissions`；
-3. 是平台项目 且 `includePlatformProjects` 且（`platformTypes` 为空或命中）；
+3. 是平台项目 且 `includePlatformProjects`；
 4. 有 project 行 且 `categoryCodes` 命中；
 5. 有 project 行 且 `projectTypes` 命中；
 6. 无 project 行 且 `includeUncurated`；
 7. 其他 → 不推。
 
 <Callout type="warn" title="按类型过滤默认丢掉未策展仓库">
-  `includeUncurated` 的缺省值按条件推导：`projectTypes` / `categoryCodes` /
-  `platformTypes` 全空时为 `true`，按类型过滤时为 `false`。
-  例子里只填了 `projectTypes`，所以没写 `includeUncurated` 就**收不到**
+  `includeUncurated` 的缺省值按条件推导：`projectTypes` / `categoryCodes`
+  全空时为 `true`，按类型过滤时为 `false`。 例子里只填了
+  `projectTypes`，所以没写 `includeUncurated` 就**收不到**
   尚未被策展的候选仓库。想要更宽的范围，显式写 `"includeUncurated": true`。
 </Callout>
 
@@ -91,14 +97,17 @@ curl -X POST "$CONSOLE_ORIGIN/api/v1/subscriptions" \
 ```http
 Content-Type: application/json
 X-Webhook-Id: evt_abc123          ← 幂等键，重试不变
-X-Webhook-Timestamp: 1774000000
-X-Webhook-Signature: sha256=<hex over "<timestamp>.<raw body>">
-X-Webhook-Event: repo.daily.stats.ready
+X-Webhook-Timestamp: 1774000000   ← Unix 秒，签名覆盖它
+X-Webhook-Signature: sha256=<hex> ← 对「时间戳.原始报文」做 HMAC-SHA256
+X-Webhook-Event: data.updated
 ```
 
 1. **验签**：用**收到的原始字节**。重新 `JSON.stringify` 会改键序，验签必失败。
 2. **验新鲜度**：时间戳窗口 300 秒。只验 HMAC 的接收方会永远接受被录制的请求。
 3. **按 `eventId` 去重**：网络重试会让同一个事件到达两次，落一张幂等表。
+
+验签密钥怎么算、可直接抄的 Node / Python 实现、失败对照表都在
+[验证投递签名](./verify-signature) 一页——接收端照着那一页写就行，这一页不再重复。
 
 单个 payload 上限 2MB / 1000 个仓库，超限时按 `repoId` 字典序切分成多段顺序投递，
 `eventId` 带上分段序号。**只有最后一段成功才推进水位线**，所以第 1 段成功、第 2 段
@@ -106,15 +115,17 @@ X-Webhook-Event: repo.daily.stats.ready
 
 ## 失败会怎样
 
-| 情况               | 行为                                                       |
-| ------------------ | ---------------------------------------------------------- |
-| 投递失败           | `attempt + 1`，退避 `1s → 5s → 30s → 5min → 30min`，最多 8 次 |
-| 8 次仍失败         | 该 delivery 记 `failed`，但**水位线不动**，下一轮 cron 重新生成一批 |
-| 连续失败 ≥ 20 次   | 熔断：`enabled = false`、`disabledReason = "too_many_failures"`，队列保留 |
+| 情况             | 行为                                                                      |
+| ---------------- | ------------------------------------------------------------------------- |
+| 投递失败         | `attempt + 1`，退避 `1s → 5s → 30s → 5min → 30min`，最多 8 次             |
+| 8 次仍失败       | 该 delivery 记 `failed`，但**水位线不动**，下一轮 cron 重新生成一批       |
+| 连续失败 ≥ 20 次 | 熔断：`enabled = false`、`disabledReason = "too_many_failures"`，队列保留 |
 
-失败期间数据不会丢——水位线不推进，所以恢复后这一段会补上。轮换 secret 之后旧 secret
-**立刻失效**，没有两个都有效的窗口，接收端必须同步更新，否则下一次投递会全部验签失败
-（然后触发上面的退避）。
+失败期间数据不会丢——水位线不推进，所以恢复后这一段会补上。
+
+签名密钥这边没有「轮换」这个动作：它跟着所选 api key 的 `key_hash` 走。**吊销那把 key
+不会改动已建订阅的密钥**（`key_hash` 本身没变，所以继续投递、继续验签通过），而把
+key 轮换（新明文 + 新哈希）之后新建的订阅才会拿到另一个密钥。
 
 ## 排障
 
@@ -130,4 +141,4 @@ X-Webhook-Event: repo.daily.stats.ready
 
 `API 参考 → 订阅 API`：`POST /api/v1/subscriptions`、`GET /api/v1/subscriptions`、
 `GET|PATCH|DELETE /api/v1/subscriptions/{id}`、
-`POST /api/v1/subscriptions/{id}/rotate-secret`、`POST /api/v1/subscriptions/{id}/test`。
+`POST /api/v1/subscriptions/{id}/test`。

@@ -114,17 +114,6 @@ export const skillsRouter = createTRPCRouter({
     }
   }),
 
-  /** Download history for the signed-in user, used by the console. */
-  listMyDownloads: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      const locale = (await getLocale()) as 'zh' | 'en'
-      const data = await skillsHistoryAccess.listDownloads(ctx.user.id, locale)
-      return { success: true, data }
-    } catch (error) {
-      return failResult(error, '获取下载记录失败')
-    }
-  }),
-
   /** Install history for the signed-in user, used by the console. */
   listMyInstalls: protectedProcedure.query(async ({ ctx }) => {
     try {
@@ -138,10 +127,21 @@ export const skillsRouter = createTRPCRouter({
 
   /** Mark one of the user's install records as removed, or restore it. */
   setMyInstallStatus: protectedProcedure
-    .input(z.object({ installId: z.string(), status: z.enum(['active', 'removed']) }))
+    .input(
+      z.object({
+        installId: z.string(),
+        status: z.enum(['active', 'removed']),
+        kind: z.enum(['skill', 'mcp', 'a2a']).default('skill'),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       try {
-        const result = await skillsHistoryAccess.setInstallStatus(ctx.user.id, input.installId, input.status)
+        const result = await skillsHistoryAccess.setInstallStatus(
+          ctx.user.id,
+          input.installId,
+          input.status,
+          input.kind
+        )
         if (!result.ok) return { success: false, error: result.error ?? '操作失败' }
         return { success: true }
       } catch (error) {

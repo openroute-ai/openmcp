@@ -1,17 +1,26 @@
 /**
- * 订阅的增删改查与密钥轮换（设计文档 §6.2 / §6.4 / §6.7）。
+ * 订阅的增删改查与签名密钥派生（设计文档 §6.2 / §6.4 / §6.7）。
  *
  * **归属是判别联合，不是两个可空参数。** `{ apiKeyId } | { userId }` 在类型层面就
- * 排除了「两个都空」和「两个都给」，而 `subscriptions_one_owner_ck` 在数据库层面排除
- * 同样的两种情况。用两个可空参数的话，那条 CHECK 会变成一层"服务层本来就不该让它
- * 发生"的保护，于是某天有人加了个新入口忘了判空，租户隔离就在那一行漏掉了。
+ * 排除了「两个都空」和「两个都给」。数据库层的等价约束现在是 `api_key_id NOT NULL`
+ * （它同时是签名 key），于是**会话建的订阅两列都非空**，原来那条
+ * `subscriptions_one_owner_ck` 异或约束不再成立、已经删掉；区分两种归属改由
+ * `ownerCondition` 按 `user_id is null` 分支，那里是唯一一处需要写对它的地方。
  *
- * 明文密钥只在这里的 `createSubscription` / `rotateSubscriptionSecret` 两次返回里出现。
- * `secretHash` 是 `sha256(明文)`，与 `api_keys.key_hash` 同一种取舍：随机串不是人选的
- * 口令，没有字典可抗，而慢哈希要让每一次投递付出一段延迟。
+ * 订阅**没有自己的签名密钥**：投递时从 `api_keys.key_hash` 现算（`deriveSigningKey`），
+ * 因此没有"丢了就轮换"这回事，也没有第二个需要接收方保管的凭据。轮换与吊销是 api
+ * key 层面的动作，见 `deriveSigningKey` 的注释里那两行给接收方的算法。
  */
-import { createHash, createHmac, randomBytes } from "node:crypto"
-import { and, desc, eq, sql, type SQL } from "drizzle-orm"
+import { createHmac, randomBytes } from "node:crypto"
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  sql,
+  type SQL,
+} from "drizzle-orm"
 import { apiKeys } from "@/db/schema/api-keys"
 import {
   subscriptions,
@@ -32,7 +41,6 @@ import type {
   subscriptionCreatedSchema,
   subscriptionDetailSchema,
   subscriptionRequestSchema,
-  subscriptionRotatedSchema,
   subscriptionSchema,
   subscriptionUpdateSchema,
 } from "@/lib/api/contract"
@@ -60,7 +68,22 @@ type UpdateSet = Partial<Omit<typeof subscriptions.$inferInsert, "updatedAt" | "
   filtersVersion?: SQL
 }
 
+/**
+ * 读/改/删的归属：**恰好给一个**。v1 给 key、console 会话给 userId。
+ *
+ * 创建另算 —— 会话路径还要一把签名 key，见 {@link SubscriptionCreator}。这里保持
+ * 二选一，是为了让 `ownerCondition` 只需回答"这次是按 key 查还是按账号查"，而不是
+ * 还要判断"给了两个时听谁的"。
+ */
 export type SubscriptionOwner = { apiKeyId: string } | { userId: string }
+
+/**
+ * 创建订阅的主体：恒有一把签名 key，会话路径再多给一个 `userId` 作归属。
+ *
+ * v1 的 key 来自鉴权主体（`auth.principal.keyId`），会话的 key 来自表单里的选择，
+ * 两条路径落库的形状因此完全一致 —— 差别只在 `user_id` 是否为 NULL。
+ */
+export type SubscriptionCreator = { apiKeyId: string; userId?: string }
 
 export type SubscriptionCreateInput = z.output<typeof subscriptionRequestSchema>
 export type SubscriptionUpdateInput = z.output<typeof subscriptionUpdateSchema>
@@ -68,37 +91,9 @@ export type SubscriptionUpdateInput = z.output<typeof subscriptionUpdateSchema>
 export type SubscriptionView = z.output<typeof subscriptionSchema>
 export type SubscriptionCreated = z.output<typeof subscriptionCreatedSchema>
 export type SubscriptionDetail = z.output<typeof subscriptionDetailSchema>
-export type SubscriptionRotated = z.output<typeof subscriptionRotatedSchema>
 
 /** 投递记录条数，与 §6.8 的「最近 20 条」同数。 */
 export const DELIVERY_HISTORY_LIMIT = 20
-
-/**
- * `sha256(hex)`。与 `lib/api/keys.ts` 的 `hashApiKey` 刻意重复而不是复用：那一处
- * 带着一整段解释为什么不用 bcrypt 的注释，复制过来会让两个函数看起来像两份独立的
- * 决策，而它们其实是同一条决策。
- */
-function hashSecret(plaintext: string): string {
-  return createHash("sha256").update(plaintext, "utf8").digest("hex")
-}
-
-/**
- * 服务端生成的密钥。
- *
- * `randomBytes(32)` 是 256 bit 熵；前缀另取 `randomBytes(3)`（base64url 后 4 字符），
- * 两者独立取，所以展示用的前缀不泄漏机密部分的任何一位。形状是 `<prefix>_<secret>`，
- * 前缀同时就是 `secretPrefix` —— 人读的那 4 位与签名用的那段是同一个串的前 4 位，
- * 少一次映射也就少一处能写错的对应关系。
- */
-function generateSecret(): string {
-  const prefix = randomBytes(3).toString("base64url")
-  return `${prefix}_${randomBytes(32).toString("base64url")}`
-}
-
-/** 契约的 `secretPrefix` 只是人工比对，所以统一取明文前 4 位，用户自带密钥也一样。 */
-function prefixOf(plaintext: string): string {
-  return plaintext.slice(0, 4)
-}
 
 /**
  * 过滤器落库前的形状。
@@ -111,7 +106,6 @@ function prefixOf(plaintext: string): string {
 interface StoredFilters {
   projectTypes: ProjectType[]
   categoryCodes: string[]
-  platformTypes: ProjectType[]
   includePlatform: boolean
   includeUncurated: boolean
   includeOwnSubmissions: boolean
@@ -122,7 +116,6 @@ function toStoredFilters(filters: RepoFilters): StoredFilters {
   return {
     projectTypes: filters.projectTypes ?? [],
     categoryCodes: filters.categoryCodes ?? [],
-    platformTypes: filters.platformTypes ?? [],
     // 三个开关的缺省见 `resolveFilters`：只有 `includeUncurated` 是推导出来的，
     // 另外两个的缺省就是 §6.1 里的列默认值 `true`。存成解析后的布尔值而不是存
     // 「调用方给了什么」，是为了让投递任务不必再跑一遍推导 —— 推导规则会演进，而
@@ -146,10 +139,6 @@ export function toFilters(row: SubscriptionRow): RepoFilters {
         ? ([...row.projectTypes] as ProjectType[])
         : undefined,
     categoryCodes: row.categoryCodes.length > 0 ? [...row.categoryCodes] : undefined,
-    platformTypes:
-      row.platformTypes.length > 0
-        ? ([...row.platformTypes] as ProjectType[])
-        : undefined,
     includePlatformProjects: row.includePlatform,
     includeUncurated: row.includeUncurated,
     includeOwnSubmissions: row.includeOwnSubmissions,
@@ -161,12 +150,24 @@ function isoOrNull(value: Date | null): string | null {
   return value ? value.toISOString() : null
 }
 
-export function toSubscriptionView(row: SubscriptionRow): SubscriptionView {
+/**
+ * 订阅行 + 签名 key 的两个字段（列表与详情都要显示"用哪把 key 签名"）。
+ *
+ * join 而不是冗余两列进 `subscriptions`：key 改名时订阅行不必跟着改，而多一次
+ * 主键 join 在这个量级上不构成开销。`signingKeyHash` 是派生验签密钥的输入，
+ * 详情用它，列表只用前缀。
+ */
+export type SubscriptionWithKey = SubscriptionRow & {
+  signingKeyPrefix: string
+  signingKeyHash: string
+}
+
+export function toSubscriptionView(row: SubscriptionWithKey): SubscriptionView {
   return {
     id: row.id,
     name: row.name,
     callbackUrl: row.callbackUrl,
-    secretPrefix: row.secretPrefix,
+    signingKeyPrefix: row.signingKeyPrefix,
     cadence: row.cadence,
     mode: row.mode,
     scopes: [...row.scopes] as SubscriptionView["scopes"],
@@ -180,19 +181,33 @@ export function toSubscriptionView(row: SubscriptionRow): SubscriptionView {
   }
 }
 
-/** 只有归属匹配的行才对调用方可见。这是租户隔离的全部实现（§6.7）。 */
+/**
+ * 只有归属匹配的行才对调用方可见。这是租户隔离的全部实现（§6.7）。
+ *
+ * 按 key 查的那半边多带一个 `user_id is null`：会话建的订阅现在也有一把
+ * `api_key_id`（用来签名），不挡住它们的话，v1 的列表会连同一用户在 console 页面上
+ * 建的订阅一起返回——那是一次跨入口的泄漏，而今天的行为是 v1 只见 v1 建的。
+ */
 function ownerCondition(owner: SubscriptionOwner) {
   return "apiKeyId" in owner
-    ? eq(subscriptions.apiKeyId, owner.apiKeyId)
+    ? and(
+        eq(subscriptions.apiKeyId, owner.apiKeyId),
+        isNull(subscriptions.userId)
+      )
     : eq(subscriptions.userId, owner.userId)
 }
 
 export async function createSubscription(
   db: Database,
-  owner: SubscriptionOwner,
+  owner: SubscriptionCreator,
   input: SubscriptionCreateInput
-): Promise<{ row: SubscriptionRow; secret: string }> {
-  const secret = input.secret ?? generateSecret()
+): Promise<{ row: SubscriptionWithKey; signingKey: string }> {
+  // 先读签名 key，再插订阅：会话路径的 `apiKeyId` 是客户端给的，这一步是它唯一
+  // 的存在性检查（归属检查在 tRPC router 里，见那边的注释）。v1 路径的 key 来自
+  // 鉴权主体，这一查恒成立。
+  const key = await loadSigningKey(db, owner.apiKeyId)
+  if (!key) throw new Error(`signing key not found: ${owner.apiKeyId}`)
+
   const stored = toStoredFilters(input.filters)
 
   const [row] = await db
@@ -200,10 +215,9 @@ export async function createSubscription(
     .values({
       id: `sub_${randomBytes(12).toString("base64url")}`,
       name: input.name,
-      ...owner,
+      apiKeyId: owner.apiKeyId,
+      userId: owner.userId ?? null,
       callbackUrl: input.callbackUrl,
-      secretHash: hashSecret(secret),
-      secretPrefix: prefixOf(secret),
       cadence: input.cadence,
       scopes: input.scopes as SubscriptionScope[],
       ...stored,
@@ -216,18 +230,58 @@ export async function createSubscription(
     })
     .returning()
 
-  return { row: row!, secret }
+  if (!row) throw new Error("subscription insert returned no row")
+  return {
+    row: { ...row, signingKeyPrefix: key.prefix, signingKeyHash: key.keyHash },
+    signingKey: deriveSigningKey(key.keyHash),
+  }
+}
+
+/**
+ * 一把签名 key 的人工前缀与 `key_hash`（派生验签密钥的输入）。
+ *
+ * 只挑这两列而不是整行：`key_hash` 已经是这台机器上最敏感的一段字节，能不进内存就
+ * 不进。列表与详情走 {@link subscriptionRows} 的 join，不经过这里。
+ */
+async function loadSigningKey(
+  db: Database,
+  apiKeyId: string
+): Promise<{ prefix: string; keyHash: string } | undefined> {
+  const [row] = await db
+    .select({ prefix: apiKeys.prefix, keyHash: apiKeys.keyHash })
+    .from(apiKeys)
+    .where(eq(apiKeys.id, apiKeyId))
+    .limit(1)
+  return row
+}
+
+/**
+ * 订阅行 + 签名 key 的两列，一条查询取完。
+ *
+ * `innerJoin` 而不是 left join：`api_key_id` 是 NOT NULL 且带外键，key 行一定在。
+ * left join 只会让两个字段变成可空类型，然后在每一处使用点被断言掉——而断言掉的
+ * 恰恰是"这条订阅拿什么签名"这个不能猜的问题。
+ */
+function subscriptionRows(db: Database, where: SQL | undefined) {
+  return db
+    .select({
+      ...getTableColumns(subscriptions),
+      signingKeyPrefix: apiKeys.prefix,
+      signingKeyHash: apiKeys.keyHash,
+    })
+    .from(subscriptions)
+    .innerJoin(apiKeys, eq(subscriptions.apiKeyId, apiKeys.id))
+    .where(where)
 }
 
 export async function listSubscriptions(
   db: Database,
   owner: SubscriptionOwner
 ): Promise<SubscriptionView[]> {
-  const rows = await db
-    .select()
-    .from(subscriptions)
-    .where(ownerCondition(owner))
-    .orderBy(subscriptions.createdAt, subscriptions.id)
+  const rows = await subscriptionRows(db, ownerCondition(owner)).orderBy(
+    subscriptions.createdAt,
+    subscriptions.id
+  )
 
   return rows.map(toSubscriptionView)
 }
@@ -236,12 +290,11 @@ export async function getSubscription(
   db: Database,
   owner: SubscriptionOwner,
   id: string
-): Promise<SubscriptionRow | undefined> {
-  const rows = await db
-    .select()
-    .from(subscriptions)
-    .where(and(eq(subscriptions.id, id), ownerCondition(owner)))
-    .limit(1)
+): Promise<SubscriptionWithKey | undefined> {
+  const rows = await subscriptionRows(
+    db,
+    and(eq(subscriptions.id, id), ownerCondition(owner))
+  ).limit(1)
 
   return rows[0]
 }
@@ -255,10 +308,11 @@ export async function getSubscription(
  * 仍然在 SQL 里发生一次——不是「先读全部再在内存里过滤」。
  */
 export function ownerOf(row: SubscriptionRow): SubscriptionOwner {
+  // 会话建的两列都非空，所以先看 `user_id`：它决定的是"这条订阅归谁管"，而
+  // `api_key_id` 只回答"拿什么签名"，两者不再互斥也就不能再靠非空与否来判断。
   if (row.userId) return { userId: row.userId }
-  // CHECK 保证恰好一个非空，所以这里不需要兜底的第三种形状：造一个
-  // `{ apiKeyId: undefined }` 只会把一条坏行变成一条查不到东西的查询。
-  return { apiKeyId: row.apiKeyId as string }
+  // `api_key_id` 是 NOT NULL，这里不需要兜底的第三种形状。
+  return { apiKeyId: row.apiKeyId }
 }
 
 /** 按 id 读一行，不带归属过滤。**只在 `adminProcedure` 里调用。 */
@@ -285,10 +339,10 @@ export async function findSubscriptionById(
 export async function listAllSubscriptions(
   db: Database
 ): Promise<(SubscriptionView & { apiKeyId: string | null; userId: string | null })[]> {
-  const rows = await db
-    .select()
-    .from(subscriptions)
-    .orderBy(desc(subscriptions.createdAt), subscriptions.id)
+  const rows = await subscriptionRows(db, undefined).orderBy(
+    desc(subscriptions.createdAt),
+    subscriptions.id
+  )
 
   return rows.map((row) => ({
     ...toSubscriptionView(row),
@@ -313,7 +367,6 @@ export async function resolveOwnerUserId(
   row: SubscriptionRow
 ): Promise<string | null> {
   if (row.userId) return row.userId
-  if (!row.apiKeyId) return null
 
   const keys = await db
     .select({ submitterId: apiKeys.submitterId })
@@ -359,6 +412,9 @@ export async function getSubscriptionDetail(
 
   return {
     ...toSubscriptionView(row),
+    // 验签密钥随详情一起给：它是 `key_hash` 的确定性派生，能重算就不必再设计一套
+    // 「只此一次、丢了轮换」的仪式 —— 接收方要它是为了配自己的验签，而不是当凭据用。
+    signingKey: deriveSigningKey(row.signingKeyHash),
     matchedRepos: matched.length,
     lastDeliveredAt: isoOrNull(row.lastDeliveredAt),
     lastError: row.lastError,
@@ -393,7 +449,7 @@ export async function updateSubscription(
   owner: SubscriptionOwner,
   id: string,
   patch: SubscriptionUpdateInput
-): Promise<SubscriptionRow | undefined> {
+): Promise<SubscriptionWithKey | undefined> {
   const existing = await getSubscription(db, owner, id)
   if (!existing) return undefined
 
@@ -430,9 +486,11 @@ export async function updateSubscription(
     .update(subscriptions)
     .set(sets)
     .where(and(eq(subscriptions.id, id), ownerCondition(owner)))
-    .returning()
+    .returning({ id: subscriptions.id })
 
-  return updated
+  // 回读而不是用 `returning()` 的整行：视图要签名 key 的两列，而它们在另一张表上。
+  // 一次主键查询换掉"视图缺字段"与"更新结果和列表不一致"两种可能。
+  return updated ? getSubscription(db, owner, updated.id) : undefined
 }
 
 /**
@@ -478,67 +536,33 @@ export async function deleteSubscription(
 }
 
 /**
- * 轮换签名密钥。
+ * 投递签名的验签密钥，从 `api_keys.key_hash` 派生。
  *
- * 旧密钥**立刻**失效：这里只覆盖 `secret_hash` 一列，没有「上一把密钥仍然有效」的
- * 宽限期——否则轮换就变成了一个需要解释「什么时候彻底生效」的动作，而真正的轮换
- * 需求（密钥疑似泄露）要求的是立刻。
+ * **一把 key 一个密钥**，同 key 名下的所有订阅共用它：接收方持有那把 key 就能验
+ * 全部，不必在 key 之外再保管一份按订阅下发的凭据。派生的两步都是确定性的，所以
+ * 两边不需要协商任何东西：
  *
- * 与 `rotateApiKey` 不同的是这里**不**留旧记录：`api_keys` 留 `revoked_at` 是因为一把
- * key 可以有多个签发记录要能对账，而订阅密钥只用于验签，没有任何审计价值。
- */
-export async function rotateSubscriptionSecret(
-  db: Database,
-  owner: SubscriptionOwner,
-  id: string
-): Promise<SubscriptionRotated | undefined> {
-  const existing = await getSubscription(db, owner, id)
-  if (!existing) return undefined
-
-  const secret = generateSecret()
-  const rotatedAt = new Date()
-
-  await db
-    .update(subscriptions)
-    .set({
-      secretHash: hashSecret(secret),
-      secretPrefix: prefixOf(secret),
-      updatedAt: sql`now()`,
-    })
-    .where(and(eq(subscriptions.id, id), ownerCondition(owner)))
-
-  return {
-    id: existing.id,
-    secretPrefix: prefixOf(secret),
-    secret,
-    rotatedAt: rotatedAt.toISOString(),
-  }
-}
-
-/**
- * 投递签名的密钥，从库里存的那份 `secret_hash` 推出来。
+ *   1. `sha256(key 明文)` 取 hex —— 就是库里存的 `api_keys.key_hash`；
+ *   2. `base64url(HMAC-SHA256(key=SUBSCRIPTION_SIGNING_LABEL, message=上一步))`。
  *
- * **§6.1 只存 `sha256(明文)`，而 §6.5 要用密钥做 HMAC 签名 —— 这两件事不可能同时
- * 成立**，除非签名密钥由 hash 派生。设计文档自己没有写出这一步（§4.3 为 api key 的
- * callback secret 写了同一件事的另一个实例：`HMAC(key="mcp-radar-callback-v1",
- * message=sha256(keyHash))`），所以这里照 §4.3 的形状补上，并把它导出：接收方拿到
- * 明文后做同样两步就能验签，而明文全程不必出现在投递进程里。
+ * 接收方自己算第 1 步（它有明文），console 从库里读第 1 步（它只有 hash）。明文
+ * 因此全程不必出现在投递进程里，而 `key_hash` 泄露也只能伪造投给自家回调地址的
+ * 签名 —— 调 API 要的是明文。
  *
- * 为什么不改成存可逆加密的密钥：那样每次投递都要解密一次才能签名，而解密密钥本身要
- * 放在同一个进程里，于是「数据库泄漏」从「拿不到明文」退化成「拿到明文 + 拿到解密
- * 密钥」。派生方案里明文只在 create / rotate 的响应里存在过一次。
+ * 为什么不改成存一把可逆加密的密钥：那样每次投递都要解密一次，而解密密钥本身要放
+ * 在同一个进程里，于是「数据库泄漏」从「拿不到明文」退化成「拿到明文 + 拿到解密
+ * 密钥」。派生方案里明文只在签发 key 的那次响应里出现过。
+ *
+ * 吊销 key **不**停止投递（签名取的是 `key_hash` 的当前值，而那一列不随 `revoked_at`
+ * 变）：吊销管的是"还能不能调 API"，与"这条订阅还要不要推"是两个问题。轮换 key 则
+ * 会换掉 `key_hash`，验签密钥随之改变 —— 接收方跟着换即可，不需要任何轮换端点。
  */
 export const SUBSCRIPTION_SIGNING_LABEL = "mcp-radar-subscription-v1"
 
-/**
- * `base64url(HMAC-SHA256(key=label, message=sha256(明文)))`。
- *
- * 接收方的算法：`sha256(明文)` 取 hex，再走一次上面这个 HMAC，得到的 base64url 串就是
- * 验签用的密钥。两次变换都是确定性的，所以两边不需要协商任何东西。
- */
-export function deriveSigningKey(secretHash: string): string {
+/** 见 {@link deriveSigningKey}：输入是 `api_keys.key_hash`，不是某条订阅自己的密钥。 */
+export function deriveSigningKey(keyHash: string): string {
   return createHmac("sha256", SUBSCRIPTION_SIGNING_LABEL)
-    .update(secretHash, "utf8")
+    .update(keyHash, "utf8")
     .digest("base64url")
 }
 

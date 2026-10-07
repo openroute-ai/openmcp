@@ -16,6 +16,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import {
   AlertCircle,
+  Bot,
   Calendar,
   CheckCircle,
   Download,
@@ -23,6 +24,7 @@ import {
   FolderOpen,
   Monitor,
   Package,
+  Sparkles,
   XCircle,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -31,23 +33,38 @@ import { toast } from 'sonner'
 import { LocaleLink } from '@/i18n/navigation'
 import { trpc } from '@/lib/trpc/client'
 
-type SkillInstall = {
+/**
+ * One install row. Skills and MCP/A2A share the shape on purpose: they are the
+ * same thing to a user (an asset they obtained), and the console should not
+ * have to branch on two list formats to render one page.
+ */
+type InstallRecord = {
   id: string
-  skillId: string
-  runtime: string
+  kind: 'skill' | 'mcp' | 'a2a'
+  assetId: string
+  runtime: string | null
   installPath: string | null
   status: string
   installedAt: Date
   lastUsedAt: Date | null
-  skillTitle: string | null
-  skillSlug: string | null
-  skillVersion: string | null
+  title: string | null
+  slug: string | null
+  version: string | null
   securityGrade: string | null
-  skillExists: boolean
+  exists: boolean
 }
+
+const KINDS = ['skill', 'mcp', 'a2a'] as const
+type Kind = (typeof KINDS)[number]
 
 const RUNTIMES = ['cursor', 'claude-code', 'codex', 'generic'] as const
 type Runtime = (typeof RUNTIMES)[number]
+
+const kindIcon: Record<Kind, typeof Package> = {
+  skill: Package,
+  mcp: Bot,
+  a2a: Sparkles,
+}
 
 const runtimeBadgeClass: Record<Runtime, string> = {
   cursor: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
@@ -66,16 +83,32 @@ const runtimeIconClass: Record<Runtime, string> = {
   generic: 'text-gray-600 dark:text-gray-400',
 }
 
-function isRuntime(value: string): value is Runtime {
-  return (RUNTIMES as readonly string[]).includes(value)
+const kindBadgeClass: Record<Kind, string> = {
+  skill: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300',
+  mcp: runtimeBadgeClass.codex,
+  a2a: runtimeBadgeClass['claude-code'],
 }
 
-/** Install history for the signed-in user, filterable by runtime and status. */
+function isRuntime(value: string | null): value is Runtime {
+  return value !== null && (RUNTIMES as readonly string[]).includes(value)
+}
+
+/** Where an install row links back to: the asset's own detail page. */
+function detailHref(install: InstallRecord): string | null {
+  if (!install.slug && !install.assetId) return null
+  const target = install.slug || install.assetId
+  if (install.kind === 'skill') return `/skills/${target}`
+  if (install.kind === 'mcp') return `/mcp/${target}`
+  return `/a2a/${target}`
+}
+
+/** Install history for the signed-in user, filterable by kind, runtime and status. */
 export function SkillInstallsList() {
   const t = useTranslations('Dashboard.myInstalls')
   const locale = useLocale()
   const dateFnsLocale = locale === 'zh' ? zhCN : enUS
 
+  const [kindFilter, setKindFilter] = useState<string>('all')
   const [runtimeFilter, setRuntimeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -89,24 +122,27 @@ export function SkillInstallsList() {
     },
   })
 
-  const installs = useMemo(() => (data?.success ? data.data : []) as SkillInstall[], [data])
+  const installs = useMemo(() => (data?.success ? data.data : []) as InstallRecord[], [data])
 
   const filtered = useMemo(
     () =>
       installs.filter((install) => {
+        if (kindFilter !== 'all' && install.kind !== kindFilter) return false
+        // Runtime only describes how a skill was installed; MCP/A2A rows have
+        // none, so the filter simply does not match them.
         if (runtimeFilter !== 'all' && install.runtime !== runtimeFilter) return false
         if (statusFilter !== 'all' && install.status !== statusFilter) return false
         return true
       }),
-    [installs, runtimeFilter, statusFilter]
+    [installs, kindFilter, runtimeFilter, statusFilter]
   )
 
-  const handleToggleStatus = (install: SkillInstall) => {
+  const handleToggleStatus = (install: InstallRecord) => {
     const next = install.status === 'active' ? 'removed' : 'active'
     if (next === 'removed' && !window.confirm(t('markRemovedConfirm'))) return
 
     setStatus.mutate(
-      { installId: install.id, status: next },
+      { installId: install.id, status: next, kind: install.kind },
       {
         onError: (mutationError) => toast.error(mutationError.message || t('updateFailed')),
       }
@@ -156,6 +192,23 @@ export function SkillInstallsList() {
     <div className='space-y-4'>
       <div className='flex flex-wrap gap-4'>
         <div className='flex items-center gap-2'>
+          <label className='font-medium text-sm'>{t('filters.kind')}</label>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger className='w-[130px]'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='all'>{t('filters.all')}</SelectItem>
+              {KINDS.map((kind) => (
+                <SelectItem key={kind} value={kind}>
+                  {t(`filters.kinds.${kind}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className='flex items-center gap-2'>
           <label className='font-medium text-sm'>{t('filters.runtime')}</label>
           <Select value={runtimeFilter} onValueChange={setRuntimeFilter}>
             <SelectTrigger className='w-[150px]'>
@@ -200,16 +253,28 @@ export function SkillInstallsList() {
       ) : (
         filtered.map((install) => {
           const runtime: Runtime = isRuntime(install.runtime) ? install.runtime : 'generic'
+          const KindIcon = kindIcon[install.kind]
+          const href = detailHref(install)
+          const fallbackTitle =
+            install.kind === 'skill' ? t('unknownSkill') : t('unknownAsset')
+
           return (
             <Card key={install.id}>
               <CardHeader>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <CardTitle className='text-xl'>{install.skillTitle || t('unknownSkill')}</CardTitle>
+                  <CardTitle className='text-xl'>{install.title || fallbackTitle}</CardTitle>
 
-                  <Badge variant='outline' className={runtimeBadgeClass[runtime]}>
-                    <Monitor className='mr-1 h-3 w-3' />
-                    {t(`filters.runtimes.${runtime}`)}
+                  <Badge variant='outline' className={kindBadgeClass[install.kind]}>
+                    <KindIcon className='mr-1 h-3 w-3' />
+                    {t(`filters.kinds.${install.kind}`)}
                   </Badge>
+
+                  {install.runtime && (
+                    <Badge variant='outline' className={runtimeBadgeClass[runtime]}>
+                      <Monitor className='mr-1 h-3 w-3' />
+                      {t(`filters.runtimes.${runtime}`)}
+                    </Badge>
+                  )}
 
                   {install.status === 'active' ? (
                     <Badge
@@ -249,9 +314,9 @@ export function SkillInstallsList() {
 
                 <CardDescription className='mt-2 flex flex-col gap-2 text-sm'>
                   <div className='flex flex-wrap items-center gap-4'>
-                    {install.skillVersion && (
+                    {install.version && (
                       <span className='flex items-center gap-1'>
-                        <Package className='h-4 w-4' />v{install.skillVersion}
+                        <Package className='h-4 w-4' />v{install.version}
                       </span>
                     )}
                     <span className='flex items-center gap-1'>
@@ -285,21 +350,25 @@ export function SkillInstallsList() {
               </CardHeader>
 
               <CardContent>
-                {install.skillExists ? (
+                {install.exists ? (
                   <div className='flex flex-wrap gap-2'>
-                    <Button variant='outline' size='sm' asChild>
-                      <LocaleLink href={`/skills/${install.skillSlug || install.skillId}`}>
-                        <ExternalLink className='mr-2 h-4 w-4' />
-                        {t('viewDetail')}
-                      </LocaleLink>
-                    </Button>
+                    {href && (
+                      <Button variant='outline' size='sm' asChild>
+                        <LocaleLink href={href}>
+                          <ExternalLink className='mr-2 h-4 w-4' />
+                          {t('viewDetail')}
+                        </LocaleLink>
+                      </Button>
+                    )}
 
-                    <Button variant='outline' size='sm' asChild>
-                      <a href={`/api/skills/${install.skillSlug || install.skillId}/package`}>
-                        <Download className='mr-2 h-4 w-4' />
-                        {t('reinstall')}
-                      </a>
-                    </Button>
+                    {install.kind === 'skill' && (
+                      <Button variant='outline' size='sm' asChild>
+                        <a href={`/api/skills/${install.slug || install.assetId}/package`}>
+                          <Download className='mr-2 h-4 w-4' />
+                          {t('reinstall')}
+                        </a>
+                      </Button>
+                    )}
 
                     <Button
                       variant='outline'
@@ -314,7 +383,9 @@ export function SkillInstallsList() {
                         </>
                       ) : (
                         <>
-                          <CheckCircle className={runtimeIconClass[runtime]} />
+                          <CheckCircle
+                            className={install.kind === 'skill' ? runtimeIconClass[runtime] : 'text-primary'}
+                          />
                           {t('restore')}
                         </>
                       )}
@@ -323,7 +394,9 @@ export function SkillInstallsList() {
                 ) : (
                   <Alert>
                     <AlertCircle className='h-4 w-4' />
-                    <AlertDescription className='text-sm'>{t('skillRemoved')}</AlertDescription>
+                    <AlertDescription className='text-sm'>
+                      {install.kind === 'skill' ? t('skillRemoved') : t('assetRemoved')}
+                    </AlertDescription>
                   </Alert>
                 )}
               </CardContent>

@@ -64,21 +64,6 @@ const envSchema = {
   GITHUB_DATA_WEBHOOK_URL: optionalList,
   GITHUB_DATA_WEBHOOK_SECRET: optionalString,
 
-  WEEKLY_WEBHOOK_URL: optionalString,
-  MONTHLY_WEBHOOK_URL: optionalString,
-  DAILY_WEBHOOK_TOKEN: optionalString,
-
-  /**
-   * Bearer for `GET /api/skills-sync/export` and for the operator retry button.
-   *
-   * This is the **pull** direction's credential only. The push direction has no
-   * shared secret: each submitter sends its own `callbackSecret` with
-   * `POST /api/v1/projects` and console signs each delivery with it, so holding
-   * this value grants read access to every project's skills and no ability to
-   * push to any of them.
-   */
-  SKILLS_WEBHOOK_TOKEN: optionalString,
-
   API_TRIGGER_BUILD_WEBHOOK_URL: optionalString,
   RANKINGS_ROOT_URL: optionalUrl,
 

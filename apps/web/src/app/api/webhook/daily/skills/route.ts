@@ -11,8 +11,8 @@
  *      destination and its key are per-submitter and travel on the
  *      `POST /api/v1/projects` call that registered the repository, because
  *      console has no deployment-wide skills endpoint.
- *   2. a plain bearer matching `WEB_SKILLS_INGEST_TOKEN|SKILLS_WEBHOOK_TOKEN`, so
- *      a console that predates per-submitter callbacks still works.
+ *   2. a plain bearer matching `WEB_SKILLS_INGEST_TOKEN`, so a console that
+ *      predates per-submitter callbacks still works.
  *
  * Fails closed with 404 when neither credential is configured.
  *
@@ -21,8 +21,8 @@
  *   callbackSecret=<CONSOLE_SKILLS_CALLBACK_SECRET>
  *
  * Optional pull (same payload shape), which authorises the other direction —
- * this app reading console's export with `SKILLS_WEBHOOK_TOKEN`:
- *   curl -H "Authorization: Bearer $SKILLS_WEBHOOK_TOKEN" \
+ * this app reading console's export with an api key carrying `skills:read`:
+ *   curl -H "Authorization: Bearer $CONSOLE_API_KEY" \
  *     "$CONSOLE_URL/api/skills-sync/export?limit=100"
  */
 

@@ -10,9 +10,9 @@
  * It is also the safety net for the push direction, because the push is now
  * per-submitter: a destination that was wrong, or that was unreachable while
  * this app restarted, leaves rows queued on the submitter's side that only it
- * can resolve. `SKILLS_WEBHOOK_TOKEN` is what makes that possible — it is
- * granted per consumer rather than shared with the push path, so holding it
- * grants read access to every project's skills and no ability to push to any.
+ * can resolve. A `skills:read` api key is what makes that possible — it is
+ * granted per key rather than shared with the push path, so holding it grants
+ * read access to every project's skills and no ability to push to any.
  *
  * Pagination is by cursor rather than offset, because a skill that is
  * acknowledged mid-walk must not shift the page boundary. The cursor is the
@@ -24,13 +24,14 @@
  * itself the thing that hides work, and the acknowledgement belongs to
  * whoever confirms delivery.
  *
- * Fails closed like the other token routes: with no `SKILLS_WEBHOOK_TOKEN` the
- * route reports 404 rather than 401.
+ * Authenticated like `/api/v1`, by api key rather than by a deployment-wide
+ * shared secret: the same `Bearer` lookup in `api_keys`, the same scope check,
+ * the same rate limit. An unknown key answers 404, so an unconfigured caller
+ * learns nothing about which of the two it got wrong.
  */
 
 import { db } from "@/db/client"
-import { authorized } from "@/lib/cron/guard"
-import { syncEnv } from "@/lib/env"
+import { authenticateApiKey } from "@/lib/api/guard"
 import { listSkillsForExport } from "@/lib/github/service/skill"
 import { buildSkillWebhookPayload } from "@/lib/webhook/skill-webhook"
 import { NextResponse } from "next/server"
@@ -42,15 +43,8 @@ const MAX_LIMIT = 500
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
-  const secret = syncEnv().SKILLS_WEBHOOK_TOKEN
-
-  if (!secret) {
-    return NextResponse.json({ error: "not found" }, { status: 404 })
-  }
-
-  if (!authorized(request.headers.get("authorization"), secret)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 })
-  }
+  const auth = await authenticateApiKey(request, { scope: "skills:read" })
+  if (!auth.ok) return auth.response
 
   const params = new URL(request.url).searchParams
   const limit = readLimit(params.get("limit"))

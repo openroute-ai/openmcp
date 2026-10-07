@@ -1,2 +1,0 @@
-ALTER TABLE "repo_anomalies" ADD COLUMN "magnitude" double precision DEFAULT 0 NOT NULL;--> statement-breakpoint
-CREATE INDEX "repo_anomalies_open_by_kind_magnitude_idx" ON "repo_anomalies" USING btree ("status","kind","magnitude");

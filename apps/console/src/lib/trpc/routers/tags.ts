@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { projectsToTags, tags } from "@/db/schema"
 import { deleteTag, listTags, upsertTag } from "@/lib/github/service/tag"
-import { createTRPCRouter, adminProcedure } from "../init"
+import { listCategories } from "@/lib/github/service/category"
+import { createTRPCRouter, adminProcedure, protectedProcedure } from "../init"
 
 /**
  * Tag vocabulary management.
@@ -22,6 +23,21 @@ export const tagsRouter = createTRPCRouter({
    * add a way for an editor to miss a tag that exists.
    */
   list: adminProcedure.query(async ({ ctx }) => listTags(ctx.db)),
+
+  /**
+   * 运营分类，给订阅过滤器的多选下拉用（`categories.code` + 展示名）。
+   *
+   * `protectedProcedure` 而不是 admin：过滤是**读**，而 `list` / `upsert` / `remove`
+   * 改的是分类表本身——让普通订阅方看见分类清单，与让他改分类清单是两件事。
+   *
+   * 也不带 `activeOnly`：停用一个分类只是让它不再有新项目，归档在它名下的仓库仍然
+   * 是这条订阅要推的东西。下拉里少一个选项，会让一条早已配好的订阅在读者只是打开
+   * 看了一眼之后，于下次保存时悄悄缩小范围。
+   */
+  categories: protectedProcedure.query(async ({ ctx }) => {
+    const rows = await listCategories(ctx.db)
+    return rows.map((row) => ({ code: row.code, name: row.name }))
+  }),
 
   /**
    * Creates a tag, or edits the mutable fields of one that already exists.

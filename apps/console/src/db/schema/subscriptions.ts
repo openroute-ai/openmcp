@@ -17,7 +17,6 @@
 import { relations, sql } from "drizzle-orm"
 import {
   boolean,
-  check,
   index,
   integer,
   jsonb,
@@ -33,12 +32,16 @@ import { apiKeys } from "./api-keys"
 export const SUBSCRIPTION_CADENCES = ["daily", "weekly", "monthly"] as const
 export type SubscriptionCadence = (typeof SUBSCRIPTION_CADENCES)[number]
 
-/** 推什么内容。与 key 的 `scopes` 是两回事，见 `lib/api/contract.ts`。 */
+/**
+ * 推什么内容。与 key 的 `scopes` 是两回事，见 `lib/api/contract.ts`。
+ *
+ * 刻意没有 `repos.user_repos`：那是订阅者自己的私有数据（`note` / `pinned` 等），
+ * 只该在 console 读，**绝不随订阅推给任何回调地址**。
+ */
 export const SUBSCRIPTION_SCOPES = [
   "repos.stats",
   "repos.rankings",
   "repos.metadata",
-  "repos.user_repos",
 ] as const
 export type SubscriptionScope = (typeof SUBSCRIPTION_SCOPES)[number]
 
@@ -63,35 +66,38 @@ export const subscriptions = pgTable(
     name: text("name").notNull(),
 
     /**
-     * 归属主体：API key 或 console 账号，**二选一**。
+     * 签名用的那把 api key，**恒非空**。
      *
-     * 订阅既可能是某个接入方的（M2M），也可能是某个 console 用户订阅自己的提交。
-     * 下面的 CHECK 保证恰好一个非空，否则投递时无从判断"这是谁的订阅"——`$owner`
-     * 到底取哪一列，会变成一个"两个都非空时听谁的"的隐式分支。
+     * 投递签名不再由每条订阅自己生成一份密钥，而是从这把 key 的 `key_hash` 派生
+     * （`deriveSigningKey`）：一个接入方只持有自己那把 key 就能验签，不必在 key 之外
+     * 再存第二个凭据；同一把 key 名下的多个订阅共用同一个验签密钥。
+     *
+     * 它同时也是 v1 侧的归属主体（`/api/v1/subscriptions` 只列这把 key 名下的行），
+     * 与下面的 `userId` 不冲突：`userId` 非空表示这条是 console 会话里建的，那一行
+     * 仍然有一把 key 只是**用来签名**，归属判定走 `user_id is null` 的反面。
      */
-    apiKeyId: text("api_key_id").references(() => apiKeys.id, {
-      onDelete: "cascade",
-    }),
+    apiKeyId: text("api_key_id")
+      .notNull()
+      .references(() => apiKeys.id, {
+        onDelete: "cascade",
+      }),
+
+    /**
+     * console 会话里建的订阅才有的归属列，M2M（v1）建的为 NULL。
+     *
+     * 两种归属不再互斥：会话建的订阅既要记"谁建的"，也要有一把 key 来签名。
+     * 服务层的 `ownerCondition` 因此按 `user_id is null` 区分两种列表，而不是靠
+     * 两列的非空组合。
+     */
     userId: text("user_id").references(() => user.id, {
       onDelete: "cascade",
     }),
 
     callbackUrl: text("callback_url").notNull(),
 
-    /**
-     * 只存 `sha256(明文)`，与 `api_keys.key_hash` 同一种取舍：随机串不是人选的口令，
-     * 没有字典可抗，而慢哈希要让**每一次投递**付出一段延迟。
-     *
-     * 明文只在 create / rotate 的响应里返回一次。丢了就轮换，没有"找回"。
-     */
-    secretHash: text("secret_hash").notNull(),
-
-    /** 明文的前 4 个字符，够人工比对，不足以签名。 */
-    secretPrefix: text("secret_prefix").notNull(),
-
     cadence: text("cadence").$type<SubscriptionCadence>().notNull().default("daily"),
 
-    /** 推什么。`$type` 把 text 收窄成四个字面量，而不是建 pg_enum（加值要先改类型）。 */
+    /** 推什么。`$type` 把 text 收窄成三个字面量，而不是建 pg_enum（加值要先改类型）。 */
     scopes: text("scopes").array().$type<SubscriptionScope[]>().notNull(),
 
     /**
@@ -105,10 +111,6 @@ export const subscriptions = pgTable(
       .notNull()
       .default(sql<string[]>`'{}'::text[]`),
     categoryCodes: text("category_codes")
-      .array()
-      .notNull()
-      .default(sql<string[]>`'{}'::text[]`),
-    platformTypes: text("platform_types")
       .array()
       .notNull()
       .default(sql<string[]>`'{}'::text[]`),
@@ -159,16 +161,9 @@ export const subscriptions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }),
   },
   (table) => [
-    // 归属二选一。`<>` 是异或，所以两列都非空与都为空都被拒。
-    //
-    // 用具名的 `check(...)` 而不是裸 `sql`：`sql` 在这个数组里会被当成一张表的
-    // "额外约束"而**不进** drizzle 的 schema 模型，于是 `drizzle-kit generate`
-    // 不会生成它、`push` 还会反过来提出把它删掉。具名的 CHECK 两边都认。
-    check(
-      "subscriptions_one_owner_ck",
-      sql`("api_key_id" is not null) <> ("user_id" is not null)`
-    ),
-    // 「列出我的订阅」是唯一的管理入口，两种归属各一条。
+    // 「列出我的订阅」是唯一的管理入口，两种归属各一条。`api_key_id` 由
+    // `NOT NULL` 约束住（它同时是签名 key），所以这里不再需要一条 CHECK 来
+    // 挡"两列都空"——`api_key_id is null` 在新行上不可能发生。
     index("subscriptions_key_idx").on(table.apiKeyId),
     index("subscriptions_user_idx").on(table.userId),
     // 投递任务每轮扫这个索引；部分索引让它只覆盖真正在推的那些行。

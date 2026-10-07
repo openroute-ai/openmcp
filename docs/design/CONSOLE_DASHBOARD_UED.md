@@ -27,7 +27,7 @@
 | 余额与充值 | `/settings/recharge` | Existing; new sidebar label |
 | API 密钥 | `/dashboard/apikeys` | Existing |
 | 我的收藏 | `/dashboard/favorites` | Existing |
-| 我的下载 | `/dashboard/downloads` | Existing |
+| 我的安装 | `/dashboard/installs` | Existing; merged skills + MCP/A2A installs (download page removed) |
 
 ### 发布（provider only — `requireProvider: true`）
 
@@ -45,6 +45,7 @@ Hide entire **发布** group when user is not a verified/onboarded provider (`da
 
 | Label | Path | Notes |
 |-------|------|-------|
+| 账户设置 | `/settings/setup` | NEW — left rail: 资料 / 安全 / 实名 / 企业 / 收款（`?section=` 同步）|
 | 个人资料 | `/settings/profile` | Enhance — merged 安全（password + bind email + delete account）|
 | 企业主体 | `/settings/organization` | NEW — company KYC / upgrade CTA |
 | 发票信息 | `/settings/invoice` | NEW — store profile only |
@@ -55,6 +56,7 @@ Hide entire **发布** group when user is not a verified/onboarded provider (`da
 - Group name「我的工作流」
 - Mixed「个人设置」hub dumping API keys + bills + income together
 - Sidebar label「消费账单」→ replaced by 「用量与花费」（内含月度账单，旧 `/settings/bills` kept）
+- 「我的下载」page + sidebar entry (download == install; server keeps `skill_downloads`)
 
 ## Old routes (kept)
 

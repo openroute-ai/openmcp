@@ -2,13 +2,12 @@
  * `/console/subscriptions` — 一个账号自己的订阅。
  *
  * 页面里没有一处权限判断，也不该有：`listMine` / `create` / `update` / `remove` /
- * `rotateSecret` / `sendTest` 全是 `protectedProcedure`，而归属过滤在服务层的 SQL 里按
- * `{ userId: session.user.id }` 发生（§6.7）。页面最容易漏检查，所以三处归属决定都不在
- * 这里。
+ * `sendTest` 全是 `protectedProcedure`，而归属过滤在服务层的 SQL 里按
+ * `{ userId: session.user.id }` 发生（§6.7）。页面最容易漏检查，所以归属决定都不在这里。
  *
- * 一件刻意不做的事：**没有**"看别人的订阅"的入口，`subscriptions:write` 也不自助授予
- * （§2.5）。console 用户要 M2M 订阅就自己签一把 service key 走 `/api/v1/subscriptions`，
- * 两条路的归属主体不同，投递时的 `$owner` 也不同（§6.7 末尾那条注释说的就是这件事）。
+ * 建订阅时表单里要挑一把**自己的** api key：验签密钥由它的 `key_hash` 派生，这是这条
+ * 入口与 `/api/v1/subscriptions` 的唯一差别（v1 那条的 key 来自鉴权主体，不需要挑）。
+ * 两条路写进 `subscriptions` 的形状因此是一样的，投递时的 `$owner` 也一样（§6.7）。
  */
 "use client"
 
@@ -44,7 +43,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { IconPlayerPlay, IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react"
+import { IconPlayerPlay, IconPlus, IconTrash } from "@tabler/icons-react"
 import { SUBSCRIPTION_SCOPES } from "@/db/schema/subscriptions"
 import {
   DetailButton,
@@ -52,7 +51,7 @@ import {
   SubscriptionsTable,
   type SubscriptionRow,
 } from "@/components/subscriptions/subscriptions-table"
-import { SubscriptionSecretDialog } from "@/components/subscriptions/subscription-secret-dialog"
+import { SubscriptionCreatedDialog } from "@/components/subscriptions/subscription-created-dialog"
 import {
   EMPTY_FILTERS,
   SubscriptionFiltersForm,
@@ -65,14 +64,19 @@ import type { inferRouterInputs } from "@trpc/server"
 import type { appRouter } from "@/lib/trpc/root"
 
 /** 建订阅的表单形状，与 `subscriptionRequestSchema` 的必填项一一对应。 */
-type CreateInput = inferRouterInputs<typeof appRouter>["subscriptions"]["create"]
+type CreateInput = inferRouterInputs<
+  typeof appRouter
+>["subscriptions"]["create"]
 
 export function ConsoleSubscriptionsContent() {
   const t = useTranslations("Subscriptions")
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
-  const [secret, setSecret] = React.useState<string | null>(null)
+  // 建订阅的弹窗归这一层管，因为确认弹窗关掉时要连它一起关：两层叠着，读者会以为
+  // 刚才那次提交没成功，而下一次要建还得先把上面那层点掉。
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [created, setCreated] = React.useState(false)
   const [detailId, setDetailId] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState<SubscriptionRow | null>(null)
   const [testResult, setTestResult] = React.useState<string | null>(null)
@@ -100,8 +104,8 @@ export function ConsoleSubscriptionsContent() {
 
   const create = useMutation(
     trpc.subscriptions.create.mutationOptions({
-      onSuccess: (result) => {
-        setSecret(result.secret)
+      onSuccess: () => {
+        setCreated(true)
         void invalidate()
       },
     })
@@ -115,14 +119,8 @@ export function ConsoleSubscriptionsContent() {
     })
   )
   const remove = useMutation(
-    trpc.subscriptions.remove.mutationOptions({ onSuccess: () => void invalidate() })
-  )
-  const rotate = useMutation(
-    trpc.subscriptions.rotateSecret.mutationOptions({
-      onSuccess: (result) => {
-        setSecret(result.secret)
-        void invalidate()
-      },
+    trpc.subscriptions.remove.mutationOptions({
+      onSuccess: () => void invalidate(),
     })
   )
   const sendTest = useMutation(
@@ -148,6 +146,8 @@ export function ConsoleSubscriptionsContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <CreateSubscriptionDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
             pending={create.isPending}
             error={create.error?.message ?? null}
             onCreate={(input) => create.mutate(input)}
@@ -173,14 +173,6 @@ export function ConsoleSubscriptionsContent() {
                   onConfirm={() => sendTest.mutate({ id: row.id })}
                   disabled={sendTest.isPending || remove.isPending}
                   icon={<IconPlayerPlay className="size-4" />}
-                />
-                <ConfirmButton
-                  label={t("rotate")}
-                  title={t("rotate")}
-                  description={t("rotateConfirm")}
-                  onConfirm={() => rotate.mutate({ id: row.id })}
-                  disabled={rotate.isPending}
-                  icon={<IconRefresh className="size-4" />}
                 />
                 <Button
                   variant="outline"
@@ -218,10 +210,12 @@ export function ConsoleSubscriptionsContent() {
         onSave={(patch) => update.mutate({ id: editing!.id, ...patch })}
       />
 
-      <SubscriptionSecretDialog
-        secret={secret ?? ""}
-        open={secret !== null}
-        onAcknowledged={() => setSecret(null)}
+      <SubscriptionCreatedDialog
+        open={created}
+        onAcknowledged={() => {
+          setCreated(false)
+          setCreateOpen(false)
+        }}
       />
     </div>
   )
@@ -268,16 +262,20 @@ function ScopePicker({
 }
 
 function CreateSubscriptionDialog({
+  open,
+  onOpenChange,
   onCreate,
   pending,
   error,
 }: {
+  open: boolean
+  onOpenChange: (next: boolean) => void
   onCreate: (input: CreateInput) => void
   pending: boolean
   error: string | null
 }) {
   const t = useTranslations("Subscriptions")
-  const [open, setOpen] = React.useState(false)
+  const trpc = useTRPC()
   const [name, setName] = React.useState("")
   const [callbackUrl, setCallbackUrl] = React.useState("")
   const [cadence, setCadence] = React.useState<CreateInput["cadence"]>("daily")
@@ -285,22 +283,34 @@ function CreateSubscriptionDialog({
   const [scopes, setScopes] = React.useState<CreateInput["scopes"]>([
     "repos.stats",
   ])
-  const [filters, setFilters] = React.useState<SubscriptionFilterValue>(
-    EMPTY_FILTERS
+  const [filters, setFilters] =
+    React.useState<SubscriptionFilterValue>(EMPTY_FILTERS)
+  const [apiKeyId, setApiKeyId] = React.useState("")
+
+  const keys = useQuery(trpc.apiKeys.listMine.queryOptions())
+  const activeKeys = React.useMemo(
+    () => (keys.data ?? []).filter((row) => row.revokedAt === null),
+    [keys.data]
   )
+  // 吊销的 key 不进候选，所以下面这行只在「已选的那把被吊销了」时才会换人。
+  // 重算放在渲染期而不是 effect 里：effect 会让 select 先闪一帧空值。
+  const selectedKeyId = activeKeys.some((row) => row.id === apiKeyId)
+    ? apiKeyId
+    : (activeKeys[0]?.id ?? "")
+
+  // A failed submit keeps its input: the callback URL is long and the
+  // cooldown-like friction of retyping it is the reason people give up.
+  // Clearing the name on *open* rather than on close keeps one rule for every
+  // closing path — the reader's own gesture and the acknowledgement dialog
+  // both collapse into "the next open starts a fresh form".
+  function openCreate() {
+    setName("")
+    onOpenChange(true)
+  }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        // A failed submit keeps its input: the callback URL is long and the
-        // cooldown-like friction of retyping it is the reason people give up.
-        // Closing always clears it, so a half-filled form never reappears later.
-        if (!next) setName("")
-      }}
-    >
-      <Button type="button" disabled={pending} onClick={() => setOpen(true)}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <Button type="button" disabled={pending} onClick={openCreate}>
         <IconPlus className="size-4" />
         {t("newSubscription")}
       </Button>
@@ -320,6 +330,7 @@ function CreateSubscriptionDialog({
               cadence,
               mode,
               scopes,
+              apiKeyId: selectedKeyId,
               filters: filtersToInput(filters),
             })
           }}
@@ -384,6 +395,31 @@ function CreateSubscriptionDialog({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="subscription-api-key">{t("signingKeyLabel")}</Label>
+            {activeKeys.length > 0 ? (
+              <select
+                id="subscription-api-key"
+                className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                value={selectedKeyId}
+                onChange={(event) => setApiKeyId(event.target.value)}
+              >
+                {activeKeys.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} · {row.prefix}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="rounded-md border bg-muted px-3 py-2 text-sm">
+                {keys.isPending ? "…" : t("signingKeyEmpty")}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {t("signingKeyHint")}
+            </p>
+          </div>
+
+          <div className="grid gap-2">
             <Label>{t("scopes")}</Label>
             <ScopePicker value={scopes} onChange={setScopes} />
           </div>
@@ -398,7 +434,12 @@ function CreateSubscriptionDialog({
           <DialogFooter>
             <Button
               type="submit"
-              disabled={pending || scopes.length === 0 || name.length === 0}
+              disabled={
+                pending ||
+                scopes.length === 0 ||
+                name.length === 0 ||
+                selectedKeyId === ""
+              }
             >
               {t("create")}
             </Button>
@@ -516,7 +557,9 @@ function EditForm({
         <div className="grid gap-2">
           <Label>{t("filters")}</Label>
           <SubscriptionFiltersForm value={filters} onChange={setFilters} />
-          <p className="text-xs text-muted-foreground">{t("editFiltersHint")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("editFiltersHint")}
+          </p>
         </div>
 
         {error ? <ErrorNote message={error} /> : null}

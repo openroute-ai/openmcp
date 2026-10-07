@@ -1,15 +1,39 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { skills, skillDownloads, skillInstalls } from '@workspace/db'
+import { listAssetInstalls, setAssetInstallStatus } from '@/web/assets/installs'
+import { skills, skillInstalls } from '@workspace/db'
 
 /**
- * User-facing skill history: what a user has downloaded and what they have
- * installed. Rows keep a denormalised copy of the skill title/slug at the time
- * of the action so entries stay readable after a skill is renamed, and they are
- * left-joined against the live record to detect skills that are since gone.
+ * User-facing install history: what a user has installed.
+ *
+ * Both kinds live here — skills (`skill_installs`) and the MCP/A2A installs
+ * that a gateway call records (`asset_installs`) — because from the user's
+ * point of view they are the same thing: an asset they obtained. Rows keep a
+ * denormalised copy of the title/slug at the time of the action so entries
+ * stay readable after a rename, and they are left-joined against the live
+ * record to detect assets that are since gone.
  */
 
 type Locale = 'zh' | 'en'
+
+export type InstallKind = 'skill' | 'mcp' | 'a2a'
+
+export interface InstallRecord {
+  id: string
+  kind: InstallKind
+  /** Skill id or MCP/A2A asset id, whichever produced the row. */
+  assetId: string
+  runtime: string | null
+  installPath: string | null
+  status: string
+  installedAt: Date
+  lastUsedAt: Date | null
+  title: string | null
+  slug: string | null
+  version: string | null
+  securityGrade: string | null
+  exists: boolean
+}
 
 const currentSkillColumns = {
   id: skills.id,
@@ -32,72 +56,72 @@ function pickTitle(
 }
 
 export const skillsHistoryAccess = {
-  /** Downloads recorded for a user, newest first. */
-  listDownloads: async (userId: string, locale: Locale = 'zh') => {
-    const rows = await db
-      .select({
-        id: skillDownloads.id,
-        skillId: skillDownloads.skillId,
-        status: skillDownloads.status,
-        downloadedAt: skillDownloads.downloadedAt,
-        skillTitle: skillDownloads.skillTitle,
-        skillSlug: skillDownloads.skillSlug,
-        skillVersion: skillDownloads.skillVersion,
-        current: currentSkillColumns,
-      })
-      .from(skillDownloads)
-      .leftJoin(skills, eq(skillDownloads.skillId, skills.id))
-      .where(eq(skillDownloads.userId, userId))
-      .orderBy(desc(skillDownloads.downloadedAt))
+  /**
+   * Installs recorded for a user, newest first.
+   *
+   * Skills and MCP/A2A are two queries merged into one list: `skill_installs`
+   * needs the live skill join for renames/removals, `asset_installs` needs the
+   * live MCP/A2A join for the same reason. The union is sorted once here so
+   * the console never has to re-order (and never sees two list shapes).
+   */
+  listInstalls: async (userId: string, locale: Locale = 'zh'): Promise<InstallRecord[]> => {
+    const [rows, assetRows] = await Promise.all([
+      db
+        .select({
+          id: skillInstalls.id,
+          skillId: skillInstalls.skillId,
+          runtime: skillInstalls.runtime,
+          installPath: skillInstalls.installPath,
+          status: skillInstalls.status,
+          installedAt: skillInstalls.installedAt,
+          lastUsedAt: skillInstalls.lastUsedAt,
+          skillTitle: skillInstalls.skillTitle,
+          skillSlug: skillInstalls.skillSlug,
+          skillVersion: skillInstalls.skillVersion,
+          current: currentSkillColumns,
+        })
+        .from(skillInstalls)
+        .leftJoin(skills, eq(skillInstalls.skillId, skills.id))
+        .where(eq(skillInstalls.userId, userId))
+        .orderBy(desc(skillInstalls.installedAt)),
+      listAssetInstalls(userId),
+    ])
 
-    return rows.map((row) => ({
+    const skillRows: InstallRecord[] = rows.map((row) => ({
       id: row.id,
-      skillId: row.skillId,
-      status: row.status,
-      downloadedAt: row.downloadedAt,
-      skillTitle: pickTitle(row.current, row.skillTitle, locale),
-      skillSlug: row.current?.slug ?? row.skillSlug,
-      skillVersion: row.current?.version ?? row.skillVersion,
-      securityGrade: row.current?.securityGrade ?? null,
-      skillExists: Boolean(row.current),
-    }))
-  },
-
-  /** Installs recorded for a user, newest first. */
-  listInstalls: async (userId: string, locale: Locale = 'zh') => {
-    const rows = await db
-      .select({
-        id: skillInstalls.id,
-        skillId: skillInstalls.skillId,
-        runtime: skillInstalls.runtime,
-        installPath: skillInstalls.installPath,
-        status: skillInstalls.status,
-        installedAt: skillInstalls.installedAt,
-        lastUsedAt: skillInstalls.lastUsedAt,
-        skillTitle: skillInstalls.skillTitle,
-        skillSlug: skillInstalls.skillSlug,
-        skillVersion: skillInstalls.skillVersion,
-        current: currentSkillColumns,
-      })
-      .from(skillInstalls)
-      .leftJoin(skills, eq(skillInstalls.skillId, skills.id))
-      .where(eq(skillInstalls.userId, userId))
-      .orderBy(desc(skillInstalls.installedAt))
-
-    return rows.map((row) => ({
-      id: row.id,
-      skillId: row.skillId,
+      kind: 'skill',
+      assetId: row.skillId,
       runtime: row.runtime,
       installPath: row.installPath,
       status: row.status,
       installedAt: row.installedAt,
       lastUsedAt: row.lastUsedAt,
-      skillTitle: pickTitle(row.current, row.skillTitle, locale),
-      skillSlug: row.current?.slug ?? row.skillSlug,
-      skillVersion: row.current?.version ?? row.skillVersion,
+      title: pickTitle(row.current, row.skillTitle, locale),
+      slug: row.current?.slug ?? row.skillSlug,
+      version: row.current?.version ?? row.skillVersion,
       securityGrade: row.current?.securityGrade ?? null,
-      skillExists: Boolean(row.current),
+      exists: Boolean(row.current),
     }))
+
+    const assetInstallRows: InstallRecord[] = assetRows.map((row) => ({
+      id: row.id,
+      kind: row.assetType,
+      assetId: row.assetId,
+      runtime: null,
+      installPath: null,
+      status: row.status,
+      installedAt: row.installedAt,
+      lastUsedAt: row.lastUsedAt,
+      title: row.assetTitle ?? row.assetName,
+      slug: row.assetSlug,
+      version: null,
+      securityGrade: null,
+      exists: row.assetExists,
+    }))
+
+    return [...skillRows, ...assetInstallRows].sort(
+      (a, b) => b.installedAt.getTime() - a.installedAt.getTime()
+    )
   },
 
   /**
@@ -107,8 +131,11 @@ export const skillsHistoryAccess = {
   setInstallStatus: async (
     userId: string,
     installId: string,
-    status: 'active' | 'removed'
+    status: 'active' | 'removed',
+    kind: InstallKind = 'skill'
   ): Promise<{ ok: boolean; error?: string }> => {
+    if (kind !== 'skill') return setAssetInstallStatus(userId, installId, status)
+
     const [row] = await db
       .select({ id: skillInstalls.id })
       .from(skillInstalls)

@@ -500,6 +500,59 @@ export const skillInstalls = pgTable(
   ]
 )
 
+/**
+ * MCP / A2A 安装记录 —— 「调用即安装」的落点。
+ *
+ * 与 `skill_installs` 分开是因为 MCP / A2A 资产各在一张表里，没有统一的
+ * `skill_id` 外键可挂；这里只存 `asset_type + asset_id` 并对写入时的
+ * `server_name` / `agent_name` 留快照，资产改名后历史条目仍可读。
+ *
+ * 唯一键是 (userId, assetType, assetId)：同一资产重复调用只刷新
+ * `lastUsedAt` 并把状态置回 `active`，不产生第二行。
+ */
+export const assetInstalls = pgTable(
+  'asset_installs',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    assetType: varchar('asset_type', {
+      length: 20,
+      enum: ['mcp', 'a2a'],
+    }).notNull(),
+    assetId: text('asset_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** 谁记下了这次安装：网关对账 / 平台内试调 / Store MCP 安装。 */
+    source: varchar('source', {
+      length: 20,
+      enum: ['call', 'trial', 'install'],
+    })
+      .default('call')
+      .notNull(),
+    status: varchar('status', {
+      length: 20,
+      enum: ['active', 'removed'],
+    })
+      .default('active')
+      .notNull(),
+    installedAt: timestamp('installed_at').default(sql`now()`).notNull(),
+    lastUsedAt: timestamp('last_used_at'),
+    /** `mcp_servers.server_name` / `a2a_agents.agent_name` 写入时的快照。 */
+    assetName: varchar('asset_name', { length: 500 }),
+    createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
+  },
+  (table) => [
+    index('asset_installs_user_idx').on(table.userId),
+    index('asset_installs_asset_idx').on(table.assetType, table.assetId),
+    index('asset_installs_status_idx').on(table.status),
+    index('asset_installs_installed_at_idx').on(table.installedAt),
+    unique('asset_installs_user_asset_unique').on(table.userId, table.assetType, table.assetId),
+  ]
+)
+
 export const skillViews = pgTable(
   'skill_views',
   {

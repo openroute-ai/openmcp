@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { row, secret } = await createSubscription(
+  const { row, signingKey } = await createSubscription(
     db,
     { apiKeyId: auth.principal.keyId },
     parsed.data
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
   return withRateLimitHeaders(
     NextResponse.json(
-      { ...toSubscriptionView(row), secret } satisfies z.output<
+      { ...toSubscriptionView(row), signingKey } satisfies z.output<
         typeof subscriptionCreatedSchema
       >,
       { status: 201 }

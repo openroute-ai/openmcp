@@ -104,7 +104,6 @@ export function SkillPurchase({
     toast.success(t('acquireSuccess'))
     void utils.skills.getSkillById.invalidate({ id: skillId })
     void utils.skills.getSkillBySlug.invalidate({ slug: skillSlug })
-    void utils.skills.listMyDownloads.invalidate()
     return true
   }, [acquireMutation, skillId, skillSlug, t, utils])
 

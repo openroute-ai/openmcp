@@ -22,8 +22,9 @@
  *
  * Env:
  *   CONSOLE_API_BASE_URL - console's public origin.
- *   SKILLS_WEBHOOK_TOKEN - bearer for `GET /api/skills-sync/export`. Must match
- *     console's `SKILLS_WEBHOOK_TOKEN`.
+ *   CONSOLE_API_KEY - api key for `GET /api/skills-sync/export`, which asks for
+ *     the `skills:read` scope. Same credential the submissions use; console
+ *     answers 403 without the scope.
  *   CRON_SECRET - required outside development.
  */
 
@@ -62,8 +63,9 @@ export async function GET(request: Request) {
   const unauthorized = assertCronAuthorized(request)
   if (unauthorized) return unauthorized
 
-  // console fails closed with 404 when its token is unset, so an unconfigured
-  // side is reported as skipped rather than as a failure worth alerting on.
+  // console fails closed when the base URL or the key is unset, so an
+  // unconfigured side is reported as skipped rather than as a failure worth
+  // alerting on.
   if (!consoleSkillsExportConfigured()) {
     return NextResponse.json({
       success: true,

@@ -52,7 +52,6 @@ const schema = z.object({
   projectTypes: projectTypeList,
   categoryCodes: stringList,
   includePlatformProjects: flag.optional(),
-  platformTypes: projectTypeList,
   includeUncurated: flag.optional(),
   includeOwnSubmissions: flag.optional(),
 })
@@ -63,7 +62,6 @@ const KEYS = [
   "projectTypes",
   "categoryCodes",
   "includePlatformProjects",
-  "platformTypes",
   "includeUncurated",
   "includeOwnSubmissions",
 ] as const

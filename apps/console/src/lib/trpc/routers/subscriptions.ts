@@ -4,12 +4,12 @@
  * ## 两个页面，一个 router
  *
  * `/console/subscriptions` 是订阅方自己的入口，`/dashboard/subscriptions` 是管理员的
- * 治理入口，两者共用这里的六个 procedure 与同一个组件。区别只有两处，而且都是这个
- * router 内部决定的，不是页面决定的：
+ * 治理入口，两者共用这里的 procedure 与同一个组件。区别只有两处，而且都是这个 router
+ * 内部决定的，不是页面决定的：
  *
- * - **归属**：`listMine` / `create` / `update` / `remove` / `rotateSecret` /
- *   `sendTest` 全部按 `{ userId: session.user.id }` 读写，而归属过滤发生在服务层的
- *   SQL 里（`ownerCondition`）。页面没有一处权限判断，因为页面是最容易漏检查的地方。
+ * - **归属**：`listMine` / `create` / `update` / `remove` / `sendTest` 全部按
+ *   `{ userId: session.user.id }` 读写，而归属过滤发生在服务层的 SQL 里
+ *   （`ownerCondition`）。页面没有一处权限判断，因为页面是最容易漏检查的地方。
  * - **管理员多一档**：`list` 与 `detail` 是 `protectedProcedure` 而不是
  *   `adminProcedure`——它们对管理员看全部、对普通用户看自己的，正是 §2.4 那个"角色推进
  *   WHERE"模式。管理员真正独有的动作只有 `disable`（§6.7 为什么必须有它：用户可以把
@@ -21,14 +21,19 @@
  * 的意图而不是运营的：管理员替别人改过滤器，会让对方下次投递到的数据形状与他自己配的
  * 不一致，而这件事没有任何记录能解释。
  *
- * ## 明文
+ * ## 签名 key
  *
- * 签名密钥明文只在 `create` 与 `rotateSecret` 的响应里出现一次，之后任何 procedure 都不
- * 返回它——库里只有 `sha256(明文)`。列表因此只能显示 `secretPrefix` 那 4 位。
+ * 订阅不自带密钥：`create` 必须挑一把**这个会话自己的** api key，验签密钥由它派生，
+ * 同一把 key 名下的所有订阅共用。列表显示 `signingKeyPrefix`（那把 key 的前缀），
+ * `create` 与 `detail` 返回完整 `signingKey`——它是可重算的派生值，不是一次性凭据。
+ *
+ * `apiKeyId` 是客户端给的，所以它必须在这里验归属：只挡"不存在"而不挡"是别人的"，
+ * 等于允许任何登录用户拿别人的 key id 建一条订阅，并在响应里读到那把 key 的验签密钥。
  */
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
-import { sql } from "drizzle-orm"
+import { and, eq, isNull, sql } from "drizzle-orm"
+import { apiKeys } from "@/db/schema/api-keys"
 import { subscriptions } from "@/db/schema/subscriptions"
 import { clientIpFromHeaders, writeApiAudit } from "@/lib/api/audit"
 import {
@@ -43,7 +48,6 @@ import {
   listAllSubscriptions,
   listSubscriptions,
   ownerOf,
-  rotateSubscriptionSecret,
   toSubscriptionView,
   updateSubscription,
 } from "@/lib/api/subscriptions"
@@ -85,17 +89,51 @@ export const subscriptionsRouter = createTRPCRouter({
     return listSubscriptions(ctx.db, { userId: ctx.session.user.id })
   }),
 
-  /** 建订阅。签名密钥明文**只**出现在这一次响应里。 */
+  /**
+   * 建订阅。**必须**指定 `apiKeyId`：签名 key 不再是可选项，因为验签密钥由它派生，
+   * 而没有 key 的订阅在新契约下根本无法签名。
+   *
+   * 归属检查在这里做而不在服务层：服务层拿到的 `SubscriptionCreator` 是一个可信的
+   * 内部形状（v1 路径的 key 来自鉴权主体），只有这一条路径会拿到用户输入的 key id。
+   */
   create: protectedProcedure
-    .input(subscriptionRequestSchema)
+    .input(
+      subscriptionRequestSchema.extend({
+        apiKeyId: z
+          .string()
+          .min(1)
+          .describe("用哪把 key 签名。必须是当前账号自己的、未吊销的 api key"),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const { row, secret } = await createSubscription(
+      const { apiKeyId, ...rest } = input
+
+      // 归属条件写在 WHERE 里，不是查出来再比：拿不到就是不存在，与订阅自己的
+      // notFound 同一条规则（"不是你的"与"没有这个"必须无法区分）。
+      const [key] = await ctx.db
+        .select({ id: apiKeys.id })
+        .from(apiKeys)
+        .where(
+          and(
+            eq(apiKeys.id, apiKeyId),
+            eq(apiKeys.userId, ctx.session.user.id),
+            // 吊销的 key 不再能**新建**订阅（签名仍取当前 key_hash，已建的照投，
+            // 见 `deriveSigningKey`）：挑一把已经作废的 key 只会让人以为还没换。
+            isNull(apiKeys.revokedAt)
+          )
+        )
+        .limit(1)
+      if (!key) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No such API key" })
+      }
+
+      const { row, signingKey } = await createSubscription(
         ctx.db,
-        { userId: ctx.session.user.id },
-        input
+        { apiKeyId, userId: ctx.session.user.id },
+        rest
       )
 
-      return { ...toSubscriptionView(row), secret }
+      return { ...toSubscriptionView(row), signingKey }
     }),
 
   /**
@@ -140,20 +178,6 @@ export const subscriptionsRouter = createTRPCRouter({
       if (!removed) notFound()
 
       return { ok: true, id: input.id }
-    }),
-
-  /** 轮换签名密钥。旧的**立刻**失效，没有宽限期（见服务层的理由）。 */
-  rotateSecret: protectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      const rotated = await rotateSubscriptionSecret(
-        ctx.db,
-        { userId: ctx.session.user.id },
-        input.id
-      )
-      if (!rotated) notFound()
-
-      return rotated
     }),
 
   /**

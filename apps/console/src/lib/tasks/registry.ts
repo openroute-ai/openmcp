@@ -18,7 +18,6 @@ import { createPushSkillsTask } from "@/lib/tasks/tasks/push-skills"
 import { createRefreshAuthorsTask } from "@/lib/tasks/tasks/refresh-authors"
 import { createSnapshotStarsTask } from "@/lib/tasks/tasks/snapshot-stars"
 import { createSyncSkillReposTask } from "@/lib/tasks/tasks/sync-skill-repos"
-import { createTriggerRankingsFinishedTask } from "@/lib/tasks/tasks/trigger-ranking-finished"
 import { createUpdateGitHubDataTask } from "@/lib/tasks/tasks/update-github-data"
 import { createUpdateBundleSizeTask } from "@/lib/tasks/tasks/update-bundle-size"
 import { createUpdatePackageDataTask } from "@/lib/tasks/tasks/update-package-data"
@@ -58,10 +57,10 @@ export function installTaskRegistry(): Map<string, Task> {
     createBuildRankingsTask("week"),
     createBuildRankingsTask("month"),
     createNotifyDailyTask(),
-    createTriggerRankingsFinishedTask("week"),
-    createTriggerRankingsFinishedTask("month"),
     // 订阅投递排在两个排行任务之后：`TASK_SEEDS` 的顺序即依赖顺序，而需求要求
     // 「排行全部落库之后再推」，否则接收方拿到的是缺周期的榜单（设计文档 §6.3）。
+    // 周/月榜摘要不再由独立任务推送：`repos.rankings` 订阅携带同一份
+    // `buildRankingsFor*` 的结果，周期由 `cadence` 决定（§6.3）。
     createNotifySubscriptionsTask(),
     createSyncSkillReposTask(),
     createDiscoverSkillReposTask(),

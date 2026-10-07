@@ -44,16 +44,15 @@ stays at the app root, and `@/` resolves to `src/`.
 
 ### Token-guarded routes
 
-`/api/cron/github`, `/api/webhook/[task]` and `/api/skills-sync/export`
-authenticate the same way — a `Bearer` header compared in constant time — and
-all **fail closed**: with no secret configured the route returns 404 rather
-than 401, so an unconfigured instance does not confirm that the route exists.
+`/api/cron/github` and `/api/webhook/[task]` authenticate the same way — a
+`Bearer` header compared in constant time — and both **fail closed**: with no
+secret configured the route returns 404 rather than 401, so an unconfigured
+instance does not confirm that the route exists.
 
-| Route                     | Env var                | Notes                        |
-| ------------------------- | ---------------------- | ---------------------------- |
-| `/api/cron/github`        | `CRON_SECRET`          | Vercel Cron sends it         |
-| `/api/webhook/[task]`     | `CRON_SECRET`          | Same secret, inbound trigger |
-| `/api/skills-sync/export` | `SKILLS_WEBHOOK_TOKEN` | `?cursor=&limit=` paging     |
+| Route                  | Env var       | Notes                        |
+| ---------------------- | ------------- | ---------------------------- |
+| `/api/cron/github`     | `CRON_SECRET` | Vercel Cron sends it         |
+| `/api/webhook/[task]`  | `CRON_SECRET` | Same secret, inbound trigger |
 
 ### Scoped API keys
 
@@ -64,10 +63,11 @@ granted or revoked on its own and a write can be attributed without trusting a
 header. A key without the scope a route asks for gets 403; a missing or unknown
 key gets 401.
 
-| Route                 | Scope            | What it may do                                   |
-| --------------------- | ---------------- | ------------------------------------------------ |
-| `POST /api/v1/repos`  | `repos:write`    | Register a repository. Never creates a project.  |
-| `POST /api/v1/projects` | `projects:write` | Create and publish a project from a repo URL. |
+| Route                    | Scope            | What it may do                                   |
+| ------------------------ | ---------------- | ------------------------------------------------ |
+| `POST /api/v1/repos`     | `repos:write`    | Register a repository. Never creates a project.  |
+| `POST /api/v1/projects`  | `projects:write` | Create and publish a project from a repo URL. |
+| `GET /api/skills-sync/export` | `skills:read` | Page through synced skill documents (`?cursor=&limit=`). |
 
 Keys are minted and scoped from the admin tRPC router (`apiKeys.create`), never
 from a public form.
@@ -183,13 +183,17 @@ Copy `apps/console/.env.example` (or set these in your shell):
 | `REDIS_URL`                   | Redis URL for the auth rate limiter                   |
 | `GITHUB_ACCESS_TOKEN`         | Required by every GitHub call and the sync tasks      |
 | `CRON_SECRET`                 | Bearer for the scheduler and inbound webhook          |
-| `SKILLS_WEBHOOK_TOKEN`        | Bearer for `GET /api/skills-sync/export`              |
 
 Outbound skill delivery has no deployment-wide address. The submitter names it
 per project as `callbackUrl` / `callbackSecret` on `POST /api/v1/projects`, and
 the pair is recorded on the project row so the retry queue can still reach it
 later. A console therefore serves several submitters at once, each with its own
 address and key.
+
+The other direction — reading those documents back out through
+`GET /api/skills-sync/export` — is an api key carrying `skills:read`, minted on
+`/dashboard/api-keys`, so it is revocable and rate-limited per key rather than
+shared through the environment.
 
 `.env.example` documents the rest (translation providers, Aliyun OSS, WeCom,
 build hooks). Most are optional; the tasks that need one are skipped or fail

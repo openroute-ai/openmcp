@@ -28,7 +28,6 @@ import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
 import {
   lastCompletePeriod,
-  periodFromMonth,
   periodFromWeek,
 } from "@/lib/github/snapshot-dates"
 import { upsertStatsRow } from "@/lib/github/service/stats"
@@ -134,20 +133,6 @@ async function seedWeek(
   columns: { totalStars: number; deltaStars?: number }
 ) {
   await upsertStatsRow(db, "week", repoId, periodFromWeek(yearWeek), {
-    levels: { stars: columns.totalStars },
-    ...(columns.deltaStars === undefined
-      ? {}
-      : { changes: { stars: columns.deltaStars } }),
-  })
-}
-
-/** One monthly row, in the same shape. */
-async function seedMonth(
-  repoId: string,
-  yearMonth: { year: number; month: number },
-  columns: { totalStars: number; deltaStars?: number }
-) {
-  await upsertStatsRow(db, "month", repoId, periodFromMonth(yearMonth), {
     levels: { stars: columns.totalStars },
     ...(columns.deltaStars === undefined
       ? {}
@@ -310,130 +295,6 @@ describe.skipIf(!hasDatabase)("notification tasks (integration)", () => {
       const task = imp.createNotifyDailyTask({
         sender: sender as never,
         webhookUrl: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=k",
-        now: () => new Date("2026-03-10T02:00:00Z"),
-      })
-
-      await seed()
-
-      const result = await task.run(fakeContext(db))
-
-      expect(result).toMatchObject({ sent: false })
-      expect(calls).toHaveLength(0)
-    })
-  })
-
-  describe("trigger-weekly-finished", () => {
-    let imp: typeof import("@/lib/tasks/tasks/trigger-ranking-finished")
-
-    beforeAll(async () => {
-      imp = await import("@/lib/tasks/tasks/trigger-ranking-finished")
-    })
-
-    it("sends the top projects with rank and delta", async () => {
-      const { sender, calls } = recordingSender()
-      const task = imp.createTriggerRankingsFinishedTask("week", {
-        sender: sender as never,
-        webhookUrl: "https://consumer.example/weekly",
-        secret: "s3cret",
-        token: "t0ken",
-        now: () => new Date("2026-03-10T02:00:00Z"),
-      })
-
-      const { target } = weekTarget()
-      const previous = { year: target.year, week: target.week - 1 }
-      const { repo, project } = await seed()
-      await seedWeek(repo.id, previous, { totalStars: 100 })
-      await seedWeek(repo.id, target, { totalStars: 130, deltaStars: 30 })
-
-      const result = await task.run(fakeContext(db))
-
-      const payload = calls[0]!.payload as {
-        year: number
-        week: number
-        projects: { rank: number; full_name: string; delta: number }[]
-        total_projects: number
-      }
-      expect(payload.year).toBe(target.year)
-      expect(payload.week).toBe(target.week)
-      expect(payload.total_projects).toBe(1)
-      expect(payload.projects[0]).toMatchObject({
-        rank: 1,
-        full_name: `${repo.owner}/${repo.name}`,
-        delta: 30,
-      })
-      expect(result).toMatchObject({
-        sent: true,
-        webhookSuccessful: 1,
-        webhookFailed: 0,
-      })
-      // The secret and token must reach the sender; they are what the webhook
-      // client signs with and the legacy receivers check.
-      expect(calls[0]!.options).toMatchObject({
-        secret: "s3cret",
-        token: "t0ken",
-      })
-      expect(project.status).toBe("active")
-    })
-
-    it("fails the run when the webhook URL is not configured", async () => {
-      const { sender } = recordingSender()
-      const task = imp.createTriggerRankingsFinishedTask("week", {
-        sender: sender as never,
-        webhookUrl: undefined,
-      })
-
-      await seed()
-
-      await expect(task.run(fakeContext(db))).rejects.toThrow(
-        /WEEKLY_WEBHOOK_URL/
-      )
-    })
-  })
-
-  describe("trigger-monthly-finished", () => {
-    let imp: typeof import("@/lib/tasks/tasks/trigger-ranking-finished")
-
-    beforeAll(async () => {
-      imp = await import("@/lib/tasks/tasks/trigger-ranking-finished")
-    })
-
-    it("sends the previous month's top projects", async () => {
-      const { sender, calls } = recordingSender()
-      const task = imp.createTriggerRankingsFinishedTask("month", {
-        sender: sender as never,
-        webhookUrl: "https://consumer.example/monthly",
-        secret: "s3cret",
-        now: () => new Date("2026-03-10T02:00:00Z"),
-      })
-
-      const { repo } = await seed()
-      // A Tuesday in March: the last complete month is February.
-      await seedMonth(repo.id, { year: 2026, month: 1 }, { totalStars: 100 })
-      await seedMonth(repo.id, { year: 2026, month: 2 }, {
-        totalStars: 130,
-        deltaStars: 30,
-      })
-
-      const result = await task.run(fakeContext(db))
-
-      const payload = calls[0]!.payload as {
-        year: number
-        month: number
-        projects: { full_name: string; delta: number }[]
-      }
-      expect(payload.month).toBe(2)
-      expect(payload.projects[0]).toMatchObject({
-        full_name: `${repo.owner}/${repo.name}`,
-        delta: 30,
-      })
-      expect(result).toMatchObject({ sent: true, month: 2, year: 2026 })
-    })
-
-    it("sends nothing when the month has no data", async () => {
-      const { sender, calls } = recordingSender()
-      const task = imp.createTriggerRankingsFinishedTask("month", {
-        sender: sender as never,
-        webhookUrl: "https://consumer.example/monthly",
         now: () => new Date("2026-03-10T02:00:00Z"),
       })
 

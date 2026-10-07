@@ -45,15 +45,12 @@ function signedRequest(body: string, secret: string, at: Date = new Date()) {
 describe("console skill webhook signature", () => {
   let savedCallback: string | undefined
   let savedIngest: string | undefined
-  let savedWebhookToken: string | undefined
 
   beforeEach(() => {
     savedCallback = process.env.CONSOLE_SKILLS_CALLBACK_SECRET
     savedIngest = process.env.WEB_SKILLS_INGEST_TOKEN
-    savedWebhookToken = process.env.SKILLS_WEBHOOK_TOKEN
     process.env.CONSOLE_SKILLS_CALLBACK_SECRET = SECRET
     delete process.env.WEB_SKILLS_INGEST_TOKEN
-    delete process.env.SKILLS_WEBHOOK_TOKEN
   })
 
   afterEach(() => {
@@ -61,8 +58,6 @@ describe("console skill webhook signature", () => {
     else process.env.CONSOLE_SKILLS_CALLBACK_SECRET = savedCallback
     if (savedIngest === undefined) delete process.env.WEB_SKILLS_INGEST_TOKEN
     else process.env.WEB_SKILLS_INGEST_TOKEN = savedIngest
-    if (savedWebhookToken === undefined) delete process.env.SKILLS_WEBHOOK_TOKEN
-    else process.env.SKILLS_WEBHOOK_TOKEN = savedWebhookToken
   })
 
   it("accepts a genuine signature", () => {
@@ -101,8 +96,8 @@ describe("console skill webhook signature", () => {
     expect(isFreshSignature(String(Math.floor(ahead.getTime() / 1000)))).toBe(false)
   })
 
-  it("accepts a bare bearer for a console that predates per-submitter callbacks", () => {
-    process.env.SKILLS_WEBHOOK_TOKEN = "export-token"
+  it("accepts a plain bearer for a console that predates per-submitter callbacks", () => {
+    process.env.WEB_SKILLS_INGEST_TOKEN = "export-token"
     const request = new Request("http://localhost/api/webhook/daily/skills", {
       method: "POST",
       headers: { authorization: "Bearer export-token" },
@@ -121,9 +116,9 @@ describe("console skill webhook signature", () => {
   })
 
   it("keeps the two credentials independent", () => {
-    // export token 只能读，callback secret 才能写。合成一个值就等于把读权限
-    // 升级成可以伪造技能文档，所以两者必须能分别配置。
-    process.env.SKILLS_WEBHOOK_TOKEN = "export-token"
+    // 入站的裸 bearer 只是老 console 的兜底，callback secret 才是 console 签名用的
+    // 密钥。合成一个值就等于把"能发一个裸 bearer"升级成"能伪造签名过的技能文档"。
+    process.env.WEB_SKILLS_INGEST_TOKEN = "export-token"
     expect(skillsIngestToken()).toBe("export-token")
     expect(skillsCallbackSecret()).toBe(SECRET)
   })

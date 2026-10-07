@@ -396,37 +396,20 @@
       "loading": "加载中...",
       "error": "加载失败，请稍后重试"
     },
-    "myDownloads": {
-      "title": "我的下载",
-      "description": "查看您已获取的所有 Skills，支持再次下载和安装",
-      "empty": {
-        "title": "还没有下载记录",
-        "description": "前往技能市场浏览和下载 Skills"
-      },
-      "browseSkills": "技能市场",
-      "count": "共 {count} 个下载记录",
-      "downloadAgain": "再次下载",
-      "viewDetail": "查看详情",
-      "skillRemoved": "该技能已下架或删除",
-      "unknownSkill": "未知技能",
-      "grade": {
-        "safe": "安全",
-        "caution": "谨慎"
-      }
-    },
     "myInstalls": {
       "viewDetail": "查看详情",
       "noMatch": "没有符合当前筛选条件的安装记录",
       "title": "我的安装",
-      "description": "查看您已安装到本地 Agent 的所有 Skills，支持管理和重新安装",
+      "description": "查看您已安装的 Skills 与已调用的 MCP/A2A，支持管理和重新安装",
       "empty": {
         "title": "还没有安装记录",
-        "description": "当您通过 Agent 成功安装 Skill 后，记录会自动显示在这里"
+        "description": "安装 Skill 或调用 MCP/A2A 后，记录会自动显示在这里"
       },
       "count": "共 {count} 个安装记录",
       "countFiltered": "共 {count} 个安装记录（总计 {total} 个）",
       "filters": {
         "runtime": "运行环境",
+        "kind": "类型",
         "status": "状态",
         "all": "全部",
         "runtimes": {
@@ -438,6 +421,11 @@
         "statuses": {
           "active": "已激活",
           "removed": "已移除"
+        },
+        "kinds": {
+          "skill": "Skill",
+          "mcp": "MCP",
+          "a2a": "A2A"
         }
       },
       "installedAt": "安装于{time}",
@@ -453,7 +441,9 @@
       "grade": {
         "safe": "安全",
         "caution": "谨慎"
-      }
+      },
+      "assetRemoved": "该 MCP/A2A 已删除",
+      "unknownAsset": "已删除的资产"
     },
     "virtualKeys": {
       "title": "虚拟密钥",
@@ -779,6 +769,10 @@
         "account": "账户信息",
         "security": "安全设置",
         "cards": {
+          "setup": {
+            "title": "账户设置",
+            "description": "头像、密码、手机号与邮箱、收款账号、实名与企业信息"
+          },
           "profile": {
             "title": "个人资料",
             "description": "头像、昵称与账户信息"
@@ -798,7 +792,28 @@
           "recharge": {
             "title": "钱包与积分",
             "description": "充值余额并查看积分流水"
+          },
+          "bills": {
+            "title": "消费账单",
+            "description": "查看历史账单与充值记录"
           }
+        }
+      },
+      "setup": {
+        "title": "账户设置",
+        "subtitle": "一处管理头像、密码、手机号与邮箱绑定、收款账号、实名信息与企业信息",
+        "sections": {
+          "profile": "账户资料",
+          "security": "安全设置",
+          "identity": "实名信息",
+          "organization": "企业信息",
+          "payout": "收款账号"
+        },
+        "identity": {
+          "title": "实名认证",
+          "description": "完成实名认证后即可发布资产并绑定收款账号",
+          "goIndividual": "开始个人实名认证",
+          "goCompany": "开始企业实名认证"
         }
       },
       "overview": {
@@ -1016,6 +1031,26 @@
           "fail": "更新邮箱失败",
           "invalid": "请输入有效的邮箱地址",
           "unchanged": "邮箱未发生变化"
+        },
+        "phone": {
+          "title": "绑定手机号",
+          "description": "通过短信验证码绑定或更换账号手机号",
+          "current": "当前手机号",
+          "empty": "未绑定",
+          "verified": "已验证",
+          "unverified": "未验证",
+          "placeholder": "请输入手机号",
+          "hint": "绑定后可用于登录、找回密码与安全通知",
+          "footer": "更换手机号需通过短信验证",
+          "save": "绑定",
+          "saving": "绑定中...",
+          "success": "手机号已更新",
+          "errors": {
+            "PHONE_NUMBER_EXIST": "该手机号已被其他账号绑定",
+            "INVALID_OTP": "验证码错误，请重新输入",
+            "OTP_EXPIRED": "验证码已过期，请重新获取",
+            "TOO_MANY_ATTEMPTS": "尝试次数过多，请稍后再试"
+          }
         }
       },
       "organization": {

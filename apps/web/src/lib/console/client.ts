@@ -23,10 +23,10 @@
  * `/dashboard/api-keys`. It replaces `CONSOLE_API_TOKEN` /
  * `GITHUB_NEXTJS_API_TOKEN`, which are no longer read by either app.
  *
- * The skills export and the cron trigger keep their own tokens, because those
- * are separate credentials with separate blast radii: holding the export token
- * must not let a caller drive the scheduler. `SKILLS_WEBHOOK_TOKEN` and
- * `CRON_SECRET` stay distinct here for that reason.
+ * `CONSOLE_API_KEY` also carries `skills:read`, which is what opens the skills
+ * export — the same credential, a scope that can be taken away on its own. The
+ * cron trigger keeps a different secret entirely (`CRON_SECRET`): holding a key
+ * that reads skill documents must not let a caller drive console's scheduler.
  *
  * An unconfigured console is a normal single-app deployment, so
  * `consoleApiConfigured()` is how call sites ask before they try rather than
@@ -194,18 +194,7 @@ export function consoleApiToken(): string | undefined {
   return process.env.CONSOLE_API_KEY?.trim() || undefined
 }
 
-/**
- * Bearer for `GET /api/skills-sync/export` and `POST /api/cron/github`.
- *
- * console reads the same variable name for both (`SKILLS_WEBHOOK_TOKEN`,
- * `CRON_SECRET`), so they are resolved separately here rather than collapsed
- * into one "console token" - a deployment can legitimately allow the skill
- * pull without letting this app drive the scheduler.
- */
-export function consoleSkillsToken(): string | undefined {
-  return process.env.SKILLS_WEBHOOK_TOKEN?.trim() || undefined
-}
-
+/** Bearer for `POST /api/cron/github`, which console guards with its own secret. */
 export function consoleCronSecret(): string | undefined {
   return process.env.CRON_SECRET?.trim() || undefined
 }
@@ -237,10 +226,10 @@ export function consoleSkillsCallbackUrl(): string {
 /**
  * The HMAC key console signs each skill delivery with.
  *
- * Separate from `SKILLS_WEBHOOK_TOKEN`, which authorises the *pull* direction.
- * Keeping them apart is what makes the per-submitter model meaningful: the
- * export token reads every project's skills and can push to none of them,
- * while this key authorises console to push only to this app.
+ * Separate from the `skills:read` scope, which authorises the *pull* direction.
+ * Keeping them apart is what makes the per-submitter model meaningful: an api
+ * key reading every project's skills can push to none of them, while this key
+ * authorises console to push only to this app.
  *
  * Unset means no signature can be produced, so a submission goes out without a
  * destination and console stores the skills for later rather than delivering
@@ -303,9 +292,18 @@ export function consoleApiConfigured(): boolean {
   return Boolean(consoleBaseUrl() && consoleApiToken())
 }
 
-/** True when `GET /api/skills-sync/export` can be called at all. */
+/**
+ * True when `GET /api/skills-sync/export` can be called at all.
+ *
+ * The credential is {@link consoleApiToken} again — the export takes that key
+ * with the `skills:read` scope — so this is the same question as
+ * {@link consoleApiConfigured}. It stays its own function because the call site
+ * is asking about a different route: a deployment that sets the base URL and
+ * key for submissions but has no `skills:read` on the key finds out from the
+ * 403 on the first page, not from this returning true and the walk failing.
+ */
 export function consoleSkillsExportConfigured(): boolean {
-  return Boolean(consoleBaseUrl() && consoleSkillsToken())
+  return Boolean(consoleBaseUrl() && consoleApiToken())
 }
 
 /**
@@ -574,7 +572,7 @@ export async function submitRepo(
 export async function fetchConsoleSkills(
   options: { limit?: number; cursor?: string | null } = {}
 ): Promise<ConsoleSkillsPage> {
-  const token = consoleSkillsToken()
+  const token = consoleApiToken()
   if (!consoleBaseUrl() || !token) {
     throw new ConsoleApiError("console 未配置，无法拉取技能", 404)
   }

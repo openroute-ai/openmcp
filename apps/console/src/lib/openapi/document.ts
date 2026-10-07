@@ -49,7 +49,6 @@ import {
   subscriptionFiltersSchema,
   subscriptionListSchema,
   subscriptionRequestSchema,
-  subscriptionRotatedSchema,
   subscriptionSchema,
   subscriptionTestSchema,
   subscriptionUpdateSchema,
@@ -511,7 +510,8 @@ const paths: Record<string, ContractPathItem> = {
         "所以收到的数据不会缺尚未闭合的周期。\n\n三件事要先分清：\n\n" +
         "- key 的 `subscriptions:write` 管「能不能创建/管理订阅」；订阅自己的 `scopes` 管" +
         "「推什么」。投递时按订阅的 scope 读库，**不借用调用方 key 的权限**。\n" +
-        "- `secret` 只在这次响应里出现一次，之后任何接口都不再返回；派发时用它做 HMAC 签名。\n" +
+        "- 这把 key 同时也是**签名 key**：验签密钥由它的 `key_hash` 派生（响应里的 " +
+        "`signingKey`），同 key 名下所有订阅共用一个，不需要按订阅分发第二个凭据。\n" +
         "- 过滤器不是白名单语义而是「先命中即短路」，规则见 §6.6。",
       security: [{ bearerAuth: [] }],
       requestBody: {
@@ -520,7 +520,7 @@ const paths: Record<string, ContractPathItem> = {
       },
       responses: {
         "201": response(
-          "订阅已创建。`secret` 只此一次",
+          "订阅已创建。`signingKey` 是验签密钥，可随时从详情重取",
           ref("#/components/schemas/SubscriptionCreated")
         ),
         ...subscriptionFailures("请求体不符合 schema（filters 的枚举值、callbackUrl 不是 URL 等）"),
@@ -533,7 +533,8 @@ const paths: Record<string, ContractPathItem> = {
       "x-nav-description": "只列这把 key 自己的订阅。",
       description:
         "只返回**这把 key 自己**的订阅——归属是租户隔离的全部实现，没有别的过滤条件" +
-        "（§6.7）。响应里没有 `secret`，只有 `secretPrefix`。",
+        "（§6.7）。列表带 `signingKeyPrefix`（签名 key 的前缀）而不是验签密钥本身，" +
+        "要密钥从详情取。",
       security: [{ bearerAuth: [] }],
       responses: {
         "200": response("订阅列表", ref("#/components/schemas/SubscriptionList")),
@@ -593,25 +594,6 @@ const paths: Record<string, ContractPathItem> = {
       security: [{ bearerAuth: [] }],
       responses: {
         "204": { description: "已删除" },
-        ...subscriptionFailures("路径里的 id 不是合法订阅 id"),
-      },
-    },
-  },
-  "/api/v1/subscriptions/{id}/rotate-secret": {
-    post: {
-      tags: ["订阅 API"],
-      operationId: "rotateSubscriptionSecret",
-      summary: "轮换回调 secret",
-      "x-nav-description": "换一把新 secret，旧的立刻失效。",
-      description:
-        "生成新 secret 并**立刻**让旧的失效，没有「两个都有效」的窗口。新 secret " +
-        "同样只返回一次。\n\n轮换之后接收端必须同步更新，否则下一次投递会全部验签失败" +
-        "（退避 `1s → 5s → 30s → 5min → 30min`，最多 8 次，之后标记 failed，" +
-        "但水位线不动，下一轮 cron 会重新生成一批）。",
-      parameters: [subscriptionIdParam],
-      security: [{ bearerAuth: [] }],
-      responses: {
-        "200": response("新 secret，仅此一次", ref("#/components/schemas/SubscriptionRotated")),
         ...subscriptionFailures("路径里的 id 不是合法订阅 id"),
       },
     },
@@ -690,11 +672,10 @@ const paths: Record<string, ContractPathItem> = {
           "includePlatformProjects",
           "是否纳入有未隐藏 project 行的仓库"
         ),
-        listParam("platformTypes", "平台项目的形态", projectTypeValues),
         flagParam(
           "includeUncurated",
           "是否纳入还没有 project 行的候选仓库。" +
-            "**缺省按条件推导**：projectTypes / categoryCodes / platformTypes 全空时为 true，" +
+            "**缺省按条件推导**：projectTypes / categoryCodes 全空时为 true，" +
             "按类型过滤时为 false——所以「按形态订阅」默认拿不到未策展的仓库，" +
             "想要更宽的范围要显式写 true（设计文档 §6.6 陷阱一）"
         ),
@@ -927,7 +908,6 @@ export function buildOpenAPIDocument(): ContractDocument {
         DeliveryRecord: jsonSchema(deliveryRecordSchema, "output"),
         SubscriptionDetail: jsonSchema(subscriptionDetailSchema, "output"),
         SubscriptionUpdate: jsonSchema(subscriptionUpdateSchema, "input"),
-        SubscriptionRotated: jsonSchema(subscriptionRotatedSchema, "output"),
         SubscriptionTest: jsonSchema(subscriptionTestSchema, "output"),
         SkillScanRequest: jsonSchema(skillScanRequestSchema, "input"),
         SkillScanResponse: jsonSchema(skillScanResponseSchema, "output"),
@@ -982,7 +962,6 @@ const SCOPES: Record<string, string> = {
   getSubscription: "subscriptions:write",
   updateSubscription: "subscriptions:write",
   deleteSubscription: "subscriptions:write",
-  rotateSubscriptionSecret: "subscriptions:write",
   testSubscription: "subscriptions:write",
   scanSkill: "skills:scan",
 }

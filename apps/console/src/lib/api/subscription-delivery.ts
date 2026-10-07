@@ -15,6 +15,7 @@
  */
 import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm"
 import { randomBytes } from "node:crypto"
+import { apiKeys } from "@/db/schema/api-keys"
 import {
   subscriptions,
   webhookDeliveries,
@@ -140,7 +141,6 @@ export async function deliverSubscription(
     subscription,
     rows,
     matchReasons,
-    ownerUserId,
     watermark,
     nextWatermark,
     now,
@@ -333,7 +333,13 @@ async function advanceWatermarkIfLastPart(
     .where(eq(subscriptions.id, subscription.id))
 }
 
-/** 发一段。签名密钥由 `secret_hash` 派生，见 `deriveSigningKey` 的注释。 */
+/**
+ * 发一段。签名密钥是那把签名 key 的 `key_hash` 现算的（`deriveSigningKey`）。
+ *
+ * 每次投递都 join 一次 `api_keys` 而不是把 key hash 缓存在订阅行上：轮换 key 之后
+ * 下一次投递就该用新值，而"订阅行上的那份"会静默地一直用到有人想起来同步它为止。
+ * 这里是主键 + 外键各一次索引查找，比那类不一致便宜得多。
+ */
 async function sendOne(
   db: Database,
   subscription: SubscriptionRow,
@@ -341,15 +347,17 @@ async function sendOne(
   meta: { eventId: string; event: string }
 ): Promise<{ delivered: boolean; status?: number; error?: string }> {
   const [row] = await db
-    .select({ secretHash: subscriptions.secretHash })
+    .select({ keyHash: apiKeys.keyHash })
     .from(subscriptions)
+    .innerJoin(apiKeys, eq(subscriptions.apiKeyId, apiKeys.id))
     .where(eq(subscriptions.id, subscription.id))
     .limit(1)
+  // 签名 key 行随 `api_key_id` 的 CASCADE 一起消失，所以查不到就意味着这条订阅也不在了。
   if (!row) return { delivered: false, error: "subscription disappeared" }
 
   try {
     const [result] = await sendWebhook([subscription.callbackUrl], payload, {
-      secret: deriveSigningKey(row.secretHash),
+      secret: deriveSigningKey(row.keyHash),
       eventId: meta.eventId,
       event: meta.event,
       timeoutMs: DELIVERY_TIMEOUT_MS,
@@ -536,7 +544,6 @@ export async function sendTestDelivery(
         subscription,
         rows,
         matchReasons,
-        ownerUserId,
         watermark: null,
         nextWatermark: null,
         now,

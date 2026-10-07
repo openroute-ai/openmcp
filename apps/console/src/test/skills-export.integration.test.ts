@@ -1,19 +1,20 @@
 /**
  * Integration tests for `GET /api/skills-sync/export`.
  *
- * The route publishes every stored skill on a bearer token, so the guard is
- * checked first: an unauthenticated export hands the whole skill corpus to
- * anyone who asks.
- *
- * The ingest side of the old machine-to-machine surface now lives in
- * `api-v1-repos.integration.test.ts` and `api-v1-projects.integration.test.ts`,
- * keyed on `api_keys` rather than on `CONSOLE_API_TOKEN`.
+ * The route publishes every stored skill, so the guard is checked first: an
+ * export with no credential hands the whole skill corpus to anyone who asks.
+ * The guard is api-key based — `skills:read` in `api_keys` — so what only a
+ * real database can show is the part a fake `lookup` in `api-guard.test.ts`
+ * cannot: a key issued here really does open the route, and a key issued
+ * without the scope really does not.
  */
 
+import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { db, pool } from "@/db/client"
 import { projectSkills, projects, projectSyncJobs, repos } from "@/db/schema"
-import { resetSyncEnvCache } from "@/lib/env"
+import { apiKeys } from "@/db/schema/api-keys"
+import { hashApiKey, issueApiKey } from "@/lib/api/keys"
 import { createProject } from "@/lib/github/service/project"
 import { upsertRepo } from "@/lib/github/service/repo"
 import { syncProjectSkills } from "@/lib/github/service/skill"
@@ -21,6 +22,15 @@ import { syncProjectSkills } from "@/lib/github/service/skill"
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
 
 let exporter: typeof import("@/app/api/skills-sync/export/route")
+
+/** The row a plaintext resolved to, so a test's own key can be cleaned up. */
+async function idOf(secret: string): Promise<string | undefined> {
+  const [row] = await db
+    .select({ id: apiKeys.id })
+    .from(apiKeys)
+    .where(eq(apiKeys.keyHash, hashApiKey(secret)))
+  return row?.id
+}
 
 function get(query: string, auth?: string): Promise<Response> {
   return exporter.GET(
@@ -30,28 +40,38 @@ function get(query: string, auth?: string): Promise<Response> {
   )
 }
 
-function restore(key: string, value: string | undefined) {
-  if (value === undefined) {
-    delete process.env[key]
-  } else {
-    process.env[key] = value
-  }
-}
-
 describe.skipIf(!hasDatabase)(
   "GET /api/skills-sync/export (integration)",
   () => {
-    const previous = process.env.SKILLS_WEBHOOK_TOKEN
+    let reader: string
+    let wrongScope: string
+    const issuedIds: string[] = []
 
     beforeAll(async () => {
-      process.env.SKILLS_WEBHOOK_TOKEN = "skills-token"
-      resetSyncEnvCache()
       exporter = await import("@/app/api/skills-sync/export/route")
+      reader = (
+        await issueApiKey(db, {
+          name: "skills-export reader",
+          scopes: ["skills:read"],
+          createdBy: null,
+        })
+      ).secret
+      wrongScope = (
+        await issueApiKey(db, {
+          name: "skills-export without the scope",
+          scopes: ["repos:read"],
+          createdBy: null,
+        })
+      ).secret
+      // The plaintexts above are the only copies; the rows are named by the
+      // hash of each, which is what cleanup deletes by.
+      issuedIds.push((await idOf(reader))!, (await idOf(wrongScope))!)
     })
 
     afterAll(async () => {
-      restore("SKILLS_WEBHOOK_TOKEN", previous)
-      resetSyncEnvCache()
+      for (const id of issuedIds) {
+        await db.delete(apiKeys).where(eq(apiKeys.id, id))
+      }
       await pool.end()
     })
 
@@ -123,29 +143,26 @@ describe.skipIf(!hasDatabase)(
         return { repo, project }
       }
 
-      it("returns 404 with no token, rather than publishing every skill", async () => {
+      it("publishes nothing without a credential", async () => {
         await seedSkill("alpha", "skills/alpha")
-        delete process.env.SKILLS_WEBHOOK_TOKEN
-        resetSyncEnvCache()
+
+        // 401 for "you sent no key", 404 for "we have never issued that one":
+        // the second must not confirm which of the two the caller got wrong.
+        expect((await get("")).status).toBe(401)
+        expect((await get("", "Bearer mcp_radar_zzzz_nope")).status).toBe(404)
 
         const response = await get("")
-
-        expect(response.status).toBe(404)
         expect((await response.json()).skills).toBeUndefined()
       })
 
-      it("rejects a missing or wrong bearer token", async () => {
-        process.env.SKILLS_WEBHOOK_TOKEN = "skills-token"
-        resetSyncEnvCache()
-
-        expect((await get("")).status).toBe(401)
-        expect((await get("", "Bearer wrong")).status).toBe(401)
+      it("refuses a key that does not carry skills:read", async () => {
+        expect((await get("", `Bearer ${wrongScope}`)).status).toBe(403)
       })
 
       it("returns the webhook payload for an unsynced skill", async () => {
         const { repo } = await seedSkill("alpha", "skills/alpha")
 
-        const response = await get("", "Bearer skills-token")
+        const response = await get("", `Bearer ${reader}`)
 
         expect(response.status).toBe(200)
         const body = await response.json()
@@ -169,7 +186,7 @@ describe.skipIf(!hasDatabase)(
         await seedSkill("gamma", "skills/g1")
 
         const first = await (
-          await get("?limit=2", "Bearer skills-token")
+          await get("?limit=2", `Bearer ${reader}`)
         ).json()
         expect(first.skills).toHaveLength(2)
         expect(first.next_cursor).toBeNull()
@@ -177,21 +194,21 @@ describe.skipIf(!hasDatabase)(
         // A cursor is only handed out when a further row exists, so a walk
         // stops rather than re-fetching the same page forever.
         const empty = await (
-          await get("?limit=3", "Bearer skills-token")
+          await get("?limit=3", `Bearer ${reader}`)
         ).json()
         expect(empty.skills).toHaveLength(3)
         expect(empty.next_cursor).toBeNull()
       })
 
       it("rejects an unusable limit or cursor", async () => {
-        expect((await get("?limit=0", "Bearer skills-token")).status).toBe(400)
-        expect((await get("?limit=abc", "Bearer skills-token")).status).toBe(
+        expect((await get("?limit=0", `Bearer ${reader}`)).status).toBe(400)
+        expect((await get("?limit=abc", `Bearer ${reader}`)).status).toBe(
           400
         )
-        expect((await get("?limit=99999", "Bearer skills-token")).status).toBe(
+        expect((await get("?limit=99999", `Bearer ${reader}`)).status).toBe(
           400
         )
-        expect((await get("?cursor=soon", "Bearer skills-token")).status).toBe(
+        expect((await get("?cursor=soon", `Bearer ${reader}`)).status).toBe(
           400
         )
       })

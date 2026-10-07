@@ -10,9 +10,9 @@
  *
  * The callbacks are the consumer's contract — the same `repo_updated` shape
  * the source sent, with the same `task_name`, so a peer does not need to know
- * that the producing task changed its name. Signature and legacy bearer token
- * follow the webhook config (`GITHUB_DATA_WEBHOOK_URL` etc.), not a task, so
- * retargeting delivery never means editing a task file.
+ * that the producing task changed its name. The signature follows the webhook
+ * config (`GITHUB_DATA_WEBHOOK_URL` etc.), not a task, so retargeting delivery
+ * never means editing a task file.
  *
  * Deprecated and hidden projects are skipped, matching every other public
  * surface: a peer should not be told to advertise work that is deliberately
@@ -43,10 +43,17 @@ export type WebhookSender = (
 ) => Promise<WebhookResult[]>
 
 export interface BuildDailyDataOptions {
-  /** Injected in tests; defaults to reading the webhook env. */
+  /** Injected in tests; defaults to sending for real. */
   sender?: WebhookSender
+  /** Defaults to `GITHUB_DATA_WEBHOOK_SECRET`. */
   secret?: string
+  /**
+   * A legacy bearer a test may attach. Nothing in the environment sets one:
+   * `DAILY_WEBHOOK_TOKEN` went away with the ranking digest tasks, and the
+   * daily data push signs with the secret instead.
+   */
   token?: string
+  /** Defaults to `GITHUB_DATA_WEBHOOK_URL`. */
   endpoints?: string[]
   now?: () => Date
 }
@@ -64,7 +71,7 @@ export function createBuildDailyDataTask(
       const env = syncEnv()
       const endpoints = options.endpoints ?? env.GITHUB_DATA_WEBHOOK_URL
       const secret = options.secret ?? env.GITHUB_DATA_WEBHOOK_SECRET
-      const token = options.token ?? env.DAILY_WEBHOOK_TOKEN
+      const token = options.token
       const sender = options.sender ?? sendWebhook
       const now = options.now ?? (() => new Date())
 

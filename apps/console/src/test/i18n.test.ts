@@ -114,6 +114,28 @@ describe("message catalogs", () => {
     }
   })
 
+  it("uses no angle brackets, which next-intl reads as rich-text tags", async () => {
+    // `t()` returns a string, so a message containing `<timestamp>` does not
+    // render — it throws `INVALID_TAG` on every paint of the component that
+    // asks for it, which is how a hand-written "<timestamp>.<raw body>"
+    // inside a signing-key note took the dialog down. No message in this repo
+    // is consumed with `t.rich`, so a literal angle bracket is always a
+    // mistake rather than markup: write 「」 or plain quotes instead. Rich
+    // text, if it is ever needed, should arrive as a deliberate change to
+    // this assertion rather than as an accident that slips past it.
+    const offenders: string[] = []
+
+    for (const locale of routing.locales) {
+      for (const [key, text] of flatten(
+        (await getMessagesForLocale(locale)) as unknown as Messages
+      )) {
+        if (/[<>]/.test(text)) offenders.push(`${locale} ${key}: ${text}`)
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
   it("keeps a default-locale key the translation omits", () => {
     const merged = mergeMessages(
       { Common: { cancel: "Cancel", retry: "Retry" } },

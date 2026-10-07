@@ -7,6 +7,7 @@ import { getAuthorForUser, requireAuthorForUser, requireVerifiedProviderForPubli
 import { signOAuthState } from "@/lib/agent-install/oauth-state"
 import { assetIsGated, checkAssetEntitlement, purchaseAsset } from '@/web/mcp-servers/entitlement'
 import { emptyPage, mineListInput } from '@/web/assets/mine-list'
+import { recordAssetInstall } from '@/web/assets/installs'
 import { a2aGatewayAccess } from './gateway'
 import { a2aAgentsDataAccess } from './index'
 
@@ -270,6 +271,13 @@ export const a2aAgentsRouter = createTRPCRouter({
       try {
         const { authorId } = await requireAuthorForUser(ctx.user.id)
         const data = await a2aGatewayAccess.invoke(authorId, input.id, input.message)
+        // 调用即安装：平台内能看见的 A2A 调用（作者试调）同步记一条安装。
+        await recordAssetInstall({
+          userId: ctx.user.id,
+          assetType: 'a2a',
+          assetId: input.id,
+          source: 'trial',
+        })
         return { success: true, data }
       } catch (error) {
         return failResult(error, '试调失败')

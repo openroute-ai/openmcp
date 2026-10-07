@@ -7,6 +7,22 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The downloads page was folded into the installs list: download == install,
+  // so old `/dashboard/downloads` links land on the merged view.
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/downloads",
+        destination: "/dashboard/installs",
+        permanent: true,
+      },
+      {
+        source: "/:locale/dashboard/downloads",
+        destination: "/:locale/dashboard/installs",
+        permanent: true,
+      },
+    ];
+  },
   transpilePackages: [
     "@workspace/ui",
     "@workspace/auth",

@@ -110,23 +110,9 @@ export const TASK_SEEDS: TaskSeed[] = [
     isWeekly: true,
   },
   {
-    name: "trigger-weekly-finished",
-    description: "Publish the weekly ranking notification",
-    cronExpression: "0 9 * * 1",
-    taskType: "weekly",
-    isWeekly: true,
-  },
-  {
     name: "build-monthly-rankings",
     description: "Build the monthly ranking snapshot",
     cronExpression: "0 3 1 * *",
-    taskType: "monthly",
-    isMonthly: true,
-  },
-  {
-    name: "trigger-monthly-finished",
-    description: "Publish the monthly ranking notification",
-    cronExpression: "0 4 1 * *",
     taskType: "monthly",
     isMonthly: true,
   },

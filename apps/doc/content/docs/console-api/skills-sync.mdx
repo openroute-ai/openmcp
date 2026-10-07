@@ -7,13 +7,15 @@ title: "技能导出"
 控制台在同步每个技能时会把内容推送到 Web 端，这是主路径。这一页描述的是**拉取方向**：给一个宁愿自己翻页、而不是被动收回调的消费者。两个方向返回的是**同一份 payload**，所以消费者可以在两者之间切换而不需要转换任何东西。
 
 <Callout>
-  `GET /api/skills-sync/export` 需要 `Authorization: Bearer
-  $SKILLS_WEBHOOK_TOKEN`。未配置该变量时返回 **404**，不是 401。
+  `GET /api/skills-sync/export` 需要 `Authorization: Bearer $CONSOLE_API_KEY`，
+  这把 api key 还必须带 `skills:read` scope，否则返回 **403** `insufficient_scope`。
+  base URL 或 key 未配置时返回 **404**，不是 401。
 </Callout>
 
 ## `GET /api/skills-sync/export`
 
-**鉴权**：`Authorization: Bearer <SKILLS_WEBHOOK_TOKEN>`
+**鉴权**：`Authorization: Bearer <CONSOLE_API_KEY>`（scope `skills:read`）。key 由
+`/dashboard/api-keys` 签发，与提交仓库用的是同一把，只是多了这一项 scope——它能读，不能写。
 
 **查询参数**
 
@@ -74,14 +76,15 @@ title: "技能导出"
 | ------ | -------------------------------------------- | --------------------------------- |
 | `400`  | `limit must be an integer between 1 and 500` | `limit` 不合法                    |
 | `400`  | `cursor must be an ISO 8601 timestamp`       | `cursor` 给了但解析不了           |
-| `401`  | `unauthorized`                               | 密钥不匹配                        |
-| `404`  | `not found`                                  | 服务端没配 `SKILLS_WEBHOOK_TOKEN` |
+| `401`  | `unauthorized`                               | 缺 Bearer，或 key 不存在          |
+| `403`  | `insufficient_scope`                         | key 没有 `skills:read` scope      |
+| `404`  | `not found`                                  | 服务端没配 `CONSOLE_API_KEY` / `CONSOLE_API_BASE_URL` |
 
 ## 出站 webhook（推送方向）
 
 控制台在技能同步完成后主动推送，是主路径。收件方是 Web 端。
 
-**推到哪里**是提交方在 `POST /api/v1/projects` 里给出的 `callbackUrl`，配合同一次请求的 `callbackSecret`。没有全站共享的地址：一把 console 同时服务多个提交方，各自的 URL 与密钥记在各自的 project 行上，因此 `push-skills` 重试队列在没有请求上下文的情况下也读得到地址。下面的密钥因此是**提交方的**密钥，而不是站点级 secret——也正因为两者分开，能读 export 的 `SKILLS_WEBHOOK_TOKEN` 无法伪造一次投递。
+**推到哪里**是提交方在 `POST /api/v1/projects` 里给出的 `callbackUrl`，配合同一次请求的 `callbackSecret`。没有全站共享的地址：一把 console 同时服务多个提交方，各自的 URL 与密钥记在各自的 project 行上，因此 `push-skills` 重试队列在没有请求上下文的情况下也读得到地址。下面的密钥因此是**提交方的**密钥，而不是站点级 secret——也正因为两者分开，能读 export 的那把 `CONSOLE_API_KEY` 无法伪造一次投递。
 
 **请求头**
 

@@ -5,11 +5,12 @@
  * closed with 404 (not 401) when no secret is configured so an unconfigured
  * deployment does not advertise that the route exists.
  *
- * This is the **pull** direction's credential — it authorises
- * `GET /api/skills-sync/export` against console, and it is what a bare bearer on
- * the inbound skills webhook is checked against. The push direction carries a
- * per-submitter HMAC instead; see `lib/webhook/signature.ts` and
- * {@link assertSkillsWebhookAuthorized}.
+ * Two credentials are accepted here, in {@link assertSkillsWebhookAuthorized}:
+ * a per-submitter HMAC signature (`lib/webhook/signature.ts`) is primary, and
+ * {@link skillsIngestToken} is the plain bearer alternative for a console that
+ * predates per-submitter callbacks. The *pull* direction — reading console's
+ * skill export — takes `CONSOLE_API_KEY` with the `skills:read` scope instead,
+ * so no token resolved from this module reaches console.
  */
 
 import { timingSafeEqual } from 'node:crypto'
@@ -26,15 +27,12 @@ export function bearerMatches(header: string | null, secret: string): boolean {
 }
 
 /**
- * Resolve the shared secret for console → web skills ingest.
- * Prefer WEB_SKILLS_INGEST_TOKEN; fall back to SKILLS_WEBHOOK_TOKEN so both
- * sides can share one value without inventing a second name.
+ * The plain bearer accepted on the inbound skills push, tried only after the
+ * HMAC signature. One value, one name: the export this credential used to
+ * share a name with now takes `CONSOLE_API_KEY` + `skills:read`.
  */
 export function skillsIngestToken(): string | undefined {
-  const preferred = process.env.WEB_SKILLS_INGEST_TOKEN?.trim()
-  if (preferred) return preferred
-  const shared = process.env.SKILLS_WEBHOOK_TOKEN?.trim()
-  return shared || undefined
+  return process.env.WEB_SKILLS_INGEST_TOKEN?.trim() || undefined
 }
 
 /**
@@ -42,10 +40,10 @@ export function skillsIngestToken(): string | undefined {
  * repository, and therefore the key console signs the resulting skill deliveries
  * with.
  *
- * Distinct from {@link skillsIngestToken} on purpose: this one authorises console
- * to push *to this app*, that one authorises *from* this app to read console's
- * export. One shared value would let a holder of the export token also forge
- * skill documents.
+ * Distinct from {@link skillsIngestToken} on purpose: this one is the key console
+ * *signs* with — holding it proves console authored a delivery — while that one
+ * is only a bearer this route accepts as a fallback. Collapsing them would let
+ * anyone who can send the fallback bearer also forge signed deliveries.
  */
 export function skillsCallbackSecret(): string | undefined {
   return process.env.CONSOLE_SKILLS_CALLBACK_SECRET?.trim() || undefined

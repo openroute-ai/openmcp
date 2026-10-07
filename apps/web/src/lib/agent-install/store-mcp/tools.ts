@@ -21,6 +21,7 @@ import { recommendCatalogAssets } from '@/web/catalog/recommend'
 import { searchCatalog } from '@/web/catalog/search'
 import type { CatalogKind } from '@/web/catalog/types'
 import { checkAssetEntitlement } from '@/web/mcp-servers/entitlement'
+import { recordAssetInstall } from '@/web/assets/installs'
 import type { StoreAuthResult } from './auth'
 import { resolveA2a, resolveMcp } from './resolve'
 import { createDeviceCode } from './oauth'
@@ -485,6 +486,15 @@ export async function callStoreTool(
           .set({ downloads: sql`${mcpServers.downloads} + 1`, updatedAt: new Date() })
           .where(eq(mcpServers.id, row.id))
 
+        // 调用即安装：拿到 gatewayUrl 就等于装上了，同步记一条安装。
+        await recordAssetInstall({
+          userId: authResult.userId,
+          assetType: 'mcp',
+          assetId: row.id,
+          assetName: row.serverName,
+          source: 'install',
+        })
+
         return textResult({
           kind: 'mcp',
           id: row.id,
@@ -536,6 +546,15 @@ export async function callStoreTool(
           .update(a2aAgents)
           .set({ downloads: sql`${a2aAgents.downloads} + 1`, updatedAt: new Date() })
           .where(eq(a2aAgents.id, row.id))
+
+        // 同 MCP：装完即可调用，记一条安装。
+        await recordAssetInstall({
+          userId: authResult.userId,
+          assetType: 'a2a',
+          assetId: row.id,
+          assetName: row.agentName,
+          source: 'install',
+        })
 
         return textResult({
           kind: 'a2a',

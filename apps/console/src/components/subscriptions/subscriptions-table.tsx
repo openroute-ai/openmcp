@@ -13,9 +13,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import {
-  Badge,
-} from "@workspace/ui/components/badge"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -40,7 +38,7 @@ export interface SubscriptionRow {
   id: string
   name: string
   callbackUrl: string
-  secretPrefix: string
+  signingKeyPrefix: string
   cadence: "daily" | "weekly" | "monthly"
   mode: "batch" | "snapshot"
   scopes: string[]
@@ -147,7 +145,7 @@ function SubscriptionRowView({
             {row.callbackUrl}
           </span>
           <span className="font-mono text-xs text-muted-foreground">
-            {t("secretPrefix")} {row.secretPrefix}
+            {t("signingKeyPrefix")} {row.signingKeyPrefix}
           </span>
           {!row.enabled ? (
             <Badge variant="secondary" className="w-fit">
@@ -195,7 +193,7 @@ function SubscriptionRowView({
           : t("modeSnapshotWatermark", { version: row.filtersVersion })}
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex flex-wrap justify-end gap-1">{actions}</div>
+        <div className="flex flex-nowrap justify-end gap-1">{actions}</div>
       </TableCell>
     </TableRow>
   )
@@ -220,7 +218,7 @@ export function SubscriptionDetailDialog({
     filtersVersion: number
     filters: Parameters<typeof FilterSummary>[0]["filters"]
     callbackUrl: string
-    secretPrefix: string
+    signingKeyPrefix: string
     deliveries: {
       eventId: string
       status: "pending" | "delivered" | "failed"
@@ -246,12 +244,8 @@ export function SubscriptionDetailDialog({
         {detail ? (
           <div className="space-y-4 text-sm">
             <dl className="grid grid-cols-2 gap-2">
-              <Field label={t("matchedRepos")}>
-                {detail.matchedRepos}
-              </Field>
-              <Field label={t("filtersVersion")}>
-                {detail.filtersVersion}
-              </Field>
+              <Field label={t("matchedRepos")}>{detail.matchedRepos}</Field>
+              <Field label={t("filtersVersion")}>{detail.filtersVersion}</Field>
               <Field label={t("lastDelivered")}>
                 {detail.lastDeliveredAt
                   ? format.dateTime(toDate(detail.lastDeliveredAt))
@@ -264,7 +258,7 @@ export function SubscriptionDetailDialog({
 
             <div className="grid gap-1">
               <span className="text-xs text-muted-foreground">
-                {t("secretPrefix")} {detail.secretPrefix}
+                {t("signingKeyPrefix")} {detail.signingKeyPrefix}
               </span>
               <FilterSummary filters={detail.filters} />
             </div>

@@ -240,7 +240,7 @@ flowchart LR
 | 付费购买（钱包 `balances` CNY MVP） | ✅ | `skills.createPurchase`；`skill_entitlements`；不足跳转充值 |
 | Web ZIP 下载 | ✅ | `GET/POST /api/skills/[id]/download`（仅 Session） |
 | Agent Skill 包下载 | ✅ | `/api/skills/[id]/package`（Session / Bearer / OAuth） |
-| 我的下载 / 我的安装 | ✅ | `skill_downloads` / `skill_installs`；Dashboard 页面 |
+| 我的安装（合并） | ✅ | `skill_downloads` / `skill_installs` / `asset_installs`；`/dashboard/installs`（下载页已移除） |
 | Install into Agent 提示词（Cursor/Claude/Codex/generic） | ✅ | `AGENT_INSTALL.md` P0；仅平台网关 URL |
 | Store MCP `search_assets` / `get_asset` / `install_asset` | ✅ | `/api/mcp/store`；P1 |
 | Device Code OAuth + Auth Code(+PKCE) | ✅ | `/api/mcp/store/oauth/*`；`SKILL_USER_DOWNLOAD_INSTALL.md` v2.x |

@@ -29,19 +29,22 @@ curl "$CONSOLE_ORIGIN/api/v1/repos/V1StGXR8Z5jd/stats?cadence=weekly" \
   转成 0 会把「这个周期没有采集」变成「采集到 0」——在图上这两条曲线长得一样，
   结论却相反。
 
-  窗口内没有采集的那些天**不补洞**，直接不出现。所以 `periods` 数组的长度不等于
-  区间里的天数。
+窗口内没有采集的那些天**不补洞**，直接不出现。所以 `periods` 数组的长度不等于
+区间里的天数。
+
 </Callout>
 
 <Callout type="info" title="`end` 是最新已存周期，不 clamp 到今天">
   采集任务随时可能停。把区间终点补到今天，客户端会拿到一串空洞，而空洞和
-  「这几天真的没人 star」无法区分。`range.end` 是这个仓库**已经存下来的最后一期**，
-  要判断「数据是不是新的」，先看 `range.end` 离今天多远。
+  「这几天真的没人 star」无法区分。`range.end`
+  是这个仓库**已经存下来的最后一期**， 要判断「数据是不是新的」，先看
+  `range.end` 离今天多远。
 </Callout>
 
 <Callout type="info" title="排行会回显你拿到的是哪一期">
-  `year` / `week`（或 `month`）都不传时，服务端取**最近一个完整周期**，并在响应的
-  `period` 里回显。不回显的话，「上周的榜」这个请求可能被悄悄答成另一期。
+  `year` / `week`（或
+  `month`）都不传时，服务端取**最近一个完整周期**，并在响应的 `period`
+  里回显。不回显的话，「上周的榜」这个请求可能被悄悄答成另一期。
   拿不准要哪一期，先 `GET /api/v1/rankings/periods` 列目录——它只列有数据的期。
 </Callout>
 
@@ -57,22 +60,23 @@ curl "$CONSOLE_ORIGIN/api/v1/repos/V1StGXR8Z5jd/stats?cadence=weekly" \
   所以仓库数量大的时候一次会全量返回——真要加分页，两条路由一起改。
 </Callout>
 
-| 字段                           | 含义                                                   |
-| ------------------------------ | ------------------------------------------------------ |
-| `classification.projectTypes`  | 该仓库所有已发布项目的 `type`，可能多个                |
-| `classification.categoryCode`  | 运营分类；**未策展时为 `null`**                        |
-| `classification.platformStatus` | `pending` / `tracked` / `curated` / `archived`         |
-| `classification.tags`          | 公开站 `/categories` 的唯一分类轴，来自 GitHub topics   |
-| `projectCount`                  | 已发布项目数。非零意味着被策展过                       |
+| 字段                            | 含义                                                  |
+| ------------------------------- | ----------------------------------------------------- |
+| `classification.projectTypes`   | 该仓库所有已发布项目的 `type`，可能多个               |
+| `classification.categoryCode`   | 运营分类；**未策展时为 `null`**                       |
+| `classification.platformStatus` | `pending` / `tracked` / `curated` / `archived`        |
+| `classification.tags`           | 公开站 `/categories` 的唯一分类轴，来自 GitHub topics |
+| `projectCount`                  | 已发布项目数。非零意味着被策展过                      |
 
 四条轴不是同一件事的四种叫法，所以逐条输出、不合并。特别注意：**未策展的仓库
 这四个字段必然是空值**，所以拿 `categoryCode IS NOT NULL` 做二次筛选会把所有
 未策展仓库悄悄丢掉。
 
 <Callout type="warn" title="按类型过滤会默认排除未策展仓库">
-  `includeUncurated` 的缺省值是**按条件推导**的：`projectTypes` / `categoryCodes` /
-  `platformTypes` 全空时为 `true`，按类型过滤时为 `false`。所以「按形态订阅」默认
-  拿不到未策展的候选仓库——想要更宽的范围要显式写 `true`。
+  `includeUncurated` 的缺省值是**按条件推导**的：`projectTypes` /
+  `categoryCodes` 全空时为 `true`，按类型过滤时为
+  `false`。所以「按形态订阅」默认 拿不到未策展的候选仓库——想要更宽的范围要显式写
+  `true`。
 </Callout>
 
 ## 周期边界一律按 Asia/Shanghai
@@ -85,8 +89,18 @@ curl "$CONSOLE_ORIGIN/api/v1/repos/V1StGXR8Z5jd/stats?cadence=weekly" \
   "cadence": "weekly",
   "timezone": "Asia/Shanghai",
   "periods": [
-    { "period": "2026-03-23T16:00:00.000Z", "yearWeek": "2026-W13", "date": null, "yearMonth": null },
-    { "period": "2026-03-30T16:00:00.000Z", "yearWeek": "2026-W14", "date": null, "yearMonth": null }
+    {
+      "period": "2026-03-23T16:00:00.000Z",
+      "yearWeek": "2026-W13",
+      "date": null,
+      "yearMonth": null
+    },
+    {
+      "period": "2026-03-30T16:00:00.000Z",
+      "yearWeek": "2026-W14",
+      "date": null,
+      "yearMonth": null
+    }
   ]
 }
 ```

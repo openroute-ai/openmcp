@@ -6,6 +6,7 @@
     "read-api",
     "write-api",
     "subscriptions-api",
+    "verify-signature",
     "errors",
     "api"
   ]

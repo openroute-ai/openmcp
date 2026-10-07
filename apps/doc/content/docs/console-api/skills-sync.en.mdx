@@ -8,13 +8,16 @@ The console pushes each skill to the web app as it is synced; that is the primar
 
 <Callout>
   `GET /api/skills-sync/export` requires `Authorization: Bearer
-  $SKILLS_WEBHOOK_TOKEN`. With that variable unset the route returns **404**,
-  not 401.
+  $CONSOLE_API_KEY`, and that api key must also carry the `skills:read` scope,
+  otherwise the answer is **403** `insufficient_scope`. With the base URL or the
+  key unset the route returns **404**, not 401.
 </Callout>
 
 ## `GET /api/skills-sync/export`
 
-**Auth**: `Authorization: Bearer <SKILLS_WEBHOOK_TOKEN>`
+**Auth**: `Authorization: Bearer <CONSOLE_API_KEY>` (scope `skills:read`). The
+key is minted on `/dashboard/api-keys` — the same one submissions use, plus
+this one scope. It may read; it may not write.
 
 **Query parameters**
 
@@ -75,8 +78,9 @@ What works: fetch `limit=500`, confirm delivery for that page, then fetch from t
 | ------ | -------------------------------------------- | ----------------------------------------- |
 | `400`  | `limit must be an integer between 1 and 500` | `limit` is out of range or not an integer |
 | `400`  | `cursor must be an ISO 8601 timestamp`       | `cursor` present but unparseable          |
-| `401`  | `unauthorized`                               | Secret mismatch                           |
-| `404`  | `not found`                                  | `SKILLS_WEBHOOK_TOKEN` is not configured  |
+| `401`  | `unauthorized`                               | No bearer, or a key that was never issued |
+| `403`  | `insufficient_scope`                         | The key lacks `skills:read`               |
+| `404`  | `not found`                                  | `CONSOLE_API_KEY` / `CONSOLE_API_BASE_URL` unset |
 
 ## The outbound webhook (push direction)
 
@@ -88,8 +92,8 @@ request. There is no deployment-wide address: one console serves several
 submitters, each with its own URL and key, and the pair is recorded on the
 project row so the `push-skills` retry queue can still reach it with no request
 context. The key below is therefore the *submitter's* key, not a site-wide
-secret — which is what makes `SKILLS_WEBHOOK_TOKEN`, which authorises the pull
-direction above, unable to forge a delivery.
+secret — which is what makes the `CONSOLE_API_KEY` that authorises the pull
+direction above unable to forge a delivery.
 
 **Request headers**
 

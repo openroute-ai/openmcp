@@ -11,32 +11,34 @@ description: "三组接口各自解决什么，以及第一个 curl 怎么跑。
 
 ## 三组接口，先对号入座
 
-| 你想做的事                       | 用哪组接口                             | scope                                          |
-| -------------------------------- | -------------------------------------- | ---------------------------------------------- |
-| 读仓库档案、区间统计、排行、周期目录 | [读取 API](./read-api)                 | `repos:read` / `rankings:read`                  |
-| 登记仓库、发布项目               | [写入 API](./write-api)                | `repos:write` / `projects:write`                |
-| 让雷达把新数据推到你的地址       | [订阅 API](./subscriptions-api)        | `subscriptions:write`                            |
+| 你想做的事                           | 用哪组接口                      | scope                            |
+| ------------------------------------ | ------------------------------- | -------------------------------- |
+| 读仓库档案、区间统计、排行、周期目录 | [读取 API](./read-api)          | `repos:read` / `rankings:read`   |
+| 登记仓库、发布项目                   | [写入 API](./write-api)         | `repos:write` / `projects:write` |
+| 让雷达把新数据推到你的地址           | [订阅 API](./subscriptions-api) | `subscriptions:write`            |
 
 ## 第一步：签一把 key
 
 <Steps>
   <Step>注册并**验证邮箱**。未验证的邮箱签不出 key。</Step>
   <Step>
-    打开 [`/console/api-keys`](/console/api-keys)，填一个名字，勾上需要的 scope，点新建。
+    打开 [`/console/api-keys`](/console/api-keys)，填一个名字，勾上需要的
+    scope，点新建。
   </Step>
   <Step>
-    把 `mcp_radar_...` 那串明文复制走。**只显示这一次**，关掉对话框就再也拿不回来 ——
+    把 `mcp_radar_...`
+    那串明文复制走。**只显示这一次**，关掉对话框就再也拿不回来 ——
     数据库里只有哈希。丢了只能轮换。
   </Step>
 </Steps>
 
-| scope                 | 能做什么                                 | 自助签发 |
-| --------------------- | ---------------------------------------- | -------- |
-| `repos:read`          | 读仓库档案、区间统计                     | ✅       |
-| `rankings:read`       | 读排行、周期目录                         | ✅       |
-| `repos:write`         | 登记仓库                                 | ✅       |
-| `subscriptions:write` | 创建与管理订阅、轮换密钥                 | ❌ 管理员 |
-| `projects:write`      | 发布项目（对外可见）                     | ❌ 管理员 |
+| scope                 | 能做什么             | 自助签发  |
+| --------------------- | -------------------- | --------- |
+| `repos:read`          | 读仓库档案、区间统计 | ✅        |
+| `rankings:read`       | 读排行、周期目录     | ✅        |
+| `repos:write`         | 登记仓库             | ✅        |
+| `subscriptions:write` | 创建与管理订阅       | ❌ 管理员 |
+| `projects:write`      | 发布项目（对外可见） | ❌ 管理员 |
 
 档位、scope 语义、一把 key 能有几把、冷却时间都在 [API Key](./api-keys) 一页。
 
@@ -67,8 +69,8 @@ curl -X POST "$CONSOLE_ORIGIN/api/v1/repos" \
 
 <Callout type="warn" title="「登记」不等于「发布」">
   `POST /api/v1/repos` 只是让雷达开始跟踪一个仓库，**不会**把它放到公开站上。
-  要发布得调 `POST /api/v1/projects`，而那个接口的 `projects:write` scope 不在自助
-  申请范围内，需要管理员开通。
+  要发布得调 `POST /api/v1/projects`，而那个接口的 `projects:write` scope
+  不在自助 申请范围内，需要管理员开通。
 </Callout>
 
 ## 出错时你会看到什么
@@ -76,17 +78,19 @@ curl -X POST "$CONSOLE_ORIGIN/api/v1/repos" \
 失败响应一律是这个形状，`code` 是你该分支判断的东西，`message` 是给人看的：
 
 ```json
-{ "error": { "code": "insufficient_scope", "message": "需要 repos:write 权限" } }
+{
+  "error": { "code": "insufficient_scope", "message": "需要 repos:write 权限" }
+}
 ```
 
-| 状态码 | 含义                                        | 你该做什么                |
-| ------ | ------------------------------------------- | ------------------------- |
-| `401`  | 没带 key，或这把 key 已吊销 / 过期          | 换一把有效的 key          |
-| `403`  | key 有效，但没有这个接口要的 scope          | 找管理员加 scope          |
-| `404`  | 资源不存在，或这把 key 查不到                | 检查路径与 key 有没有复制全 |
-| `429`  | 撞上分钟或每天的配额                        | 按 `Retry-After` 等待再试 |
+| 状态码 | 含义                                         | 你该做什么                    |
+| ------ | -------------------------------------------- | ----------------------------- |
+| `401`  | 没带 key，或这把 key 已吊销 / 过期           | 换一把有效的 key              |
+| `403`  | key 有效，但没有这个接口要的 scope           | 找管理员加 scope              |
+| `404`  | 资源不存在，或这把 key 查不到                | 检查路径与 key 有没有复制全   |
+| `429`  | 撞上分钟或每天的配额                         | 按 `Retry-After` 等待再试     |
 | `4xx`  | 请求本身有问题（字段、地址、JSON、查询参数） | 看 `error.detail`，改请求再发 |
-| `5xx`  | 雷达这边失败了                              | 可以重试；连续失败再找我们 |
+| `5xx`  | 雷达这边失败了                               | 可以重试；连续失败再找我们    |
 
 路由不存在与「key 查不到」故意用同一个响应：不确认一个 key 有没有某条路由，
 攻击者就能拿 401/404 的差别去枚举。

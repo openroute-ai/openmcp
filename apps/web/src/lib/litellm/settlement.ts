@@ -28,6 +28,7 @@ import {
 } from '@workspace/db'
 import { isLiteLLMConfigured } from '@workspace/litellm'
 import { syncUserGatewayBudget } from '@/lib/budget/budget-sync'
+import { recordAssetInstalls } from '@/web/assets/installs'
 import { LiteLLMSpendingManager, type SpendLog } from '@workspace/litellm'
 
 /** 与网关消费账本一行的最大处理条数，避免单个事务过大锁表 */
@@ -270,6 +271,7 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
     spend: number
     assetType: 'mcp' | 'a2a' | null
     assetId: string | null
+    assetName: string | null
   }[]
 }> {
   const inserted: string[] = []
@@ -284,6 +286,7 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
     spend: number
     assetType: 'mcp' | 'a2a' | null
     assetId: string | null
+    assetName: string | null
   }[] = []
 
   for (let offset = 0; offset < entries.length; offset += BATCH_SIZE) {
@@ -330,6 +333,7 @@ async function debitAndRecord(entries: ResolvedLog[]): Promise<{
           // 来自哪个 MCP/A2A，只能再 join 一次账本才能回答。
           assetType: entry.assetType,
           assetId: entry.assetId,
+          assetName: entry.assetName,
         })
 
         // 扣款：先算这个用户扣完之后还剩多少，再决定实际扣多少
@@ -535,6 +539,24 @@ export async function settleGatewaySpend(days = 1): Promise<SettlementResult> {
     }
 
     const { inserted, duplicates, debited, overspend, touchedUsers, newRecords } = await debitAndRecord(resolved)
+
+    // 调用即安装：买家的 MCP/A2A 调用只存在于这份日志里（直连 LiteLLM，
+    // 平台没有 proxy），所以安装记录跟着对账一起补记。只处理本次新插入的
+    // 账本行，重复结算不会再写一遍；失败也不回滚扣款 —— 记录是附属品。
+    await recordAssetInstalls(
+      newRecords
+        .filter(
+          (record): record is typeof record & { assetType: 'mcp' | 'a2a'; assetId: string } =>
+            record.assetType !== null && record.assetId !== null
+        )
+        .map((record) => ({
+          userId: record.userId,
+          assetType: record.assetType,
+          assetId: record.assetId,
+          assetName: record.assetName,
+          source: 'call' as const,
+        }))
+    )
 
     // S2：扣款后立即回推。失败不回滚账本——余额已经扣了，
     // 预算会由下一次同步或回补任务补上，账本才是真相。

@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm"
 import { resetSyncEnvCache } from "@/lib/env"
 import { TASK_SEEDS } from "@/lib/tasks/definitions"
 import { resetInstalledTasks } from "@/lib/tasks/registry"
+import { getTaskRegistry } from "@/lib/tasks/runner"
 import { listTaskDefinitions, setTaskEnabled } from "@/lib/github/service/task"
 
 const hasDatabase = Boolean(process.env.CONSOLE_DATABASE_URL)
@@ -227,26 +228,43 @@ describe.skipIf(!hasDatabase)("cron endpoint (integration)", () => {
     })
 
     it("retries a failed period, then gives up on it", async () => {
-      // `trigger-monthly-finished` throws when no webhook URL is configured, so
-      // it fails without touching the network. A failure is retried rather than
-      // read as done work — otherwise a misconfiguration would hide for a month
-      // — and it is retried a bounded number of times, so one broken task
-      // cannot spend every wake-up re-discovering that it is still broken.
+      // A failure is retried rather than read as done work — otherwise a
+      // misconfiguration would hide for a month — and it is retried a bounded
+      // number of times, so one broken task cannot spend every wake-up
+      // re-discovering that it is still broken.
+      //
+      // No seeded task fails deterministically now that the ranking digest
+      // tasks are gone, and every remaining candidate reaches the network, so
+      // the run under test is a registered test double rather than a
+      // production task that happens to be misconfigured.
       await route.runScheduledTasks(WAKE_UP)
-      await onlyEnable("trigger-monthly-finished")
+      const registry = getTaskRegistry()
+      const genuine = registry.get("build-daily-data")!
+      registry.set("build-daily-data", {
+        name: "build-daily-data",
+        description: "Always fails; test double for the retry rule",
+        async run() {
+          throw new Error("test double failure")
+        },
+      })
 
-      for (const attempt of [1, 2, 3]) {
-        const body = await (await route.runScheduledTasks(WAKE_UP)).json()
-        expect(
-          body.results["trigger-monthly-finished"],
-          `attempt ${attempt}`
-        ).toBe("failed")
+      try {
+        await onlyEnable("build-daily-data")
+
+        for (const attempt of [1, 2, 3]) {
+          const body = await (await route.runScheduledTasks(WAKE_UP)).json()
+          expect(body.results["build-daily-data"], `attempt ${attempt}`).toBe(
+            "failed"
+          )
+        }
+
+        const givenUp = await (await route.runScheduledTasks(WAKE_UP)).json()
+        expect(givenUp.results["build-daily-data"]).toBe(
+          "gave up after 3 attempts"
+        )
+      } finally {
+        registry.set("build-daily-data", genuine)
       }
-
-      const givenUp = await (await route.runScheduledTasks(WAKE_UP)).json()
-      expect(givenUp.results["trigger-monthly-finished"]).toBe(
-        "gave up after 3 attempts"
-      )
     })
 
     it("keeps the disabled flag across later ticks", async () => {

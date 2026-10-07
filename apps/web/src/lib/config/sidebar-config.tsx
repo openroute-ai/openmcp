@@ -6,7 +6,6 @@ import {
   BookOpenIcon,
   CreditCardIcon,
   DollarSignIcon,
-  DownloadIcon,
   HeartIcon,
   InboxIcon,
   KeyIcon,
@@ -74,12 +73,6 @@ export function getUserSidebarLinks(): NestedMenuItem[] {
           title: t('myFavorites.title'),
           icon: <HeartIcon className='size-4 shrink-0' />,
           href: Routes.MyFavorites,
-          external: false,
-        },
-        {
-          title: t('myDownloads.title'),
-          icon: <DownloadIcon className='size-4 shrink-0' />,
-          href: Routes.MyDownloads,
           external: false,
         },
         {

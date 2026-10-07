@@ -403,7 +403,6 @@ export const SUBSCRIPTION_SCOPES = [
   "repos.stats",
   "repos.rankings",
   "repos.metadata",
-  "repos.user_repos",
 ] as const
 
 /**
@@ -413,7 +412,7 @@ export const SUBSCRIPTION_SCOPES = [
  *
  * 1. `repoIds` 非空 → 完全绕过下面所有规则；
  * 2. 自己的提交 且 `includeOwnSubmissions`；
- * 3. 是平台项目 且 `includePlatformProjects` 且（`platformTypes` 为空或命中）；
+ * 3. 是平台项目 且 `includePlatformProjects`；
  * 4. 有 project 行 且 `categoryCodes` 命中；
  * 5. 有 project 行 且 `projectTypes` 命中；
  * 6. 无 project 行 且 `includeUncurated`；
@@ -440,10 +439,6 @@ export const subscriptionFiltersSchema = z.object({
     .boolean()
     .optional()
     .describe("是否纳入有未隐藏 project 行的仓库（策展动作因此对外可见）"),
-  platformTypes: z
-    .array(z.enum(PROJECT_TYPES))
-    .optional()
-    .describe("平台项目的形态。与 projectTypes 读同一列，区别在开关而不是取值"),
   includeUncurated: z
     .boolean()
     .optional()
@@ -458,11 +453,6 @@ export const subscriptionFiltersSchema = z.object({
 export const subscriptionRequestSchema = z.object({
   name: z.string().min(1).max(120).describe("只给自己看，用来分辨多条订阅"),
   callbackUrl: z.string().url().describe("接收 payload 的地址；投递时按 §3.5 的签名规则"),
-  secret: z
-    .string()
-    .min(32)
-    .optional()
-    .describe("回调签名密钥，至少 32 字节熵。不传则服务端生成，并在响应里返回一次"),
   cadence: z.enum(["daily", "weekly", "monthly"]).default("daily"),
   scopes: z.array(z.enum(SUBSCRIPTION_SCOPES)).min(1),
   filters: subscriptionFiltersSchema.default({}),
@@ -476,15 +466,15 @@ export const subscriptionRequestSchema = z.object({
 /**
  * 订阅对象。
  *
- * `secret` **只出现在创建响应里**，之后任何接口都不再返回，因此它不在这个 schema
- * 里——它是 `subscriptionCreatedSchema` 独有的字段。列表与详情想显示它，只能显示
- * `secretPrefix`。
+ * 订阅**没有自己的密钥**：验签密钥由 `api_key_id` 那把 key 派生，所以这里只带一个
+ * 人工前缀（签名 key 的 `prefix`）用来分辨"用哪把 key 签的"，而密钥本身出现在
+ * 创建响应与详情里（`signingKey`，可重算，不设"只此一次"的仪式）。
  */
 export const subscriptionSchema = z.object({
   id: z.string(),
   name: z.string(),
   callbackUrl: z.string(),
-  secretPrefix: z.string().describe("仅供人工比对，不是密钥"),
+  signingKeyPrefix: z.string().describe("签名 key 的前缀，仅供人工比对，不是密钥"),
   cadence: z.enum(["daily", "weekly", "monthly"]),
   mode: z.enum(["batch", "snapshot"]),
   scopes: z.array(z.enum(SUBSCRIPTION_SCOPES)),
@@ -504,9 +494,16 @@ export const subscriptionSchema = z.object({
   expiresAt: isoDateTime.nullable(),
 })
 
-/** 创建订阅的响应：多一个 `secret`，且仅此一次（设计文档 §6.2）。 */
+/**
+ * 创建订阅的响应：多一个 `signingKey`。
+ *
+ * 它是那把签名 key 的确定性派生（`deriveSigningKey`），能随时从详情里再取，所以
+ * 这里不是"仅此一次"—— 接收方要它是为了配自己的验签，而不是把它当凭据保管。
+ */
 export const subscriptionCreatedSchema = subscriptionSchema.extend({
-  secret: z.string().describe("只此一次，之后任何接口都不再返回。丢了就 rotate-secret"),
+  signingKey: z
+    .string()
+    .describe("验签密钥。同一把签名 key 名下的所有订阅共用；由 key 派生，可随时重取"),
 })
 
 /** `GET /api/v1/subscriptions` 的响应体。 */
@@ -532,6 +529,9 @@ export const deliveryRecordSchema = z.object({
  * 更新」（设计文档 §6.8）。
  */
 export const subscriptionDetailSchema = subscriptionSchema.extend({
+  signingKey: z
+    .string()
+    .describe("验签密钥。与创建响应里的是同一个值，丢了从这里重取即可"),
   matchedRepos: z
     .number()
     .describe("当前过滤器命中的仓库数。为 0 时水位线既不推进也不回退（§6.4）"),
@@ -555,14 +555,6 @@ export const subscriptionUpdateSchema = z.object({
   scopes: z.array(z.enum(SUBSCRIPTION_SCOPES)).min(1).optional(),
   enabled: z.boolean().optional().describe("false = 暂停（队列保留），true = 恢复"),
   expiresAt: isoDateTime.nullable().optional(),
-})
-
-/** `POST /api/v1/subscriptions/{id}/rotate-secret` 的响应：新 secret 仅此一次。 */
-export const subscriptionRotatedSchema = z.object({
-  id: z.string(),
-  secretPrefix: z.string(),
-  secret: z.string().describe("只此一次。旧 secret 立刻失效"),
-  rotatedAt: isoDateTime,
 })
 
 /**

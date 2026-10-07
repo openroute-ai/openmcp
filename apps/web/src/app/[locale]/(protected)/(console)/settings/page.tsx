@@ -2,7 +2,15 @@
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { cn } from '@workspace/ui/lib/utils'
-import { BellIcon, Building2Icon, CircleUserRoundIcon, FileTextIcon, ReceiptIcon, WalletIcon } from 'lucide-react'
+import {
+  BellIcon,
+  Building2Icon,
+  CircleUserRoundIcon,
+  FileTextIcon,
+  ReceiptIcon,
+  SettingsIcon,
+  WalletIcon,
+} from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
@@ -19,6 +27,7 @@ type SettingsSectionId = (typeof settingsSections)[number]['id']
 
 export default function SettingsPage() {
   const t = useTranslations('Dashboard.settings.hub')
+  const tNotification = useTranslations('Dashboard.settings.notification')
   const searchParams = useSearchParams()
   const sectionParam = searchParams.get('section')
   const hasLegacySection = sectionParam === 'account'
@@ -42,6 +51,12 @@ export default function SettingsPage() {
   const breadcrumbs = [{ label: t('title'), isCurrentPage: true }]
 
   const landingCards = [
+    {
+      href: Routes.SettingsSetup,
+      icon: SettingsIcon,
+      title: t('cards.setup.title'),
+      description: t('cards.setup.description'),
+    },
     {
       href: Routes.SettingsProfile,
       icon: CircleUserRoundIcon,
@@ -75,8 +90,8 @@ export default function SettingsPage() {
     {
       href: Routes.SettingsNotifications,
       icon: BellIcon,
-      title: t('notifications.title'),
-      description: t('notifications.description'),
+      title: tNotification('title'),
+      description: tNotification('description'),
     },
   ]
 

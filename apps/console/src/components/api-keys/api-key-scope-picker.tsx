@@ -42,6 +42,10 @@ const SCOPE_EFFECT: Record<ApiScope, { en: string; zh: string }> = {
     en: "Run the skill security scan against a repository",
     zh: "对仓库执行 Skill 安全扫描",
   },
+  "skills:read": {
+    en: "Read every synced skill document (export endpoint)",
+    zh: "读取全站已同步的技能文档（导出端点）",
+  },
 }
 
 /**

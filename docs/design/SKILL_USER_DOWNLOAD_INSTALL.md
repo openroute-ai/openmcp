@@ -5,6 +5,8 @@
 > **状态**：✅ **P0 已完成** · ✅ **P1 已完成** · ✅ **P2 已完成**  
 > **未来迭代**：深度链接一键安装、完整版本管理、Refresh Token  
 > **关联**：[USER_MARKETPLACE.md](./USER_MARKETPLACE.md)、[AGENT_INSTALL.md](./AGENT_INSTALL.md)、[API_KEY_LITELLM_PROXY.md](./API_KEY_LITELLM_PROXY.md)、[SKILLS_PUBLISH_POLICY.md](./SKILLS_PUBLISH_POLICY.md)
+>
+> ⚠️ **变更（2026-10-07）**：前端「我的下载」页面与侧边栏入口已删除（下载即安装）。`skill_downloads` 表与写入保留；安装记录统一由 `asset_installs` + `/dashboard/installs` 呈现（见 `CONSOLE_DASHBOARD_UED.md`）。
 
 ---
 

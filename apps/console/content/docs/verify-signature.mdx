@@ -1,0 +1,232 @@
+---
+title: "验证投递签名"
+description: "从你手上的 api key 算出验签密钥，比对 x-webhook-signature，挡住重放与重复投递。"
+---
+
+订阅建好之后，雷达往你的 `callbackUrl` POST 数据。这一页是接收端的完整配方：算出验签
+密钥、比对签名、挡住重放，最后是一份可以直接抄的实现和一张失败对照表。
+
+<Callout type="info" title="签名是唯一的凭据">
+  投递不带 `Authorization` 头，也不带任何 token。能证明这条请求来自雷达的只有
+  `X-Webhook-Signature`——所以验签不是「可选的加固」，它就是这次请求的全部鉴权。
+</Callout>
+
+## 收到的东西长什么样
+
+```http
+POST /hooks/radar HTTP/1.1
+Content-Type: application/json
+X-Webhook-Id: evt_01JQZ8XK9M
+X-Webhook-Timestamp: 1774000000
+X-Webhook-Event: data.updated
+X-Webhook-Signature: sha256=6f1c3b...
+
+{"eventId":"evt_01JQZ8XK9M","event":"data.updated","deliveredAt":"...","repos":[...]}
+```
+
+四个头各管一件事：
+
+| 头                    | 内容                                  | 用来做什么               |
+| --------------------- | ------------------------------------- | ------------------------ |
+| `X-Webhook-Timestamp` | Unix 秒                               | 签名覆盖它，也用来挡重放 |
+| `X-Webhook-Signature` | `sha256=` + 64 位小写十六进制         | 鉴权                     |
+| `X-Webhook-Id`        | 形如 `evt_...`，重试时**不变**        | 幂等键，去重用           |
+| `X-Webhook-Event`     | `data.updated` 或 `subscription.test` | 不解析 body 也能分路由   |
+
+`subscription.test` 是你点「发测试」时那条探测事件，内容是当前命中的前 5 个仓库快照，
+不推进水位线；`data.updated` 才是数据。
+
+## 第一步：算出验签密钥
+
+配方两步，全部在你这边算——雷达不会额外下发一份密钥：
+
+1. `key_hash = sha256(api key 明文)`，十六进制**小写**；
+2. `验签密钥 = base64url(HMAC-SHA256(key = "mcp-radar-subscription-v1", message = key_hash))`，
+   43 个字符，末尾没有 `=` 填充。
+
+```js
+import { createHash, createHmac } from "node:crypto"
+
+const LABEL = "mcp-radar-subscription-v1"
+
+/** 从你签发的 api key 明文算出验签密钥。 */
+export function deriveSigningKey(apiKey) {
+  const keyHash = createHash("sha256").update(apiKey, "utf8").digest("hex")
+  return createHmac("sha256", LABEL).update(keyHash, "utf8").digest("base64url")
+}
+```
+
+```python
+import base64
+import hashlib
+import hmac
+
+LABEL = b"mcp-radar-subscription-v1"
+
+
+def derive_signing_key(api_key: str) -> str:
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    mac = hmac.new(LABEL, key_hash.encode(), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(mac).decode().rstrip("=")
+```
+
+<Callout type="warn" title="三个最常踩的坑，都表现为「每个请求都验不过」">
+  1. 拿 api key **明文**当验签密钥——少算了两步派生。
+  2. 拿 `key_hash` 当验签密钥——少了第 2 步那层 HMAC。
+  3. 自己拼 base64 时用了标准字母表或补了 `=`——那不是这里的编码。
+
+不想自己实现派生也没关系：`GET /api/v1/subscriptions/{id}` 返回的 `signingKey`
+就是同一个值，抄它与自己算出来必须逐字符相等。
+
+</Callout>
+
+## 第二步：比对签名
+
+签名是 **`sha256=` + hex(HMAC-SHA256(key = 验签密钥, message = 时间戳 + "." + 原始请求体))`**。
+
+<Callout type="warn" title="必须用收到的原始字节">
+  `JSON.parse` 之后再 `JSON.stringify` 会改变键序与空白，重算出来的 HMAC
+  和发过来的 对不上——**验签必失败，而且看起来像被人篡改过**。收 body
+  的中间件要关掉改写： Express 用 `express.raw()`，FastAPI 用 `await
+  request.body()`，Nginx 别开 `proxy_pass` 之外的 body 改写。
+</Callout>
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto"
+
+const WINDOW_SECONDS = 300
+
+/** 原始请求体 + 请求头，全验一遍。返回 true 才能信这条请求。 */
+export function verifyDelivery(rawBody, headers, signingKey) {
+  const timestamp = headers["x-webhook-timestamp"]
+  const received = headers["x-webhook-signature"]
+  if (!timestamp || !received) return false
+
+  const expected = `sha256=${createHmac("sha256", signingKey)
+    .update(`${timestamp}.${rawBody}`, "utf8")
+    .digest("hex")}`
+
+  // 先比长度再常量时间比较：timingSafeEqual 在长度不等时会抛，而长度本身没有
+  // 可泄漏的信息（定长摘要），先判一次只是绕开那个异常。
+  const a = Buffer.from(expected, "utf8")
+  const b = Buffer.from(received, "utf8")
+  if (a.length !== b.length) return false
+  if (!timingSafeEqual(a, b)) return false
+
+  // 时间戳也要看：只验 HMAC 的接收方会永远接受一条被录下来的请求。
+  const ageSeconds = Math.abs(Date.now() / 1000 - Number(timestamp))
+  return ageSeconds <= WINDOW_SECONDS
+}
+```
+
+```python
+import hashlib
+import hmac
+import time
+
+WINDOW_SECONDS = 300
+
+
+def verify_delivery(raw_body: bytes, headers, signing_key: str) -> bool:
+    timestamp = headers.get("x-webhook-timestamp")
+    received = headers.get("x-webhook-signature")
+    if not timestamp or not received:
+        return False
+
+    message = timestamp.encode() + b"." + raw_body
+    expected = "sha256=" + hmac.new(
+        signing_key.encode(), message, hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, received):
+        return False
+
+    try:
+        age_seconds = abs(time.time() - int(timestamp))
+    except ValueError:
+        return False
+    return age_seconds <= WINDOW_SECONDS
+```
+
+时间戳是 **Unix 秒**，不是毫秒，也不是 ISO 字符串。窗口是 **±300 秒**：未来方向同样
+要拒，否则一台时钟被拨快的伪造请求能把窗口撑开。
+
+## 第三步：按 X-Webhook-Id 去重
+
+网络重试会让同一条事件到达两次——签名与时间窗都一模一样，靠它们区分不出来。落一张
+以 `X-Webhook-Id` 为唯一键的表，第二次直接回 200 即可：
+
+```js
+const seen = new Set()
+
+app.post(
+  "/hooks/radar",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const raw = req.body.toString("utf8")
+    if (!verifyDelivery(raw, req.headers, SIGNING_KEY)) {
+      return res.status(401).send("bad signature")
+    }
+
+    const eventId = req.headers["x-webhook-id"]
+    if (seen.has(eventId)) return res.sendStatus(200)
+    seen.add(eventId)
+
+    handle(JSON.parse(raw))
+    res.sendStatus(200)
+  }
+)
+```
+
+分段的大 payload 会在 `eventId` 尾部带上分段序号，所以每一段都是独立的幂等键：**认一段
+就必须把那一段处理完**，只认最后一段会让前面几段的数据凭空消失。
+
+## 什么时候密钥会变
+
+| 动作                                | 验签密钥                   |
+| ----------------------------------- | -------------------------- |
+| 轮换那把 api key（换明文 + 换哈希） | **换**，下一次投递起用新值 |
+| 吊销那把 api key                    | 不变，投递照常继续         |
+| 换另一把 key 新建一条订阅           | 换成新 key 派生的那个      |
+| 同一把 key 名下的其他订阅           | 与这条**共用**同一个       |
+
+所以密钥跟着 key 走，不跟着订阅走：你只需要在手里的 api key 变化时更新接收端那一份。
+
+## 发一条测试来验证
+
+改完接收端，与其等第二天的推送，不如立刻打一条：
+
+```bash
+curl -X POST "$CONSOLE_ORIGIN/api/v1/subscriptions/$SUBSCRIPTION_ID/test" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY"
+```
+
+它发 `subscription.test` 事件，鉴权、签名、时间戳与正常投递完全一致，**不推进水位线**。
+响应里的 `delivered: true` 表示你的端点回了 2xx；`error` 是雷达这一侧看到的失败原因。
+
+## 验签不过的时候
+
+先看投递记录，再猜原因：
+
+```bash
+curl "$CONSOLE_ORIGIN/api/v1/subscriptions/$SUBSCRIPTION_ID" \
+  -H "Authorization: Bearer $CONSOLE_API_KEY"
+```
+
+返回里 `deliveries` 是最近 20 条（`status` / `httpStatus` / `error` / `attempt`），
+`lastError` 是最后一次失败的原因。**回非 2xx 会触发重试**，退避是
+`1s → 5s → 30s → 5min → 30min`，最多 8 次；配方错了重试多少次都不会好，所以别靠重试
+排障。
+
+| 现象                         | 更可能的原因                                                 |
+| ---------------------------- | ------------------------------------------------------------ |
+| 每一条都验不过               | 密钥算错（见第一步那三个坑）                                 |
+| 手上算一遍能过，服务里过不了 | 中间件改写了 body：解压、JSON 重排、日志中间件重新 stringify |
+| 偶尔失败一两条               | 机器时钟偏移超过 300 秒，或把毫秒当成了秒                    |
+| 同一条数据被处理两次         | 没按 `X-Webhook-Id` 去重                                     |
+| 签名过了但 body 是空的       | 只读了一次 body，被前面的中间件消费掉了                      |
+
+## 相关
+
+- [订阅 API](./subscriptions-api)：过滤器语义、水位线重投、失败与熔断。
+- [API 接入指南](./index)：签一把 key、跑通第一个 `curl`。

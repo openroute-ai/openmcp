@@ -33,6 +33,20 @@ export const API_SCOPES = [
    * 仅内部服务（Web → Console）使用，不开放自助签发。
    */
   "skills:scan",
+  /**
+   * 读出已同步的 Skill 文档（`GET /api/skills-sync/export`）。
+   *
+   * 与 `skills:scan` 同属"内部服务"那一类，也不进自助签发：读的是**全站**的
+   * 技能文档，而不只是调用者自己仓库里的那些，所以它必须由管理员逐把授予。
+   *
+   * 与 `skills:scan` 分开，是因为两者的能力差着一个数量级——一个是读文档，
+   * 一个是把任意仓库克隆下来跑 LLM 复核——合成一个 scope 就等于让只想做
+   * 每日兜底拉取的调用方同时拿到执行扫描的权限。
+   *
+   * 只读：持有它不能向任何提交方推送任何东西，推送走的是每个提交方自己的
+   * `callbackSecret`。
+   */
+  "skills:read",
 ] as const
 
 export type ApiScope = (typeof API_SCOPES)[number]

@@ -1557,7 +1557,7 @@ POST /api/v1/subscriptions
   "callbackUrl": "https://web.example.com/api/hooks/console",
   "secret": "自行生成，至少 32 字节熵",     // 可选，不传则服务端生成并返回一次
   "cadence": "daily",
-  "scopes": ["repos.stats", "repos.rankings", "repos.metadata", "repos.user_repos"],
+  "scopes": ["repos.stats", "repos.rankings", "repos.metadata"],
 
   "filters": {
     // 显式白名单。给了就完全覆盖下面的类型过滤器 —— 优先级最高，也最容易解释。
@@ -1717,6 +1717,8 @@ POST /api/v1/subscriptions
       "repoId": "V1StGXR8Z5jd",
       "fullName": "owner/name",
 
+      // 订阅主体的关系信息。仅当 scopes 含 repos.user_repos 时输出。
+      // 只包含该主体自己的行；别人的提交关系永远不出现在任何 payload 里。
       // 订阅主体的关系信息。仅当 scopes 含 repos.user_repos 时输出。
       // 只包含该主体自己的行；别人的提交关系永远不出现在任何 payload 里。
       "userRepo": {

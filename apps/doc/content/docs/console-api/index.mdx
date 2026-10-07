@@ -19,7 +19,7 @@ title: "Console API"
 | 任何持有 key 的调用方 | 仓库档案、区间统计、排行与周期目录 | `Bearer <api-key>`（逐 Key scope） | 控制台站内文档的「API 参考」                    |
 | 外部采集器 | 仓库登记与项目发布                 | `Bearer <api-key>`（逐 Key scope） | [写入 API](./projects)                          |
 | 调度器     | 定时任务与单任务触发              | `Bearer CRON_SECRET`               | [调度器](./scheduler)                           |
-| Web 端     | 技能拉取与订阅邮件                | `Bearer SKILLS_WEBHOOK_TOKEN` / 无 | [技能导出](./skills-sync)、[订阅](./newsletter) |
+| Web 端     | 技能拉取与订阅邮件                | `Bearer <api-key>`（`skills:read`） / 无 | [技能导出](./skills-sync)、[订阅](./newsletter) |
 | 浏览器     | 账号、会话、短信与邮件验证码      | 会话 cookie / 一次性 token         | [认证](./authentication)、[账号](./account)     |
 | 控制台前端 | 13 个 tRPC 路由组                 | 会话 + 角色                        | [tRPC](./trpc)                                  |
 
@@ -45,7 +45,7 @@ curl "$CONSOLE_ORIGIN/api/v1/rankings/weekly" \
 | `POST`         | `/api/v1/projects`                | 🔒 `projects:write`       | 按 URL 策展并发布项目           |
 | `GET` / `POST` | `/api/cron/github`                | 🔒 `CRON_SECRET`          | 调度入口：跑完所有到期的周期任务 |
 | `POST`         | `/api/webhook/{task}`             | 🔒 `CRON_SECRET`          | 单个任务立即执行                 |
-| `GET`          | `/api/skills-sync/export`         | 🔒 `SKILLS_WEBHOOK_TOKEN` | 分页拉取待交付的技能             |
+| `GET`          | `/api/skills-sync/export`         | 🔒 `skills:read`          | 分页拉取待交付的技能             |
 | `POST`         | `/api/newsletter/subscribe`       | —                         | 订阅选型周刊                     |
 | `GET`          | `/api/newsletter/unsubscribe`     | 签名 token                | 退订                             |
 | `GET` / `POST` | `/api/auth/*`                     | 会话 cookie               | Better Auth 的全部端点           |
@@ -76,12 +76,11 @@ curl "$CONSOLE_ORIGIN/api/v1/rankings/weekly" \
 
 ### 共享密钥
 
-`Authorization: Bearer <secret>`，常量时间比较。调度器与技能导出用的是这一条：
+`Authorization: Bearer <secret>`，常量时间比较。调度器走的是这一条；技能导出已经改走上面的作用域 API Key（`skills:read`）：
 
 | 环境变量                     | 保护什么                                                | 没有配置时   |
 | ---------------------------- | ------------------------------------------------------- | ------------ |
 | `CRON_SECRET`                | `GET/POST /api/cron/github`、`POST /api/webhook/{task}` | 返回 **404** |
-| `SKILLS_WEBHOOK_TOKEN`       | `GET /api/skills-sync/export`                           | 返回 **404** |
 | `GITHUB_DATA_WEBHOOK_SECRET` | 出站技能 webhook 的签名                                 | 不推送       |
 
 <Callout>
@@ -90,7 +89,7 @@ curl "$CONSOLE_ORIGIN/api/v1/rankings/weekly" \
   404 当成路径写错了而反复重试，它意味着服务端缺配置。
 </Callout>
 
-共享密钥没有过期时间、没有作用域、不能单独吊销。吊销靠轮换环境变量并重启实例。这两个端点都是机器对机器的固定内部集成（调度器、技能导出），持有密钥的调用方本来就是可信的内部系统，为它们引入按 Key 的作用域只会让运维更难而不会更安全——需要按调用方区分权限的写接口走上面的作用域 API Key。
+共享密钥没有过期时间、没有作用域、不能单独吊销。吊销靠轮换环境变量并重启实例。这类端点是机器对机器的固定内部集成，持有密钥的调用方本来就是可信的内部系统，为它们引入按 Key 的作用域只会让运维更难而不会更安全——需要按调用方区分权限的接口走上面的作用域 API Key。
 
 ### 会话 cookie
 

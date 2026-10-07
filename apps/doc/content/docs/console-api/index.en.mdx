@@ -19,7 +19,7 @@ The console is a service that continuously collects public repository data. It r
 | Any key holder       | Repo profiles, range stats, rankings    | `Bearer <api-key>` (per-key scopes)  | "API reference" in the console's own docs                |
 | External collectors  | Repository registration, publishing     | `Bearer <api-key>` (per-key scopes)   | [Writes](./projects)                                      |
 | Schedulers           | Scheduled tasks, single-task trigger    | `Bearer CRON_SECRET`                 | [Scheduler](./scheduler)                                  |
-| The web app          | Skill pull, newsletter                  | `Bearer SKILLS_WEBHOOK_TOKEN` / none | [Skill export](./skills-sync), [Newsletter](./newsletter) |
+| The web app          | Skill pull, newsletter                  | `Bearer <api-key>` (`skills:read`) / none | [Skill export](./skills-sync), [Newsletter](./newsletter) |
 | Browsers             | Accounts, sessions, SMS and email codes | session cookie / one-time token      | [Authentication](./authentication), [Account](./account)  |
 | The console frontend | 13 tRPC router groups                   | session + role                       | [tRPC](./trpc)                                            |
 
@@ -45,7 +45,7 @@ All 17 routes, ordered by path. 🔒 means a credential is required.
 | `POST`         | `/api/v1/projects`                | 🔒 `projects:write`       | Curate a URL into a published project    |
 | `GET` / `POST` | `/api/cron/github`                | 🔒 `CRON_SECRET`          | The scheduler: run everything due       |
 | `POST`         | `/api/webhook/{task}`             | 🔒 `CRON_SECRET`          | Run one named task now                  |
-| `GET`          | `/api/skills-sync/export`         | 🔒 `SKILLS_WEBHOOK_TOKEN` | Page through undelivered skills         |
+| `GET`          | `/api/skills-sync/export`         | 🔒 `skills:read`          | Page through undelivered skills         |
 | `POST`         | `/api/newsletter/subscribe`       | —                         | Subscribe to the weekly                 |
 | `GET`          | `/api/newsletter/unsubscribe`     | signed token              | Unsubscribe                             |
 | `GET` / `POST` | `/api/auth/*`                     | session cookie            | Every Better Auth endpoint              |
@@ -76,12 +76,11 @@ Rate limits are configured per key (`rpm` / `rpd`) because they protect the down
 
 ### Shared secrets
 
-`Authorization: Bearer <secret>`, compared in constant time. The scheduler and the skill export use this. Each has its own secret:
+`Authorization: Bearer <secret>`, compared in constant time. The scheduler uses this; the skill export takes the scoped API key above (`skills:read`) instead:
 
 | Variable                     | Guards                                                  | When unset        |
 | ---------------------------- | ------------------------------------------------------- | ----------------- |
 | `CRON_SECRET`                | `GET/POST /api/cron/github`, `POST /api/webhook/{task}` | Returns **404**   |
-| `SKILLS_WEBHOOK_TOKEN`       | `GET /api/skills-sync/export`                           | Returns **404**   |
 | `GITHUB_DATA_WEBHOOK_SECRET` | Signing outbound skill webhooks                         | Nothing is pushed |
 
 <Callout>
@@ -92,7 +91,7 @@ Rate limits are configured per key (`rpm` / `rpd`) because they protect the down
   configuration.
 </Callout>
 
-These secrets do not expire, carry no scopes, and cannot be revoked individually: rotation means changing the environment variable and restarting. Both of these endpoints are fixed machine-to-machine internal integrations — the scheduler and the skill export — and the holder of the secret is by definition a trusted internal system. A per-key scope layer there would complicate operations without adding a boundary; a write endpoint that genuinely needs per-caller permissions takes the scoped API key above instead.
+These secrets do not expire, carry no scopes, and cannot be revoked individually: rotation means changing the environment variable and restarting. Such an endpoint is a fixed machine-to-machine integration, and the holder of the secret is by definition a trusted internal system. A per-key scope layer there would complicate operations without adding a boundary; an endpoint that genuinely needs per-caller permissions takes the scoped API key above instead.
 
 ### Session cookies
 

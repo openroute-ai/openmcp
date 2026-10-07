@@ -13,8 +13,8 @@
  *    2 段会撞上 `webhook_deliveries_event_idx` 的唯一键。
  * 3. **只有最后一段成功才推进水位线**（见 `subscription-delivery.ts`）。
  */
-import { and, eq, inArray } from "drizzle-orm"
-import { repos, userRepos } from "@/db/schema"
+import { inArray } from "drizzle-orm"
+import { repos } from "@/db/schema"
 import type { SubscriptionRow } from "@/db/schema/subscriptions"
 import {
   fromStatsCadence,
@@ -93,21 +93,8 @@ export interface PayloadRepo extends PayloadStats {
   classification: RepoClassification
   /** 仅当 scopes 含 `repos.metadata`。 */
   metadata?: Record<string, unknown>
-  /** 仅当 scopes 含 `repos.user_repos`，且该主体确实提交过这个仓库。 */
-  userRepo?: PayloadUserRepo
   /** 仅当 scopes 含 `repos.rankings`。整份榜单对所有仓库相同，所以挂在每一条上。 */
   rankings?: { weekly: Rankings | null; monthly: Rankings | null }
-}
-
-interface PayloadUserRepo {
-  source: string
-  status: string
-  pinned: boolean
-  /** 私有列（`USER_REPO_PRIVATE_COLUMNS`），只有行主人读得到，见 §6.5。 */
-  note: string | null
-  submittedAt: string
-  platformStatus: string
-  platformSyncedAt: string | null
 }
 
 /** 三个周期标签的存储顺序，用来遍历「另外两档」。 */
@@ -118,8 +105,6 @@ export interface BuildPayloadInput {
   /** 已过滤好的命中集合（`listFilteredRepos` 的输出，已按 id 升序）。 */
   rows: RepoFilterRow[]
   matchReasons: MatchReasonMap
-  /** §6.6 的 `$owner`：key 取 submitter，用户订阅取会话用户。 */
-  ownerUserId: string | null
   /** batch 的起点。snapshot 传 null。 */
   watermark: Date | null
   /** 本批要推进到的那一期；snapshot 为 null。 */
@@ -138,18 +123,15 @@ export async function buildPayload(
   db: Db,
   input: BuildPayloadInput
 ): Promise<DeliveryPayload> {
-  const { subscription, rows, ownerUserId, watermark, nextWatermark, now } = input
+  const { subscription, rows, watermark, nextWatermark, now } = input
   const repoIds = rows.map((row) => row.id)
   const scopes = new Set<Scope>(subscription.scopes)
   const primary = toStatsCadence(subscription.cadence)
   const primaryKey = fromStatsCadence(primary)
 
-  const [classifications, fullNames, userRepoRows, metadataRows] = await Promise.all([
+  const [classifications, fullNames, metadataRows] = await Promise.all([
     loadClassifications(db, repoIds),
     loadFullNames(db, repoIds),
-    scopes.has("repos.user_repos")
-      ? loadUserRepos(db, repoIds, ownerUserId)
-      : Promise.resolve(new Map<string, PayloadUserRepo>()),
     scopes.has("repos.metadata")
       ? loadMetadata(db, repoIds)
       : Promise.resolve(new Map<string, Record<string, unknown>>()),
@@ -199,8 +181,6 @@ export async function buildPayload(
 
     const meta = metadataRows.get(row.id)
     if (meta) entry.metadata = meta
-    const own = userRepoRows.get(row.id)
-    if (own) entry.userRepo = own
 
     if (wantsStats) {
       entry[primaryKey] = serialize(primaryByRepo.get(row.id) ?? [], primaryKey).get(
@@ -336,58 +316,6 @@ async function loadMetadata(
         repoUrl: `https://github.com/${row.owner}/${row.name}`,
       },
     ])
-  )
-}
-
-/**
- * `user_repos` 里属于该主体的那一行。
- *
- * **只取这一主体自己的行**（§6.5）：不带「这个仓库的全部提交者」，所以一条 M2M key 的
- * 订阅永远拿不到任何 console 用户的私有 `note`。
- */
-async function loadUserRepos(
-  db: Db,
-  repoIds: string[],
-  ownerUserId: string | null
-): Promise<Map<string, PayloadUserRepo>> {
-  if (!ownerUserId || repoIds.length === 0) return new Map()
-
-  const rows = await db
-    .select({
-      repoId: userRepos.repoId,
-      source: userRepos.source,
-      status: userRepos.status,
-      pinned: userRepos.pinned,
-      note: userRepos.note,
-      createdAt: userRepos.createdAt,
-      platformStatus: userRepos.platformStatus,
-      platformSyncedAt: userRepos.platformSyncedAt,
-    })
-    .from(userRepos)
-    .where(
-      and(
-        inArray(userRepos.repoId, repoIds),
-        eq(userRepos.userId, ownerUserId)
-      )
-    )
-
-  return new Map(
-    rows
-      .filter((row) => row.repoId !== null)
-      .map((row) => [
-        row.repoId as string,
-        {
-          source: row.source ?? "api",
-          status: row.status ?? "active",
-          pinned: row.pinned === true,
-          note: row.note ?? null,
-          submittedAt: row.createdAt.toISOString(),
-          platformStatus: row.platformStatus ?? "pending",
-          platformSyncedAt: row.platformSyncedAt
-            ? row.platformSyncedAt.toISOString()
-            : null,
-        },
-      ])
   )
 }
 
