@@ -75,11 +75,33 @@ function runAuthChecks(request: NextRequest): NextResponse | null {
   return null
 }
 
+/**
+ * A path the proxy must never see.
+ *
+ * `api`, `trpc` and the `_next`/`_vercel` prefixes are requests Next resolves
+ * on its own. `.*\.[^./]+$` is the rest: any path whose last segment carries a
+ * file extension — a shape, not a list of the files that happen to exist today.
+ *
+ * A list is how `/images/contact-wechat.webp` came to answer the image
+ * optimizer with an HTML 404: `webp` was missing from it, so `intlMiddleware`
+ * rewrote the asset to `/zh/images/contact-wechat.webp`, which has no file and
+ * no page. The optimizer then reported `received null` content type, and every
+ * `next/image` QR dialog on the marketing pages fell back to its placeholder.
+ * Enumerating extensions means every new asset needs this file edited too.
+ *
+ * Excluded here:
+ *   - the file-based metadata routes (`robots.ts`, `sitemap.ts`, `manifest.ts`)
+ *     and any `*.txt`/`*.md` route handler: they live outside `[locale]`, so
+ *     they have no locale spelling and no page to render, and `intlMiddleware`
+ *     would rewrite them to a path that does not exist.
+ *   - everything in `public/`: an image, a manifest or a logo must not be
+ *     answered with a redirect to a locale-prefixed 404.
+ *   - any future file-based route, which this way needs no edit here.
+ *
+ * The one thing this lets past the gate that is a page is a dotted last
+ * segment; nothing in `Routes` has one, and the auth layouts
+ * resolve the session server-side, so the gate is the outer of two doors.
+ */
 export const config = {
-  // Match all pathnames except:
-  // - /api, /_next, /_vercel
-  // - files with an extension (e.g. favicon.ico, robots.txt, install/openmcp.md)
-  matcher: [
-    "/((?!api|trpc|_next|_vercel|.*\\.(?:ico|js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|webmanifest|xml|txt|md)$).*)",
-  ],
+  matcher: ["/((?!api|trpc|_next|_vercel|.*\\.[^./]+$).*)"],
 }
