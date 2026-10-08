@@ -12,11 +12,25 @@ import { NextResponse } from "next/server"
 
 import { db } from "@/db/client"
 import { newsletterSubscription } from "@/db/schema"
+import { clientIpFromHeaders } from "@/lib/api/audit"
+import { getApiRateLimiter } from "@/lib/api/rate-limit"
 import { isMailConfigured, mailLocaleFrom, sendEmail } from "@/lib/mail"
 import { unsubscribeUrl } from "@/lib/newsletter-token"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MAX_EMAIL_LENGTH = 254
+
+/**
+ * 每个地址每小时的提交次数。
+ *
+ * 这个端点匿名、写库、还触发发信，之前一个闸门都没有：灌库之外，外发邮件的费用
+ * 与发信域名信誉都由调用方决定。5 次/小时对真人绰绰有余（同一邮箱的重复提交本来
+ * 就是 upsert），但把地址变成了有界的。
+ *
+ * IP 是从 `x-forwarded-for` 取的，与匿名 agent 面同一套信任假设：它是桶名而不是
+ * 身份 —— 伪造它只能换一个桶花，总闸仍在。前提是反向代理覆写了这个头。
+ */
+const SUBSCRIBE_PER_HOUR = 5
 
 /**
  * 允许出现的来源标记。
@@ -27,6 +41,21 @@ const MAX_EMAIL_LENGTH = 254
 const SOURCES = new Set(["landing-report"])
 
 export async function POST(request: Request) {
+  // 闸门放在解析之前：伪造一个坏请求同样要花预算，而下面每一步都在写库或发信。
+  const identity = clientIpFromHeaders(request.headers) ?? "unknown"
+  const quota = await getApiRateLimiter().consume(
+    `newsletter:${identity}`,
+    SUBSCRIBE_PER_HOUR,
+    3_600
+  )
+  if (!quota.allowed) {
+    const retryAfter = quota.retryAfter ?? 60
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterSeconds: retryAfter },
+      { status: 429, headers: { "retry-after": String(retryAfter) } }
+    )
+  }
+
   let email: string
   let source: string | undefined
   try {

@@ -14,7 +14,6 @@
  * because two concurrent runs of the same task write the same rows.
  */
 
-import { config } from "dotenv"
 import { db, pool } from "@/db/client"
 import { TASK_SEEDS } from "@/lib/tasks/definitions"
 import { installTaskRegistry, UNIMPLEMENTED_TASKS } from "@/lib/tasks/registry"
@@ -65,8 +64,6 @@ function seedFor(name: string): TaskDefinitionInput {
 }
 
 async function main() {
-  config()
-
   const args = parseArgs(process.argv.slice(2))
   const registry = installTaskRegistry()
 

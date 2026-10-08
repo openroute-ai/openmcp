@@ -19,6 +19,8 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto"
 
+import { safeFetch } from "@/lib/net/safe-fetch"
+
 /** Header carrying the Unix-seconds timestamp the signature covers. */
 export const SIGNATURE_HEADER = "x-webhook-timestamp"
 
@@ -71,6 +73,23 @@ export interface SendOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000
+
+/**
+ * The delivery fetch: `safeFetch` in `lenient` mode.
+ *
+ * A receiver on the same host is a legitimate target — that is what
+ * `api/write-request.ts` is defending when it only checks the scheme — so
+ * private and loopback addresses are allowed through. Link-local and the
+ * cloud metadata endpoints are not receivers of anything: they are refused in
+ * every mode, which is what stops a configured callback URL from turning into
+ * a credential read. The redirect of a callback is re-checked hop by hop for
+ * the same reason.
+ */
+const deliverFetch: typeof fetch = (input, init) =>
+  safeFetch(
+    typeof input === "string" ? input : input instanceof URL ? input : input.url,
+    { ...(init ?? {}), mode: "lenient" }
+  )
 
 /**
  * `sha256=<hex>` over `<timestamp>.<body>`.
@@ -173,7 +192,7 @@ export async function sendWebhook(
     secret,
     token,
     timeoutMs = DEFAULT_TIMEOUT_MS,
-    fetchImpl = fetch,
+    fetchImpl = deliverFetch,
     now = () => new Date(),
     eventId,
     event,

@@ -1,7 +1,18 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
+import { loadConsoleEnv } from "./load-env"
 import { schema } from "./schema"
 import { resolveSsl } from "./ssl"
+
+// The pool reads its connection string below, at module scope, so the env file
+// has to be on disk-read *before* this module runs its body. The scripts that
+// merely `await import("./client")` load it themselves first; the ones that
+// import it statically — `pnpm sync:run` does, and so does anything reachable
+// from it — would otherwise build a pool from an empty `CONSOLE_DATABASE_URL`
+// and only fail at the first query. `override: false` keeps this from
+// surprising the app: `next dev`/`next start` already loaded the same files
+// with the same precedence, so here it is a no-op.
+loadConsoleEnv()
 
 /**
  * Constructs the pool; `pg` opens no connection until the first query, so

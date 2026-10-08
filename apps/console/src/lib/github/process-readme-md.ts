@@ -1,4 +1,5 @@
 import { ossClient } from "@/lib/oss/client"
+import { safeFetch } from "@/lib/net/safe-fetch"
 
 const IMAGE_EXTENSIONS = [
   ".png",
@@ -27,6 +28,32 @@ const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
 }
 
 /**
+ * README 里允许被镜像的图片来源。
+ *
+ * 白名单而不是「任意公网」：README 由仓库作者写，镜像这个动作等于让服务器替
+ * 他发起一次带跳转的下载 —— 只放行图片真正可能出现的地方，剩下的地址一律保留
+ * 原样（读者的浏览器照常能显示），既不给 SSRF 留入口，也不浪费一次出站请求。
+ *
+ * `.githubusercontent.com` 一族覆盖 raw / objects / avatars / camo / gist /
+ * user-images；`.githubassets.com` 覆盖 `opengraph.githubassets.com`。
+ */
+const MIRROR_HOSTS = new Set(["github.com", "shields.io", "raw.github.com"])
+const MIRROR_HOST_SUFFIXES = [".githubusercontent.com", ".githubassets.com"]
+
+/** 是否是值得镜像的来源。地址本身格式不合法时按「不镜像」处理，不抛错。 */
+function isMirrorableSource(url: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(url).hostname.toLowerCase()
+  } catch {
+    return false
+  }
+  if (hostname.endsWith(".")) hostname = hostname.slice(0, -1)
+  if (MIRROR_HOSTS.has(hostname)) return true
+  return MIRROR_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix))
+}
+
+/**
  * Per-process memo of source URL to mirrored URL. Two READMEs that embed
  * the same badge image otherwise trigger two uploads per run, and a full
  * refresh touches thousands of READMEs.
@@ -44,6 +71,9 @@ function createOssMirror(repo: string): ImageMirror {
   return async (absoluteUrl) => {
     if (!ossClient.isEnabled()) return undefined
     if (isAlreadyHosted(absoluteUrl)) return undefined
+    // Checked before `detectExtension`, which is itself a request: a source we
+    // would refuse to mirror must not be probed either.
+    if (!isMirrorableSource(absoluteUrl)) return undefined
 
     const cached = mirroredImages.get(absoluteUrl)
     if (cached) return cached
@@ -198,7 +228,9 @@ function toAbsoluteImageUrl(url: string, repo: string, branch: string): string {
  */
 async function detectExtension(url: string): Promise<string> {
   try {
-    const response = await fetch(url, { method: "HEAD" })
+    // A HEAD against a caller-supplied URL is a request all the same, so it
+    // goes out through the same host policy as the download it precedes.
+    const response = await safeFetch(url, { method: "HEAD", mode: "strict" })
     if (response.ok) {
       const contentType = response.headers.get("content-type")
       if (contentType) {

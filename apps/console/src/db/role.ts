@@ -23,11 +23,11 @@
  * on sign-up, so the stored value is not necessarily the one an operator types.
  */
 
-import { config } from "dotenv"
 import { eq } from "drizzle-orm"
 
-config({ path: ".env" })
-config({ path: "../../.env", override: false })
+import { loadConsoleEnv } from "./load-env"
+
+loadConsoleEnv()
 
 /** The roles this script writes. Anything else is a typo, not a new tier. */
 const ROLES = ["admin", "user"] as const

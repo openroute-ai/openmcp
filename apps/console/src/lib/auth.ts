@@ -39,6 +39,33 @@ const CN_PHONE = /^1[3-9]\d{9}$/
 
 const tempEmailDomain = process.env.CONSOLE_TEMP_EMAIL_DOMAIN ?? "console.local"
 
+/**
+ * Whether the session cookies carry `Secure`.
+ *
+ * Better Auth answers this from its own baseURL (`BETTER_AUTH_URL`) and, when
+ * that is absent, from `NODE_ENV`. The gap is the deployment where the public
+ * origin is https but the app is reached over plain http — TLS terminated at
+ * a proxy that does not forward the scheme — because the derived answer is
+ * then "no", and a cookie minted without `Secure` is readable and forgeable by
+ * anything on the path. Deriving it from `BETTER_AUTH_URL` here makes it the
+ * deployment's property, which is where the answer actually lives.
+ *
+ * Returns `undefined` when nothing is known, so better-auth keeps its own
+ * fallback rather than having it replaced by a hard `false`: forcing no
+ * `Secure` in a production deployment that simply has not set the URL yet
+ * would be a downgrade, not a default.
+ *
+ * `AUTH_SECURE_COOKIES` overrides the derivation for the case where the origin
+ * and the URL disagree during a migration.
+ */
+function deriveSecureCookies(): boolean | undefined {
+  const override = process.env.AUTH_SECURE_COOKIES
+  if (override) return override !== "false"
+  const base = process.env.BETTER_AUTH_URL
+  if (!base) return undefined
+  return base.startsWith("https://")
+}
+
 // Better Auth's own defaults: `basePath` stays `/api/auth`, the directory the
 // handler is mounted at, and `baseURL` is read from `BETTER_AUTH_URL`. Setting
 // either here would be a second place to keep in step with the deployment, and
@@ -175,6 +202,7 @@ export const auth = betterAuth({
     ipAddress: {
       ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
     },
+    useSecureCookies: deriveSecureCookies(),
   },
   ...(storage
     ? {

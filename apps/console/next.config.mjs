@@ -1,3 +1,7 @@
+// Imported rather than taken from the ambient global: this file is ESM and the
+// lint config does not declare `process` for `*.mjs`, which would leave a
+// `no-undef` on the one line that reads an environment variable.
+import process from "node:process"
 import createNextIntlPlugin from "next-intl/plugin"
 import { createMDX } from "fumadocs-mdx/next"
 
@@ -45,6 +49,51 @@ const nextConfig = {
     "@workspace/shared-next",
     "@workspace/security-scan",
   ],
+  // The framework name in every response is free reconnaissance.
+  poweredByHeader: false,
+  /**
+   * Response headers applied to every route.
+   *
+   * Deliberately not a `Content-Security-Policy`: the app ships inline
+   * scripts, `next/font`, third-party images from GitHub and the OSS bucket,
+   * and a policy loose enough not to break them would not be worth sending.
+   * These five are the ones that cost nothing to set and cannot break a page.
+   *
+   * HSTS is opt-in through `ENABLE_HSTS` rather than unconditional because a
+   * header promising https is worse than no header while the deployment is
+   * still plain http on the VPC. It is read when this config loads, so the
+   * value is fixed at build time.
+   */
+  async headers() {
+    const hsts = process.env.ENABLE_HSTS
+      ? [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+        ]
+      : []
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          ...hsts,
+        ],
+      },
+    ]
+  },
 }
 
 // MDX outermost, same order as `apps/web`: `withMDX` merges loaders into the

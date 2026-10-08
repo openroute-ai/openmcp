@@ -130,11 +130,15 @@ function schemeOf(value: string): string {
  * receiver could not answer over — `file:`, `gopher:`, `data:` — is refused
  * before the request is ever built.
  *
- * Deliberately only a scheme check. Host-level policy is not imposed here: the
+ * The scheme is checked here and the host at delivery time, deliberately. The
  * legitimate deployment of this pair is a console and a web app on the same
- * host, so rejecting loopback or private addresses would break the case the
- * feature exists for. A deployment reachable from untrusted callers should put
- * an egress allowlist in front of it instead.
+ * host, so rejecting loopback or private addresses up front would break the
+ * case the feature exists for: `sendWebhook` fetches through `safeFetch` in
+ * `lenient` mode, which allows private and loopback targets but still refuses
+ * link-local addresses and the cloud metadata endpoints, and re-checks every
+ * redirect hop. What is left for a deployment reachable from untrusted callers
+ * is an egress allowlist in front of it, for the lateral movement this layer
+ * does not attempt to stop.
  */
 function isHttpUrl(value: string): boolean {
   const scheme = schemeOf(value)

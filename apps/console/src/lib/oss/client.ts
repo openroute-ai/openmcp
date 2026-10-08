@@ -1,6 +1,7 @@
 import OSS from "ali-oss"
 import * as prettier from "prettier"
 import { hasAliyunOss, syncEnv } from "@/lib/env"
+import { SafeFetchError, safeFetch } from "@/lib/net/safe-fetch"
 
 export type OssAssetType = "icon" | "og-image" | "readme-images" | "avatar"
 
@@ -54,6 +55,14 @@ export class AliyunOSSClient {
    * The source app downloaded to a temp file on disk and uploaded that,
    * which fails on serverless where the filesystem is read-only or
    * ephemeral. The buffer is held in memory instead.
+   *
+   * The URL is attacker-controlled in every case this is called from — a
+   * README image, an Open Graph image, an avatar — so the download goes
+   * through `safeFetch`, which resolves the host and refuses private,
+   * loopback, link-local and metadata addresses. Mirroring is best-effort:
+   * an image that is too large to be worth hosting is skipped (`undefined`,
+   * the original URL is kept) the same way a 429 is, while an address that
+   * fails the host policy throws, so the caller logs it.
    */
   async uploadFromUrl(
     url: string,
@@ -61,7 +70,15 @@ export class AliyunOSSClient {
   ): Promise<string | undefined> {
     if (!this.isEnabled()) return undefined
 
-    const response = await fetch(url, { redirect: "follow" })
+    let response: Response
+    try {
+      response = await safeFetch(url, { mode: "strict", maxRedirects: 5 })
+    } catch (error) {
+      if (error instanceof SafeFetchError && error.code === "body_too_large") {
+        return undefined
+      }
+      throw error
+    }
     if (!response.ok) {
       // Rate limiting and transient CDN failures are common when mirroring
       // public Open Graph images; treat them as non-fatal so refresh does not

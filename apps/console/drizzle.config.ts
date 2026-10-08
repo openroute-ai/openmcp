@@ -1,15 +1,12 @@
-import { existsSync } from "node:fs"
-import { config } from "dotenv"
 import { defineConfig } from "drizzle-kit"
+import { loadConsoleEnv } from "./src/db/load-env"
 import { toDiscreteCredentials } from "./src/db/ssl"
 
-// The app's own env file takes precedence, then the monorepo root. The
-// previous config only read `../../.env`, which meant `db:generate` failed
-// for anyone who had filled in `apps/console/.env` (as `.env.example`
-// instructs) but not the root file.
-for (const path of [".env.local", "../../.env"]) {
-  if (existsSync(path)) config({ path, override: false })
-}
+// One loader for every script that needs the database URL: `db:generate`,
+// `db:migrate` and the seed/role scripts have to agree on which file wins,
+// because a migration applied to one database and a seed run against another
+// is the kind of mismatch that is only discovered much later.
+loadConsoleEnv()
 
 // `drizzle-kit generate` only reads the schema, so it must not require a
 // database URL. The commands that do connect (`push`, `migrate`, `studio`,

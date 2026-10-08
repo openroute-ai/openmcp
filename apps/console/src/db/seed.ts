@@ -8,11 +8,11 @@
  * reverted by a later run.
  */
 
-import { config } from "dotenv"
 import { count } from "drizzle-orm"
 
-config({ path: ".env" })
-config({ path: "../../.env", override: false })
+import { loadConsoleEnv } from "./load-env"
+
+loadConsoleEnv()
 
 async function main() {
   if (!process.env.CONSOLE_DATABASE_URL) {

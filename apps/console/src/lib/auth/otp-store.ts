@@ -75,6 +75,16 @@ export function createOtpStore(options: {
 
   const memory = new Map<string, { digest: string; expiresAt: number }>()
   const memoryAttempts = new Map<string, { count: number; expiresAt: number }>()
+  /**
+   * Resend cooldowns when Redis is absent.
+   *
+   * Without this the cooldown answered "claimed" for every request, which
+   * turned the resend button into no limit at all — and since the codes
+   * themselves are process-local in the same configuration, the fallback is
+   * already the deployment this map belongs to. It does not make a
+   * multi-instance deploy safe; that is what the warning in `issue` is for.
+   */
+  const memoryCooldowns = new Map<string, number>()
 
   function prune(now: number): void {
     for (const [key, entry] of memory) {
@@ -82,6 +92,9 @@ export function createOtpStore(options: {
     }
     for (const [key, entry] of memoryAttempts) {
       if (entry.expiresAt <= now) memoryAttempts.delete(key)
+    }
+    for (const [key, expiresAt] of memoryCooldowns) {
+      if (expiresAt <= now) memoryCooldowns.delete(key)
     }
   }
 
@@ -166,13 +179,18 @@ export function createOtpStore(options: {
 
     async claimSlot(subject, windowSeconds) {
       const redis = getRedisClient()
-      if (!redis) return true
-      const claimed = await redis.setIfAbsent(
-        prefix + "cooldown:" + digest(subject),
-        "1",
-        windowSeconds * 1000
-      )
-      return claimed
+      const key = digest(subject)
+
+      if (!redis) {
+        const now = Date.now()
+        prune(now)
+        const expiresAt = memoryCooldowns.get(key)
+        if (expiresAt !== undefined && expiresAt > now) return false
+        memoryCooldowns.set(key, now + windowSeconds * 1000)
+        return true
+      }
+
+      return redis.setIfAbsent(prefix + "cooldown:" + key, "1", windowSeconds * 1000)
     },
 
     clear,

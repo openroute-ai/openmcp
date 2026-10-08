@@ -27,15 +27,13 @@
  */
 
 import { and, count, eq, inArray } from "drizzle-orm"
-import { config } from "dotenv"
 
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import { periodStart, type StatsCadence } from "@/lib/github/snapshot-dates"
 import { COUNTERS } from "../lib/github/service/stats"
+import { loadConsoleEnv } from "./load-env"
 
-config({ path: ".env" })
-config({ path: ".env.local" })
-config({ path: "../../.env", override: false })
+loadConsoleEnv()
 
 /**
  * Days of history to write.
