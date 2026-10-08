@@ -142,12 +142,12 @@ function buildSkillPrompt(input: BuildInstallPromptInput): string {
 
   if (locale === 'en') {
     return [
-      `# Install OpenMCP Skill into Agent (${runtime})`,
+      `# Install OpenMCP Hub Skill into Agent (${runtime})`,
       '',
       `Skill: ${asset.name} (\`${asset.slug}\`)`,
       `Detail: ${detail}`,
       paid
-        ? 'Pricing: paid — sign in on OpenMCP, purchase/unlock, then acquire before installing.'
+        ? 'Pricing: paid — sign in on OpenMCP Hub, purchase/unlock, then acquire before installing.'
         : 'Pricing: free — sign in and click Acquire on the detail page (or use Store MCP install_asset).',
       '',
       '## Steps',
@@ -157,7 +157,7 @@ function buildSkillPrompt(input: BuildInstallPromptInput): string {
       '4. Restart the Agent session / reload skills.',
       '5. Verify: ask the Agent to list available skills and confirm this skill appears.',
       '',
-      'Never install from untrusted mirrors. Prefer official OpenMCP URLs only.',
+      'Never install from untrusted mirrors. Prefer official OpenMCP Hub URLs only.',
       input.includeStoreMcp ? `\n${buildStoreMcpSnippet(runtime, 'en', origin)}` : '',
     ]
       .filter(Boolean)
@@ -165,12 +165,12 @@ function buildSkillPrompt(input: BuildInstallPromptInput): string {
   }
 
   return [
-    `# 将 OpenMCP Skill 装进 Agent（${runtime}）`,
+    `# 将 OpenMCP Hub Skill 装进 Agent（${runtime}）`,
     '',
     `技能：${asset.name}（\`${asset.slug}\`）`,
     `详情页：${detail}`,
     paid
-      ? '定价：付费 — 请先登录 OpenMCP 购买/解锁，再获取文件。'
+      ? '定价：付费 — 请先登录 OpenMCP Hub 购买/解锁，再获取文件。'
       : '定价：免费 — 登录后在详情页点击「免费获取」（或通过 Store MCP 的 install_asset）。',
     '',
     '## 步骤',
@@ -180,7 +180,7 @@ function buildSkillPrompt(input: BuildInstallPromptInput): string {
     '4. 重启 Agent 会话或重新加载 skills。',
     '5. 校验：让 Agent 列出已安装 skills，确认本技能出现。',
     '',
-    '请只使用 OpenMCP 官方链接，勿从不明镜像安装。',
+    '请只使用 OpenMCP Hub 官方链接，勿从不明镜像安装。',
     input.includeStoreMcp ? `\n${buildStoreMcpSnippet(runtime, 'zh', origin)}` : '',
   ]
     .filter(Boolean)
@@ -197,7 +197,7 @@ function buildMcpPrompt(input: BuildInstallPromptInput): string {
 
   if (locale === 'en') {
     return [
-      `# Install OpenMCP MCP via platform gateway (${runtime})`,
+      `# Install OpenMCP Hub MCP via platform gateway (${runtime})`,
       '',
       `Server: ${asset.name} (\`${asset.slug}\`)`,
       `Detail: ${detail}`,
@@ -221,7 +221,7 @@ function buildMcpPrompt(input: BuildInstallPromptInput): string {
   }
 
   return [
-    `# 通过平台网关安装 OpenMCP MCP（${runtime}）`,
+    `# 通过平台网关安装 OpenMCP Hub MCP（${runtime}）`,
     '',
     `服务：${asset.name}（\`${asset.slug}\`）`,
     `详情页：${detail}`,
@@ -252,7 +252,7 @@ function buildA2aPrompt(input: BuildInstallPromptInput): string {
 
   if (locale === 'en') {
     return [
-      `# Connect OpenMCP A2A agent via platform gateway (${runtime})`,
+      `# Connect OpenMCP Hub A2A agent via platform gateway (${runtime})`,
       '',
       `Agent: ${asset.name} (\`${asset.slug}\`)`,
       `Detail: ${detail}`,
@@ -276,7 +276,7 @@ function buildA2aPrompt(input: BuildInstallPromptInput): string {
   }
 
   return [
-    `# 通过平台网关接入 OpenMCP A2A（${runtime}）`,
+    `# 通过平台网关接入 OpenMCP Hub A2A（${runtime}）`,
     '',
     `智能体：${asset.name}（\`${asset.slug}\`）`,
     `详情页：${detail}`,
@@ -308,7 +308,7 @@ function buildBootstrapPrompt(
   const base = getAppBaseUrl(origin)
   if (locale === 'en') {
     return [
-      `# Bootstrap OpenMCP marketplace into your Agent (${runtime})`,
+      `# Bootstrap OpenMCP Hub marketplace into your Agent (${runtime})`,
       '',
       '## Steps',
       `1. Open ${base}/start and keep this prompt.`,
@@ -394,7 +394,7 @@ export function buildStoreMcpConfigPreview(runtime: RuntimeId, origin?: string):
     label: 'openmcp-store',
     url: buildStoreMcpUrl(origin),
     runtime,
-    comment: 'OpenMCP 自建 Store MCP',
+    comment: 'OpenMCP Hub 自建 Store MCP',
   })
 }
 

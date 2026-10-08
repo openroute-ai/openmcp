@@ -1,8 +1,8 @@
-# OpenMCP 安装与技能包接入
+# OpenMCP Hub 安装与技能包接入
 
 ## 概述
 
-OpenMCP（https://www.openmcp.cn）是面向 Agent 的 MCP / A2A / Skills 资产市场。本文档供 Agent 阅读后自行完成：注册 OpenMCP Store MCP、或下载 Skill Zip 并解压到本地 skills 目录。
+OpenMCP Hub（https://www.openmcp.cn）是面向 Agent 的 MCP / A2A / Skills 资产市场。本文档供 Agent 阅读后自行完成：注册 OpenMCP Store MCP、或下载 Skill Zip 并解压到本地 skills 目录。
 
 **禁止**使用 Provider 直连 endpoint；MCP / A2A 只走平台网关。
 

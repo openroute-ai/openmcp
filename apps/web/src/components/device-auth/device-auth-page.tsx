@@ -137,7 +137,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
             <CardDescription>您已拒绝此设备的授权请求</CardDescription>
           </CardHeader>
           <CardContent className='text-center text-muted-foreground text-sm'>
-            <p>该设备将无法访问您的 OpenMCP 账户。</p>
+            <p>该设备将无法访问您的 OpenMCP Hub 账户。</p>
           </CardContent>
           <CardFooter>
             <Button variant='outline' onClick={handleReset} className='w-full'>
@@ -158,7 +158,7 @@ export function DeviceAuthPage({ initialUserCode }: DeviceAuthPageProps) {
               <Shield className='h-10 w-10 text-blue-600' />
             </div>
             <CardTitle className='text-2xl'>授权请求</CardTitle>
-            <CardDescription>确认授权此设备访问您的 OpenMCP 账户</CardDescription>
+            <CardDescription>确认授权此设备访问您的 OpenMCP Hub 账户</CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
             {error && (

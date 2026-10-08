@@ -8,7 +8,7 @@ import { ClawsourcingCta } from "./components/clawsourcing-cta"
 import { ClawsourcingQa } from "./components/clawsourcing-qa"
 
 export const metadata: Metadata = {
-  title: "Clawsourcing - OpenClaw定制服务 | OpenMCP",
+  title: "Clawsourcing - OpenClaw定制服务 | OpenMCP Hub",
   description:
     "全托管的 AI 员工定制服务。端到端定制、持续优化、跨客户学习。￥2,000 一次性设置 + ￥500/月维护。",
 }

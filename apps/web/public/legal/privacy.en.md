@@ -2,7 +2,7 @@
 
 Last updated: 30 September 2026
 
-OpenMCP (the "platform") is a marketplace for developer assets and MCP services.
+OpenMCP Hub (the "platform") is a marketplace for developer assets and MCP services.
 This policy explains what the platform collects when you register, publish, purchase
 or otherwise use the service, why it collects it, how it is stored and protected, and
 what rights you have over it.

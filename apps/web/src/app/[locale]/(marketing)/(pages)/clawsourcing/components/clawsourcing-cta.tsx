@@ -38,7 +38,7 @@ export function ClawsourcingCta() {
             </Button>
           </div>
           <p className='mt-6 text-muted-foreground text-xs'>
-            {'OpenMCP. Bridging AI capability and real-world application.'}
+            {'OpenMCP Hub. Bridging AI capability and real-world application.'}
           </p>
         </div>
       </div>

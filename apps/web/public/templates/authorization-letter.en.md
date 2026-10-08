@@ -23,7 +23,7 @@ Phone number: ____________________________________________________
 ## Scope of the authorisation
 
 The company above hereby authorises the grantee to act on its behalf on the
-OpenMCP platform (openmcp.cn) for the following onboarding steps:
+OpenMCP Hub platform (openmcp.cn) for the following onboarding steps:
 
 1. submitting the company verification documents, including the business
    licence and the ID documents of the legal person;

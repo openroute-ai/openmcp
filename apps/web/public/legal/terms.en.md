@@ -2,7 +2,7 @@
 
 Last updated: 30 September 2026
 
-This agreement governs your use of OpenMCP, a marketplace for developer assets and
+This agreement governs your use of OpenMCP Hub, a marketplace for developer assets and
 MCP services (the "platform"). By registering an account or publishing, purchasing
 or using anything on the platform, you agree to these terms. The platform's Privacy
 Policy describes how your personal information is handled and forms part of this

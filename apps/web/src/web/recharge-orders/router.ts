@@ -142,7 +142,7 @@ export const rechargeOrdersRouter = createTRPCRouter({
         orderId: order.orderId,
         amount: order.amount.toString(),
         currency: order.currency,
-        subject: `OpenMCP 钱包充值 ¥${order.amount.toString()}`,
+        subject: `OpenMCP Hub 钱包充值 ¥${order.amount.toString()}`,
         origin,
       })
 

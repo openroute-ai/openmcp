@@ -25,7 +25,7 @@ export async function generateMetadata({
 
   if (!category) {
     return constructMetadata({
-      title: localeTyped === 'zh' ? '分类未找到 - OpenMCP' : 'Category Not Found - OpenMCP',
+      title: localeTyped === 'zh' ? '分类未找到 - OpenMCP Hub' : 'Category Not Found - OpenMCP Hub',
       description:
         localeTyped === 'zh'
           ? '抱歉，我们找不到您要查找的分类。'
@@ -43,8 +43,8 @@ export async function generateMetadata({
 
   const title =
     localeTyped === 'zh'
-      ? `${categoryName} - OpenMCP 技能分类`
-      : `${categoryName} - OpenMCP Skill Category`
+      ? `${categoryName} - OpenMCP Hub 技能分类`
+      : `${categoryName} - OpenMCP Hub Skill Category`
 
   const description =
     categoryDescription ||
@@ -54,7 +54,7 @@ export async function generateMetadata({
 
   const keywords = [
     categoryName,
-    'OpenMCP ClawSourcing skill',
+    'OpenMCP Hub ClawSourcing skill',
     'OpenClaw',
     'skills',
     'automation',

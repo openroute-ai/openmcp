@@ -7,7 +7,7 @@
  */
 export const websiteConfig = {
   metadata: {
-    title: 'OpenMCP — MCP / A2A / Skills Asset Marketplace',
+    title: 'OpenMCP Hub — MCP / A2A / Skills Asset Marketplace',
     description:
       'A marketplace for AI agents: providers publish MCP servers, A2A agents and skills; users install them free or paid. Review, discovery and settlement included.',
     base_url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
@@ -86,8 +86,8 @@ export const websiteConfig = {
     provider: (process.env.MAIL_PROVIDER ?? 'nodemailer') as
       | 'resend'
       | 'nodemailer',
-    fromEmail: process.env.MAIL_FROM ?? 'OpenMCP <service@openmcp.cn>',
-    supportEmail: process.env.MAIL_SUPPORT ?? 'OpenMCP <service@openmcp.cn>',
+    fromEmail: process.env.MAIL_FROM ?? 'OpenMCP Hub <service@openmcp.cn>',
+    supportEmail: process.env.MAIL_SUPPORT ?? 'OpenMCP Hub <service@openmcp.cn>',
   },
   newsletter: {
     provider: (process.env.NEWSLETTER_PROVIDER ?? 'nodemailer') as

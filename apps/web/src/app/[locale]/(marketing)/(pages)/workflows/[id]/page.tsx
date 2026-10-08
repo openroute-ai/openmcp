@@ -48,14 +48,14 @@ export async function generateMetadata({
       ? workflow.description || workflow.descriptionEn || workflow.summary || ''
       : workflow.descriptionEn || workflow.description || workflow.summary || '') ||
     (locale === 'zh'
-      ? `在OpenMCP查看和下载${workflow.title || ''}技能`
-      : `View and download ${workflow.titleEn || workflow.title || ''} workflow template on OpenMCP`)
+      ? `在OpenMCP Hub查看和下载${workflow.title || ''}技能`
+      : `View and download ${workflow.titleEn || workflow.title || ''} workflow template on OpenMCP Hub`)
 
   // Build keywords
   const categoryNames = workflow.categories?.map((c) => (locale === 'zh' ? c.name : c.nameEn || c.name)).join(', ') || ''
   const keywords = [
     workflow.title || workflow.titleEn || '',
-    'OpenMCP ClawSourcing skill',
+    'OpenMCP Hub ClawSourcing skill',
     'OpenClaw',
     'skills',
     'automation',

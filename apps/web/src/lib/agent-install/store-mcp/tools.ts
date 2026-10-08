@@ -588,7 +588,7 @@ export function storeServerInfo() {
   return {
     name: 'openmcp-store',
     version: '1.0.0',
-    description: 'OpenMCP marketplace Store MCP — search / recommend / get / install published assets',
+    description: 'OpenMCP Hub marketplace Store MCP — search / recommend / get / install published assets',
     url: buildStoreMcpUrl(base),
     oauth: {
       deviceCodeUrl: `${base}/api/mcp/store/oauth/device`,

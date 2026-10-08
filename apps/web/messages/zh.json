@@ -1,7 +1,7 @@
 {
   "Metadata": {
-    "name": "OpenMCP",
-    "title": "OpenMCP — 为中国 Agent 优化的 Skills / MCP / A2A 市场",
+    "name": "OpenMCP Hub",
+    "title": "OpenMCP Hub — 为中国 Agent 优化的 Skills / MCP / A2A 市场",
     "description": "浏览货架、下载 Skill 包、接入 MCP / A2A；Provider 入驻上架，可选变现。审核与目录开箱即用。"
   },
   "Common": {
@@ -302,7 +302,7 @@
     },
     "apiKeys": {
       "title": "API密钥",
-      "description": "管理您的API密钥，用于访问 OpenMCP 服务",
+      "description": "管理您的API密钥，用于访问 OpenMCP Hub 服务",
       "create": "创建密钥",
       "createFirst": "创建第一个密钥",
       "loading": "加载中...",
@@ -327,11 +327,11 @@
       "delete": "删除",
       "empty": {
         "title": "暂无API密钥",
-        "description": "创建您的第一个API密钥以开始使用OpenMCP 服务"
+        "description": "创建您的第一个API密钥以开始使用OpenMCP Hub 服务"
       },
       "createDialog": {
         "title": "创建API密钥",
-        "description": "创建一个新的API密钥来访问OpenMCP 服务",
+        "description": "创建一个新的API密钥来访问OpenMCP Hub 服务",
         "name": "密钥名称",
         "namePlaceholder": "例如：生产环境密钥",
         "prefix": "前缀（可选）",
@@ -547,7 +547,7 @@
     },
     "virtualKeys": {
       "title": "虚拟密钥",
-      "description": "管理您的虚拟密钥，用于访问OpenMCP 服务",
+      "description": "管理您的虚拟密钥，用于访问OpenMCP Hub 服务",
       "create": "创建密钥",
       "createFirst": "创建第一个密钥",
       "loading": "加载中...",
@@ -569,11 +569,11 @@
       "view": "查看详情",
       "empty": {
         "title": "暂无虚拟密钥",
-        "description": "创建您的第一个虚拟密钥以开始使用OpenMCP 服务"
+        "description": "创建您的第一个虚拟密钥以开始使用OpenMCP Hub 服务"
       },
       "createDialog": {
         "title": "创建虚拟密钥",
-        "description": "创建一个新的虚拟密钥来访问OpenMCP 服务",
+        "description": "创建一个新的虚拟密钥来访问OpenMCP Hub 服务",
         "name": "密钥名称",
         "namePlaceholder": "例如：生产环境密钥",
         "descriptionLabel": "密钥描述",
@@ -614,7 +614,7 @@
       },
       "usageGuide": {
         "title": "如何使用 Virtual Key",
-        "description": "Virtual Key 是访问 OpenMCP AI Agent 基础设施的密钥，通过 OpenMCP 服务提供稳定的 API 访问",
+        "description": "Virtual Key 是访问 OpenMCP Hub AI Agent 基础设施的密钥，通过 OpenMCP Hub 服务提供稳定的 API 访问",
         "badge": "使用指南",
         "apiConfig": {
           "title": "API 配置信息",
@@ -1696,7 +1696,7 @@
     },
     "invitation": {
       "title": "组织邀请",
-      "description": "您收到了一个 OpenMCP 协作邀请。",
+      "description": "您收到了一个 OpenMCP Hub 协作邀请。",
       "accept": "接受邀请",
       "accepting": "正在接受...",
       "accepted": "已接受邀请，欢迎加入！",
@@ -1706,7 +1706,7 @@
     }
   },
   "HomePage": {
-    "title": "OpenMCP",
+    "title": "OpenMCP Hub",
     "description": "发现、分享和下载 AI 技能、MCP 工具与 A2A 智能体。获取 AI 驱动的能力分析，优化您的智能体。",
     "hero": {
       "badge": "Skills / MCP / A2A 市场",
@@ -2016,7 +2016,7 @@
     },
     "onboarding": {
       "corner": "发现 · 安装 · 发布",
-      "eyebrow": "OpenMCP 市场",
+      "eyebrow": "OpenMCP Hub 市场",
       "title": "安装 Skill 包，或上架你的资产",
       "subtitle": "浏览并安装 Skills / MCP / A2A；Provider 提交经审核后上架。变现为可选能力。",
       "ctaBrowse": "浏览 Skills / MCP / A2A",
@@ -2154,7 +2154,7 @@
   "Newsletter": {
     "title": "邮件列表",
     "subtitle": "邮件速订，快讯直达",
-    "description": "订阅邮件列表，及时获取 OpenMCP 最新消息和更新",
+    "description": "订阅邮件列表，及时获取 OpenMCP Hub 最新消息和更新",
     "daily": {
       "tagline": "AI 每日快讯",
       "title": "每日一条 AI 应用技巧",
@@ -2390,7 +2390,7 @@
     },
     "providerCta": {
       "eyebrow": "创作者 · 发布与变现",
-      "titleLead": "上架到 OpenMCP",
+      "titleLead": "上架到 OpenMCP Hub",
       "titleAccent": "被发现、被安装，分成 90%",
       "description": "提交 Skills，注册 MCP / A2A，进入统一目录。收益来自被安装与被调用，付费与结算是上架之后的可选项。",
       "existingPrefix": "已有资产？先看 ",
@@ -2442,7 +2442,7 @@
     },
     "onboarding": {
       "corner": "发现 · 安装 · 发布",
-      "eyebrow": "OpenMCP 市场",
+      "eyebrow": "OpenMCP Hub 市场",
       "title": "安装 Skill 包，或上架你的资产",
       "description": "浏览并安装 Skills / MCP / A2A；创作者提交经审核后上架。变现为可选能力。",
       "ctaBrowse": "浏览 Skills / MCP / A2A",
@@ -2612,7 +2612,7 @@
       "faqs": {
         "q0": {
           "question": "这和我自己搭建 OpenClaw 有什么不同？",
-          "answer": "就像买服务器和雇系统管理员的区别。你可以自己来。但每位 Clawsourced 员工都自带久经考验的记忆系统（多数 AI 配置会忘掉一切，我们的不会）、精选工具栈、定制人设，以及来自 OpenMCP（负责我们公司的 AI）的持续支持。此外我们每月都会主动维护和升级你的配置。你得到的是现成员工，而不是课后作业。"
+          "answer": "就像买服务器和雇系统管理员的区别。你可以自己来。但每位 Clawsourced 员工都自带久经考验的记忆系统（多数 AI 配置会忘掉一切，我们的不会）、精选工具栈、定制人设，以及来自 OpenMCP Hub（负责我们公司的 AI）的持续支持。此外我们每月都会主动维护和升级你的配置。你得到的是现成员工，而不是课后作业。"
         },
         "q1": {
           "question": "咨询真的免费吗？",
@@ -2651,10 +2651,10 @@
   },
   "AboutPage": {
     "title": "关于我们",
-    "description": "OpenMCP 是一个开放的 AI Agent 基础设施，帮助您发现、发布和分享 AI 技能、MCP 工具与 A2A 智能体。如果您有任何问题，欢迎联系我们。",
-    "authorName": "OpenMCP",
+    "description": "OpenMCP Hub 是一个开放的 AI Agent 基础设施，帮助您发现、发布和分享 AI 技能、MCP 工具与 A2A 智能体。如果您有任何问题，欢迎联系我们。",
+    "authorName": "OpenMCP Hub",
     "authorBio": "您的 AI Agent 基础设施",
-    "introduction": "👋 欢迎来到 **OpenMCP**！\n\n我们是**开放中立的多智能体协作基础设施**，连接全球 AI Agent 开发者社区。\n\n## 我们的使命\n\n我们的使命是通过提供数千个**经过认证的 AI 技能与资产**，让每个 AI Agent 都能轻松获得扩展能力。您可以：\n\n- **发现**适合您需求的 AI 技能、MCP 工具与 A2A 智能体\n- **下载**即用的扩展能力\n- **定制**资产以满足您的特定用例\n- **分享**您自己的创作与社区\n\n## AI 驱动分析\n\n我们提供**AI 驱动的技能分析**功能，帮助您：\n\n- 优化性能\n- 识别瓶颈\n- 提高效率\n\n## 加入我们的社区\n\n无论您是初学者还是专家，加入我们的社区可以：\n\n- 分享知识\n- 向他人学习\n- 共同构建更好的 AI Agent 解决方案\n\n如果您有任何问题或建议，我们非常乐意听取您的意见！",
+    "introduction": "👋 欢迎来到 **OpenMCP Hub**！\n\n我们是**开放中立的多智能体协作基础设施**，连接全球 AI Agent 开发者社区。\n\n## 我们的使命\n\n我们的使命是通过提供数千个**经过认证的 AI 技能与资产**，让每个 AI Agent 都能轻松获得扩展能力。您可以：\n\n- **发现**适合您需求的 AI 技能、MCP 工具与 A2A 智能体\n- **下载**即用的扩展能力\n- **定制**资产以满足您的特定用例\n- **分享**您自己的创作与社区\n\n## AI 驱动分析\n\n我们提供**AI 驱动的技能分析**功能，帮助您：\n\n- 优化性能\n- 识别瓶颈\n- 提高效率\n\n## 加入我们的社区\n\n无论您是初学者还是专家，加入我们的社区可以：\n\n- 分享知识\n- 向他人学习\n- 共同构建更好的 AI Agent 解决方案\n\n如果您有任何问题或建议，我们非常乐意听取您的意见！",
     "talkWithMe": "联系我们",
     "contactWeChat": "微信联系",
     "followMe": "关注我们"
@@ -2752,7 +2752,7 @@
     "terms": "服务条款",
     "switchTheme": "切换主题",
     "and": "和",
-    "appName": "OpenMCP",
+    "appName": "OpenMCP Hub",
     "feedback": "反馈"
   },
   "navigation": {
@@ -2869,7 +2869,7 @@
     "previousPage": "上一页",
     "nextPage": "下一页",
     "chooseLanguage": "选择语言",
-    "title": "OpenMCP 文档",
+    "title": "OpenMCP Hub 文档",
     "homepage": "首页",
     "blog": "教程",
     "workflows": "工作流",
@@ -2905,7 +2905,7 @@
       "stop": "停止",
       "close": "关闭",
       "you": "你",
-      "assistant": "OpenMCP",
+      "assistant": "OpenMCP Hub",
       "source": "来源",
       "askAI": "AI问答"
     }
@@ -2938,7 +2938,7 @@
       "subject": "来自网站的联系消息"
     },
     "organizationInvitation": {
-      "title": "{inviterName} 邀请您加入 OpenMCP 的 {organizationName}。",
+      "title": "{inviterName} 邀请您加入 OpenMCP Hub 的 {organizationName}。",
       "body": "您被以 {email} 身份邀请，接受邀请后即可一起协作。",
       "accept": "接受邀请",
       "subject": "邀请您加入 {organizationName}"
@@ -2978,7 +2978,7 @@
   },
   "AuthorsPage": {
     "title": "技能创作者",
-    "description": "发现由我们的 OpenMCP AI 专家社区创建的能力资产。",
+    "description": "发现由我们的 OpenMCP Hub AI 专家社区创建的能力资产。",
     "totalAuthors": "{count} 位创作者",
     "authors": "创作者",
     "skills": "个Skills",
@@ -3155,9 +3155,9 @@
     }
   },
   "StartPage": {
-    "title": "把 OpenMCP 装进 Agent",
+    "title": "把 OpenMCP Hub 装进 Agent",
     "description": "复制短提示词，让 Agent 按 /install/openmcp.md 安装商店；再下载 Skill 包到本地 skills 目录。",
-    "badge": "OpenMCP · 起步",
+    "badge": "OpenMCP Hub · 起步",
     "heading": "安装 Skill 包，接入 OpenMCP 商店",
     "intro": "先复制「给 AI 安装」提示词（指向 install/openmcp.md），再浏览货架下载 Zip 或经 Store MCP 安装。MCP / A2A 仅走平台网关。",
     "promptHint": "复制下方短提示词发给 Agent，即可按文档完成商店与技能包安装。",
@@ -3565,7 +3565,7 @@
           "description": "用户在 Agent 对话里直接完成下单、支付与确认，不跳出任务链路，流失率更低。"
         },
         "distribute": {
-          "title": "OpenMCP 统一连接多个入口",
+          "title": "OpenMCP Hub 统一连接多个入口",
           "description": "一个付费技能同步分发到多个 Agent 平台，SKILL.md / MCP / A2A 一处上架、全端可购。"
         }
       }
@@ -3663,7 +3663,7 @@
       "subtitle": "让专业能力按真实调用变成持续收入——上架付费技能，接上微信与支付宝，Agent 每调用一次，你多赚一笔。",
       "ctaPrimary": "立即上架付费技能",
       "ctaSecondary": "浏览技能市场",
-      "note": "OpenMCP. Bridging AI capability and real-world application."
+      "note": "OpenMCP Hub. Bridging AI capability and real-world application."
     }
   },
   "PersonaPage": {
@@ -3728,7 +3728,7 @@
     },
     "notLogin": {
       "eyebrow": "提供者入驻",
-      "headline": "将你的技能上架到 OpenMCP 市场",
+      "headline": "将你的技能上架到 OpenMCP Hub 市场",
       "subheadline": "AI 时代的应用商店。发布 MCP 工具、A2A 智能体与 SKILLS，触达中国 AI 开发者社区，并实时获得分成收入。",
       "steps": {
         "account": {
@@ -3748,7 +3748,7 @@
           "description": "提交 MCP / A2A / Skill 等待审核"
         }
       },
-      "whyTitle": "为什么入驻 OpenMCP？",
+      "whyTitle": "为什么入驻 OpenMCP Hub？",
       "benefits": {
         "shelves": "发布 MCP Server / A2A Agent / AI Skill 三大货架",
         "pricing": "设置免费或付费资产，实时结算到你的账户",
@@ -3764,11 +3764,11 @@
     },
     "kyc": {
       "meta": {
-        "title": "提供者入驻 - OpenMCP",
-        "description": "完成实名认证，即可在 OpenMCP 市场发布 MCP Server、A2A Agent 与 Skill。"
+        "title": "提供者入驻 - OpenMCP Hub",
+        "description": "完成实名认证，即可在 OpenMCP Hub 市场发布 MCP Server、A2A Agent 与 Skill。"
       },
       "pageTitle": "提供者入驻",
-      "pageDescription": "完成实名认证后即可在 OpenMCP 发布资产。",
+      "pageDescription": "完成实名认证后即可在 OpenMCP Hub 发布资产。",
       "loading": "正在加载入驻信息...",
       "done": {
         "title": "实名认证已通过",
@@ -3877,16 +3877,16 @@
         "pageTitle": "个人实名认证",
         "pageDescription": "完成实名并选择收款通道，审核通常需要 1-3 个工作日。",
         "meta": {
-          "title": "个人实名认证 - OpenMCP",
-          "description": "完成个人实名认证，即可在 OpenMCP 市场发布资产。"
+          "title": "个人实名认证 - OpenMCP Hub",
+          "description": "完成个人实名认证，即可在 OpenMCP Hub 市场发布资产。"
         }
       },
       "company": {
         "pageTitle": "企业实名认证",
         "pageDescription": "完成企业实名并选择收款通道，审核通常需要 1-3 个工作日。",
         "meta": {
-          "title": "企业实名认证 - OpenMCP",
-          "description": "完成企业实名认证，即可在 OpenMCP 市场发布资产。"
+          "title": "企业实名认证 - OpenMCP Hub",
+          "description": "完成企业实名认证，即可在 OpenMCP Hub 市场发布资产。"
         }
       },
       "steps": {
@@ -4026,7 +4026,7 @@
     },
     "payout": {
       "meta": {
-        "title": "收款账户 - OpenMCP",
+        "title": "收款账户 - OpenMCP Hub",
         "description": "绑定平台向你结算付费资产时使用的微信 / 支付宝收款账户。"
       },
       "pageTitle": "收款账户",
@@ -4104,7 +4104,7 @@
   "McpSubmit": {
     "meta": {
       "title": "发布 MCP Server",
-      "description": "接入你的 MCP 端点，完成连接测试后发布到 OpenMCP 市场，供 Claude、Codex 等 AI 客户端调用。"
+      "description": "接入你的 MCP 端点，完成连接测试后发布到 OpenMCP Hub 市场，供 Claude、Codex 等 AI 客户端调用。"
     },
     "cardTitle": "发布 MCP Server",
     "cardDescription": "先接入并测通端点，再补充上架信息。",
@@ -4256,7 +4256,7 @@
   "SkillSubmit": {
     "meta": {
       "title": "提交 Skill",
-      "description": "通过 GitHub 仓库地址或 ZIP 包提交你的 Skill，经安全扫描与审核后收录到 OpenMCP Skills 仓库。"
+      "description": "通过 GitHub 仓库地址或 ZIP 包提交你的 Skill，经安全扫描与审核后收录到 OpenMCP Hub Skills 仓库。"
     },
     "cardTitle": "提交 Skill",
     "cardDescription": "通过 GitHub 仓库或 ZIP 包接入，平台完成安全扫描后可上架到 Skills 仓库。",
@@ -4499,18 +4499,18 @@
     "title": "模型市场",
     "description": "浏览并对比各类 AI 模型",
     "metadata": {
-      "title": "AI 模型市场 | 海量认证模型 | OpenMCP",
+      "title": "AI 模型市场 | 海量认证模型 | OpenMCP Hub",
       "description": "浏览来自领先厂商的数千个认证 AI 模型，为你的项目找到合适的模型。"
     },
     "provider": {
       "metadata": {
-        "title": "模型供应商 | OpenMCP",
-        "description": "浏览 OpenMCP 上已认证的 AI 模型供应商。"
+        "title": "模型供应商 | OpenMCP Hub",
+        "description": "浏览 OpenMCP Hub 上已认证的 AI 模型供应商。"
       }
     },
     "model": {
       "metadata": {
-        "title": "{name} | OpenMCP",
+        "title": "{name} | OpenMCP Hub",
         "description": "{description}"
       }
     },

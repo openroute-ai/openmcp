@@ -73,7 +73,7 @@ version: ${version}${openmcpBlock}
 
 # ${input.title || name}
 
-${input.description?.trim() || "OpenMCP marketplace skill."}
+${input.description?.trim() || "OpenMCP Hub marketplace skill."}
 
 ## Source
 
@@ -93,7 +93,7 @@ ${input.description?.trim() || "OpenMCP marketplace skill."}
 
 ## Store MCP (optional)
 
-Register \`${storeMcp}\` with your OpenMCP API key, then call \`install_asset\` with kind \`skill\` and id/slug \`${input.slug}\`.
+Register \`${storeMcp}\` with your OpenMCP Hub API key, then call \`install_asset\` with kind \`skill\` and id/slug \`${input.slug}\`.
 
 Gateway base (MCP/A2A only): ${getGatewayBaseUrl()} — never use Provider direct endpoints.
 `
@@ -106,13 +106,13 @@ export function buildOpenmcpStoreHelperPackage(): SkillPackageResult {
   const name = "openmcp-store"
   const skillMd = `---
 name: ${name}
-description: "Search and install Skills / MCP / A2A from the OpenMCP marketplace via Store MCP or zip download."
+description: "Search and install Skills / MCP / A2A from the OpenMCP Hub marketplace via Store MCP or zip download."
 version: "1.0.0"
 ---
 
 # OpenMCP Store
 
-Help the user discover and install assets from OpenMCP (${origin}).
+Help the user discover and install assets from OpenMCP Hub (${origin}).
 
 ## Bootstrap
 
@@ -132,7 +132,7 @@ Help the user discover and install assets from OpenMCP (${origin}).
       { path: "SKILL.md", content: skillMd },
       {
         path: "README.md",
-        content: `# openmcp-store\n\nHelper skill for installing OpenMCP marketplace assets.\nSee SKILL.md and ${origin}/install/openmcp.md.\n`,
+        content: `# openmcp-store\n\nHelper skill for installing OpenMCP Hub marketplace assets.\nSee SKILL.md and ${origin}/install/openmcp.md.\n`,
       },
     ],
     targetDirs: {
@@ -184,9 +184,9 @@ version: ${version}${openmcpBlock}
 
 # ${input.title || name}
 
-## OpenMCP Metadata
+## OpenMCP Hub Metadata
 
-This is a minimal metadata file for a GitHub-sourced skill from the OpenMCP marketplace.
+This is a minimal metadata file for a GitHub-sourced skill from the OpenMCP Hub marketplace.
 
 - Detail page: ${detail}
 - Marketplace: ${marketplaceUrl}

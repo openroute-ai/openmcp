@@ -104,7 +104,7 @@ export function OAuthAuthorizeView() {
             <Shield className='h-8 w-8 text-primary' />
             <div>
               <CardTitle>授权请求</CardTitle>
-              <CardDescription className='mt-1'>{clientName} 请求访问您的 OpenMCP 账户</CardDescription>
+              <CardDescription className='mt-1'>{clientName} 请求访问您的 OpenMCP Hub 账户</CardDescription>
             </div>
           </div>
         </CardHeader>

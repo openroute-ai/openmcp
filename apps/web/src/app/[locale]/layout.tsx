@@ -32,7 +32,7 @@ export function generateStaticParams() {
 export const metadata: Metadata = {
   title: {
     default: websiteConfig.metadata.title,
-    template: `%s - OpenMCP`,
+    template: `%s - OpenMCP Hub`,
   },
   description: websiteConfig.metadata.description,
   // Relative OG/Twitter image paths in page metadata are resolved against this.
@@ -71,24 +71,24 @@ export default async function LocaleLayout({
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "OpenMCP",
+    name: "OpenMCP Hub",
     url: baseUrl,
     logo: `${baseUrl}/logo.png`,
     description:
       typedLocale === "zh"
         ? websiteConfig.metadata.description
-        : "OpenMCP is an MCP / A2A / Skills marketplace for AI Agents: Providers publish; users acquire assets free or paid and install them into Agents.",
+        : "OpenMCP Hub is an MCP / A2A / Skills marketplace for AI Agents: Providers publish; users acquire assets free or paid and install them into Agents.",
   }
 
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "OpenMCP",
+    name: "OpenMCP Hub",
     url: baseUrl,
     description:
       typedLocale === "zh"
         ? websiteConfig.metadata.description
-        : "OpenMCP — MCP / A2A / Skills marketplace for discovering, acquiring, and publishing Agent capabilities",
+        : "OpenMCP Hub — MCP / A2A / Skills marketplace for discovering, acquiring, and publishing Agent capabilities",
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -103,7 +103,7 @@ export default async function LocaleLayout({
   const softwareApplicationSchema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "OpenMCP",
+    name: "OpenMCP Hub",
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Web",
     offers: {
@@ -114,8 +114,8 @@ export default async function LocaleLayout({
     },
     description:
       typedLocale === "zh"
-        ? "OpenMCP 是面向 AI Agent 的 MCP / A2A / Skills 资产市场：创作者发布，用户免费或付费获取并装进 Agent。"
-        : "OpenMCP is an MCP / A2A / Skills marketplace: Providers publish; users acquire and install assets into Agents.",
+        ? "OpenMCP Hub 是面向 AI Agent 的 MCP / A2A / Skills 资产市场：创作者发布，用户免费或付费获取并装进 Agent。"
+        : "OpenMCP Hub is an MCP / A2A / Skills marketplace: Providers publish; users acquire and install assets into Agents.",
     featureList: [
       typedLocale === "zh" ? "MCP / A2A / Skills 资产目录" : "MCP / A2A / Skills catalog",
       typedLocale === "zh" ? "免费或付费获取资产" : "Acquire assets free or paid",
@@ -132,13 +132,13 @@ export default async function LocaleLayout({
     serviceType: "AI Agent Asset Marketplace",
     provider: {
       "@type": "Organization",
-      name: "OpenMCP",
+      name: "OpenMCP Hub",
     },
     areaServed: "Worldwide",
     description:
       typedLocale === "zh"
-        ? "OpenMCP MCP / A2A / Skills 资产市场：发现、获取并装进 Agent；创作者可发布上架。"
-        : "OpenMCP MCP / A2A / Skills marketplace: discover, acquire, and install into Agents; Providers can publish.",
+        ? "OpenMCP Hub MCP / A2A / Skills 资产市场：发现、获取并装进 Agent；创作者可发布上架。"
+        : "OpenMCP Hub MCP / A2A / Skills marketplace: discover, acquire, and install into Agents; Providers can publish.",
     offers: {
       "@type": "Offer",
       price: "0",

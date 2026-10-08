@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils'
 
 export function OpenMcpLogo({
   className,
-  alt = 'OpenMCP',
-  title = 'OpenMCP',
+  alt = 'OpenMCP Hub',
+  title = 'OpenMCP Hub',
 }: {
   className?: string
   alt?: string

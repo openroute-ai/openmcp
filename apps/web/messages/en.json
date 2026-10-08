@@ -1,7 +1,7 @@
 {
   "Metadata": {
-    "name": "OpenMCP",
-    "title": "OpenMCP — Skills / MCP / A2A marketplace for Agents",
+    "name": "OpenMCP Hub",
+    "title": "OpenMCP Hub — Skills / MCP / A2A marketplace for Agents",
     "description": "Browse the shelf, download Skill packages, connect MCP / A2A. Providers publish and optionally monetize. Review and catalog included."
   },
   "Common": {
@@ -302,7 +302,7 @@
     },
     "apiKeys": {
       "title": "API Keys",
-      "description": "Manage your API keys for accessing OpenMCP services",
+      "description": "Manage your API keys for accessing OpenMCP Hub services",
       "create": "Create Key",
       "createFirst": "Create First Key",
       "loading": "Loading...",
@@ -327,11 +327,11 @@
       "delete": "Delete",
       "empty": {
         "title": "No API Keys",
-        "description": "Create your first API key to start using OpenMCP services"
+        "description": "Create your first API key to start using OpenMCP Hub services"
       },
       "createDialog": {
         "title": "Create API Key",
-        "description": "Create a new API key to access OpenMCP services",
+        "description": "Create a new API key to access OpenMCP Hub services",
         "name": "Key Name",
         "namePlaceholder": "e.g., Production Key",
         "prefix": "Prefix (Optional)",
@@ -614,7 +614,7 @@
       },
       "usageGuide": {
         "title": "How to Use Virtual Key",
-        "description": "Virtual Key is an API key for accessing the OpenMCP AI Agent infrastructure for stable API access",
+        "description": "Virtual Key is an API key for accessing the OpenMCP Hub AI Agent infrastructure for stable API access",
         "badge": "Usage Guide",
         "apiConfig": {
           "title": "API Configuration",
@@ -1626,7 +1626,7 @@
     },
     "invitation": {
       "title": "Organization Invitation",
-      "description": "You have been invited to collaborate on OpenMCP.",
+      "description": "You have been invited to collaborate on OpenMCP Hub.",
       "accept": "Accept invitation",
       "accepting": "Accepting...",
       "accepted": "Invitation accepted. Welcome aboard!",
@@ -1636,7 +1636,7 @@
     }
   },
   "HomePage": {
-    "title": "OpenMCP",
+    "title": "OpenMCP Hub",
     "description": "Discover, share, and deploy AI skills, MCP tools and A2A agents. Get AI-powered capability analysis to optimize your agents.",
     "hero": {
       "badge": "Skills / MCP / A2A Marketplace",
@@ -1946,7 +1946,7 @@
     },
     "onboarding": {
       "corner": "discover · install · publish",
-      "eyebrow": "OpenMCP market",
+      "eyebrow": "OpenMCP Hub market",
       "title": "Install a Skill package, or list your own asset",
       "subtitle": "Browse and install Skills, MCP and A2A. Providers are listed after review. Monetization is optional.",
       "ctaBrowse": "Browse Skills / MCP / A2A",
@@ -2320,7 +2320,7 @@
     },
     "providerCta": {
       "eyebrow": "Creators · publish and monetize",
-      "titleLead": "List on OpenMCP",
+      "titleLead": "List on OpenMCP Hub",
       "titleAccent": "Get discovered, get installed, keep 90%",
       "description": "Submit Skills, register MCP / A2A, and enter the unified catalog. Revenue comes from installs and invocations; payment and settlement are optional extras after listing.",
       "existingPrefix": "Already have an asset? See the ",
@@ -2372,7 +2372,7 @@
     },
     "onboarding": {
       "corner": "Discover · Install · Publish",
-      "eyebrow": "OpenMCP marketplace",
+      "eyebrow": "OpenMCP Hub marketplace",
       "title": "Install skill packs, or list your own assets",
       "description": "Browse and install Skills / MCP / A2A; creator submissions go live after review. Monetization is an optional capability.",
       "ctaBrowse": "Browse Skills / MCP / A2A",
@@ -2542,7 +2542,7 @@
       "faqs": {
         "q0": {
           "question": "How is this different from just setting up OpenClaw myself?",
-          "answer": "Same difference as buying a server vs. hiring a sysadmin. You could do it yourself. But every Clawsourced employee comes pre-built with a battle-tested memory system (most AI setups forget everything — ours doesn't), a curated tool stack, a custom persona, and active support from OpenMCP — the AI that runs our company. Plus we actively maintain and improve yours every month. You get the employee, not a homework assignment."
+          "answer": "Same difference as buying a server vs. hiring a sysadmin. You could do it yourself. But every Clawsourced employee comes pre-built with a battle-tested memory system (most AI setups forget everything — ours doesn't), a curated tool stack, a custom persona, and active support from OpenMCP Hub — the AI that runs our company. Plus we actively maintain and improve yours every month. You get the employee, not a homework assignment."
         },
         "q1": {
           "question": "Is the consult really free?",
@@ -2583,19 +2583,19 @@
     "title": "Model Marketplace",
     "description": "Explore and compare various AI models",
     "metadata": {
-      "title": "AI Model Marketplace | Thousands of Certified Models | OpenMCP",
-      "description": "Explore and compare thousands of certified AI models from leading providers. Find the perfect model for your project with advanced filtering, pricing comparison, and detailed specifications. OpenMCP and more."
+      "title": "AI Model Marketplace | Thousands of Certified Models | OpenMCP Hub",
+      "description": "Explore and compare thousands of certified AI models from leading providers. Find the perfect model for your project with advanced filtering, pricing comparison, and detailed specifications. OpenMCP Hub and more."
     },
     "provider": {
       "metadata": {
-        "title": "{provider} AI Models | OpenMCP",
-        "description": "Browse {provider} AI models on OpenMCP. Compare pricing, specifications, and features. Access {provider} models through our unified API gateway."
+        "title": "{provider} AI Models | OpenMCP Hub",
+        "description": "Browse {provider} AI models on OpenMCP Hub. Compare pricing, specifications, and features. Access {provider} models through our unified API gateway."
       }
     },
     "model": {
       "metadata": {
-        "title": "{modelName} - {provider} | OpenMCP",
-        "description": "{modelName} by {provider}. {description} Context length: {contextLength}. Input: {inputPrice}, Output: {outputPrice}. Access via OpenMCP unified gateway."
+        "title": "{modelName} - {provider} | OpenMCP Hub",
+        "description": "{modelName} by {provider}. {description} Context length: {contextLength}. Input: {inputPrice}, Output: {outputPrice}. Access via OpenMCP Hub unified gateway."
       }
     },
     "showFilters": "Show filters",
@@ -2632,10 +2632,10 @@
   },
   "AboutPage": {
     "title": "About",
-    "description": "OpenMCP is a neutral, open AI Agent infrastructure that helps you discover, publish and share AI skills, MCP tools and A2A agents.",
-    "authorName": "OpenMCP",
+    "description": "OpenMCP Hub is a neutral, open AI Agent infrastructure that helps you discover, publish and share AI skills, MCP tools and A2A agents.",
+    "authorName": "OpenMCP Hub",
     "authorBio": "Your AI Agent Infrastructure",
-    "introduction": "👋 Welcome to **OpenMCP**!\n\nWe are an **open, neutral multi-agent collaboration infrastructure**, connecting AI agent developers worldwide.\n\n## Our Mission\n\nOur mission is to make AI agent capabilities accessible to everyone by providing thousands of **certified AI skills and assets** that you can:\n\n- **Discover** AI skills, MCP tools and A2A agents that fit your needs\n- **Download** ready-to-use capabilities\n- **Customize** assets for your specific use cases\n- **Share** your own creations with the community\n\n## AI-Powered Analysis\n\nWe offer **AI-powered skill analysis** to help you:\n\n- Optimize performance\n- Identify bottlenecks\n- Improve efficiency\n\n## Join Our Community\n\nWhether you're a beginner or an expert, join our community to:\n\n- Share knowledge\n- Learn from others\n- Build better AI agents together\n\nIf you have any questions or suggestions, we'd love to hear from you!",
+    "introduction": "👋 Welcome to **OpenMCP Hub**!\n\nWe are an **open, neutral multi-agent collaboration infrastructure**, connecting AI agent developers worldwide.\n\n## Our Mission\n\nOur mission is to make AI agent capabilities accessible to everyone by providing thousands of **certified AI skills and assets** that you can:\n\n- **Discover** AI skills, MCP tools and A2A agents that fit your needs\n- **Download** ready-to-use capabilities\n- **Customize** assets for your specific use cases\n- **Share** your own creations with the community\n\n## AI-Powered Analysis\n\nWe offer **AI-powered skill analysis** to help you:\n\n- Optimize performance\n- Identify bottlenecks\n- Improve efficiency\n\n## Join Our Community\n\nWhether you're a beginner or an expert, join our community to:\n\n- Share knowledge\n- Learn from others\n- Build better AI agents together\n\nIf you have any questions or suggestions, we'd love to hear from you!",
     "talkWithMe": "Contact us",
     "contactWeChat": "Contact us on WeChat",
     "followMe": "Follow us on X"
@@ -2803,7 +2803,7 @@
     "terms": "Terms of Service",
     "switchTheme": "Switch theme",
     "and": "and",
-    "appName": "OpenMCP",
+    "appName": "OpenMCP Hub",
     "feedback": "Feedback"
   },
   "navigation": {
@@ -2920,7 +2920,7 @@
     "previousPage": "Previous",
     "nextPage": "Next",
     "chooseLanguage": "Select language",
-    "title": "OpenMCP Documentation",
+    "title": "OpenMCP Hub Documentation",
     "homepage": "Homepage",
     "blog": "Blog",
     "workflows": "Workflows",
@@ -2956,7 +2956,7 @@
       "stop": "Stop",
       "close": "Close",
       "you": "You",
-      "assistant": "OpenMCP",
+      "assistant": "OpenMCP Hub",
       "source": "Source",
       "askAI": "Ask AI"
     }
@@ -2989,7 +2989,7 @@
       "subject": "Contact Message from Website"
     },
     "organizationInvitation": {
-      "title": "{inviterName} invited you to join {organizationName} on OpenMCP.",
+      "title": "{inviterName} invited you to join {organizationName} on OpenMCP Hub.",
       "body": "You were invited with {email}. Accept the invitation to collaborate together.",
       "accept": "Accept invitation",
       "subject": "Invitation to join {organizationName}"
@@ -3206,9 +3206,9 @@
     }
   },
   "StartPage": {
-    "title": "Install OpenMCP into your Agent",
+    "title": "Install OpenMCP Hub into your Agent",
     "description": "Copy a short prompt so your Agent follows /install/openmcp.md; then download Skill zips into local skills dirs.",
-    "badge": "OpenMCP · Getting started",
+    "badge": "OpenMCP Hub · Getting started",
     "heading": "Install Skill packages and the OpenMCP store",
     "intro": "Copy the “install for AI” prompt (points at install/openmcp.md), then browse the shelf for Zip downloads or Store MCP installs. MCP / A2A use the platform gateway only.",
     "promptHint": "Copy the short prompt below into your Agent to finish store and package setup.",
@@ -3616,7 +3616,7 @@
           "description": "Users place orders, pay and confirm directly in the Agent conversation, without leaving the task chain. Fewer drop-offs."
         },
         "distribute": {
-          "title": "One OpenMCP connection, many entry points",
+          "title": "One OpenMCP Hub connection, many entry points",
           "description": "A single paid skill distributes to multiple Agent platforms at once. SKILL.md, MCP and A2A list in one place and sell everywhere."
         }
       }
@@ -3714,7 +3714,7 @@
       "subtitle": "Let your expertise earn on real usage — list a paid skill, connect WeChat Pay and Alipay, and every Agent call adds to your income.",
       "ctaPrimary": "Publish a paid skill",
       "ctaSecondary": "Browse the skill market",
-      "note": "OpenMCP. Bridging AI capability and real-world application."
+      "note": "OpenMCP Hub. Bridging AI capability and real-world application."
     }
   },
   "PersonaPage": {
@@ -3779,7 +3779,7 @@
     },
     "notLogin": {
       "eyebrow": "Provider onboarding",
-      "headline": "List your skills on the OpenMCP marketplace",
+      "headline": "List your skills on the OpenMCP Hub marketplace",
       "subheadline": "The app store for the AI era. Publish MCP tools, A2A agents and skills, reach the developer community, and earn revenue in real time.",
       "steps": {
         "account": {
@@ -3799,7 +3799,7 @@
           "description": "Submit an MCP server, A2A agent or skill for review"
         }
       },
-      "whyTitle": "Why onboard with OpenMCP?",
+      "whyTitle": "Why onboard with OpenMCP Hub?",
       "benefits": {
         "shelves": "Publish to the MCP server, A2A agent and AI skill shelves",
         "pricing": "Price assets as free or paid and settle revenue in real time",
@@ -3815,11 +3815,11 @@
     },
     "kyc": {
       "meta": {
-        "title": "Provider onboarding - OpenMCP",
-        "description": "Complete identity verification to publish MCP servers, A2A agents and skills on the OpenMCP marketplace."
+        "title": "Provider onboarding - OpenMCP Hub",
+        "description": "Complete identity verification to publish MCP servers, A2A agents and skills on the OpenMCP Hub marketplace."
       },
       "pageTitle": "Provider onboarding",
-      "pageDescription": "Complete identity verification to start publishing on OpenMCP.",
+      "pageDescription": "Complete identity verification to start publishing on OpenMCP Hub.",
       "loading": "Loading your onboarding details...",
       "done": {
         "title": "Verification approved",
@@ -3928,16 +3928,16 @@
         "pageTitle": "Individual verification",
         "pageDescription": "Verify your identity and choose a payout channel. Review usually takes 1-3 business days.",
         "meta": {
-          "title": "Individual verification - OpenMCP",
-          "description": "Complete individual identity verification to publish on the OpenMCP marketplace."
+          "title": "Individual verification - OpenMCP Hub",
+          "description": "Complete individual identity verification to publish on the OpenMCP Hub marketplace."
         }
       },
       "company": {
         "pageTitle": "Company verification",
         "pageDescription": "Verify your company and choose a payout channel. Review usually takes 1-3 business days.",
         "meta": {
-          "title": "Company verification - OpenMCP",
-          "description": "Complete company identity verification to publish on the OpenMCP marketplace."
+          "title": "Company verification - OpenMCP Hub",
+          "description": "Complete company identity verification to publish on the OpenMCP Hub marketplace."
         }
       },
       "steps": {
@@ -4077,7 +4077,7 @@
     },
     "payout": {
       "meta": {
-        "title": "Payout account - OpenMCP",
+        "title": "Payout account - OpenMCP Hub",
         "description": "Bind the WeChat Pay or Alipay account the platform uses to pay you for paid assets."
       },
       "pageTitle": "Payout account",
@@ -4155,7 +4155,7 @@
   "McpSubmit": {
     "meta": {
       "title": "Publish an MCP Server",
-      "description": "Connect your MCP endpoint, test it, and publish it to the OpenMCP marketplace for Claude, Codex and other AI clients."
+      "description": "Connect your MCP endpoint, test it, and publish it to the OpenMCP Hub marketplace for Claude, Codex and other AI clients."
     },
     "cardTitle": "Publish an MCP Server",
     "cardDescription": "Connect and test your endpoint first, then add the listing details.",
@@ -4307,7 +4307,7 @@
   "SkillSubmit": {
     "meta": {
       "title": "Submit a Skill",
-      "description": "Import a skill from a GitHub repository or upload a ZIP package, then publish it to the OpenMCP Skills shelf."
+      "description": "Import a skill from a GitHub repository or upload a ZIP package, then publish it to the OpenMCP Hub Skills shelf."
     },
     "cardTitle": "Submit a Skill",
     "cardDescription": "Import from GitHub or upload a ZIP. The platform runs a security scan before listing.",
