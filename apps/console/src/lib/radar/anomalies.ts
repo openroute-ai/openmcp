@@ -11,7 +11,7 @@
  * 任务的说明）说出来，否则一个改了阈值的人会以为历史被修好了。
  */
 
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm"
 import {
   type AnomalyKind,
   type AnomalySeverity,
@@ -299,32 +299,75 @@ export async function detectAndRecord(
 }
 
 /**
- * 公开异动流：尚未被 dismiss 的行，按检测时间倒序。
+ * 公开异动流的筛选范围，`listOpenAnomalies` 与 {@link countOpenAnomalies} 共用。
  *
- * 只读 `status = 'open'`。这是「误报不再打扰读者」与「误报率仍可统计」两条要求在
- * 一个查询里的落点：被 dismiss 的行不进这里，但它们还在库里。
+ * 抽出来而不是各自写一遍，是因为这两个查询必须对「哪些行是公开的」给出同一个答案：
+ * 页面上「第 41–80 条，共 137 条」这句话里的 137，是数出来的，不是从当页那 40 行推的。
+ * 两处条件一旦漂移，翻页就会翻到一个自称不存在的区间里去——而这种错误在页面上看起来
+ * 完全正常，只是内容少了。
  */
-export async function listOpenAnomalies(
-  db: Db,
-  options: {
-    limit?: number
-    since?: Date
-    kinds?: AnomalyKind[]
-    /** 公开流默认只报忧，不报喜。「我们也会说」那一栏反过来传。 */
-    includeGood?: boolean
-  } = {}
-): Promise<AnomalyWithRepo[]> {
+export interface OpenAnomalyScope {
+  since?: Date
+  kinds?: AnomalyKind[]
+  /** 公开流默认只报忧，不报喜。「我们也会说」那一栏反过来传。 */
+  includeGood?: boolean
+}
+
+/** 把范围翻成 WHERE。只读 `status = 'open'`。 */
+function openAnomalyFilters(scope: OpenAnomalyScope) {
   const filters = [eq(repoAnomalies.status, "open")]
-  if (options.since) filters.push(gte(repoAnomalies.detectedAt, options.since))
-  if (options.kinds?.length)
-    filters.push(inArray(repoAnomalies.kind, options.kinds))
+  if (scope.since) filters.push(gte(repoAnomalies.detectedAt, scope.since))
+  if (scope.kinds?.length)
+    filters.push(inArray(repoAnomalies.kind, scope.kinds))
   // `good` rows live in the same table as the alerts (§5.4 red line 3), so the
   // default view has to exclude them by severity rather than by kind — the kind
   // is what a reader filters on later, and a reader who asks for "anomalies"
   // wants to hear about the project that is going wrong.
-  if (!options.includeGood) {
+  if (!scope.includeGood) {
     filters.push(sql`${repoAnomalies.severity} <> 'good'`)
   }
+  return filters
+}
+
+/**
+ * 公开异动流里符合这个范围的行数。
+ *
+ * 存在的理由是 `clampPage` 需要一个页数上界，而上界必须在页码变成 `OFFSET` **之前**
+ * 拿到：`?page=40` 打在一个只有三页的流上时，若先翻页再数，Postgres 会安静地返回空集，
+ * 页面于是宣称自己是 40 页里的第 40 页，而那一页上什么都没有。
+ *
+ * 不 join `repos`：连接键是主键，基数不变，数出来的和列表里的是同一批行——而带上 join
+ * 去数，只会让这个每页都要跑一次的聚合贵上一个连接。
+ */
+export async function countOpenAnomalies(
+  db: Db,
+  scope: OpenAnomalyScope = {}
+): Promise<number> {
+  const rows = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(repoAnomalies)
+    .where(and(...openAnomalyFilters(scope)))
+
+  return Number(rows[0]?.total ?? 0)
+}
+
+/**
+ * 公开异动流：尚未被 dismiss 的行，按严重度倒序。
+ *
+ * 只读 `status = 'open'`。这是「误报不再打扰读者」与「误报率仍可统计」两条要求在
+ * 一个查询里的落点：被 dismiss 的行不进这里，但它们还在库里。
+ *
+ * `offset` 让调用方按 {@link countOpenAnomalies} 数出来的上界翻页。翻页成立的前提是
+ * 排序是全序（见下面的排序注释），否则同一条行可能在第 1 页出现、也在第 2 页出现。
+ */
+export async function listOpenAnomalies(
+  db: Db,
+  options: OpenAnomalyScope & {
+    limit?: number
+    offset?: number
+  } = {}
+): Promise<AnomalyWithRepo[]> {
+  const filters = openAnomalyFilters(options)
 
   const rows = await db
     .select({
@@ -354,9 +397,9 @@ export async function listOpenAnomalies(
     // by severity is also what makes the feed legible: every alert above every
     // notice, regardless of units.
     //
-    // `detectedAt` last as the tiebreaker so the order is total and stable —
-    // without it two rows of equal magnitude shuffle between renders, and a
-    // reader who scrolls back up finds the list has moved.
+    // `detectedAt` as the tiebreaker so the order is stable — without it two rows
+    // of equal magnitude shuffle between renders, and a reader who scrolls back up
+    // finds the list has moved.
     .orderBy(
       // Descending on a rank where the worst band is the *highest* number, so
       // that one `desc()` can carry the whole severity ordering. `good` sits at
@@ -369,9 +412,19 @@ export async function listOpenAnomalies(
         else 0
       end`),
       desc(repoAnomalies.magnitude),
-      desc(repoAnomalies.detectedAt)
+      desc(repoAnomalies.detectedAt),
+      // `id` closes the order, and it is what makes the claim "total" true rather
+      // than merely plausible: severity, magnitude and `detectedAt` can all tie —
+      // one repository reporting a cliff and a licence change in the same run has
+      // the same `detectedAt` — and Postgres is free to return ties in any order it
+      // likes. Without this key, offset paging can hand the reader the same row on
+      // two consecutive pages and skip another entirely, which is the one failure
+      // mode paging must not have. Ascending because the direction is arbitrary and
+      // grouping by repository is the friendlier tie to break on.
+      asc(repoAnomalies.id)
     )
     .limit(options.limit ?? 50)
+    .offset(options.offset ?? 0)
 
   return rows
 }

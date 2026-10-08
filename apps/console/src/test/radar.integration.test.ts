@@ -16,16 +16,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { and, asc, eq } from "drizzle-orm"
 import { db, pool } from "@/db/client"
-import {
-  repoLicenseHistory,
-  repoWeeklyStats,
-  repos,
-} from "@/db/schema"
+import { repoLicenseHistory, repoWeeklyStats, repos } from "@/db/schema"
 import { upsertRepo } from "@/lib/github/service/repo"
 import { upsertStatsRow } from "@/lib/github/service/stats"
 import { periodOf } from "@/lib/github/snapshot-dates"
 import type { RepoInfo } from "@/lib/github/repo-info-query"
 import {
+  type AnomalyWithRepo,
+  countOpenAnomalies,
   detectAndRecord,
   dismissAnomaly,
   falsePositiveRate,
@@ -346,5 +344,86 @@ describe.skipIf(!hasDatabase)("radar anomalies (integration)", () => {
       .orderBy(asc(repoWeeklyStats.period))
     const latestWeek = newest[newest.length - 1]!.period
     expect(cliffs[0]?.period.getTime()).toBe(latestWeek.getTime())
+  })
+
+  it("counts and pages the open feed from one shared scope", async () => {
+    // 一个能翻成好几页的流，而且每条 magnitude 不同：排序要是含糊，断言就会靠
+    // 「顺序碰巧对上」蒙混过去，而翻页的全部意义就是顺序别碰巧。
+    const repoIds: string[] = []
+    for (let index = 0; index < 5; index += 1) {
+      const repo = await seedRepo(`paged-${index}`)
+      repoIds.push(repo.id)
+      await seedWeeks(repo.id, [
+        { stars: 120 + index * 30, commits: 9 },
+        { stars: 70 + index * 10, commits: 4 },
+        { stars: 45, commits: 0 },
+        { stars: 18, commits: 0 },
+      ])
+    }
+    expect(await detectAndRecord(db, repoIds, NOW)).toBeGreaterThan(0)
+
+    const scope = { kinds: ["star_cliff" as const] }
+
+    // 页面上那句「共 N 条」是数出来的，而 N 和翻出来的是同一个问题问的两遍。
+    // 两处条件一旦漂移，最后一页会安静地不存在——页面照常渲染，只是那一页空着。
+    const total = await countOpenAnomalies(db, scope)
+    const all = await listOpenAnomalies(db, { ...scope, limit: 1000 })
+    expect(all.length).toBeGreaterThanOrEqual(5)
+    expect(total).toBe(all.length)
+
+    // 3 条一页，对着一个不整除的总数：最后一页是短的，而偏移量算错一位的地方
+    // 恰恰就是短的那一页。
+    const PAGE_SIZE = 3
+    const paged: AnomalyWithRepo[] = []
+    for (let offset = 0; offset < total; offset += PAGE_SIZE) {
+      const slice = await listOpenAnomalies(db, {
+        ...scope,
+        limit: PAGE_SIZE,
+        offset,
+      })
+      expect(slice.length).toBeLessThanOrEqual(PAGE_SIZE)
+      paged.push(...slice)
+    }
+
+    // 一条不多、一条不少，且顺序和整页完全一致。两种漏法都不报错：重复看起来像
+    // 流很热闹，缺一条看起来像流很冷清——所以断言的是整个序列，不只是长度。
+    expect(paged.map((row) => row.id)).toEqual(all.map((row) => row.id))
+
+    // 空页是空的，不是报错。一个被 clampPage 挡掉的过期页码最终就是这样一个偏移。
+    expect(
+      await listOpenAnomalies(db, { ...scope, limit: 3, offset: total + 50 })
+    ).toEqual([])
+  })
+
+  it("keeps the good-news rows out of the default feed but inside the feed that asks", async () => {
+    const repo = await seedRepo("accelerating")
+    // 基线 20 而不是更小：加速规则要求 oldest ≥ 最低量门槛 ÷ 倍数（50 ÷ 3 ≈ 16.7），
+    // 基数接近 0 时那个倍数不是加速度，是一条从零起步的横线除以横线。
+    await seedWeeks(repo.id, [
+      { stars: 20, commits: 5 },
+      { stars: 40, commits: 5 },
+      { stars: 60, commits: 5 },
+      { stars: 150, commits: 5 },
+    ])
+    expect(await detectAndRecord(db, [repo.id], NOW)).toBeGreaterThan(0)
+
+    const alerts = await countOpenAnomalies(db)
+    const everything = await countOpenAnomalies(db, { includeGood: true })
+
+    // `good` 与告警同表同状态（§5.4 红线 3），按严重度排除、不按 kind 排除，
+    // 所以两者的差正好是那一条喜报。差值若不是 1，说明计数和列表看的不是同一份
+    // 范围——而这正是翻页上界会悄悄算错的地方。
+    expect(everything).toBe(alerts + 1)
+
+    const good = await listOpenAnomalies(db, {
+      kinds: ["star_acceleration" as const],
+      includeGood: true,
+      limit: 1000,
+    })
+    expect(good.find((row) => row.repoId === repo.id)?.severity).toBe("good")
+    // 默认的 count 不该把它算进去，否则第一页会因为多了一条而少翻一页。
+    expect(
+      await countOpenAnomalies(db, { kinds: ["star_acceleration" as const] })
+    ).toBe(0)
   })
 })

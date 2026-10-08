@@ -50,6 +50,11 @@ export interface PublicPaginationProps {
    * still collapses to the bare path.
    */
   search?: string
+  /**
+   * The filter this list is scoped by, carried on every page link.
+   * Alternative to `search` string.
+   */
+  params?: Record<string, string>
 }
 
 /**
@@ -61,10 +66,21 @@ export interface PublicPaginationProps {
  * cannot end up with two addresses for its own first page. The same applies when
  * the list is filtered: page one carries the filters but no `page` key.
  */
-function pageHref(href: string, page: number, search?: string): string {
-  const base = search ? `${href}?${search}` : href
-  if (page <= 1) return base
-  return `${base}${search ? "&" : "?"}page=${page}`
+function pageHref(
+  href: string,
+  page: number,
+  params?: Record<string, string>,
+  search?: string
+): string {
+  const sp = new URLSearchParams(search ?? "")
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null) sp.set(k, v)
+    })
+  }
+  if (page > 1) sp.set("page", String(page))
+  const query = sp.toString()
+  return query ? `${href}?${query}` : href
 }
 
 /**
@@ -111,6 +127,7 @@ export function PublicPagination({
   pageCount,
   href,
   search,
+  params,
 }: PublicPaginationProps) {
   if (pageCount <= 1) return null
 
@@ -120,7 +137,7 @@ export function PublicPagination({
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
-              href={pageHref(href, page - 1, search)}
+              href={pageHref(href, page - 1, params, search)}
               text="上一页"
               aria-disabled={page <= 1}
               className={
@@ -137,7 +154,7 @@ export function PublicPagination({
             ) : (
               <PaginationItem key={entry}>
                 <PageNumber
-                  href={pageHref(href, entry, search)}
+                  href={pageHref(href, entry, params, search)}
                   page={entry}
                   current={page}
                 />
@@ -147,7 +164,7 @@ export function PublicPagination({
 
           <PaginationItem>
             <PaginationNext
-              href={pageHref(href, page + 1, search)}
+              href={pageHref(href, page + 1, params, search)}
               text="下一页"
               aria-disabled={page >= pageCount}
               className={
