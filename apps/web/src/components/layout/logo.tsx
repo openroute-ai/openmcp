@@ -1,17 +1,8 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import { LogoIcon } from '@/components/icons/logo'
 
 export function Logo({ className }: { className?: string }) {
-  return (
-    <LogoIcon className={className} />
-    // <Image
-    //   src={logo}
-    //   alt="Logo"
-    //   title="Logo"
-    //   width={96}
-    //   height={96}
-    //   className={cn('size-8 rounded-md', className)}
-    // />
-  )
+  return <LogoIcon className={cn('text-primary', className)} />
 }

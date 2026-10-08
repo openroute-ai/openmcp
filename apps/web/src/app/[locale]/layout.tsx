@@ -37,6 +37,21 @@ export const metadata: Metadata = {
   description: websiteConfig.metadata.description,
   // Relative OG/Twitter image paths in page metadata are resolved against this.
   metadataBase: new URL(getBaseUrl()),
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+      { url: '/favicon-64x64.png', type: 'image/png', sizes: '64x64' },
+      { url: '/favicon-128x128.png', type: 'image/png', sizes: '128x128' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+    other: [
+      { rel: 'android-chrome', url: '/android-chrome-192x192.png', sizes: '192x192' },
+      { rel: 'android-chrome', url: '/android-chrome-512x512.png', sizes: '512x512' },
+    ],
+  },
 }
 
 export const viewport: Viewport = {
@@ -73,7 +88,7 @@ export default async function LocaleLayout({
     "@type": "Organization",
     name: "OpenMCP Hub",
     url: baseUrl,
-    logo: `${baseUrl}/logo.png`,
+    logo: `${baseUrl}/logo.svg`,
     description:
       typedLocale === "zh"
         ? websiteConfig.metadata.description

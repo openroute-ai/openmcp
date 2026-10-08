@@ -68,8 +68,8 @@ export function NavbarMobile({ className, ...other }: React.HTMLAttributes<HTMLD
       <div className={cn('flex items-center justify-between', className)} {...other}>
         {/* navbar left shows logo */}
         <LocaleLink href={Routes.Root} className='flex items-center gap-2'>
-          <Logo />
-          <span className='font-semibold text-xl'>{t('Metadata.name')}</span>
+          <Logo className='size-8' />
+          <span className='font-semibold text-lg'>{t('Metadata.name')}</span>
         </LocaleLink>
 
         {/* navbar right shows menu icon and user button */}

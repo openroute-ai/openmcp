@@ -23,8 +23,8 @@ export function Footer({ className }: React.HTMLAttributes<HTMLElement>) {
             <div className='space-y-4'>
               {/* logo and name */}
               <div className='flex items-center space-x-2'>
-                <Logo />
-                <span className='font-semibold text-xl'>{t('Metadata.name')}</span>
+                <Logo className='size-8' />
+                <span className='font-semibold text-lg'>{t('Metadata.name')}</span>
               </div>
 
               {/* tagline */}

@@ -3,9 +3,8 @@ import type { SVGProps } from 'react'
 /**
  * OpenMCP Logo
  *
- * Source of truth: `apps/openmcp/public/logo.svg` (also served as the favicon).
- * A hexagonal package glyph with a core hub and four radial spokes, drawn as a
- * standard lucide-style icon: 24×24 viewBox, no fill, `currentColor` stroke.
+ * Source of truth: `apps/web/public/logo.svg` (also served as the favicon).
+ * Hexagonal package glyph with a core hub and four radial spokes.
  */
 export function OpenMcpLogoIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -16,7 +15,7 @@ export function OpenMcpLogoIcon(props: SVGProps<SVGSVGElement>) {
       viewBox='0 0 24 24'
       fill='none'
       stroke='currentColor'
-      strokeWidth={2}
+      strokeWidth={1.5}
       strokeLinecap='round'
       strokeLinejoin='round'
       {...props}

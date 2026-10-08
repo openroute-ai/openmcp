@@ -1,5 +1,6 @@
-import Image from 'next/image'
+import type { SVGProps } from 'react'
 import { cn } from '@/lib/utils'
+import { LogoIcon } from '@/components/icons/logo'
 
 export function OpenMcpLogo({
   className,
@@ -11,13 +12,10 @@ export function OpenMcpLogo({
   title?: string
 }) {
   return (
-    <Image
-      src='/logo.svg'
-      alt={alt}
-      title={title}
-      width={96}
-      height={96}
-      className={cn('size-8 rounded-md', className)}
+    <LogoIcon
+      className={cn('text-primary size-8', className)}
+      aria-label={alt}
+      {...({ title } as SVGProps<SVGSVGElement>)}
     />
   )
 }
