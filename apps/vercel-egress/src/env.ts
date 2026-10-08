@@ -22,9 +22,19 @@ const optionalPositiveInt = (name: string): number | undefined => {
 /**
  * The shared secret the domestic console sends as `X-Egress-Secret`. Every
  * route checks it; no route runs without it.
+ *
+ * The 32-character floor is a hard fail-closed: a short secret that "works"
+ * on one console deployment is a secret every other deployment already shares
+ * and one credential-stuffing attack reads byte-for-byte from a timing side
+ * channel. Misconfigured here means 500 for every route until fixed, which is
+ * the honest shape of "cannot be authenticated securely".
  */
 export function egressSecret(): string {
-  return required("EGRESS_SECRET")
+  const value = required("EGRESS_SECRET")
+  if (value.length < 32) {
+    throw new Error("EGRESS_SECRET must be at least 32 characters")
+  }
+  return value
 }
 
 /**
@@ -64,6 +74,21 @@ export function sandboxCommandTimeoutMs(): number {
 
 export function sandboxVcpus(): number {
   return optionalPositiveInt("SKILL_SCAN_SANDBOX_VCPUS") ?? 1
+}
+
+/** How long a Route-A upstream (`api.github.com`) call may take. */
+export function egressForwardTimeoutMs(): number {
+  return optionalPositiveInt("EGRESS_FORWARD_TIMEOUT_MS") ?? 30_000
+}
+
+/**
+ * Largest request body Route A will read before forwarding. Bounded because
+ * `forwardRestRequest` buffers the whole body to hand it to `fetch` without a
+ * stream — a caller sending unbounded bytes would make this function bigger
+ * than the 1 MiB GitHub API accepts anyway.
+ */
+export function egressMaxRequestBodyBytes(): number {
+  return optionalPositiveInt("EGRESS_MAX_REQUEST_BODY_BYTES") ?? 1_024 * 1_024
 }
 
 export function skillScanMaxFiles(): number | undefined {

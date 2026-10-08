@@ -205,14 +205,15 @@ POST /api/v1/skills/scan  （国内）
 
 ### 9.1 操作
 
-1. **本地验证**：`pnpm -w` 根跑 `pnpm lint` / `pnpm typecheck`（改动只发生在 console 与新增子目录，遵循仓库既有校验入口）。
+1. **本地验证**：`pnpm -w` 根跑 `pnpm lint` / `pnpm typecheck`；再进 `apps/vercel-egress` 跑 `pnpm bundle:check`——它把 `api/[[...route]].ts` 用 esbuild 打成一个文件并断言 `@workspace/security-scan` 被内联（`typecheck` 跑的是原始 TS，验证不了部署时 pnpm/Vercel 的解析链路）。
 2. **推送到 Git 远端**（Vercel Import 依赖 GitHub 认证）。
 3. Vercel Dashboard → **Add New → Project** → 选择本仓库。
 4. **Root Directory** 指向 `apps/vercel-egress`。Framework Preset 无需选 Next.js——本目录没有 `next.config`，Vercel 会把它当作 Node.js Functions 目录；`api/` 里已带 `config`（runtime nodejs / maxDuration 300），无需在 dashboard 另设函数时长上限。
 5. 项目模式默认 **Hobby**。不要启用任何付费附加项。
 6. **Environment Variables**（Project → Settings → Environment Variables）添加：
    - `GITHUB_ACCESS_TOKEN`（或 `GITHUB_TOKENS` 逗号分隔列表）——GitHub 只读 PAT
-   - `EGRESS_SECRET`（与国内 console 一致的共享 secret）
+   - `EGRESS_SECRET`（与国内 console 一致的共享 secret，**至少 32 字符**）
+   - `EGRESS_FORWARD_TIMEOUT_MS` / `EGRESS_MAX_REQUEST_BODY_BYTES` 可选（转发超时与请求体上限，默认 30s / 1 MiB）
    - `DEEPSEEK_API_KEY`（扫描复核需要时才配）
    - `SKILL_SCAN_SANDBOX_VCPUS` 等 sandbox 预算参数可选（§4.1）
    - （`VERCEL_OIDC_TOKEN` 不必配，Vercel 运行时自动注入）
@@ -220,8 +221,8 @@ POST /api/v1/skills/scan  （国内）
 7. **Deploy**。得到域名 `https://<project>-*.vercel.app`。生产域名从 Settings → Domains 固定（或不绑定，直接用生成的 production 域名）。
 8. **冒烟验证**（注意：路由用 `X-Egress-Secret`，**不**带 GitHub `Authorization`——token 在代理侧注入）：
    ```
-   # health
-   curl -s https://<proxy>/healthz
+   # health（Vercel 只把 /api/* 路由进函数，健康检查在 /api/healthz）
+   curl -s https://<proxy>/api/healthz
    # REST 转发（token 由代理注入）
    curl -s https://<proxy>/api/github/rest/rate_limit \
         -H "X-Egress-Secret: $EGRESS_SECRET"
