@@ -10,6 +10,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/test/**/*.test.ts"],
+    // Runs before a test module's own imports are evaluated, so
+    // `CONSOLE_DATABASE_URL` is on `process.env` by the time a suite imports
+    // `@/db/client` and builds its pool. Without it every integration suite
+    // would see no database and skip instead of run.
+    setupFiles: ["./src/test/setup-env.ts"],
     // `next-intl/middleware` imports `next/server` without the extension, which
     // Node's ESM resolver rejects because `next` ships no `exports` map. Next's
     // own bundler is fine with it, so inlining the package lets Vite resolve it

@@ -1,18 +1,18 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
-import { loadConsoleEnv } from "./load-env"
 import { schema } from "./schema"
 import { resolveSsl } from "./ssl"
 
-// The pool reads its connection string below, at module scope, so the env file
-// has to be on disk-read *before* this module runs its body. The scripts that
-// merely `await import("./client")` load it themselves first; the ones that
-// import it statically — `pnpm sync:run` does, and so does anything reachable
-// from it — would otherwise build a pool from an empty `CONSOLE_DATABASE_URL`
-// and only fail at the first query. `override: false` keeps this from
-// surprising the app: `next dev`/`next start` already loaded the same files
-// with the same precedence, so here it is a no-op.
-loadConsoleEnv()
+// The pool reads its connection string below, at module scope, so whoever
+// imports this module outside Next must have loaded the env files *before*
+// this module's body runs. `next dev`/`next build`/`next start` do that
+// themselves (which is why a call here was pure noise — it injected nothing).
+// The entrypoints Next does not run load `load-env` on their own terms:
+// `sync:run` gets it from `--env-file-if-exists` flags in package.json, the
+// integration tests from `setupFiles`, and the db scripts / drizzle.config
+// call `loadConsoleEnv()` themselves. ES imports are hoisted, so a call in the
+// importing module's top level runs *after* this body — flags and setup files
+// are what guarantee the ordering.
 
 /**
  * Constructs the pool; `pg` opens no connection until the first query, so
