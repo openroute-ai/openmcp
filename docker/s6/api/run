@@ -1,0 +1,9 @@
+#!/bin/sh
+# s6 longrun: apps/api (Hono, self-contained bundle).
+#
+# Loads its own env file (/etc/s6/api.env) — never shared with web or doc. It
+# must provide DATABASE_URL and BETTER_AUTH_SECRET (both required by the zod
+# schema in apps/api/src/lib/env.ts) and PORT (default 8080). sharp is
+# installed beside the bundle at /app/api/node_modules.
+set -eu
+exec node --env-file=/etc/s6/api.env /app/api/index.mjs

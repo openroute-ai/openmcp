@@ -1,9 +1,16 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
 import { createMDX } from "fumadocs-mdx/next";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const withMDX = createMDX();
+
+const monorepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -41,6 +48,11 @@ const nextConfig = {
   // Emits `.next/standalone`, which is what the container image runs. Without it
   // the Docker build ships the whole `.next` tree plus dev-only assets.
   output: "standalone",
+  // In the pnpm workspace the traced runtime files (root node_modules store,
+  // shared packages) live outside this app dir, so the tracing root has to be
+  // the monorepo root. Without it the standalone bundle omits those files and
+  // crashes on boot in the container.
+  outputFileTracingRoot: monorepoRoot,
   // ali-oss pulls in urllib, which lazily requires the optional `proxy-agent`
   // package. Bundling it makes the build fail on that missing optional dep, so
   // the Node-only storage SDK is kept as a runtime require instead.

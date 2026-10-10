@@ -16,6 +16,11 @@ node_modules
 # them, and they carry the same secrets the entries above protect.
 .env-back
 .env-*
+# The one exception below is public build-time config, not a secret: `next build`
+# reads it locally and inside apps/console/Dockerfile to inline the site
+# identity, so it has to be tracked. Every other .env.production (e.g.
+# apps/web's, which carries credentials) stays ignored by the entries above.
+!apps/console/.env.production
 # Testing
 coverage
 

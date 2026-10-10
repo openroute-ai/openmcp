@@ -1,0 +1,9 @@
+#!/bin/sh
+# s6 longrun: apps/doc (Next.js standalone).
+#
+# Loads its own env file (/etc/s6/doc.env) — never shared with web or api —
+# which supplies PORT (default 3001) and any server-side chat/search config.
+set -eu
+export HOSTNAME=0.0.0.0
+cd /app/doc/apps/doc
+exec node --env-file=/etc/s6/doc.env server.js

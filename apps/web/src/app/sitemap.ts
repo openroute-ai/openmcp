@@ -6,7 +6,13 @@ import { db } from '@/lib/db'
 import { getBaseUrl } from '@/lib/urls/urls'
 import { marketVisible } from '@/web/assets/visibility'
 
-export const revalidate = 3600
+// The registry rows are loaded per request — the build never touches the
+// database. With the previous `revalidate = 3600` this route was generated
+// statically inside `docker build`/CI, where no database exists, and the six
+// queries failed with ECONNREFUSED and aborted the image build. As a dynamic
+// route it is skipped at build time and renders on demand at runtime, where a
+// database is guaranteed to be reachable.
+export const dynamic = 'force-dynamic'
 
 type Entry = MetadataRoute.Sitemap[number]
 
@@ -65,8 +71,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/terms', 'yearly', 0.2),
   ]
 
-  // Published registry rows. The queries run in parallel because this file
-  // revalidates hourly and each one is an independent round trip.
+  // Published registry rows. The queries run in parallel so a sitemap request
+  // costs one round trip instead of six.
   const [publishedWorkflows, publishedSkills, publishedA2aAgents, publishedMcpServers, activeCategories, authorsWithContent] =
     await Promise.all([
       db

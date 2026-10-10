@@ -1,0 +1,60 @@
+# Keep the build context small and free of secrets/build caches so image
+# layers stay cacheable and nothing sensitive is copied into an image.
+
+# VCS / CI / tooling
+.git
+.github
+.turbo
+.vscode
+.idea
+**/.turbo
+
+# Dependencies (reinstalled inside the image from the lockfile)
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt inside the image)
+**/.next
+**/dist
+**/out
+**/build
+**/*.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# Env files carry real secrets and are supplied at runtime, never baked in
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+# Exception: apps/console/.env.production holds only public build-time config
+# (NEXT_PUBLIC_* site identity + ENABLE_HSTS, no secrets) and `next build` must
+# read it to inline the values into the image. Every other env file — notably
+# apps/web/.env.production, which carries real credentials — stays excluded.
+!apps/console/.env.production
+
+# Local-only / generated artifacts
+coverage
+**/coverage
+.vercel
+**/.vercel
+.DS_Store
+**/*.log
+npm-debug.log*
+**/.source
+**/public/report
+
+# Docs & tests do not belong in a runtime image
+**/*.md
+# …except markdown the apps serve as static assets: public/legal/*.md (KYC
+# consent links) and public/install/openmcp.md (homepage link) must ship, so
+# re-include public/ after the blanket rule (last match wins).
+!**/public/**/*.md
+**/README*
+docs
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

@@ -1,0 +1,15 @@
+#!/bin/sh
+# s6 longrun: apps/web (Next.js standalone).
+#
+# Each of the three services in this image loads its OWN env file so the apps'
+# variables never share one file (web.db != doc.db != api.db). The env file
+# supplies PORT (default 3000) and every server-side secret.
+#
+# HOSTNAME is forced to 0.0.0.0: Docker sets $HOSTNAME to the container id, and
+# Next's standalone server.js binds to $HOSTNAME when present — which would
+# listen on an unreachable interface instead of all of them. Exporting it here
+# (before --env-file) also stops the env file from having to carry it.
+set -eu
+export HOSTNAME=0.0.0.0
+cd /app/web/apps/web
+exec node --env-file=/etc/s6/web.env server.js

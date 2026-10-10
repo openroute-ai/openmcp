@@ -1,9 +1,16 @@
 // Imported rather than taken from the ambient global: this file is ESM and the
 // lint config does not declare `process` for `*.mjs`, which would leave a
 // `no-undef` on the one line that reads an environment variable.
+import path from "node:path"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 import createNextIntlPlugin from "next-intl/plugin"
 import { createMDX } from "fumadocs-mdx/next"
+
+const monorepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+)
 
 /**
  * The intl plugin bundles the request config into the server build.
@@ -51,6 +58,14 @@ const nextConfig = {
   ],
   // The framework name in every response is free reconnaissance.
   poweredByHeader: false,
+  // Emits `.next/standalone`, which is what the container image runs. Without it
+  // the Docker build ships the whole `.next` tree plus dev-only assets.
+  output: "standalone",
+  // In the pnpm workspace the traced runtime files (root node_modules store,
+  // shared packages) live outside this app dir, so the tracing root has to be
+  // the monorepo root. Without it the standalone bundle omits those files and
+  // crashes on boot in the container.
+  outputFileTracingRoot: monorepoRoot,
   /**
    * Response headers applied to every route.
    *

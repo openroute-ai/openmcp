@@ -1,0 +1,202 @@
+#
+# openmcp stack — apps/web + apps/doc + apps/api in ONE image, supervised by
+# s6-overlay. Each app runs as its own service on its own port and loads its
+# OWN env file (never shared):
+#
+#   web  → Next.js standalone   → :3000  ← /etc/s6/web.env
+#   doc  → Next.js standalone   → :3001  ← /etc/s6/doc.env
+#   api  → Hono (self-contained)→ :8080  ← /etc/s6/api.env
+#
+# Build (context is the monorepo root):
+#
+#   docker build -f docker/Dockerfile.web-doc-api -t openmcp-stack \
+#     --build-arg NEXT_PUBLIC_BASE_URL=https://www.example.com .
+#
+# Run (mount real config over the baked placeholders):
+#
+#   docker run --rm -p 3000:3000 -p 3001:3001 -p 8080:8080 \
+#     -v $PWD/web.env:/etc/s6/web.env:ro \
+#     -v $PWD/doc.env:/etc/s6/doc.env:ro \
+#     -v $PWD/api.env:/etc/s6/api.env:ro \
+#     openmcp-stack
+#
+# ---------------------------------------------------------------------------
+# Size notes (镜像体积最小):
+#   • web/doc use `output: "standalone"`, so only the traced runtime + static
+#     assets ship — no full node_modules, no dev-only `.next` halves.
+#   • api is bundled self-contained by tsdown (apps/api/tsdown.config.ts,
+#     ~3.4MB) instead of `pnpm deploy`, which would drag ~780MB of declared-but-
+#     unused deps into the image. Only `sharp` (a native module) is added back.
+#   • Multi-stage build: the runtime stage never sees the toolchain or the
+#     workspace install, only the small build artifacts.
+#   • Base is node:22-alpine; s6-overlay is the only extra system layer.
+
+ARG NODE_VERSION=22
+
+# ---------------------------------------------------------------------------
+# base: pinned toolchain shared by the install + build stages
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS base
+ENV CI=1 \
+    NEXT_TELEMETRY_DISABLED=1
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# deps: install the workspace from the lockfile only (cache-friendly layer)
+# ---------------------------------------------------------------------------
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/api/package.json          apps/api/package.json
+COPY apps/console/package.json      apps/console/package.json
+COPY apps/doc/package.json          apps/doc/package.json
+COPY apps/web/package.json          apps/web/package.json
+COPY apps/vercel-egress/package.json apps/vercel-egress/package.json
+COPY packages/auth/package.json           packages/auth/package.json
+COPY packages/db/package.json             packages/db/package.json
+COPY packages/eslint-config/package.json  packages/eslint-config/package.json
+COPY packages/litellm/package.json        packages/litellm/package.json
+COPY packages/mail/package.json           packages/mail/package.json
+COPY packages/payment/package.json        packages/payment/package.json
+COPY packages/security-scan/package.json  packages/security-scan/package.json
+COPY packages/shared-next/package.json    packages/shared-next/package.json
+COPY packages/sms-captcha/package.json    packages/sms-captcha/package.json
+COPY packages/storage/package.json        packages/storage/package.json
+COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY packages/ui/package.json             packages/ui/package.json
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# ---------------------------------------------------------------------------
+# build: compile web + doc (Next standalone) and bundle api (self-contained)
+#
+# NEXT_PUBLIC_* are inlined into the client bundle at build time, so pass them
+# with --build-arg. Server-only secrets are NOT needed to build.
+# ---------------------------------------------------------------------------
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps /app/apps/doc/node_modules ./apps/doc/node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Public, build-time configuration (see apps/web/.env.example).
+#
+# ARG only — deliberately no `ENV NEXT_PUBLIC_...=${...}` mirror. A mirror would
+# turn every unpassed build-arg into an *empty string*, which counts as defined
+# so the apps' `?? <fallback>` chains never fire, and `new URL(getBaseUrl())`
+# then throws ERR_INVALID_URL while Next collects page data. An unpassed ARG
+# with no default stays out of the RUN environment entirely (verified: only
+# passed/defaulted ARGs are exported), so the code fallbacks apply; a passed
+# --build-arg DOES reach `pnpm build` and is inlined into the bundle.
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_BASE_URL
+ARG NEXT_PUBLIC_GATEWAY_BASE_URL
+ARG NEXT_PUBLIC_SITE_NAME
+ARG NEXT_PUBLIC_UMAMI_SCRIPT
+ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID
+ARG NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+ARG NEXT_PUBLIC_PLAUSIBLE_SCRIPT
+
+COPY apps/api ./apps/api
+COPY apps/doc ./apps/doc
+COPY apps/web ./apps/web
+COPY packages ./packages
+COPY tsconfig.json ./
+# turbo resolves its pipeline from turbo.json and hashes inputs against the
+# root ignore rules; without these two files the build stage cannot run turbo
+# at all (runtime stage never sees them).
+COPY turbo.json .gitignore ./
+
+# Build web + doc (standalone) and api (bundle). The `...` in each filter pulls
+# in the workspace packages they depend on (auth/db/ui/…) via turbo's graph.
+RUN pnpm exec turbo build --filter=dashboard... --filter=doc... --filter=api...
+# Source maps are dev-only; delete every one that was emitted — api dist, web/doc
+# .next (static, server, and the traced standalone copies) — to keep the runtime
+# image lean. The previous `rm apps/web/.next/*.map` matched nothing: the maps
+# live in subdirectories.
+RUN find apps/api/dist apps/web/.next apps/doc/.next -name '*.map' -delete
+
+# ---------------------------------------------------------------------------
+# sharp: native image lib the api bundle keeps external.
+#
+# Installed via npm so it resolves its own deps cleanly and, on this musl base,
+# pulls the -linuxmusl-x64 binary. Copied beside the api bundle so the bundle's
+# `import "sharp"` resolves.
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS sharp
+RUN mkdir -p /opt/sharp \
+ && cd /opt/sharp \
+ && npm init -y >/dev/null 2>&1 \
+ && npm install --no-audit --no-fund sharp@0.35.5
+
+# ---------------------------------------------------------------------------
+# runtime: node + s6-overlay + the small build artifacts + service defs
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS runtime
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app
+
+# s6-overlay (process supervision). TARGETARCH keeps multi-arch builds correct:
+# amd64 → x86_64, arm64 → aarch64.
+ARG TARGETARCH
+ARG S6_OVERLAY_VERSION=3.2.0.0
+RUN case "${TARGETARCH:-amd64}" in \
+      amd64) s6arch=x86_64 ;; \
+      arm64) s6arch=aarch64 ;; \
+      *) echo "unsupported arch: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && apk add --no-cache libstdc++ libgcc \
+ && wget -qO /tmp/s6-noarch.tar.xz "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
+ && wget -qO /tmp/s6-arch.tar.xz   "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${s6arch}.tar.xz" \
+ && tar -C / -Jxpf /tmp/s6-noarch.tar.xz \
+ && tar -C / -Jxpf /tmp/s6-arch.tar.xz \
+ && rm -f /tmp/s6-*.tar.xz
+
+# --- app artifacts ---------------------------------------------------------
+# web + doc: Next standalone roots. Each root contains apps/<app>/server.js and
+# a traced node_modules; the run script execs apps/<app>/server.js.
+#
+# Both standalone roots already embed their public/ directory — web's tracer
+# picks it up from its runtime fs reads, doc's gets it from
+# `outputFileTracingIncludes` in apps/doc/next.config.mjs (without that, doc's
+# fully build-time-compiled content yields a minimal standalone and the image
+# 404s on /logo.svg). `.next/static`, however, is never embedded, so it is
+# copied explicitly for both apps. Copying public/ a second time would only
+# stack another full-size layer on top of the embedded copy (≈167MB of dead
+# weight in image history).
+COPY --from=build /app/apps/web/.next/standalone /app/web
+COPY --from=build /app/apps/web/.next/static     /app/web/apps/web/.next/static
+COPY --from=build /app/apps/doc/.next/standalone /app/doc
+COPY --from=build /app/apps/doc/.next/static     /app/doc/apps/doc/.next/static
+
+# api: self-contained bundle + sharp beside it.
+COPY --from=build /app/apps/api/dist/*.mjs /app/api/
+COPY --from=sharp /opt/sharp/node_modules  /app/api/node_modules
+
+# --- s6 service definitions ------------------------------------------------
+# One longrun service per app. Each `run` script loads its OWN env file, so the
+# three apps' variables never share a single file.
+COPY docker/s6/web/run /etc/s6-overlay/s6-rc.d/web/run
+COPY docker/s6/doc/run /etc/s6-overlay/s6-rc.d/doc/run
+COPY docker/s6/api/run /etc/s6-overlay/s6-rc.d/api/run
+RUN mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d \
+ && for s in web doc api; do \
+      printf 'longrun' > /etc/s6-overlay/s6-rc.d/$s/type; \
+      chmod +x /etc/s6-overlay/s6-rc.d/$s/run; \
+      : > /etc/s6-overlay/s6-rc.d/user/contents.d/$s; \
+    done
+
+# --- per-app env files -----------------------------------------------------
+# Baked as safe placeholders so the container always boots. Override by mounting
+# your own file over the same path (see header). Never merged into one file.
+COPY docker/env/web.env /etc/s6/web.env
+COPY docker/env/doc.env /etc/s6/doc.env
+COPY docker/env/api.env /etc/s6/api.env
+
+EXPOSE 3000 3001 8080
+ENTRYPOINT ["/init"]

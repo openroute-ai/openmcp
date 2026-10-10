@@ -248,6 +248,24 @@ pnpm --filter console dev
 [Drizzle commands](#drizzle-commands) for the schema entry point, why the
 migrations were squashed, and how to verify a fresh database.
 
+### One-off: copying the legacy database
+
+Before console owned a database, its repositories, projects and statistics
+lived in the shared one (`POSTGRES_URL`). `db:migrate:from-postgres` copies them
+in, writing each table through console's own column list — the legacy schema
+spells `projects."repoId"` and `packages."devDependencies"` differently, and
+console has columns the old schema never had — so the source is only ever read.
+
+```bash
+pnpm --filter console db:migrate:from-postgres
+```
+
+Everything is copied except the scheduler's `task_*` tables: console seeds its
+own definitions from `src/lib/tasks/seed.ts`. Rows already in the target are
+kept (`ON CONFLICT DO NOTHING`), so an interrupted run resumes by being run
+again, and the row counts are compared against the source before it exits. The
+source defaults to `POSTGRES_URL`; `CONSOLE_MIGRATE_SOURCE_URL` overrides it.
+
 ### Accounts and roles
 
 The console serves two audiences from one deployment: an operator curates the
