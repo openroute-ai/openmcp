@@ -116,6 +116,11 @@ export function getFooterLinks(): NestedMenuItem[] {
           href: Routes.TermsOfService,
           external: false,
         },
+        {
+          title: t('legal.items.creatorAgreement'),
+          href: Routes.CreatorAgreement,
+          external: false,
+        },
       ],
     },
   ]

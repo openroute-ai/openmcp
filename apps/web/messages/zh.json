@@ -2580,11 +2580,12 @@
         "items": {
           "cookiePolicy": "Cookie政策",
           "privacyPolicy": "隐私政策",
-          "termsOfService": "服务条款"
+          "termsOfService": "用户服务协议",
+          "creatorAgreement": "创作者服务协议"
         }
       },
       "disclaimer": {
-        "contentSource": "内容来源：本站部分 Skill 内容来源于公开渠道、认证企业或由用户自主发布，使用前请注意甄别风险，内容版权归原作者所有。",
+        "contentSource": "内容来源：本站部分 Skill / MCP / A2A 等内容来源于公开渠道、经平台审核的创作者或由用户自主发布，使用前请注意甄别风险，内容版权归原作者或相应权利人所有。平台安全扫描或审核通过不等于监管认证或官方背书。",
         "infringement": "侵权投诉：如 Skill 涉及版权问题，请发送邮件至 <link>service@openmcp.cn</link>，我们将在收到通知后及时核实并予以下架处理。",
         "copyright": "Copyright ©2025-Present 天津聚链科技有限公司版权所有",
         "icp": "津ICP备2023007973号"
@@ -3968,10 +3969,11 @@
       },
       "legal": {
         "privacy": "《隐私政策》",
-        "terms": "《平台服务协议》",
+        "terms": "《用户服务协议》",
         "dialogDescription": "请在提交前完整阅读以下内容。",
         "loadFailed": "文档加载失败，请检查网络后重试。",
-        "retry": "重新加载"
+        "retry": "重新加载",
+        "creator": "《创作者服务协议》"
       },
       "payChannels": {
         "wechat": "微信",

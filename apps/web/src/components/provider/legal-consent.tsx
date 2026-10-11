@@ -21,6 +21,7 @@ import { legalDocumentPath, type LegalDocument } from './kyc-shared'
 const DOCUMENTS = [
   { key: 'legal/privacy', labelKey: 'privacy' },
   { key: 'legal/terms', labelKey: 'terms' },
+  { key: 'legal/creator', labelKey: 'creator' },
 ] as const satisfies readonly {
   key: Extract<LegalDocument, `legal/${string}`>
   labelKey: string

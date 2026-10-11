@@ -1,105 +1,52 @@
-# Platform Service Agreement
+# User Service Agreement
 
-Last updated: 30 September 2026
+Last updated: 11 October 2026
 
-This agreement governs your use of OpenMCP Hub, a marketplace for developer assets and
-MCP services (the "platform"). By registering an account or publishing, purchasing
-or using anything on the platform, you agree to these terms. The platform's Privacy
-Policy describes how your personal information is handled and forms part of this
-agreement.
+This agreement governs your use of OpenMCP Hub (the "Platform", operated by Tianjin Julians Technology Co., Ltd.) to discover, obtain, install and invoke Skills / MCP / A2A assets and related delivery or gateway services. By registering, signing in or using the services, you agree to these terms. The Privacy Policy, Creator Agreement (if applicable) and other platform rules form part of this agreement.
 
-## 1. Account
+**Note:** This is a summary for onboarding and quick reference. The full terms on the website control. This text is **not legal advice** and is not a substitute for counsel review.
 
-1. You must be at least 18 years old and able to enter into this agreement.
-2. You are responsible for the accuracy of your registration information and for
-   keeping your credentials confidential. Any activity under your account is
-   treated as your own.
-3. One account may verify one real-name subject. Where you act for a company, the
-   authorisation letter you submit to the platform is treated as valid evidence of
-   that authority.
+## 1. Platform role
 
-## 2. Publishing and verification
+1. The Platform is a **marketplace and technology intermediary** for discovery, review, install, delivery, complaints handling and (where offered) gateway value-added services.
+2. Except for assets clearly labelled official / first-party, assets are provided by creators; the Platform does not engage in unauthorised resale of third-party assets.
+3. Paid assets generally use a **non-guaranteed direct-payment model**: users pay creators' payout channels directly; the Platform does not hold funds or provide payment guarantees (except where law or the Platform's own fault requires otherwise).
 
-1. Assets you publish must be your own work, or one you are licensed to
-   redistribute. You grant the platform a non-exclusive, worldwide licence to host
-   and distribute the asset for the purpose of running the marketplace.
-2. Before you can receive payments you must complete real-name verification.
-   Verification is at the platform's discretion, and the platform may ask for
-   additional documents or reject documents that are unclear, altered or
-   inconsistent with the information on file.
-3. Each asset must be accurately described. Assets that infringe third-party
-   rights, violate applicable law, or are otherwise unsuitable may be removed
-   without notice, and the account that published them may be suspended.
+## 2. Accounts
 
-## 3. Purchasing
+1. You must have full legal capacity; keep registration data accurate and credentials secure.
+2. Real-name or entity verification is required before creator payout / paid listing features.
+3. Do not transfer accounts or share credentials that bypass paywalls or auth.
 
-1. Prices, licensing terms and the scope of use are shown on each asset's page and
-   form part of your purchase.
-2. Payment is made through the channel you select at checkout. Access to a paid
-   asset is granted after the platform confirms the payment.
-3. Unless the asset page states otherwise, purchases are non-refundable once
-   delivered. If an asset is unavailable, materially misdescribed, or unlawful,
-   contact us within 7 days and we will refund or replace it.
+## 3. Licence scope
 
-## 4. Fees and settlement
+1. Price, licence tier (e.g. personal / team / enterprise) and billing are as shown on the asset and checkout pages.
+2. You receive a **right to use** within that scope, plus Platform delivery services — not ownership (unless stated otherwise).
+3. **Unless expressly allowed, you must not redistribute, resell, re-list or wrap the asset as your own product.**
+4. Open-source / third-party components remain subject to their licences.
 
-1. The platform may take a service fee from a transaction; the rate is displayed
-   before the transaction is confirmed.
-2. Earnings are settled after the verification and cooling-off periods shown on
-   the provider console, then paid to the payout account you bound.
-3. You are responsible for the taxes and fees that apply to amounts you receive.
+## 4. Third-party risk and security scans
 
-## 5. Acceptable use
+1. Creator assets may have defects, malware, IP or fitness risks; assess carefully.
+2. **A security scan, risk grade or human review ≠ regulatory certification, government approval or a promise of absolute safety.**
+3. Sandbox previews are illustrative only.
 
-You agree not to, and not to permit anyone using your account to:
+## 5. Abuse and suspension
 
-- upload malware, or content that is unlawful, infringing or misleading;
-- probe, scan or attack the platform's infrastructure, or circumvent rate limits;
-- resell access to the platform's API or authentication credentials;
-- scrape the marketplace at a rate that degrades it for others;
-- misrepresent your identity, qualifications or the origin of an asset.
+Illegal use, infringement, attacks, fraud, reselling API access, bypassing paywalls or distributing harmful content is prohibited. The Platform may warn, delist, restrict, freeze or terminate accounts.
 
-We may suspend access immediately where these rules are breached, and will restore
-access where a false positive is shown.
+## 6. Refunds
 
-## 6. Suspension and termination
+Digital goods delivered immediately are generally non-refundable except for non-delivery, material misdescription, illegality or as otherwise stated. Creator-side refunds and invoices are primarily the creator's duty; the Platform may assist with disputes.
 
-1. You may stop publishing at any time, and may request account cancellation.
-2. The platform may suspend or terminate your account for a breach of this
-   agreement, for repeated infringement complaints, or where required by law. Where
-   a breach is minor and fixable, we will normally give notice and an opportunity to
-   fix it first.
-3. On termination, your access ends, and we will settle amounts already earned
-   through the normal settlement cycle.
+## 7. AI / output disclaimer
 
-## 7. Warranties and liability
+Model or asset outputs may be wrong or inappropriate and are not professional advice. You are responsible for reliance. Liability caps are as in the full Terms.
 
-1. The platform is provided on an "as is" and "as available" basis. We do not
-   warrant uninterrupted availability, or that an asset will perform in every
-   environment.
-2. To the extent permitted by law, our aggregate liability arising out of a
-   transaction is limited to the amount you paid for that transaction. We are not
-   liable for indirect or consequential loss, including lost profit or data.
-3. Nothing here limits liability that cannot lawfully be limited.
+## 8. Governing law
 
-## 8. Intellectual property
+Laws of the People's Republic of China. Unresolved disputes may be brought in the courts at the Platform operator's domicile.
 
-The platform's own software, design, trademarks and documentation belong to the
-platform and its licensors. This agreement grants no rights in them beyond the right
-to use the service.
+## 9. Contact
 
-## 9. Changes
-
-We may update these terms. Material changes are announced through the platform
-before they take effect, and the announcement states when they apply. Continuing to
-use the service after that date means accepting the updated terms.
-
-## 10. Governing law and disputes
-
-These terms are governed by the laws of the People's Republic of China. A dispute
-that cannot be settled by negotiation is submitted to the court with jurisdiction
-over the place where the platform's operator is registered.
-
-## 11. Contact
-
-Questions about this agreement can be sent to support@openmcp.cn.
+support@openmcp.cn / service@openmcp.cn
