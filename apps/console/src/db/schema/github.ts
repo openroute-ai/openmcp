@@ -274,7 +274,7 @@ export const MAX_CAPABILITIES_PER_PROJECT = 5
  * about how much a reader is meant to take in at a glance rather than a
  * property of the data.
  */
-export const MAX_TAGS_PER_PROJECT = 3
+export const MAX_TAGS_PER_PROJECT = 5
 
 export const projects = pgTable(
   "projects",

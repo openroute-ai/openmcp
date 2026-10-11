@@ -360,6 +360,7 @@
     "urlOverridden": "链接已人工修改",
     "repoDescription": "仓库描述",
     "tagsLabel": "标签",
+    "capabilitiesLabel": "能力项",
     "assets": "资源",
     "assetsDescription": "已镜像到对象存储的图片，仓库改名或删除后仍可访问",
     "latestRelease": "最新发布",

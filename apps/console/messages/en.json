@@ -360,6 +360,7 @@
     "urlOverridden": "URL edited",
     "repoDescription": "Repository description",
     "tagsLabel": "Tags",
+    "capabilitiesLabel": "Capabilities",
     "assets": "Assets",
     "assetsDescription": "Images mirrored into the object store, so they keep resolving after a repository is renamed or deleted",
     "latestRelease": "Latest release",

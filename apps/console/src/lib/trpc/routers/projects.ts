@@ -20,6 +20,8 @@ import {
   hallOfFame,
   hallOfFameToProjects,
   packages,
+  capabilities,
+  projectsToCapabilities,
   projectSkills,
   projectSyncJobs,
   projects,
@@ -448,6 +450,7 @@ export const projectsRouter = createTRPCRouter({
         jobs,
         authors,
         projectTags,
+        projectCapabilities,
         monthlyRows,
         packageRows,
         weeklyRows,
@@ -523,6 +526,25 @@ export const projectsRouter = createTRPCRouter({
           .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
           .where(eq(projectsToTags.projectId, input.id))
           .orderBy(asc(tags.code)),
+        ctx.db
+          .select({
+            axis: capabilities.axis,
+            code: capabilities.code,
+            label: capabilities.label,
+            description: capabilities.description,
+            evidence: projectsToCapabilities.evidence,
+            confidence: projectsToCapabilities.confidence,
+          })
+          .from(projectsToCapabilities)
+          .innerJoin(
+            capabilities,
+            eq(projectsToCapabilities.capabilityId, capabilities.id)
+          )
+          .where(eq(projectsToCapabilities.projectId, input.id))
+          .orderBy(
+            asc(capabilities.axis),
+            asc(capabilities.code)
+          ),
         listMonthlyStats(ctx.db, project.repoId),
         ctx.db
           .select({
@@ -575,6 +597,7 @@ export const projectsRouter = createTRPCRouter({
         jobs,
         authors,
         tags: projectTags,
+        capabilities: projectCapabilities,
         monthlyStats: monthlyRows,
         packages: packageRows,
         ...(trends === undefined ? {} : { trends }),
