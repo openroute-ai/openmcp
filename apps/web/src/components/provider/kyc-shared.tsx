@@ -72,6 +72,7 @@ export const KYC_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
 export type LegalDocument =
   | 'legal/privacy'
   | 'legal/terms'
+  | 'legal/creator'
   | 'templates/authorization-letter'
 
 /**

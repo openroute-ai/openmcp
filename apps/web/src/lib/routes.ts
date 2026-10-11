@@ -38,6 +38,7 @@ export enum Routes {
   CookiePolicy = '/cookie',
   PrivacyPolicy = '/privacy',
   TermsOfService = '/terms',
+  CreatorAgreement = '/creator-agreement',
 
   // auth routes
   Login = '/sign-in',

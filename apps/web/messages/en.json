@@ -2510,11 +2510,12 @@
         "items": {
           "cookiePolicy": "Cookie Policy",
           "privacyPolicy": "Privacy Policy",
-          "termsOfService": "Terms of Service"
+          "termsOfService": "User Service Agreement",
+          "creatorAgreement": "Creator Agreement"
         }
       },
       "disclaimer": {
-        "contentSource": "Content source: some Skill content on this site comes from public channels, certified enterprises, or user submissions. Please exercise caution before use; copyright remains with the original author.",
+        "contentSource": "Content source: some Skill / MCP / A2A content on this site comes from public channels, creators reviewed by the platform, or user submissions. Please exercise caution before use; copyright remains with the original author or rights holder. Passing a platform security scan or review does not mean regulatory certification or an official endorsement.",
         "infringement": "Copyright complaints: if a Skill infringes copyright, email <link>service@openmcp.cn</link>. We will verify the report and take the content down.",
         "copyright": "Copyright ©2025-Present Tianjin Julians Technology Co., Ltd.",
         "icp": "Tianjin ICP Filing 2023007973"
@@ -4019,10 +4020,11 @@
       },
       "legal": {
         "privacy": "Privacy Policy",
-        "terms": "Platform Service Agreement",
+        "terms": "User Service Agreement",
         "dialogDescription": "Please read the following in full before submitting.",
         "loadFailed": "The document could not be loaded. Check your connection and try again.",
-        "retry": "Reload"
+        "retry": "Reload",
+        "creator": "Creator Agreement"
       },
       "payChannels": {
         "wechat": "WeChat Pay",
