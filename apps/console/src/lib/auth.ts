@@ -14,6 +14,7 @@ import {
   generateEmailCode,
   issueEmailCode,
 } from "@/lib/auth/email-code"
+import { PHONE_CODE_TTL_SECONDS } from "@/lib/auth/phone-code"
 import { getRateLimitStorage } from "@/lib/redis"
 import { isMailConfigured, mailLocaleFrom, sendEmail } from "@/lib/mail"
 import { smsCaptchaConfig } from "@/lib/sms-captcha"
@@ -226,6 +227,9 @@ export const auth = betterAuth({
     : {}),
   plugins: [
     phoneNumber({
+      // Kept equal to the validity the approved SMS template prints, so the
+      // "{2} minutes" in the message is true. The send itself is below.
+      expiresIn: PHONE_CODE_TTL_SECONDS,
       sendOTP: async ({ phoneNumber: phone, code }, request) => {
         if (!CN_PHONE.test(phone)) {
           throw new APIError("BAD_REQUEST", { message: "无效的手机号" })
@@ -251,7 +255,7 @@ export const auth = betterAuth({
           throw error
         }
 
-        await sendSmsCode(phone, code)
+        await sendSmsCode(phone, code, PHONE_CODE_TTL_SECONDS / 60)
       },
       signUpOnVerification: {
         // Phone-only accounts still need a unique `email`, so a synthetic

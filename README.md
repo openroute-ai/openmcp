@@ -81,13 +81,33 @@ server bundle (no full `node_modules`, no dev-only `.next`).
 ### `apps/console` — standalone
 
 ```bash
-docker build -f apps/console/Dockerfile -t openmcp-console .
+docker build --provenance=false --sbom=false -f apps/console/Dockerfile -t openmcp-console .
 
 docker run --rm -p 20002:20002 \
   -e BETTER_AUTH_SECRET=... \
   -e CONSOLE_DATABASE_URL=postgres://... \
   openmcp-console
 ```
+
+> **Pushing to Aliyun ACR 个人版 (or any registry without OCI 1.1 artifact
+> support):** keep `--provenance=false --sbom=false` on the build. BuildKit
+> ≥ v0.32 (bundled with Docker Engine ≥ 29.7 / buildx ≥ 0.36) stores
+> provenance/SBOM attestations as OCI artifacts by default, and a personal ACR
+> rejects the image index with
+> `unknown manifest class for application/vnd.oci.empty.v1+json`. The flags must
+> be present **at build time** — re-pushing an already-built index will not fix
+> it, you have to rebuild.
+>
+> ```bash
+> REGISTRY=crpi-l9d06aaeh8b6jjur.cn-hangzhou.personal.cr.aliyuncs.com
+> REPO=$REGISTRY/autoroute/openmcp-vercelai
+> docker build --provenance=false --sbom=false \
+>   -f apps/console/Dockerfile -t "$REPO:v20261010" .
+> docker push "$REPO:v20261010"
+> ```
+>
+> To keep attestations (签名/SBOM/SLSA) you need an ACR 企业版 instance or
+> another registry with OCI 1.1 support; personal edition cannot store them.
 
 Build-time public config (site identity, `ENABLE_HSTS`, optional analytics) is
 read from `apps/console/.env.production` — that file is the place to rename the
@@ -112,7 +132,8 @@ Build (context is the repo root; `NEXT_PUBLIC_*` are inlined at build time —
 pass them as `--build-arg`):
 
 ```bash
-docker build -f docker/Dockerfile.web-doc-api -t openmcp-stack \
+docker build --provenance=false --sbom=false \
+  -f docker/Dockerfile.web-doc-api -t openmcp-stack \
   --build-arg NEXT_PUBLIC_BASE_URL=https://www.example.com .
 ```
 

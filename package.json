@@ -9,8 +9,8 @@
     "lint": "turbo lint",
     "format": "turbo format",
     "typecheck": "turbo typecheck",
-    "docker:build:console": "docker build -f apps/console/Dockerfile -t openmcp-console .",
-    "docker:build:stack": "docker build -f docker/Dockerfile.web-doc-api -t openmcp-stack ."
+    "docker:build:console": "docker build --provenance=false --sbom=false -f apps/console/Dockerfile -t openmcp-console .",
+    "docker:build:stack": "docker build --provenance=false --sbom=false -f docker/Dockerfile.web-doc-api -t openmcp-stack ."
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

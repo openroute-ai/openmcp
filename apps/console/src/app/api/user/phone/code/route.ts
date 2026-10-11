@@ -19,7 +19,11 @@ import {
 import { db } from "@/db/client"
 import { user } from "@/db/schema"
 import { getFullSessionUser } from "@/lib/auth/session"
-import { generatePhoneCode, issuePhoneCode } from "@/lib/auth/phone-code"
+import {
+  generatePhoneCode,
+  issuePhoneCode,
+  PHONE_CODE_TTL_SECONDS,
+} from "@/lib/auth/phone-code"
 import { smsCaptchaConfig } from "@/lib/sms-captcha"
 import { sendSmsCode } from "@/lib/sms"
 
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
   await issuePhoneCode(session.id, phoneNumber, code)
 
   try {
-    await sendSmsCode(phoneNumber, code)
+    await sendSmsCode(phoneNumber, code, PHONE_CODE_TTL_SECONDS / 60)
   } catch (error) {
     console.error("[console] phone code send failed:", error)
     return NextResponse.json({ error: "send_failed" }, { status: 502 })
