@@ -16,6 +16,7 @@ import {
   PROJECT_STATUSES,
   PROJECT_TYPES,
   bundles,
+  categories,
   hallOfFame,
   hallOfFameToProjects,
   packages,
@@ -40,6 +41,7 @@ import {
   updateProject,
 } from "@/lib/github/service/project"
 import { listProjectTags, setProjectTags } from "@/lib/github/service/tag"
+import { setProjectCategory } from "@/lib/github/service/category"
 import {
   listMonthlyStats,
   listWeeklyArrivals,
@@ -389,6 +391,7 @@ export const projectsRouter = createTRPCRouter({
           priority: projects.priority,
           comments: projects.comments,
           skillMdPath: projects.skillMdPath,
+          categoryId: projects.categoryId,
           createdAt: projects.createdAt,
           updatedAt: projects.updatedAt,
 
@@ -727,6 +730,48 @@ export const projectsRouter = createTRPCRouter({
       await requireProject(ctx.db, input.id)
       await setProjectTags(ctx.db, input.id, input.codes)
       return listProjectTags(ctx.db, input.id)
+    }),
+
+  /**
+   * Files a project under one category, or clears the assignment.
+   *
+   * A procedure of its own rather than a field on `update`, because filing is a
+   * reviewer's decision with side effects `update` does not have: the service
+   * clears the classifier's confidence and evidence and stamps
+   * `categoryReviewedAt`, taking the project out of the review queue. Sending it
+   * alongside the description edits would make "why did my edit confirm a
+   * category" a question no one could answer from the form.
+   *
+   * A null `categoryId` unfiles the project, which is a real state — the
+   * classifier and an operator can then both see it again — rather than a
+   * missing value, so it is accepted explicitly instead of defaulted.
+   */
+  setCategory: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        categoryId: z.string().min(1).nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireProject(ctx.db, input.id)
+
+      if (input.categoryId !== null) {
+        const [category] = await ctx.db
+          .select({ id: categories.id })
+          .from(categories)
+          .where(eq(categories.id, input.categoryId))
+          .limit(1)
+        if (!category) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Category not found",
+          })
+        }
+      }
+
+      await setProjectCategory(ctx.db, input.id, input.categoryId)
+      return { categoryId: input.categoryId }
     }),
 
   /**

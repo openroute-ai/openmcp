@@ -4,28 +4,30 @@ import {
 } from "@/components/public/public-shell"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
-import { countPublicProjects, listPublicTags } from "@/lib/public/radar"
+import { countPublicProjects, listPublicCategories } from "@/lib/public/radar"
 
 /**
- * Category navigation, built from tags.
+ * Category navigation, built from the curated taxonomy.
  *
- * Tags are the categories here, and the choice was made against a table of what
- * actually has data: `capabilities` is the schema's other classification axis
- * and it is the better fit for filtering — it answers "what does this speak" —
- * but nothing writes to it yet (the AI classification that would fill it is a v1
- * task), so a filter rail built on it today is a row of empty controls. Tags are
- * curated by a human and already drive the ranking filters, so they are the one
- * axis the page can be honest about on day one.
+ * The categories are the operator's `categories` rows — the same vocabulary the
+ * classifier files projects under and the projects page filters by — rather than
+ * the free-form tags. A tag is whatever a sync imported from a repository's
+ * GitHub topics; a category is a decision an operator made about how the
+ * catalogue is organised, which is the axis a reader browsing "分类" expects.
  *
- * The empty case is a real state and gets its own explanation rather than a
- * blank grid: a fresh install has tags but no projects carrying them.
+ * Every active category is shown, including those with no project yet: the
+ * taxonomy is curated ahead of the catalogue, so an empty category is a real
+ * state and gets a zero count rather than being hidden.
+ *
+ * The truly-empty case — no active category at all — still gets its own
+ * explanation rather than a blank grid.
  */
 
 export const dynamic = "force-dynamic"
 
 export default async function PublicCategoriesPage() {
-  const [tags, projectTotal] = await Promise.all([
-    listPublicTags(db),
+  const [categories, projectTotal] = await Promise.all([
+    listPublicCategories(db),
     countPublicProjects(db),
   ])
 
@@ -34,38 +36,38 @@ export default async function PublicCategoriesPage() {
       <div className="mx-auto max-w-6xl px-4 py-10">
         <PublicPageHeader
           title="应用分类"
-          description="按标签浏览公开项目。"
+          description="按分类浏览公开项目。"
         >
           <p className="text-xs text-muted-foreground">
-            共 {projectTotal} 个公开项目 · {tags.length} 个分类
+            共 {projectTotal} 个公开项目 · {categories.length} 个分类
           </p>
         </PublicPageHeader>
 
-        {tags.length === 0 ? (
+        {categories.length === 0 ? (
           <p className="mt-6 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
             还没有可用于导航的分类。
           </p>
         ) : (
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {tags.map((tag) => (
+            {categories.map((category) => (
               <LocaleLink
-                key={tag.code}
-                href={`/categories/${tag.code}`}
+                key={category.code}
+                href={`/categories/${category.code}`}
                 className="group grid gap-1.5 rounded-xl border border-border p-4 transition-colors hover:bg-accent"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium">{tag.name}</span>
+                  <span className="font-medium">{category.name}</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
-                    {tag.projectCount} 个项目
+                    {category.projectCount} 个项目
                   </span>
                 </div>
-                {tag.description && (
+                {category.description && (
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    {tag.description}
+                    {category.description}
                   </p>
                 )}
                 <code className="text-[11px] text-muted-foreground/70">
-                  {tag.code}
+                  {category.code}
                 </code>
               </LocaleLink>
             ))}

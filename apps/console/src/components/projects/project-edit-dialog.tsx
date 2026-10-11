@@ -41,6 +41,13 @@ const STATUSES = [
 ] as const
 const TYPES = ["client", "server", "application", "skill", "persona"] as const
 
+/**
+ * The Select needs a concrete value to represent "no category", because Radix
+ * treats an empty string as no selection at all and would leave the trigger
+ * blank. The value never reaches the server: it is mapped back to null on save.
+ */
+const UNCATEGORIZED = "__uncategorized__"
+
 /** The subset of a project this form writes. */
 type Editable = {
   id: string
@@ -54,6 +61,7 @@ type Editable = {
   priority: number
   comments: string | null
   skillMdPath: string | null
+  categoryId: string | null
   tags: { code: string }[]
 }
 
@@ -80,7 +88,9 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
 
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState(project.name)
-  const [description, setDescription] = React.useState(project.description ?? "")
+  const [description, setDescription] = React.useState(
+    project.description ?? ""
+  )
   const [url, setUrl] = React.useState(project.url ?? "")
   const [status, setStatus] = React.useState(project.status)
   const [type, setType] = React.useState(project.type)
@@ -88,12 +98,18 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
   const [twitter, setTwitter] = React.useState(project.twitter ?? "")
   const [priority, setPriority] = React.useState(String(project.priority))
   const [comments, setComments] = React.useState(project.comments ?? "")
-  const [skillMdPath, setSkillMdPath] = React.useState(project.skillMdPath ?? "")
+  const [skillMdPath, setSkillMdPath] = React.useState(
+    project.skillMdPath ?? ""
+  )
+  const [categoryId, setCategoryId] = React.useState(
+    project.categoryId ?? UNCATEGORIZED
+  )
   const [tagCodes, setTagCodes] = React.useState<string[]>(
     project.tags.map((tag) => tag.code)
   )
 
   const allTags = useQuery(trpc.tags.list.queryOptions())
+  const allCategories = useQuery(trpc.categories.list.queryOptions())
 
   /**
    * Re-reads the form from the stored project.
@@ -114,6 +130,7 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
     setPriority(String(project.priority))
     setComments(project.comments ?? "")
     setSkillMdPath(project.skillMdPath ?? "")
+    setCategoryId(project.categoryId ?? UNCATEGORIZED)
     setTagCodes(project.tags.map((tag) => tag.code))
   }, [project])
 
@@ -141,7 +158,19 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
     })
   )
 
-  const busy = update.isPending || setTags.isPending
+  const setCategory = useMutation(
+    trpc.projects.setCategory.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("saved"))
+        setOpen(false)
+      },
+      onError: (error) => {
+        toast.error(t("saveFailed"), { description: error.message })
+      },
+    })
+  )
+
+  const busy = update.isPending || setTags.isPending || setCategory.isPending
 
   const invalidUrl = url.trim() !== "" && !/^https?:\/\//i.test(url.trim())
 
@@ -151,34 +180,50 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
     const trimmedTwitter = twitter.trim()
     const trimmedPath = skillMdPath.trim()
 
+    const nextCategoryId = categoryId === UNCATEGORIZED ? null : categoryId
+    const categoryChanged = nextCategoryId !== project.categoryId
+
+    // Kept as a closure so the three mutations chain without repeating the
+    // payload or the invalidation after the last one.
+    function applyUpdate() {
+      update.mutate(
+        {
+          id: project.id,
+          name: name.trim(),
+          description: description.trim() === "" ? null : description.trim(),
+          url: trimmedUrl === "" ? null : trimmedUrl,
+          logo: trimmedLogo === "" ? null : trimmedLogo,
+          twitter: trimmedTwitter === "" ? null : trimmedTwitter,
+          comments: comments.trim() === "" ? null : comments.trim(),
+          skillMdPath: trimmedPath === "" ? null : trimmedPath,
+          priority: Number(priority) || 0,
+          status: status as (typeof STATUSES)[number],
+          type: type as (typeof TYPES)[number],
+        },
+        {
+          onSuccess: () => {
+            void queryClient.invalidateQueries({
+              queryKey: trpc.projects.byId.queryKey({ id: project.id }),
+            })
+            void queryClient.invalidateQueries({
+              queryKey: trpc.projects.list.queryKey(),
+            })
+          },
+        }
+      )
+    }
+
     setTags.mutate(
       { id: project.id, codes: tagCodes },
       {
         onSuccess: () => {
-          update.mutate(
-            {
-              id: project.id,
-              name: name.trim(),
-              description: description.trim() === "" ? null : description.trim(),
-              url: trimmedUrl === "" ? null : trimmedUrl,
-              logo: trimmedLogo === "" ? null : trimmedLogo,
-              twitter: trimmedTwitter === "" ? null : trimmedTwitter,
-              comments: comments.trim() === "" ? null : comments.trim(),
-              skillMdPath: trimmedPath === "" ? null : trimmedPath,
-              priority: Number(priority) || 0,
-              status: status as (typeof STATUSES)[number],
-              type: type as (typeof TYPES)[number],
-            },
-            {
-              onSuccess: () => {
-                void queryClient.invalidateQueries({
-                  queryKey: trpc.projects.byId.queryKey({ id: project.id }),
-                })
-                void queryClient.invalidateQueries({
-                  queryKey: trpc.projects.list.queryKey(),
-                })
-              },
-            }
+          if (!categoryChanged) {
+            applyUpdate()
+            return
+          }
+          setCategory.mutate(
+            { id: project.id, categoryId: nextCategoryId },
+            { onSuccess: applyUpdate }
           )
         },
         onError: (error) => {
@@ -255,6 +300,28 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
               {invalidUrl ? (
                 <p className="text-sm text-destructive">{t("invalidUrl")}</p>
               ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-category">{t("field.category")}</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger id="edit-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNCATEGORIZED}>
+                    {t("field.categoryNone")}
+                  </SelectItem>
+                  {allCategories.data?.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                {t("field.categoryHint")}
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -365,9 +432,7 @@ export function ProjectEditDialog({ project }: { project: Editable }) {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("noTags")}
-                </p>
+                <p className="text-sm text-muted-foreground">{t("noTags")}</p>
               )}
             </div>
           </div>

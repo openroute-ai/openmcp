@@ -88,6 +88,13 @@ const navMain: NavMainItem[] = [
     group: "groupCatalog",
   },
   {
+    key: "categories",
+    url: "/dashboard/categories",
+    icon: <IconFolder />,
+    group: "groupCatalog",
+  },
+
+  {
     key: "skills",
     url: "/dashboard/skills",
     icon: <IconRobot />,

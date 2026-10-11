@@ -331,6 +331,7 @@ export function ProjectDetail({ id }: { id: string }) {
                   priority: data.priority,
                   comments: data.comments,
                   skillMdPath: data.skillMdPath,
+                  categoryId: data.categoryId,
                   tags: data.tags,
                 }}
               />

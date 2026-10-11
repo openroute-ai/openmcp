@@ -44,6 +44,7 @@
     "toggleSidebar": "Toggle sidebar",
     "signedOut": "Signed out",
     "repos": "Repositories",
+    "categories": "Categories",
     "myRepos": "My repositories",
     "decisions": "Decisions",
     "groupInsights": "Insights",
@@ -460,6 +461,9 @@
       "name": "Name",
       "description": "Description",
       "url": "Homepage",
+      "category": "Category",
+      "categoryNone": "Uncategorized",
+      "categoryHint": "Saving a change also records it as a human confirmation, so the classifier stops reviewing it.",
       "status": "Status",
       "type": "Type",
       "logo": "Logo URL",
@@ -468,6 +472,72 @@
       "skillMdPath": "SKILL.md path",
       "comments": "Internal comments",
       "tags": "Tags"
+    }
+  },
+  "Categories": {
+    "title": "Categories",
+    "description": "Maintain the operational categories: the vocabulary the classifier may file a project under, and the source of the public site's category navigation.",
+    "searchPlaceholder": "Search category name, code or description",
+    "create": "New category",
+    "createTitle": "New category",
+    "createDescription": "The code is the stable identifier and cannot be changed after creation; the classifier only answers with existing codes.",
+    "editTitle": "Edit category",
+    "editDescription": "Change the name, description, order and active state. The code is the stable identifier and cannot be changed.",
+    "editRow": "Edit {name}",
+    "save": "Save changes",
+    "saved": "Category \"{name}\" saved",
+    "saveFailed": "Could not save the category",
+    "created": "Category \"{name}\" created",
+    "cancel": "Cancel",
+    "empty": "No categories yet. Create one so the classifier has a vocabulary to choose from.",
+    "emptySearch": "No matching categories.",
+    "deleteRow": "Delete {name}",
+    "deleteConfirm": "Delete",
+    "deleteUnfilesHint": "This leaves {count} projects unclassified; the projects themselves are not deleted.",
+    "deleted": "Category \"{code}\" deleted",
+    "deleteFailed": "Could not delete the category",
+    "backToList": "Back to categories",
+    "noDescription": "No description.",
+    "projectTotal": "{count} projects",
+    "setInactive": "Deactivate",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "field": {
+      "code": "Code",
+      "codePlaceholder": "for example mcp-server",
+      "codeHint": "Lower-case words separated by single hyphens.",
+      "codeLocked": "The code is the stable identifier and cannot be changed after creation.",
+      "name": "Name",
+      "description": "Description",
+      "sortOrder": "Order",
+      "sortOrderHint": "Lower numbers come first; used to arrange the categories.",
+      "active": "Active",
+      "activeHint": "When inactive the classifier stops choosing it; projects already filed stay visible."
+    },
+    "column": {
+      "name": "Name",
+      "code": "Code",
+      "sortOrder": "Order",
+      "status": "Status",
+      "projects": "Projects",
+      "actions": "Actions",
+      "logo": "Logo",
+      "project": "Project",
+      "type": "Type",
+      "stars": "Stars",
+      "updated": "Updated"
+    },
+    "projectSearchPlaceholder": "Search projects in this category",
+    "projectEmpty": "No projects in this category yet.",
+    "projectEmptySearch": "No matching projects.",
+    "sortLabel": "Sort",
+    "sort": {
+      "starsDesc": "Most stars",
+      "starsAsc": "Fewest stars",
+      "createdAtDesc": "Newest",
+      "createdAtAsc": "Oldest"
     }
   },
   "Skills": {
@@ -1277,7 +1347,14 @@
     "passwordFailed": "The password could not be changed",
     "avatarNotConfigured": "Image uploads are not configured"
   },
+  "Metadata": {
+    "name": "VercelAI Radar"
+  },
   "Mail": {
+    "common": {
+      "team": "{name} Team",
+      "copyright": "©️ {year} All Rights Reserved."
+    },
     "verifyEmailCode": {
       "title": "Hi, {name}.",
       "body": "Enter this code to verify your email address.",

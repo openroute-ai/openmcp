@@ -44,6 +44,7 @@
     "toggleSidebar": "切换侧边栏",
     "signedOut": "未登录",
     "repos": "仓库",
+    "categories": "分类",
     "myRepos": "我的仓库",
     "decisions": "决策工作台",
     "groupInsights": "数据洞察",
@@ -460,6 +461,9 @@
       "name": "名称",
       "description": "描述",
       "url": "主页地址",
+      "category": "所属分类",
+      "categoryNone": "未分类",
+      "categoryHint": "更改分类会同时记录为人工确认，分类器不再重复判断。",
       "status": "状态",
       "type": "类型",
       "logo": "Logo 地址",
@@ -468,6 +472,72 @@
       "skillMdPath": "SKILL.md 路径",
       "comments": "内部备注",
       "tags": "标签"
+    }
+  },
+  "Categories": {
+    "title": "分类",
+    "description": "维护项目的运营分类：分类决定分类器可以给项目打的标签，也是公开站点「分类」导航的来源。",
+    "searchPlaceholder": "搜索分类名称、代码或描述",
+    "create": "新建分类",
+    "createTitle": "新建分类",
+    "createDescription": "分类代码是稳定标识，创建后不可修改；分类器只会用已有的代码作答。",
+    "editTitle": "编辑分类",
+    "editDescription": "修改名称、描述、排序与启用状态。分类代码是稳定标识，不可修改。",
+    "editRow": "编辑 {name}",
+    "save": "保存修改",
+    "saved": "分类「{name}」已保存",
+    "saveFailed": "无法保存分类",
+    "created": "分类「{name}」已创建",
+    "cancel": "取消",
+    "empty": "还没有分类。新建一个，分类器才有可选的词表。",
+    "emptySearch": "没有匹配的分类。",
+    "deleteRow": "删除 {name}",
+    "deleteConfirm": "确认删除",
+    "deleteUnfilesHint": "删除后，{count} 个项目会被置为未分类，项目本身不会删除。",
+    "deleted": "分类「{code}」已删除",
+    "deleteFailed": "无法删除分类",
+    "backToList": "返回分类列表",
+    "noDescription": "暂无描述。",
+    "projectTotal": "共 {count} 个项目",
+    "setInactive": "停用",
+    "status": {
+      "active": "启用",
+      "inactive": "已停用"
+    },
+    "field": {
+      "code": "分类代码",
+      "codePlaceholder": "例如 mcp-server",
+      "codeHint": "小写单词，用单个连字符分隔。",
+      "codeLocked": "分类代码是稳定标识，创建后不可修改。",
+      "name": "名称",
+      "description": "描述",
+      "sortOrder": "排序",
+      "sortOrderHint": "数值越小越靠前，用来编排分类的展示顺序。",
+      "active": "启用",
+      "activeHint": "停用后分类器不再选择该分类，已有项目保持归档可见。"
+    },
+    "column": {
+      "name": "名称",
+      "code": "代码",
+      "sortOrder": "排序",
+      "status": "状态",
+      "projects": "项目数",
+      "actions": "操作",
+      "logo": "Logo",
+      "project": "项目",
+      "type": "类型",
+      "stars": "星标",
+      "updated": "最近更新"
+    },
+    "projectSearchPlaceholder": "搜索该分类下的项目",
+    "projectEmpty": "这个分类下还没有项目。",
+    "projectEmptySearch": "没有匹配的项目。",
+    "sortLabel": "排序方式",
+    "sort": {
+      "starsDesc": "星标从多到少",
+      "starsAsc": "星标从少到多",
+      "createdAtDesc": "最新入库",
+      "createdAtAsc": "最早入库"
     }
   },
   "Skills": {
@@ -1277,7 +1347,14 @@
     "passwordFailed": "密码修改失败",
     "avatarNotConfigured": "头像服务未配置，请联系管理员"
   },
+  "Metadata": {
+    "name": "VercelAI雷达"
+  },
   "Mail": {
+    "common": {
+      "team": "{name} 团队",
+      "copyright": "©️ {year} 版权所有。"
+    },
     "verifyEmailCode": {
       "title": "你好，{name}。",
       "body": "输入下面的验证码完成邮箱验证。",

@@ -108,6 +108,57 @@ export async function listPublicTags(db: Db): Promise<PublicTag[]> {
   }))
 }
 
+export interface PublicCategory {
+  code: string
+  name: string
+  description: string | null
+  /** Public projects filed under this category, hidden ones already excluded. */
+  projectCount: number
+}
+
+/**
+ * The operational taxonomy, as a public navigation.
+ *
+ * Every active category is listed, not only those that already have a project.
+ * A category is curated vocabulary rather than a derived tag: an operator adds
+ * one precisely because it should exist before anything is filed under it, and a
+ * nav that hid the empty shelves would make the taxonomy indistinguishable from
+ * whatever the last sync happened to import. A count of zero is a real state and
+ * reads as one.
+ *
+ * A `leftJoin` rather than the `innerJoin` {@link listPublicTags} uses, for that
+ * reason: the join condition carries the visibility filter so hidden projects
+ * neither count nor hide their category, while a category with no public
+ * projects still comes back.
+ *
+ * Ordered the way an operator arranged them, then by name, so the sequence is a
+ * deliberate one and stable across requests.
+ */
+export async function listPublicCategories(db: Db): Promise<PublicCategory[]> {
+  const rows = await db
+    .select({
+      code: categories.code,
+      name: categories.name,
+      description: categories.description,
+      projectCount: sql<number>`count(${projects.id})::int`,
+    })
+    .from(categories)
+    .leftJoin(
+      projects,
+      and(eq(projects.categoryId, categories.id), PUBLIC_WHERE)
+    )
+    .where(eq(categories.isActive, true))
+    .groupBy(categories.id)
+    .orderBy(asc(categories.sortOrder), asc(categories.name))
+
+  return rows.map((row) => ({
+    code: row.code,
+    name: row.name,
+    description: row.description,
+    projectCount: Number(row.projectCount),
+  }))
+}
+
 export interface PublicProjectSummary {
   id: string
   name: string
@@ -289,6 +340,63 @@ export async function countPublicProjectsByTag(
     .innerJoin(projectsToTags, eq(projectsToTags.projectId, projects.id))
     .innerJoin(tags, eq(projectsToTags.tagId, tags.id))
     .where(and(eq(tags.code, code), PUBLIC_WHERE))
+
+  return rows[0]?.total ?? 0
+}
+
+/**
+ * One page of every public project filed under a category, most-starred first.
+ *
+ * The same shape as {@link listPublicProjectsByTag} and for the same reasons —
+ * paged in SQL, star-ordered, ties closed by owner and id — with `category_id`
+ * in place of the tag join. A category holds one project at a time where a tag
+ * holds many, so the join is direct and no de-duplication is needed.
+ */
+export async function listPublicProjectsByCategory(
+  db: Db,
+  code: string,
+  input: { limit: number; offset: number }
+): Promise<PublicProjectSummary[]> {
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(projects)
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .innerJoin(categories, eq(categories.id, projects.categoryId))
+    .where(and(eq(categories.code, code), PUBLIC_WHERE))
+    .orderBy(
+      sql`${repos.stars} desc nulls last`,
+      projects.name,
+      projects.owner,
+      projects.id
+    )
+    .limit(input.limit)
+    .offset(input.offset)
+
+  const byProject = await tagsByProject(
+    db,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map((row) => ({
+    ...row,
+    stars: row.stars ?? 0,
+    fullName: fullNameOf(row),
+    tags: byProject.get(row.id) ?? [],
+    avatar: avatarOf(row),
+  }))
+}
+
+/** How many public projects a category holds; the category page's denominator. */
+export async function countPublicProjectsByCategory(
+  db: Db,
+  code: string
+): Promise<number> {
+  const rows = await db
+    .select({ total: countDistinct(projects.id) })
+    .from(projects)
+    .innerJoin(repos, eq(projects.repoId, repos.id))
+    .innerJoin(categories, eq(categories.id, projects.categoryId))
+    .where(and(eq(categories.code, code), PUBLIC_WHERE))
 
   return rows[0]?.total ?? 0
 }

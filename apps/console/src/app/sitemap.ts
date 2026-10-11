@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { desc, eq, ne } from "drizzle-orm"
 
 import { db } from "@/db/client"
-import { projects, repos, tags } from "@/db/schema"
+import { categories, projects, repos } from "@/db/schema"
 import { listPosts } from "@/lib/blog"
 import { siteUrl } from "@/lib/config/site"
 import { INDEXABLE_PAGES } from "@/lib/seo/indexable-pages"
@@ -101,9 +101,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 }
 
 /**
- * The tags that can be browsed as categories.
+ * The active categories, which are the browsable ones.
  *
- * Only the `exclude_from_rankings` filter, not the project join: whether a tag
+ * Only the `is_active` filter, not the project join: whether a category
  * currently has a visible project changes with the catalogue, and a category page
  * that renders a real header with an empty grid is still a real page. The
  * `/categories` page draws the same distinction when it says so.
@@ -111,9 +111,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 async function listCategoryCodes(): Promise<string[]> {
   try {
     const rows = await db
-      .selectDistinct({ code: tags.code })
-      .from(tags)
-      .where(eq(tags.excludeFromRankings, false))
+      .selectDistinct({ code: categories.code })
+      .from(categories)
+      .where(eq(categories.isActive, true))
     return rows.map((row) => row.code)
   } catch {
     // An empty list costs the category pages their entries until the next
