@@ -41,6 +41,7 @@ stays at the app root, and `@/` resolves to `src/`.
 | `/api/v1/repos`           | Machine-to-machine repository registration           |
 | `/api/v1/projects`        | Machine-to-machine project publishing                 |
 | `/api/skills-sync/export` | Cursor-paged skill export                             |
+| `/api/health`             | Liveness probe, public and dependency-free            |
 
 ### Token-guarded routes
 
