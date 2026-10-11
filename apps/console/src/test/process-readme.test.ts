@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { processReadMeHtml } from "@/lib/github/process-readme-html"
-import { processReadMeMd } from "@/lib/github/process-readme-md"
+import {
+  processReadMeMd,
+  toAbsoluteImageUrl,
+} from "@/lib/github/process-readme-md"
 
 // No OSS credentials are set in the test environment, so the Markdown
 // processor exercises the link-rewriting path and the no-op image mirror.
@@ -119,5 +122,84 @@ describe("processReadMeMd", () => {
   it("does not mangle a README with nothing to rewrite", async () => {
     const md = "# Title\n\nJust prose."
     await expect(readme(md, repo)).resolves.toBe(md)
+  })
+})
+
+// The URL a mirror actually fetches. It is invisible through processReadMeMd
+// because no OSS bucket is configured, so the resolver is tested directly.
+describe("toAbsoluteImageUrl", () => {
+  it("points relative references at raw.githubusercontent.com", () => {
+    expect(toAbsoluteImageUrl("docs/logo.png", repo, "main")).toBe(
+      "https://raw.githubusercontent.com/vercel/next.js/main/docs/logo.png"
+    )
+  })
+
+  it("drops the ./ prefix and sanitises svg sources", () => {
+    expect(toAbsoluteImageUrl("./logo.svg", repo, "canary")).toBe(
+      "https://raw.githubusercontent.com/vercel/next.js/canary/logo.svg" +
+        "?sanitize=true"
+    )
+  })
+
+  it("rewrites a blob URL to the bytes behind it", () => {
+    // The blob page answers with HTML, so mirroring it as written uploads a
+    // rendered page under an image name.
+    expect(
+      toAbsoluteImageUrl(
+        "https://github.com/qeeqbox/.github/blob/main/data/raven.png",
+        repo,
+        "main"
+      )
+    ).toBe(
+      "https://raw.githubusercontent.com/qeeqbox/.github/main/data/raven.png"
+    )
+  })
+
+  it("rewrites the /raw/ spelling to the raw host", () => {
+    expect(
+      toAbsoluteImageUrl(`${root}/raw/main/docs/logo.png`, repo, "main")
+    ).toBe(
+      "https://raw.githubusercontent.com/vercel/next.js/main/docs/logo.png"
+    )
+  })
+
+  it("drops the query that only existed to reach the raw bytes", () => {
+    expect(
+      toAbsoluteImageUrl(`${root}/blob/main/logo.png?raw=true`, repo, "main")
+    ).toBe("https://raw.githubusercontent.com/vercel/next.js/main/logo.png")
+  })
+
+  it("keeps the reference named in the URL, not the repository argument", () => {
+    expect(toAbsoluteImageUrl(`${root}/blob/v2/logo.png`, repo, "main")).toBe(
+      "https://raw.githubusercontent.com/vercel/next.js/v2/logo.png"
+    )
+  })
+
+  it("rewrites the www host as well", () => {
+    expect(
+      toAbsoluteImageUrl(
+        "https://www.github.com/vercel/next.js/blob/main/logo.png",
+        repo,
+        "main"
+      )
+    ).toBe("https://raw.githubusercontent.com/vercel/next.js/main/logo.png")
+  })
+
+  it("leaves GitHub URLs that are not a file view alone", () => {
+    // A badge is a generated endpoint, not a file in a repository.
+    const badge =
+      "https://github.com/owner/repo/actions/workflows/ci.yml/badge.svg"
+    expect(toAbsoluteImageUrl(badge, repo, "main")).toBe(badge)
+  })
+
+  it("leaves other hosts alone", () => {
+    const cdn = "https://example.com/logo.png"
+    expect(toAbsoluteImageUrl(cdn, repo, "main")).toBe(cdn)
+  })
+
+  it("treats an unparseable reference as relative", () => {
+    expect(toAbsoluteImageUrl("logo.png", repo, "main")).toBe(
+      "https://raw.githubusercontent.com/vercel/next.js/main/logo.png"
+    )
   })
 })

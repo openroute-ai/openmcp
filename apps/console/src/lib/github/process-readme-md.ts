@@ -211,14 +211,71 @@ async function mirrorSafely(
   }
 }
 
-/** Resolves a relative image reference to a raw.githubusercontent.com URL. */
-function toAbsoluteImageUrl(url: string, repo: string, branch: string): string {
+/**
+ * Resolves an image reference to a URL that serves bytes rather than a page.
+ *
+ * Relative references land on `raw.githubusercontent.com`. GitHub's own
+ * viewer URLs are the one absolute form that also has to be rewritten: a
+ * `/blob/` link answers with HTML, so mirroring one would upload a rendered
+ * page under a `.png` name. Everything else absolute is left alone, which is
+ * what keeps {@link MIRROR_HOSTS} honest — it is checked against the URL that
+ * is actually fetched, not the one the author wrote.
+ *
+ * Exported because it decides what a mirror downloads, and the OSS client
+ * that would otherwise show it is not configured in the test environment.
+ */
+export function toAbsoluteImageUrl(
+  url: string,
+  repo: string,
+  branch: string
+): string {
+  const raw = toRawGitHubUrl(url)
+  if (raw) return raw
   if (url.startsWith("http")) return url
   const root = `https://raw.githubusercontent.com/${repo}`
   const path = url.startsWith("./") ? url.slice(2) : url
-  // Raw SVG is only served un-sanitised with this query parameter.
-  const queryString = /\.svg$/i.test(url) ? "?sanitize=true" : ""
-  return `${root}/${branch}/${path}${queryString}`
+  return `${root}/${branch}/${path}${svgQuery(url)}`
+}
+
+/**
+ * Rewrites GitHub's URL for viewing a file into the URL for downloading it.
+ *
+ * `github.com/owner/repo/blob/main/docs/a.png` renders a page; only
+ * `raw.githubusercontent.com/owner/repo/main/docs/a.png` returns the bytes.
+ * `/raw/` is GitHub's own redirect to that, handled for the same reason.
+ * Returns undefined for anything else so the caller keeps the URL as written.
+ */
+function toRawGitHubUrl(url: string): string | undefined {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return undefined
+  }
+
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "")
+  if (hostname !== "github.com" && hostname !== "www.github.com") {
+    return undefined
+  }
+
+  // <owner>/<repo>/(blob|raw)/<ref>/<path...>: five segments with the file
+  // last, so a shorter path has no file to serve.
+  const segments = parsed.pathname.split("/").filter(Boolean)
+  if (segments.length < 5) return undefined
+
+  const [owner, name, kind, ref, ...path] = segments
+  if (kind !== "blob" && kind !== "raw") return undefined
+  if (!owner || !name || !ref) return undefined
+
+  // The query string is dropped with the page URL: `?raw=true` is only a
+  // pointer at the bytes this rewrite fetches directly.
+  const rawPath = path.join("/")
+  return `https://raw.githubusercontent.com/${owner}/${name}/${ref}/${rawPath}${svgQuery(rawPath)}`
+}
+
+/** Raw SVG is only served un-sanitised with this query parameter. */
+function svgQuery(path: string): string {
+  return /\.svg$/i.test(path) ? "?sanitize=true" : ""
 }
 
 /**
