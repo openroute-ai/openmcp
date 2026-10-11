@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { ContactCard } from "@/components/landing/contact-card"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
@@ -15,14 +16,14 @@ import { LocaleLink } from "@/i18n/navigation"
 
 export const metadata: Metadata = {
   title: siteTitle("联系我们"),
-  description:
-    "加微信问问题，或者报一条错的数据。",
+  description: "加微信问问题，或者报一条错的数据。",
   alternates: { canonical: "/contact" },
   openGraph: {
     type: "website",
     title: siteTitle("联系我们"),
     description: "加微信。",
     url: siteUrl("/contact"),
+    images: [OG_IMAGE],
   },
 }
 
@@ -38,11 +39,13 @@ export default function ContactPage() {
       <ul>
         <li>
           <strong>报一条明显错的数据。</strong>
-          仓库被合并、改名、归档、或者 fork 出了新的星标集中地，告诉我仓库名和大概是哪一周，
+          仓库被合并、改名、归档、或者 fork
+          出了新的星标集中地，告诉我仓库名和大概是哪一周，
           我去查采集侧而不是让读者手动改。
         </li>
         <li>
-          <strong>问某个仓库为什么不在榜上。</strong>榜单只覆盖能被匿名采集的公开仓库，
+          <strong>问某个仓库为什么不在榜上。</strong>
+          榜单只覆盖能被匿名采集的公开仓库，
           排除原因通常在采样侧，这一条经常能直接答。
         </li>
         <li>
@@ -53,7 +56,8 @@ export default function ContactPage() {
           里写了每个门槛，但为什么是这个数是可以说清楚的。
         </li>
         <li>
-          <strong>选型与部署。</strong>你在几个候选之间拿不定主意，或者要在内网离线环境里
+          <strong>选型与部署。</strong>
+          你在几个候选之间拿不定主意，或者要在内网离线环境里
           落地某一个方案，把约束说清楚我按约束说。
         </li>
       </ul>

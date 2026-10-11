@@ -40,6 +40,8 @@ const MACHINE_ROUTES = [
   "/llms-full.txt",
   "/robots.txt",
   "/sitemap.xml",
+  "/feed.xml",
+  "/atom.xml",
   "/manifest.webmanifest",
   "/favicon.ico",
 ]

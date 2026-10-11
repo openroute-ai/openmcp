@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { LocaleLink } from "@/i18n/navigation"
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { ruleCards } from "@/lib/docs/radar-rules"
 
 /**
@@ -31,6 +32,7 @@ export const metadata: Metadata = {
     title: siteTitle("判定规则"),
     description: "每条规则的窗口、倍数和下限。",
     url: siteUrl("/method"),
+    images: [OG_IMAGE],
   },
 }
 

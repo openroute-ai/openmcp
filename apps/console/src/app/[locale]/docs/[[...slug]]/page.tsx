@@ -12,6 +12,7 @@ import { DescriptionMarkdown } from "@/components/docs/description-markdown"
 import { MethodBadge } from "@/components/docs/method-badge"
 import { JsonLd } from "@/components/seo/json-ld"
 import { SITE_NAME, siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { endpointForPath } from "@/lib/docs/endpoints"
 import { source } from "@/lib/docs/source"
 import { apiDocsNode, breadcrumbNode } from "@/lib/seo/structured-data"
@@ -55,8 +56,7 @@ export async function generateMetadata({
   const page = source.getPage(slug ?? [])
   if (!page) return {}
 
-  const path =
-    page.slugs.length > 0 ? `/docs/${page.slugs.join("/")}` : "/docs"
+  const path = page.slugs.length > 0 ? `/docs/${page.slugs.join("/")}` : "/docs"
 
   const description = plainDescription(page.data.description)
 
@@ -69,6 +69,7 @@ export async function generateMetadata({
       title: siteTitle(page.data.title),
       description,
       url: siteUrl(path),
+      images: [OG_IMAGE],
     },
   }
 }
@@ -83,7 +84,10 @@ export async function generateMetadata({
  * `lib/openapi/document.ts` 里 `x-nav-description` 那段。
  */
 function plainDescription(markdown: string | undefined): string | undefined {
-  return markdown?.replace(/\*\*?|`/g, "").replace(/\s+/g, " ").trim()
+  return markdown
+    ?.replace(/\*\*?|`/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /**

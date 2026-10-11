@@ -155,12 +155,13 @@ export function GET(): Response {
     "",
     `- [Agent Card](${siteUrl("/.well-known/agent-card.json")}): A2A 1.0 发现文档——端点、协议版本、每个 skill 的参数与调用示例。`,
     `- [agent.json](${siteUrl("/.well-known/agent.json")}): 同一份 Card 的 0.3 版发现文档，供 0.3 客户端读取。`,
-    "- `POST /api/a2a`: JSON-RPC 2.0 over HTTP，只有 `SendMessage`（0.3 客户端拼作 `message/send`）。skill 参数放在 data part，形如 `{\"skill\":\"rankings\",\"cadence\":\"week\"}`；纯文本消息只会得到站点介绍。",
+    '- `POST /api/a2a`: JSON-RPC 2.0 over HTTP，只有 `SendMessage`（0.3 客户端拼作 `message/send`）。skill 参数放在 data part，形如 `{"skill":"rankings","cadence":"week"}`；纯文本消息只会得到站点介绍。',
     "",
     "## 机器可读文件",
     "",
     `- [llms-full.txt](${siteUrl("/llms-full.txt")}): 本站的完整文字版——判定规则全文、FAQ 原文、API 字段表、文章正文。`,
     `- [sitemap.xml](${siteUrl("/sitemap.xml")}): 全部可索引页面，含各语言版本。`,
+    `- [feed.xml](${siteUrl("/feed.xml")}) / [atom.xml](${siteUrl("/atom.xml")}): 同一份订阅源的 RSS 2.0 与 Atom 序列——异动流（当前命中的判定）在前，新文章在后。轮询它就不必轮询页面。`,
     ""
   )
 

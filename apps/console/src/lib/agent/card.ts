@@ -119,6 +119,23 @@ const SKILLS: SkillSpec[] = [
     tags: ["anomalies", "alerts", "risk"],
     examples: ["{}", '{"includeGood":true}'],
   },
+  {
+    id: "subscribe",
+    name: "订阅更新与写入通道",
+    description:
+      "只读地列出本站的订阅渠道与需要 API key 的写入 / 推送订阅操作：" +
+      "RSS（/feed.xml）与 Atom（/atom.xml）两个 feed（异动流在前、文章在后，guid 稳定可增量拉取）、" +
+      "无需 key 的异动流页面与 anomalies skill 轮询方式，" +
+      "以及登记仓库、发布项目、创建 / 管理推送订阅等端点的 method、path 与 scope。" +
+      "本 skill 不建立任何订阅状态——A2A card 的 pushNotifications 为 false，" +
+      "「订阅」在本站就是拉 feed 或轮询。无需参数。",
+    tags: ["subscribe", "feed", "rss", "atom", "write", "webhook", "push"],
+    examples: [
+      "{}",
+      "怎么订阅你们的异动更新？",
+      "你们有哪些需要 API key 的写入接口？",
+    ],
+  },
 ]
 
 /**
@@ -174,11 +191,14 @@ function currentCard(): unknown {
  * The 0.3 card, for the discovery path 0.3 clients hardcode.
  *
  * Same skills, old envelope: `url`/`preferredTransport` instead of
- * `supportedInterfaces`, and no `protocolVersion` field, which 1.0 clients read
- * to decide the card shape.
+ * `supportedInterfaces`. `protocolVersion` is stated rather than omitted: a
+ * 1.0 client that follows the 0.3 filename here needs one signal telling it
+ * which shape it is reading, and an absent field is an answer the reader has
+ * to guess. `"0.3"` is that answer.
  */
 function legacyCard(): unknown {
   return {
+    protocolVersion: "0.3",
     name: SITE_NAME_EN,
     description: SITE_DESCRIPTION,
     url: absolute(A2A_ENDPOINT),

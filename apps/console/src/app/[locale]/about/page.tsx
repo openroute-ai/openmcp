@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -20,38 +21,38 @@ export const metadata: Metadata = {
     title: siteTitle("关于我们"),
     description: "这是什么，不做什么。",
     url: siteUrl("/about"),
+    images: [OG_IMAGE],
   },
 }
 
 export default function AboutPage() {
   return (
-    <LongFormPage
-      title="关于我们"
-      description="我在做什么，不做什么。"
-    >
+    <LongFormPage title="关于我们" description="我在做什么，不做什么。">
       <h2>这是什么</h2>
       <p>
-        我每周采集 GitHub 上与 MCP 相关的开源仓库，记录星标、提交、发布和许可证的时间轴，
+        我每周采集 GitHub 上与 MCP
+        相关的开源仓库，记录星标、提交、发布和许可证的时间轴，
         然后做三件事：把增量排出榜、把涨幅排在另一个榜、把刚变了的仓库按需要多快处理排序。
       </p>
       <p>
-        输出是四个公开 JSON 端点和这批页面，不需要登录。没有评分卡，也没有每周精选邮件。
+        输出是四个公开 JSON
+        端点和这批页面，不需要登录。没有评分卡，也没有每周精选邮件。
       </p>
 
       <h2>几条原则</h2>
       <ul>
         <li>
           <strong>原始量优于分数。</strong>
-          「38k 星 +52 / 周」是一个可以被复核的事实，「8.6 分」不是。所以每条异动都带
-          触发时的阈值和证据序列，判定逻辑在{" "}
+          「38k 星 +52 / 周」是一个可以被复核的事实，「8.6
+          分」不是。所以每条异动都带 触发时的阈值和证据序列，判定逻辑在{" "}
           <LocaleLink href="/method" className="underline underline-offset-2">
             判定规则
           </LocaleLink>{" "}
           页上逐条公开。
         </li>
         <li>
-          <strong>百分比必须带分母。</strong>
-          4 涨到 8 是 +100%。所以飙升榜要求上周至少 200 星、本周至少 +50 星，并把
+          <strong>百分比必须带分母。</strong>4 涨到 8 是
+          +100%。所以飙升榜要求上周至少 200 星、本周至少 +50 星，并把
           分母和百分比印在同一行上。
         </li>
         <li>
@@ -77,8 +78,8 @@ export default function AboutPage() {
       <ul>
         <li>
           <strong>不打综合分。</strong>
-          加权和衡量的是规模而不是质量，高分只是复述「它已经很受欢迎」。给一个 8.6 分
-          会让读者以为有人替他做了判断。
+          加权和衡量的是规模而不是质量，高分只是复述「它已经很受欢迎」。给一个
+          8.6 分 会让读者以为有人替他做了判断。
         </li>
         <li>
           <strong>不做付费排名。</strong>
@@ -96,16 +97,16 @@ export default function AboutPage() {
 
       <h2>数据是怎么来的</h2>
       <p>
-        采集只走公开接口，不需要 token，不读私有仓库。星标与元数据每周一个快照；提交和
-        发布数按周聚合，所以周与周之间的比较精度是一周。采不到的读数显示「未测」，不按 0
-        计入。
+        采集只走公开接口，不需要
+        token，不读私有仓库。星标与元数据每周一个快照；提交和
+        发布数按周聚合，所以周与周之间的比较精度是一周。采不到的读数显示「未测」，不按
+        0 计入。
       </p>
       <p>
         发现某条数据明显不对，{" "}
         <LocaleLink href="/contact" className="underline underline-offset-2">
           联系我们
-        </LocaleLink>
-        {" "}
+        </LocaleLink>{" "}
         有人读。
       </p>
     </LongFormPage>

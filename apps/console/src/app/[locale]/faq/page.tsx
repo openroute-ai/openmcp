@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { FaqAccordion } from "@/components/faq/faq-accordion"
 import { JsonLd } from "@/components/seo/json-ld"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
@@ -37,6 +38,7 @@ export const metadata: Metadata = {
     title: siteTitle("常见问题"),
     description: "数据从哪来、多久更新一次、怎么复核一条记录。",
     url: siteUrl("/faq"),
+    images: [OG_IMAGE],
   },
 }
 

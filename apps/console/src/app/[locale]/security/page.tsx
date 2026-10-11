@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -19,14 +20,14 @@ const UPDATED = "2026-10-02"
 
 export const metadata: Metadata = {
   title: siteTitle("安全声明"),
-  description:
-    "已实施的安全机制、还没做的事，以及漏洞怎么报。",
+  description: "已实施的安全机制、还没做的事，以及漏洞怎么报。",
   alternates: { canonical: "/security" },
   openGraph: {
     type: "website",
     title: siteTitle("安全声明"),
     description: "做了什么、没做什么。",
     url: siteUrl("/security"),
+    images: [OG_IMAGE],
   },
 }
 
@@ -54,18 +55,18 @@ export default function SecurityPage() {
         </li>
         <li>
           <strong>需要登录的部分才有会话。</strong>
-          会话 cookie 是 HttpOnly 的（JavaScript 读不到），受保护路径在服务端校验会话，
-          不是靠前端隐藏入口。
+          会话 cookie 是 HttpOnly 的（JavaScript
+          读不到），受保护路径在服务端校验会话， 不是靠前端隐藏入口。
         </li>
         <li>
           <strong>API Key 只存散列。</strong>
-          生成时展示一次原文，之后无法取回；验证时只比对散列。控制台的 API key 只对账号
-          自己的数据可见。
+          生成时展示一次原文，之后无法取回；验证时只比对散列。控制台的 API key
+          只对账号 自己的数据可见。
         </li>
         <li>
           <strong>登录与短信接口有限流。</strong>
-          登录类接口按 IP 限流（每分钟 100 次），短信验证码按手机号与 IP 双维度限流，并
-          要求先通过滑块验证码，以阻断批量注册和短信轰炸。
+          登录类接口按 IP 限流（每分钟 100 次），短信验证码按手机号与 IP
+          双维度限流，并 要求先通过滑块验证码，以阻断批量注册和短信轰炸。
         </li>
         <li>
           <strong>角色不从注册请求里读。</strong>
@@ -74,7 +75,8 @@ export default function SecurityPage() {
         </li>
         <li>
           <strong>采集不走带凭据的接口。</strong>
-          数据来自匿名可访问的公开接口，不需要你的 GitHub token，也读不到私有仓库。
+          数据来自匿名可访问的公开接口，不需要你的 GitHub
+          token，也读不到私有仓库。
         </li>
       </ul>
 
@@ -84,16 +86,16 @@ export default function SecurityPage() {
           <strong>没有做过第三方渗透测试，也没有公开的安全审计报告。</strong>
         </li>
         <li>
-          <strong>没有 SOC 2、ISO 27001 或等保之类的认证。</strong>谁采购谁都会问，所以
-          直接写在这里。
+          <strong>没有 SOC 2、ISO 27001 或等保之类的认证。</strong>
+          谁采购谁都会问，所以 直接写在这里。
         </li>
         <li>
           <strong>没有漏洞赏金计划。</strong>
           报告仍然欢迎，但目前不会有钱。
         </li>
         <li>
-          <strong>没有多因素认证。</strong>控制台是单因子（密码 / 短信 / GitHub），
-          账号里也没有 API Key 之外的第二道锁。
+          <strong>没有多因素认证。</strong>控制台是单因子（密码 / 短信 /
+          GitHub）， 账号里也没有 API Key 之外的第二道锁。
         </li>
         <li>
           <strong>公开接口没有鉴权，也没有速率限制。</strong>
@@ -109,8 +111,8 @@ export default function SecurityPage() {
           联系我们
         </LocaleLink>{" "}
         那个微信渠道发消息，说清是哪个页面或哪个接口、怎么复现、影响面是什么。请不要
-        把可用的利用细节发在公开的 issue、评论区或聊天群里——那些地方不私密，而且一旦
-        贴出来就等于公开了。
+        把可用的利用细节发在公开的
+        issue、评论区或聊天群里——那些地方不私密，而且一旦 贴出来就等于公开了。
       </p>
       <p>
         我们不承诺响应时限，也不会在修复前公开讨论细节。但如果确实存在用户数据被他人
@@ -120,8 +122,8 @@ export default function SecurityPage() {
 
       <h2>你能自己做的事</h2>
       <p>
-        退出登录会清掉会话；撤销 API Key 会立刻让它失效，不需要等任何缓存过期。账号
-        本身要删，走{" "}
+        退出登录会清掉会话；撤销 API Key
+        会立刻让它失效，不需要等任何缓存过期。账号 本身要删，走{" "}
         <LocaleLink href="/contact" className="underline underline-offset-2">
           联系我们
         </LocaleLink>{" "}

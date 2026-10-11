@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
     title: siteTitle("隐私政策"),
     description: "存什么、存多久、怎么删。",
     url: siteUrl("/privacy"),
+    images: [OG_IMAGE],
   },
 }
 
@@ -58,12 +60,14 @@ export default function PrivacyPage() {
         <LocaleLink href="/anomalies" className="underline underline-offset-2">
           异动流
         </LocaleLink>{" "}
-        和这一站的其他公开页面不需要账号，我们不要求你留下任何身份信息：不设 cookie，
+        和这一站的其他公开页面不需要账号，我们不要求你留下任何身份信息：不设
+        cookie，
         不加载任何第三方统计、广告或行为追踪脚本，也不读取浏览器的指纹类标识。
       </p>
       <p>
         唯一可能的例外是语言选择：你在站内切换语言时，浏览器会存一枚
-        <code>NEXT_LOCALE</code> cookie 记住这个选择。它只存在于你自己的浏览器里，
+        <code>NEXT_LOCALE</code> cookie
+        记住这个选择。它只存在于你自己的浏览器里，
         我们看不到，也不用它做别的。它清掉之后下次访问会回到默认语言。
       </p>
 
@@ -76,31 +80,34 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>登录标识</strong>：邮箱地址，或者手机号（取决于你用的登录方式）。密码
+          <strong>登录标识</strong>
+          ：邮箱地址，或者手机号（取决于你用的登录方式）。密码
           只以不可逆散列存储，我们看不到原文。
         </li>
         <li>
-          <strong>会话记录</strong>：会话令牌、过期时间，以及该次登录的 IP 与浏览器标识。
-          后两项用于登录接口的速率限制和异常登录排查。
+          <strong>会话记录</strong>：会话令牌、过期时间，以及该次登录的 IP
+          与浏览器标识。 后两项用于登录接口的速率限制和异常登录排查。
         </li>
         <li>
-          <strong>你添加的仓库与决策记录</strong>：关注的仓库列表、决策板、候选项目与
+          <strong>你添加的仓库与决策记录</strong>
+          ：关注的仓库列表、决策板、候选项目与
           结论。这些是控制台唯一的功能内容，不会被用于任何推荐。
         </li>
         <li>
-          <strong>API Key</strong>：只存散列值。生成时给你看一次原文，之后无法再取回，
-          丢了只能重建。
+          <strong>API Key</strong>
+          ：只存散列值。生成时给你看一次原文，之后无法再取回， 丢了只能重建。
         </li>
         <li>
-          <strong>账号状态</strong>：角色、封禁标记与封禁原因，仅在你触发风控或管理员操作
-          时写入。
+          <strong>账号状态</strong>
+          ：角色、封禁标记与封禁原因，仅在你触发风控或管理员操作 时写入。
         </li>
       </ul>
 
       <h2>为什么存这些</h2>
       <p>
         每一项都对应控制台的一个功能：没有会话你无法登录，没有仓库列表和决策记录
-        控制台就没有内容可显示，没有 API Key 散列就无法验证调用方。没有为了别的目的
+        控制台就没有内容可显示，没有 API Key
+        散列就无法验证调用方。没有为了别的目的
         采集的数据——特别是，我们不做用户画像，也不把账号数据和星标时间轴做任何关联。
       </p>
 
@@ -115,16 +122,18 @@ export default function PrivacyPage() {
       <p>下面这些是必然会碰到第三方的环节，除此之外没有别的：</p>
       <ul>
         <li>
-          <strong>GitHub 登录</strong>：你选择用它登录时，GitHub 会把账号的公开资料和邮箱
-          提供给我们。你的 GitHub 密码我们拿不到，也从不要求你提供。
+          <strong>GitHub 登录</strong>：你选择用它登录时，GitHub
+          会把账号的公开资料和邮箱 提供给我们。你的 GitHub
+          密码我们拿不到，也从不要求你提供。
         </li>
         <li>
-          <strong>短信通道</strong>：你选择手机号登录时，短信服务商会在发送验证码的过程中
+          <strong>短信通道</strong>
+          ：你选择手机号登录时，短信服务商会在发送验证码的过程中
           处理你的手机号。短信正文里不含任何其他信息。
         </li>
         <li>
-          <strong>基础设施</strong>：服务器、数据库、对象存储与 CDN 由云服务商提供，他们
-          在运维层面接触得到数据，这是托管的必然结果。
+          <strong>基础设施</strong>：服务器、数据库、对象存储与 CDN
+          由云服务商提供，他们 在运维层面接触得到数据，这是托管的必然结果。
         </li>
       </ul>
 
@@ -144,7 +153,8 @@ export default function PrivacyPage() {
           <code>NEXT_LOCALE</code>：语言偏好，仅存于浏览器，可随时清除。
         </li>
         <li>
-          会话 cookie：登录后才有，退出登录或过期后失效；HttpOnly，不可被 JavaScript 读取。
+          会话 cookie：登录后才有，退出登录或过期后失效；HttpOnly，不可被
+          JavaScript 读取。
         </li>
       </ul>
       <p>公开页面上不会出现这两类之外的 cookie。</p>

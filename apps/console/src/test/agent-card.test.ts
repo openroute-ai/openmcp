@@ -60,7 +60,9 @@ describe("agentCard", () => {
     expect(legacy.url).toBeDefined()
     expect(legacy.preferredTransport).toBe("JSONRPC")
     expect(legacy.supportedInterfaces).toBeUndefined()
-    expect(legacy.protocolVersion).toBeUndefined()
+    // Stated, not guessed: a client arriving at the 0.3 filename gets one
+    // field telling it which card shape it is reading.
+    expect(legacy.protocolVersion).toBe("0.3")
   })
 
   it("advertises the same skills in both versions", () => {
@@ -75,6 +77,7 @@ describe("agentCard", () => {
       "rising-stars",
       "project-detail",
       "anomalies",
+      "subscribe",
     ])
   })
 

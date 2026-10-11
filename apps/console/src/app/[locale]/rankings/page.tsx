@@ -1,3 +1,5 @@
+import type { Metadata } from "next"
+
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import {
   PublicProjectBoard,
@@ -6,6 +8,9 @@ import {
 } from "@/components/public/public-project-list"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
+import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
+import { indexablePage } from "@/lib/seo/indexable-pages"
 import {
   buildRankingsForMonth,
   buildRankingsForWeek,
@@ -48,6 +53,26 @@ import { resolveMonth, resolveWeek } from "@/lib/rankings-web"
  */
 
 export const dynamic = "force-dynamic"
+
+// The same title and sentence the sitemap and `/llms.txt` carry, so a crawler
+// cannot meet three different descriptions of this page. An absent entry (the
+// page delisted but kept) degrades to the layout's title rather than failing.
+const RANKINGS_PAGE = indexablePage("/rankings")
+const RANKINGS_TITLE = RANKINGS_PAGE && siteTitle(RANKINGS_PAGE.title)
+const RANKINGS_DESCRIPTION = RANKINGS_PAGE?.description
+
+export const metadata: Metadata = {
+  title: RANKINGS_TITLE,
+  description: RANKINGS_DESCRIPTION,
+  alternates: { canonical: "/rankings" },
+  openGraph: {
+    type: "website",
+    title: RANKINGS_TITLE,
+    description: RANKINGS_DESCRIPTION,
+    url: siteUrl("/rankings"),
+    images: [OG_IMAGE],
+  },
+}
 
 const RANGES = [
   { value: "week", label: "本周" },

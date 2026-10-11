@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { siteTitle } from "@/lib/config/site"
+import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { ProjectLogo } from "@/components/projects/project-logo"
 import { EvidenceTimeline } from "@/components/public/evidence-timeline"
 import { PublicAuthorCard } from "@/components/public/public-author-card"
@@ -61,6 +62,8 @@ export async function generateMetadata({
       type: "website",
       title: siteTitle(`${project.fullName}`),
       description: project.description ?? undefined,
+      url: siteUrl(`/projects/${project.owner}/${project.name}`),
+      images: [OG_IMAGE],
     },
   }
 }
@@ -215,10 +218,7 @@ export default async function PublicProjectPage({
                 sit just below the chart, above our own conclusions about the
                 project. */}
             {skills.length > 0 ? (
-              <PublicSkills
-                skills={skills}
-                fullName={project.fullName}
-              />
+              <PublicSkills skills={skills} fullName={project.fullName} />
             ) : null}
 
             {/* The timeline keeps dismissed rows (§5.4 red line 2 needs the

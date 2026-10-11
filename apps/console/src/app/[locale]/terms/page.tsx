@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { LongFormPage } from "@/components/public/long-form-page"
 import { LocaleLink } from "@/i18n/navigation"
 import { SITE_NAME, siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 
 /**
  * 服务条款。
@@ -19,14 +20,14 @@ const UPDATED = "2026-10-02"
 
 export const metadata: Metadata = {
   title: siteTitle("服务条款"),
-  description:
-    "数据怎么用、什么时候会不准、权利归谁。",
+  description: "数据怎么用、什么时候会不准、权利归谁。",
   alternates: { canonical: "/terms" },
   openGraph: {
     type: "website",
     title: siteTitle("服务条款"),
     description: "数据怎么用。",
     url: siteUrl("/terms"),
+    images: [OG_IMAGE],
   },
 }
 
@@ -52,9 +53,9 @@ export default function TermsPage() {
     >
       <h2>一、这是什么</h2>
       <p>
-        {SITE_NAME}是一个公开站点，按周采集 GitHub 上与 AI 相关的公开仓库，公开它们的
-        星标、提交、发布与许可证变化。它免费，不需要账号，不收费，也没有付费档位。
-        {" "}
+        {SITE_NAME}是一个公开站点，按周采集 GitHub 上与 AI
+        相关的公开仓库，公开它们的
+        星标、提交、发布与许可证变化。它免费，不需要账号，不收费，也没有付费档位。{" "}
         <LocaleLink href="/about" className="underline underline-offset-2">
           这一页
         </LocaleLink>{" "}
@@ -63,12 +64,14 @@ export default function TermsPage() {
 
       <h2>二、不承诺可用性，也不承诺准确</h2>
       <p>
-        没有 SLA，没有状态页，也没有「持续可用」的承诺。采集每周跑一次，任何一次失败都
+        没有
+        SLA，没有状态页，也没有「持续可用」的承诺。采集每周跑一次，任何一次失败都
         会让某一周缺数据；缺的那一周会显示为没有数据，而不是被补成一个看起来完整的
         数字。
       </p>
       <p>
-        数据来自 GitHub 的公开接口，可能出错，也可能已经过时。合并、改名、归档、fork、
+        数据来自 GitHub
+        的公开接口，可能出错，也可能已经过时。合并、改名、归档、fork、
         私有转公开这些事件我们不一定能及时发现。一条明显错的数据请报给我们，但请不要
         把这个站点的数字当作唯一依据——把它当线索，最终核实到仓库本身。
       </p>

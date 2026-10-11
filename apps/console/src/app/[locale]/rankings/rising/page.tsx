@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import {
   PublicProjectBoard,
@@ -55,14 +56,14 @@ const CANDIDATE_LIMIT = 500
 
 export const metadata: Metadata = {
   title: siteTitle("本周飙升榜"),
-  description:
-    "本周星标涨得最快的项目：上周至少 200 星，本周至少 +50 星。",
+  description: "本周星标涨得最快的项目：上周至少 200 星，本周至少 +50 星。",
   alternates: { canonical: "/rankings/rising" },
   openGraph: {
     type: "website",
     title: siteTitle("本周飙升榜"),
     description: "按上周星标数的比例排序。",
     url: siteUrl("/rankings/rising"),
+    images: [OG_IMAGE],
   },
 }
 

@@ -31,6 +31,7 @@ import {
 import { ruleCards } from "@/lib/docs/radar-rules"
 import { RANKED_PROJECT_FIELDS } from "@/lib/docs/ranked-fields"
 import { FAQS } from "@/lib/faq"
+import { listOperations } from "@/lib/openapi/document"
 import { getPublicProjectDetail } from "@/lib/public/radar"
 import { listOpenAnomalies, listRepoAnomalies } from "@/lib/radar/anomalies"
 import {
@@ -39,6 +40,8 @@ import {
   SITE_NAME_EN,
   SITE_ORIGIN,
   SITE_TAGLINE,
+  docsUrl,
+  siteUrl,
 } from "@/lib/config/site"
 import { civilOf } from "@/lib/time"
 import {
@@ -478,6 +481,99 @@ export async function readAnomalies(input: {
     .join("\n")
 
   return { data: { anomalies: rows }, text }
+}
+
+/* ────────────────────────── subscribe / write ────────────────────────── */
+
+/**
+ * How to keep up with this site, and which operations write to it.
+ *
+ * A *read* of the subscription surface rather than a subscription: the card
+ * declares no credential (`securitySchemes` is deliberately absent), so this
+ * server cannot hold a subscription on a caller's behalf — anything that
+ * stored a webhook URL here would be state an anonymous caller owns and the
+ * site cannot authenticate. What it can do is name the channels that exist
+ * without a credential (the two feeds, the anomaly stream, this endpoint
+ * polled through the `anomalies` skill) and list the key-gated write and
+ * subscription operations from the same OpenAPI document the docs pages are
+ * built from, so the list cannot describe an endpoint the app does not have.
+ *
+ * Read operations are filtered out: an agent that can call this skill can
+ * already read every number through the anonymous skills above, and quoting
+ * the keyed read endpoints here would suggest they are the required path.
+ */
+export function readSubscriptions(): SkillAnswer {
+  const apiKeyOperations = listOperations().filter(
+    (operation) => operation.scope !== "" && operation.tag !== "读取 API"
+  )
+
+  const feeds = [
+    { format: "rss", url: siteUrl("/feed.xml"), mime: "application/rss+xml" },
+    {
+      format: "atom",
+      url: siteUrl("/atom.xml"),
+      mime: "application/atom+xml",
+    },
+  ]
+
+  const data = {
+    feeds,
+    feedContents:
+      "同一份条目的两种序列：当前命中的异动（按检测时间倒序）在前，新文章在后。" +
+      "guid 稳定，客户端按 guid 去重即可增量拉取。",
+    channelsWithoutKey: [
+      {
+        kind: "feed",
+        note: "订阅上面任一 feed；本站不提供 push，feed 就是推送的替代。",
+      },
+      {
+        kind: "a2a-poll",
+        note:
+          '用 anomalies skill 轮询异动（POST /api/a2a，{"skill":"anomalies"}）；' +
+          "匿名配额按来源 IP 计。",
+      },
+      {
+        kind: "html",
+        url: siteUrl("/anomalies"),
+        note: "异动流页面，与 anomalies skill 同一份数据。",
+      },
+    ],
+    a2aPush: {
+      supported: false,
+      reason:
+        "card 的 capabilities.pushNotifications 为 false：本服务没有长任务，" +
+        "tasks/subscribe 会返回 UNSUPPORTED_OPERATION。所谓「订阅」就是拉 feed 或轮询 anomalies skill。",
+    },
+    apiKeyOperations: apiKeyOperations.map((operation) => ({
+      method: operation.method,
+      path: operation.path,
+      summary: operation.summary,
+      scope: operation.scope,
+    })),
+    documentation: docsUrl("/docs/api"),
+  }
+
+  const text = [
+    "订阅本站更新的两条路，都不需要 API key：",
+    ...feeds.map(
+      (feed) => `- ${feed.format.toUpperCase()}：${feed.url}（${feed.mime}）`
+    ),
+    `- ${siteUrl("/anomalies")}：异动流页面，与 feed 同源。`,
+    "",
+    `feed 内容：${data.feedContents}`,
+    "",
+    "A2A 本身不提供推送：card 的 pushNotifications=false，tasks/subscribe 会返回 UNSUPPORTED_OPERATION。" +
+      '替代方案是拉 feed，或用 anomalies skill 轮询（{"skill":"anomalies"}）。',
+    "",
+    "写入与推送订阅类操作需要 API key（本站 A2A 接口刻意不收 key，写入不在此列）：",
+    ...apiKeyOperations.map(
+      (operation) =>
+        `- \`${operation.method} ${operation.path}\`（${operation.scope}）：${operation.summary}`
+    ),
+    `- 完整参数与错误码：${docsUrl("/docs/api")}`,
+  ].join("\n")
+
+  return { data, text }
 }
 
 /* ─────────────────────────── period parsing ─────────────────────────── */

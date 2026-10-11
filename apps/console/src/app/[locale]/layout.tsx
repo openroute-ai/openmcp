@@ -18,6 +18,7 @@ import {
   siteUrl,
 } from "@/lib/config/site"
 import { organizationNode, webSiteNode } from "@/lib/seo/structured-data"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { siteNameForLocale } from "@/lib/seo/locale-name"
 import { TRPCReactProvider } from "@/lib/trpc/client"
 import { Analytics } from "@workspace/shared-next/analytics/analytics"
@@ -83,6 +84,24 @@ export default async function LocaleLayout({
           type="text/plain"
           href={siteUrl("/llms.txt")}
           title="llms.txt"
+        />
+        {/* The two feeds, declared for readers that discover subscriptions
+            from the document rather than from a hard-coded URL. Same reason
+            as the llms.txt link above: `alternates` in the metadata below is
+            replaced wholesale by any page that sets it, so a feed link living
+            there would disappear on exactly the pages whose anomalies change
+            fastest. */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          href={siteUrl("/feed.xml")}
+          title={`${SITE_NAME} — 异动与更新`}
+        />
+        <link
+          rel="alternate"
+          type="application/atom+xml"
+          href={siteUrl("/atom.xml")}
+          title={`${SITE_NAME} — 异动与更新`}
         />
       </head>
       <body>
@@ -151,12 +170,19 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     locale: "zh_CN",
     alternateLocale: "en_US",
+    // The baseline for the pages that export no `openGraph` of their own. Every
+    // public page does — and replaces this object wholesale rather than merging
+    // with it, which is why each of them repeats `images: [OG_IMAGE]` instead of
+    // inheriting it from here.
+    images: [OG_IMAGE],
   },
+  // `card` is the only Twitter tag set here on purpose. Next fills an absent
+  // `twitter:title` / `twitter:description` / `twitter.images` from the
+  // resolved `openGraph` of the same route, so a title spelled out at this
+  // level would pin every page's card to the site name and shadow the
+  // per-page title the og tags carry.
   twitter: {
     card: "summary_large_image",
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    images: [siteUrl("/og.png")],
   },
   icons: {
     icon: [

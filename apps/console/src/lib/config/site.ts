@@ -86,17 +86,23 @@ function toOrigin(value: string | undefined, fallback: string): string {
 }
 
 /** Canonical origin. No trailing slash, because it is concatenated with paths. */
-export const SITE_ORIGIN = toOrigin(ENV.origin, "https://vercelai.cn")
+export const SITE_ORIGIN = toOrigin(ENV.origin, "https://www.vercelai.cn")
 
 /**
  * Host alone, for the places that print the domain next to the wordmark.
  *
  * Derived from the origin rather than configured separately, so it cannot drift
- * from the URL the canonical links point at. `SITE_HOST` stays overridable for
- * the one case the origin cannot express: a deployment served from a bare host
- * that the canonical origin deliberately does not name.
+ * from the URL the canonical links point at, with one deliberate exception: a
+ * `www.` prefix is dropped. The canonical origin is the `www` host (that is
+ * where every sitemap, canonical and feed URL points), but a wordmark reading
+ * `www.vercelai.cn` and a mail envelope from `service@www.vercelai.cn` are both
+ * wrong for reasons that have nothing to do with where crawlers resolve URLs.
+ * `SITE_HOST` stays overridable for the one case the origin cannot express: a
+ * deployment served from a bare host that the canonical origin deliberately does
+ * not name.
  */
-export const SITE_HOST = fromEnv(ENV.host) ?? new URL(SITE_ORIGIN).host
+export const SITE_HOST =
+  fromEnv(ENV.host) ?? new URL(SITE_ORIGIN).host.replace(/^www\./, "")
 
 /** Chinese display name, and the `og:site_name` value. */
 export const SITE_NAME = fromEnv(ENV.name) ?? "VercelAI雷达"

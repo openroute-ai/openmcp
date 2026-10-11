@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { AnomalyList, GoodNewsList } from "@/components/public/anomaly-list"
 import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { PublicPagination } from "@/components/public/public-pagination"
@@ -79,6 +80,7 @@ export const metadata: Metadata = {
     title: siteTitle("异动"),
     description: "最近一周发生变化的开源项目。",
     url: siteUrl("/anomalies"),
+    images: [OG_IMAGE],
   },
 }
 

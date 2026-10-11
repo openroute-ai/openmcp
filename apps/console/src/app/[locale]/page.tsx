@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { headers } from "next/headers"
 
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { AnnounceBar } from "@/components/landing/announce-bar"
 import { DeepDives } from "@/components/landing/deep-dives"
 import {
@@ -165,10 +166,10 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — 开源项目异动监控`,
     description: "别人告诉你这个项目多受欢迎，我告诉你它正在变好还是变坏。",
     url: SITE_ORIGIN,
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: SITE_NAME }],
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    images: ["/og.png"],
+    images: [OG_IMAGE],
   },
 }

@@ -1,9 +1,11 @@
-import {
-  PublicPageHeader,
-  PublicShell,
-} from "@/components/public/public-shell"
+import type { Metadata } from "next"
+
+import { PublicPageHeader, PublicShell } from "@/components/public/public-shell"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
+import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
+import { indexablePage } from "@/lib/seo/indexable-pages"
 import { countPublicProjects, listPublicCategories } from "@/lib/public/radar"
 
 /**
@@ -25,6 +27,25 @@ import { countPublicProjects, listPublicCategories } from "@/lib/public/radar"
 
 export const dynamic = "force-dynamic"
 
+// Shared with the sitemap and `/llms.txt` for the reason the rankings page
+// gives: one page, one description wherever a crawler meets it.
+const CATEGORIES_PAGE = indexablePage("/categories")
+const CATEGORIES_TITLE = CATEGORIES_PAGE && siteTitle(CATEGORIES_PAGE.title)
+const CATEGORIES_DESCRIPTION = CATEGORIES_PAGE?.description
+
+export const metadata: Metadata = {
+  title: CATEGORIES_TITLE,
+  description: CATEGORIES_DESCRIPTION,
+  alternates: { canonical: "/categories" },
+  openGraph: {
+    type: "website",
+    title: CATEGORIES_TITLE,
+    description: CATEGORIES_DESCRIPTION,
+    url: siteUrl("/categories"),
+    images: [OG_IMAGE],
+  },
+}
+
 export default async function PublicCategoriesPage() {
   const [categories, projectTotal] = await Promise.all([
     listPublicCategories(db),
@@ -34,10 +55,7 @@ export default async function PublicCategoriesPage() {
   return (
     <PublicShell>
       <div className="mx-auto max-w-6xl px-4 py-10">
-        <PublicPageHeader
-          title="应用分类"
-          description="按分类浏览公开项目。"
-        >
+        <PublicPageHeader title="应用分类" description="按分类浏览公开项目。">
           <p className="text-xs text-muted-foreground">
             共 {projectTotal} 个公开项目 · {categories.length} 个分类
           </p>
@@ -57,7 +75,7 @@ export default async function PublicCategoriesPage() {
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-medium">{category.name}</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <span className="text-xs text-muted-foreground tabular-nums">
                     {category.projectCount} 个项目
                   </span>
                 </div>

@@ -158,3 +158,15 @@ export const INDEXABLE_PAGES: IndexablePage[] = [
     changeFrequency: "yearly",
   },
 ]
+
+/**
+ * One page's own description, by path.
+ *
+ * For the pages whose `metadata` wants the same copy the sitemap and
+ * `/llms.txt` already carry — the title is what the page header renders and the
+ * description is the sentence a crawler quotes. A third hand-written copy of
+ * either is the one that drifts.
+ */
+export function indexablePage(path: string): IndexablePage | undefined {
+  return INDEXABLE_PAGES.find((page) => page.path === path)
+}

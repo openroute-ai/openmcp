@@ -30,6 +30,7 @@ import {
   readProjectDetail,
   readRankings,
   readRisingStars,
+  readSubscriptions,
   SkillInputError,
   type SkillAnswer,
 } from "@/lib/agent/skills"
@@ -265,12 +266,21 @@ function routeSkill(message: unknown): SkillPlan {
   const skill = payload.skill
   if (typeof skill !== "string") {
     throw new SkillInputError(
-      'data part 需要一个 "skill" 字段，取值：explain | rankings | rising-stars | project-detail | anomalies。'
+      `data part 需要一个 "skill" 字段，取值：${SKILL_IDS}。`
     )
   }
 
   return plan(skill, payload)
 }
+
+/**
+ * Every skill id, for the two errors that have to list them.
+ *
+ * Spelled once: both messages answer "what can I call instead", and a list
+ * that exists twice is one that forgets a skill the next time one is added.
+ */
+const SKILL_IDS =
+  "explain | rankings | rising-stars | project-detail | anomalies | subscribe"
 
 type SkillPlan = {
   run: () => Promise<SkillAnswer> | SkillAnswer
@@ -330,10 +340,12 @@ function plan(skill: string, payload: Record<string, unknown>): SkillPlan {
           }),
       }
 
+    case "subscribe":
+    case "subscriptions":
+      return { label: "subscribe", run: () => readSubscriptions() }
+
     default:
-      throw new SkillInputError(
-        `未知 skill "${skill}"。可用：explain | rankings | rising-stars | project-detail | anomalies。`
-      )
+      throw new SkillInputError(`未知 skill "${skill}"。可用：${SKILL_IDS}。`)
   }
 }
 

@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm"
 import { notFound } from "next/navigation"
 
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { Prose } from "@/components/public/long-form-page"
 import { JsonLd } from "@/components/seo/json-ld"
 import { PublicShell } from "@/components/public/public-shell"
@@ -48,6 +49,7 @@ export async function generateMetadata({
       description: post.excerpt,
       publishedTime: post.date,
       url: siteUrl(`/blog/${post.slug}`),
+      images: [OG_IMAGE],
     },
   }
 }

@@ -13,13 +13,11 @@ import { PublicProjectBoard } from "@/components/public/public-project-list"
 import { PublicShell } from "@/components/public/public-shell"
 import { db } from "@/db/client"
 import { LocaleLink } from "@/i18n/navigation"
-import { siteTitle } from "@/lib/config/site"
+import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { outboundHref } from "@/lib/outbound"
 import { PROJECT_TYPE_LABELS } from "@/lib/public/project-filters"
-import {
-  getPublicAuthor,
-  listPublicProjectsByAuthor,
-} from "@/lib/public/radar"
+import { getPublicAuthor, listPublicProjectsByAuthor } from "@/lib/public/radar"
 
 /**
  * One author's page: who they are, and everything they have had collected.
@@ -50,13 +48,14 @@ export async function generateMetadata({
 
   return {
     title: siteTitle(`${author.name}（@${author.username}）`),
-    description:
-      author.bio ?? `@${author.username} 在平台中收录的项目。`,
+    description: author.bio ?? `@${author.username} 在平台中收录的项目。`,
     alternates: { canonical: `/authors/${author.username}` },
     openGraph: {
       type: "profile",
       title: siteTitle(`${author.name}（@${author.username}）`),
       description: author.bio ?? undefined,
+      url: siteUrl(`/authors/${author.username}`),
+      images: [OG_IMAGE],
     },
   }
 }

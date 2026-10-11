@@ -6,6 +6,7 @@ import { PublicPagination } from "@/components/public/public-pagination"
 import { PublicProjectBoard } from "@/components/public/public-project-list"
 import { db } from "@/db/client"
 import { siteTitle, siteUrl } from "@/lib/config/site"
+import { OG_IMAGE } from "@/lib/seo/og"
 import { clampPage, pageCount as pageCountOf } from "@/lib/pagination"
 import {
   PROJECT_TYPE_LABELS,
@@ -55,6 +56,7 @@ export const metadata: Metadata = {
     title: siteTitle("项目库"),
     description: "按类型、分类与标签浏览全部公开项目。",
     url: siteUrl("/projects"),
+    images: [OG_IMAGE],
   },
 }
 
