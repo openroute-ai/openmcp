@@ -392,6 +392,27 @@ export function ProjectDetail({ id }: { id: string }) {
               </div>
             </div>
           ) : null}
+          {data.capabilities.length > 0 ? (
+            <div className="grid gap-1">
+              <span className="text-xs text-muted-foreground">
+                {t("capabilitiesLabel")}
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {data.capabilities.map((capability) => (
+                  <Badge
+                    key={`${capability.axis}:${capability.code}`}
+                    variant="outline"
+                    title={
+                      capability.description ??
+                      `${capability.label} · ${capability.axis}`
+                    }
+                  >
+                    {capability.label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -102,7 +102,7 @@ export async function getTagsByCodes(
  * Replaces a project's tags with exactly the given set.
  *
  * Capped at {@link MAX_TAGS_PER_PROJECT} because a reader is meant to
- * take in a project's tags at a glance, and more than three become noise
+ * take in a project's tags at a glance, and more than five become noise
  * rather than signal. The limit is enforced here — a caller, including an
  * AI classifier, cannot bypass it.
  */

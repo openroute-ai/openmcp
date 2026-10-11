@@ -18,7 +18,7 @@
  *
  * The assignment paths here are the only writers, so the count limits are
  * enforced in one place rather than at each caller: a project keeps 3-5
- * capabilities and at most 3 tags no matter which surface asked.
+ * capabilities and at most 5 tags no matter which surface asked.
  */
 
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
@@ -239,6 +239,29 @@ export async function recordProjectClassification(
       categoryEvidence: decision.evidence,
       updatedAt: new Date(),
     })
+    .where(eq(projects.id, projectId))
+}
+
+/**
+ * Marks a classification as reviewed without clearing what produced it.
+ *
+ * `recordProjectClassification` leaves the review queue alone on purpose, so a
+ * scheduled re-run cannot send an operator back to the start. The one-off
+ * backfill of an imported catalogue wants the opposite: it runs once, an
+ * operator is not going to work through 500 proposals by hand, and the
+ * decisions are meant to publish immediately. Publishing is exactly the act of
+ * setting `reviewedAt`, so it lives here rather than as an inline update, and
+ * the confidence and the evidence stay next to it so the decision can still be
+ * audited afterwards.
+ */
+export async function markProjectCategoryReviewed(
+  db: Db,
+  projectId: string,
+  reviewedAt: Date = new Date()
+): Promise<void> {
+  await db
+    .update(projects)
+    .set({ categoryReviewedAt: reviewedAt, updatedAt: new Date() })
     .where(eq(projects.id, projectId))
 }
 

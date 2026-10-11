@@ -355,6 +355,14 @@ export async function listUnreviewedProjects(
     categoryId: string | null
     categoryConfidence: number | null
     categoryEvidence: string | null
+    /**
+     * The repository's own facets, carried so the classifier can derive tags
+     * and capabilities without a second read per project. Both columns are
+     * `jsonb` with a type that predates the current writer, so they are passed
+     * through untyped and normalised by `capability-vocabulary.ts`.
+     */
+    topics: unknown
+    languages: unknown
   }>
 > {
   const limit = options.limit ?? 50
@@ -368,6 +376,8 @@ export async function listUnreviewedProjects(
       categoryId: projects.categoryId,
       categoryConfidence: projects.categoryConfidence,
       categoryEvidence: projects.categoryEvidence,
+      topics: repos.topics,
+      languages: repos.languages,
     })
     .from(projects)
     .leftJoin(repos, eq(repos.id, projects.repoId))
