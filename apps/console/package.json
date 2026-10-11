@@ -21,6 +21,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:radar": "tsx src/db/seed-radar.ts",
     "db:enrich": "tsx src/db/enrich-projects.ts",
+    "db:readmes": "tsx src/db/backfill-readmes.ts",
     "db:role": "tsx src/db/role.ts",
     "sync:run": "tsx --env-file-if-exists=.env.local --env-file-if-exists=../../.env src/lib/sync/cli.ts",
     "docs:openapi": "tsx scripts/generate-openapi-docs.ts"

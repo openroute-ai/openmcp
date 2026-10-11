@@ -5,7 +5,7 @@ import {
   requireGitHubToken,
 } from "@/lib/env"
 import { processReadMeHtml } from "./process-readme-html"
-import { processReadMeMd } from "./process-readme-md"
+import { processReadMeMd, type ProcessReadMeOptions } from "./process-readme-md"
 import {
   buildBatchRepoInfoQuery,
   extractRepoInfo,
@@ -785,7 +785,8 @@ export function createGitHubClient() {
      */
     async fetchRepoReadMeAsMarkdown(
       fullName: string,
-      branch = "main"
+      branch = "main",
+      options: ProcessReadMeOptions = {}
     ): Promise<string | null> {
       try {
         const response = await makeRestApiRequest(
@@ -802,7 +803,7 @@ export function createGitHubClient() {
         }
 
         const markdown = await response.text()
-        return processReadMeMd(markdown, fullName, branch)
+        return processReadMeMd(markdown, fullName, branch, options)
       } catch (error) {
         if (
           error instanceof GitHubRateLimitError ||

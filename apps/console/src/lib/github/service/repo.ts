@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { projects, repos } from "@/db/schema"
 import type { Database, Tx } from "@/db/client"
@@ -344,6 +344,22 @@ export async function listRepoIds(db: Db): Promise<string[]> {
  */
 export async function listAllRepos(db: Db): Promise<RepoRow[]> {
   return db.select().from(repos).orderBy(repos.addedAt)
+}
+
+/**
+ * Every stored repository whose README was never stored, oldest first.
+ *
+ * "Missing" covers both `NULL` and the empty string: a fetch that ran and found
+ * no README at the source writes nothing, and an import can leave a row with an
+ * empty value, so a run that only tested for `NULL` would keep re-reading the
+ * same handful of README-less repositories on every pass.
+ */
+export async function listReposMissingReadme(db: Db): Promise<RepoRow[]> {
+  return db
+    .select()
+    .from(repos)
+    .where(or(isNull(repos.readmeContent), eq(repos.readmeContent, "")))
+    .orderBy(repos.addedAt)
 }
 
 /**

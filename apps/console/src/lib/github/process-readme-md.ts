@@ -104,16 +104,32 @@ function isAlreadyHosted(url: string): boolean {
  * Never throws: a README that cannot be fully processed is still worth
  * storing, so the original text is returned on failure.
  */
+export interface ProcessReadMeOptions {
+  /**
+   * Whether to mirror the README's images into the bucket. Defaults to true.
+   *
+   * A bulk backfill turns it off: mirroring costs one outbound download per
+   * image, and a run whose only goal is to store the text should not pay that
+   * (or, against a host it cannot reach, wait out a timeout for every image).
+   * The link rewriting below still runs, so the stored Markdown is complete
+   * and the original image URLs keep resolving in a reader's browser.
+   */
+  mirrorImages?: boolean
+}
+
 export async function processReadMeMd(
   md: string,
   repo: string,
-  branch = "main"
+  branch = "main",
+  options: ProcessReadMeOptions = {}
 ): Promise<string> {
   const root = `https://github.com/${repo}`
   let readme = md
 
   try {
-    readme = await mirrorImages(readme, repo, branch)
+    if (options.mirrorImages !== false) {
+      readme = await mirrorImages(readme, repo, branch)
+    }
 
     // In-page anchors: <a href="#quick-start"> => absolute
     readme = readme.replace(
