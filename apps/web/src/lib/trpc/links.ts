@@ -13,12 +13,15 @@ const LOGIN_ROUTE = '/sign-in'
  * The session token rides in an `Authorization` header rather than a cookie,
  * so the request is authenticated the same way whether it comes from the
  * browser or from a server component.
+ *
+ * The logger only reports failed responses. Logging every request in dev
+ * produced a `[[ << query #n ]]` trace for each call, which Next.js's dev
+ * overlay surfaced as a "Console Error"; real failures still reach
+ * `console.error`.
  */
 export const trpcLinks = [
   loggerLink({
-    enabled: (opts) =>
-      process.env.NODE_ENV === 'development' ||
-      (opts.direction === 'down' && opts.result instanceof Error),
+    enabled: (opts) => opts.direction === 'down' && opts.result instanceof Error,
   }),
   httpBatchLink({
     url: '/api/trpc',

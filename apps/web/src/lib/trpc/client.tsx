@@ -17,9 +17,7 @@ export const trpc = createTRPCReact<AppRouter>()
 export const clientApi = trpc.createClient({
   links: [
     loggerLink({
-      enabled: (opts) =>
-        process.env.NODE_ENV === 'development' ||
-        (opts.direction === 'down' && opts.result instanceof Error),
+      enabled: (opts) => opts.direction === 'down' && opts.result instanceof Error,
     }),
     httpBatchLink({
       url: '/api/trpc',
@@ -65,9 +63,7 @@ export function TRPCReactProvider({ children }: { children: ReactNode }) {
     trpc.createClient({
       links: [
         loggerLink({
-          enabled: (opts) =>
-            process.env.NODE_ENV === 'development' ||
-            (opts.direction === 'down' && opts.result instanceof Error),
+          enabled: (opts) => opts.direction === 'down' && opts.result instanceof Error,
         }),
         httpBatchLink({
           url: '/api/trpc',

@@ -822,8 +822,8 @@
         "loading": "加载中..."
       },
       "categories": {
-        "title": "工作流分类",
-        "description": "管理工作流分类",
+        "title": "分类",
+        "description": "管理分类",
         "loading": "加载中..."
       },
       "blog": {

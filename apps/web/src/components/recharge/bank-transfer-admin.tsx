@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Alert, AlertDescription } from '@workspace/ui/components/alert'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@workspace/ui/components/card'
+import { Card, CardContent } from '@workspace/ui/components/card'
 import { Input } from '@workspace/ui/components/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
@@ -65,10 +65,13 @@ export const BankTransferAdmin = () => {
 
   return (
     <div className='space-y-6'>
-      <header className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>{t('title')}</h1>
-        <p className='text-muted-foreground text-sm'>{t('subtitle')}</p>
-      </header>
+      {/* 页面标题和操作按钮，与其它管理页布局对齐 */}
+      <div className='flex items-center justify-between'>
+        <div>
+          <h1 className='font-bold text-2xl tracking-tight'>{t('title')}</h1>
+          <p className='text-muted-foreground'>{t('subtitle')}</p>
+        </div>
+      </div>
 
       {error && (
         <Alert variant='destructive'>
@@ -78,10 +81,7 @@ export const BankTransferAdmin = () => {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle className='text-base'>{t('title')}</CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-4'>
+        <CardContent className='space-y-4 pt-6'>
           <div className='flex flex-wrap items-end gap-2'>
             <div className='space-y-1'>
               <label className='text-muted-foreground text-xs'>{t('filterStatus')}</label>
