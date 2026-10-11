@@ -21,6 +21,7 @@
 | [SKILLPAY_ONBOARDING_UED.md](./SKILLPAY_ONBOARDING_UED.md) | 入驻 UED（部分被 OPENPAY_SITE_UED 取代） |
 | [ADMIN_REVIEW_QUEUE_UED.md](./ADMIN_REVIEW_QUEUE_UED.md) | Admin 人工复核 UED |
 | [design-github-repos-skills-webhook-sync.md](./design-github-repos-skills-webhook-sync.md) | GitHub → openmcp webhook 同步 |
+| [COMPLIANCE_MCP_SKILLS_MARKETPLACE.md](./COMPLIANCE_MCP_SKILLS_MARKETPLACE.md) | MCP/A2A/Skills 收费模式合规要点清单 |
 | [design-vercel-egress-proxy-and-sandbox.md](./design-vercel-egress-proxy-and-sandbox.md) | **国内 VPC × Vercel Hobby：GitHub 出口转发代理 + Sandbox 扫描编排 + 部署步骤** |
 | [CONSOLE_OPEN_RADAR_API.md](./CONSOLE_OPEN_RADAR_API.md) | **`apps/console` 开放 API：API Key 签发 / 仓库创建 + 回调 / 统计与排行 / 订阅推送** |
 
