@@ -88,7 +88,7 @@ export function DashboardSidebar({ type = 'user', ...props }: DashboardSidebarPr
     {
       title: t('Dashboard.settings.setup.title'),
       icon: <SettingsIcon className='size-4 shrink-0' />,
-      href: Routes.SettingsSetup,
+      href: type === 'admin' ? Routes.AdminSettings : Routes.SettingsSetup,
       external: false,
     },
     {

@@ -219,6 +219,98 @@ export const adminMcpServersRouter = createTRPCRouter({
   }),
 
   /**
+   * MCP Server 详情（全状态，含安全扫描与鉴权元数据）。
+   *
+   * 列表查询刻意只带审核员需要的一列；详情页是决策现场，把扫描结果、
+   * 工具列表、版本与元数据一起返回，避免审核员为了拿全信息来回翻页。
+   */
+  getServerById: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const rows = await db
+          .select({
+            id: mcpServers.id,
+            referenceId: mcpServers.referenceId,
+            slug: mcpServers.slug,
+            name: mcpServers.name,
+            description: mcpServers.description,
+            descriptionEn: mcpServers.descriptionEn,
+            logoUrl: mcpServers.logoUrl,
+            coverUrl: mcpServers.coverUrl,
+            transport: mcpServers.transport,
+            endpoint: mcpServers.endpoint,
+            serverName: mcpServers.serverName,
+            authType: mcpServers.authType,
+            hosting: mcpServers.hosting,
+            scope: mcpServers.scope,
+            tools: mcpServers.tools,
+            connectionStatus: mcpServers.connectionStatus,
+            healthCheckEnabled: mcpServers.healthCheckEnabled,
+            healthFailCount: mcpServers.healthFailCount,
+            lastTestedAt: mcpServers.lastTestedAt,
+            priceType: mcpServers.priceType,
+            billingModel: mcpServers.billingModel,
+            unitPrice: mcpServers.unitPrice,
+            currency: mcpServers.currency,
+            certified: mcpServers.certified,
+            securityLevel: mcpServers.securityLevel,
+            securityGrade: mcpServers.securityGrade,
+            securityFlags: mcpServers.securityFlags,
+            securityLlmGrade: mcpServers.securityLlmGrade,
+            securityLlmAnalysis: mcpServers.securityLlmAnalysis,
+            scannedAt: mcpServers.scannedAt,
+            scanRulesVersion: mcpServers.scanRulesVersion,
+            currentVersionId: mcpServers.currentVersionId,
+            currentVersion: mcpServers.currentVersion,
+            views: mcpServers.views,
+            downloads: mcpServers.downloads,
+            tags: mcpServers.tags,
+            metadata: mcpServers.metadata,
+            status: mcpServers.status,
+            publishedAt: mcpServers.publishedAt,
+            createdAt: mcpServers.createdAt,
+            updatedAt: mcpServers.updatedAt,
+            author: {
+              id: authors.id,
+              name: authors.name,
+              username: authors.username,
+              avatar: authors.avatar,
+              verified: authors.verified,
+            },
+            category: {
+              id: categories.id,
+              name: categories.name,
+              nameEn: categories.nameEn,
+              slug: categories.slug,
+            },
+          })
+          .from(mcpServers)
+          .innerJoin(authors, eq(mcpServers.authorId, authors.id))
+          .leftJoin(categories, eq(mcpServers.categoryId, categories.id))
+          .where(and(eq(mcpServers.id, input.id), notDeleted(mcpServers)))
+          .limit(1)
+
+        const row = rows[0]
+        if (!row) {
+          return { success: false as const, error: 'MCP Server 不存在' }
+        }
+
+        return {
+          success: true as const,
+          data: {
+            ...row,
+            tools: readToolList(row.tools),
+            unitPrice: row.unitPrice?.toString() ?? null,
+          },
+        }
+      } catch (error) {
+        console.error('获取 MCP Server 详情失败:', error)
+        return { success: false as const, error: '获取 MCP Server 详情失败' }
+      }
+    }),
+
+  /**
    * 审核 MCP Server（通过->上架 / 驳回）
    */
   reviewServer: adminProcedure

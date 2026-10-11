@@ -188,6 +188,104 @@ export const adminSkillsRouter = createTRPCRouter({
   }),
 
   /**
+   * Skill 详情（全状态）。
+   *
+   * 详情页供审核员决策使用：除了列表字段，一并返回 README、特性、安全
+   * 扫描结果与平台适配信息，让「够不够格上架」在一个页面里就能判断。
+   */
+  getSkillById: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const rows = await db
+          .select({
+            id: skills.id,
+            referenceId: skills.referenceId,
+            slug: skills.slug,
+            title: skills.title,
+            titleEn: skills.titleEn,
+            description: skills.description,
+            descriptionEn: skills.descriptionEn,
+            summary: skills.summary,
+            metaDescription: skills.metaDescription,
+            version: skills.version,
+            features: skills.features,
+            tags: skills.tags,
+            scenario: skills.scenario,
+            readme: skills.readme,
+            readmeEn: skills.readmeEn,
+            imageUrl: skills.imageUrl,
+            priceType: skills.priceType,
+            priceAmount: skills.priceAmount,
+            billingModel: skills.billingModel,
+            unitPrice: skills.unitPrice,
+            currency: skills.currency,
+            certified: skills.certified,
+            certifiedAt: skills.certifiedAt,
+            certificationNote: skills.certificationNote,
+            securityLevel: skills.securityLevel,
+            securityGrade: skills.securityGrade,
+            securityFlags: skills.securityFlags,
+            securityLlmGrade: skills.securityLlmGrade,
+            securityLlmAnalysis: skills.securityLlmAnalysis,
+            trustTier: skills.trustTier,
+            scannedAt: skills.scannedAt,
+            scanRulesVersion: skills.scanRulesVersion,
+            reviewStatus: skills.reviewStatus,
+            reviewComment: skills.reviewComment,
+            sourceType: skills.sourceType,
+            githubUrl: skills.githubUrl,
+            platforms: skills.platforms,
+            metadata: skills.metadata,
+            externalSource: skills.externalSource,
+            syncedFromConsoleAt: skills.syncedFromConsoleAt,
+            views: skills.views,
+            downloads: skills.downloads,
+            likes: skills.likes,
+            status: skills.status,
+            publishedAt: skills.publishedAt,
+            createdAt: skills.createdAt,
+            updatedAt: skills.updatedAt,
+            author: {
+              id: authors.id,
+              name: authors.name,
+              username: authors.username,
+              avatar: authors.avatar,
+              verified: authors.verified,
+            },
+            category: {
+              id: categories.id,
+              name: categories.name,
+              nameEn: categories.nameEn,
+              slug: categories.slug,
+            },
+          })
+          .from(skills)
+          .innerJoin(authors, eq(skills.authorId, authors.id))
+          .leftJoin(categories, eq(skills.categoryId, categories.id))
+          .where(eq(skills.id, input.id))
+          .limit(1)
+
+        const row = rows[0]
+        if (!row) {
+          return { success: false as const, error: 'Skill 不存在' }
+        }
+
+        return {
+          success: true as const,
+          data: {
+            ...row,
+            priceAmount: row.priceAmount?.toString() ?? null,
+            unitPrice: row.unitPrice?.toString() ?? null,
+          },
+        }
+      } catch (error) {
+        console.error('获取 Skill 详情失败:', error)
+        return { success: false as const, error: '获取 Skill 详情失败' }
+      }
+    }),
+
+  /**
    * 审核 Skill（通过->上架 / 驳回），按 skill-review 流程同步状态与认证。
    */
   reviewSkill: adminProcedure

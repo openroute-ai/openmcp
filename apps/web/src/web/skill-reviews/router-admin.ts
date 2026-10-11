@@ -46,6 +46,7 @@ const reviewSelect = {
   securityLlmAnalysis: skills.securityLlmAnalysis,
   trustTier: skills.trustTier,
   scannedAt: skills.scannedAt,
+  updatedAt: skills.updatedAt,
   reviewStatus: skills.reviewStatus,
   authorId: skills.authorId,
   authorName: authors.name,
@@ -90,6 +91,7 @@ type ReviewRow = {
   securityLlmAnalysis: unknown
   trustTier: number | null
   scannedAt: Date | null
+  updatedAt: Date
   reviewStatus: string | null
   authorId: string
   authorName: string
@@ -105,7 +107,10 @@ type ReviewRow = {
  * created by the scan itself and would otherwise read as "0 minutes".
  */
 function toReviewRecord(row: ReviewRow) {
-  const submittedAt = row.scannedAt ?? row.createdAt
+  // A pending skill that has not been scanned yet has no scan time and no
+  // manual review row (`createdAt` is NULL from the left join), so fall back
+  // to the skill's own timestamp rather than calling `.getTime()` on null.
+  const submittedAt = row.scannedAt ?? row.createdAt ?? row.updatedAt
   const now = Date.now()
   return {
     ...row,

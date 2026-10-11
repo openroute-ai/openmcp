@@ -221,6 +221,95 @@ export const adminA2aAgentsRouter = createTRPCRouter({
   }),
 
   /**
+   * A2A 智能体详情（全状态，含安全扫描、Agent Card 与连通性元数据）。
+   */
+  getAgentById: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const rows = await db
+          .select({
+            id: a2aAgents.id,
+            referenceId: a2aAgents.referenceId,
+            slug: a2aAgents.slug,
+            name: a2aAgents.name,
+            description: a2aAgents.description,
+            descriptionEn: a2aAgents.descriptionEn,
+            logoUrl: a2aAgents.logoUrl,
+            coverUrl: a2aAgents.coverUrl,
+            agentCardUrl: a2aAgents.agentCardUrl,
+            agentCard: a2aAgents.agentCard,
+            endpoint: a2aAgents.endpoint,
+            agentName: a2aAgents.agentName,
+            protocolVersion: a2aAgents.protocolVersion,
+            authType: a2aAgents.authType,
+            visibility: a2aAgents.visibility,
+            connectionStatus: a2aAgents.connectionStatus,
+            healthCheckEnabled: a2aAgents.healthCheckEnabled,
+            healthFailCount: a2aAgents.healthFailCount,
+            lastTestedAt: a2aAgents.lastTestedAt,
+            priceType: a2aAgents.priceType,
+            billingModel: a2aAgents.billingModel,
+            unitPrice: a2aAgents.unitPrice,
+            currency: a2aAgents.currency,
+            certified: a2aAgents.certified,
+            securityLevel: a2aAgents.securityLevel,
+            securityGrade: a2aAgents.securityGrade,
+            securityFlags: a2aAgents.securityFlags,
+            securityLlmGrade: a2aAgents.securityLlmGrade,
+            securityLlmAnalysis: a2aAgents.securityLlmAnalysis,
+            scannedAt: a2aAgents.scannedAt,
+            scanRulesVersion: a2aAgents.scanRulesVersion,
+            currentVersionId: a2aAgents.currentVersionId,
+            currentVersion: a2aAgents.currentVersion,
+            views: a2aAgents.views,
+            downloads: a2aAgents.downloads,
+            tags: a2aAgents.tags,
+            metadata: a2aAgents.metadata,
+            status: a2aAgents.status,
+            publishedAt: a2aAgents.publishedAt,
+            createdAt: a2aAgents.createdAt,
+            updatedAt: a2aAgents.updatedAt,
+            author: {
+              id: authors.id,
+              name: authors.name,
+              username: authors.username,
+              avatar: authors.avatar,
+              verified: authors.verified,
+            },
+            category: {
+              id: categories.id,
+              name: categories.name,
+              nameEn: categories.nameEn,
+              slug: categories.slug,
+            },
+          })
+          .from(a2aAgents)
+          .innerJoin(authors, eq(a2aAgents.authorId, authors.id))
+          .leftJoin(categories, eq(a2aAgents.categoryId, categories.id))
+          .where(and(eq(a2aAgents.id, input.id), notDeleted(a2aAgents)))
+          .limit(1)
+
+        const row = rows[0]
+        if (!row) {
+          return { success: false as const, error: 'A2A 智能体不存在' }
+        }
+
+        return {
+          success: true as const,
+          data: {
+            ...row,
+            skills: readAgentCardSkills(row.agentCard),
+            unitPrice: row.unitPrice?.toString() ?? null,
+          },
+        }
+      } catch (error) {
+        console.error('获取 A2A 智能体详情失败:', error)
+        return { success: false as const, error: '获取 A2A 智能体详情失败' }
+      }
+    }),
+
+  /**
    * 审核 A2A 智能体（通过->上架 / 驳回）
    */
   reviewAgent: adminProcedure

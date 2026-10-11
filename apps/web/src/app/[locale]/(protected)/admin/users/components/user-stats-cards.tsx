@@ -31,7 +31,7 @@ export function UserStatsCards() {
 
   if (isLoading) {
     return (
-      <div className='grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-5'>
+<div className='grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5'>
         {CARDS.map((card) => (
           <Card key={card.key} className='@container/card'>
             <CardHeader>
@@ -61,7 +61,7 @@ export function UserStatsCards() {
   const stats = data?.success ? data.data : null
 
   return (
-    <div className='grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-5'>
+    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5'>
       {CARDS.map((card) => (
         <Card key={card.key} className='@container/card'>
           <CardHeader className='flex flex-col'>

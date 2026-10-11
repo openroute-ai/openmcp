@@ -24,7 +24,8 @@ import { Input } from '@workspace/ui/components/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { format } from 'date-fns'
-import { Award, CheckCircle, MoreHorizontal, RefreshCw, ShieldCheck, Trash2, XCircle } from 'lucide-react'
+import { Award, CheckCircle, Eye, MoreHorizontal, RefreshCw, ShieldCheck, Trash2, XCircle } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trpc } from '@/lib/trpc/client'
@@ -281,7 +282,9 @@ export function SkillsTable({
                 data.map((skill) => (
                   <TableRow key={skill.id}>
                     <TableCell>
-                      <div className='font-medium'>{skill.title}</div>
+                      <Link href={`/admin/skills/${skill.id}`} className='font-medium hover:underline hover:text-primary'>
+                        {skill.title}
+                      </Link>
                       {skill.slug && <div className='line-clamp-1 text-muted-foreground text-sm'>{skill.slug}</div>}
                     </TableCell>
                     <TableCell>
@@ -354,6 +357,12 @@ export function SkillsTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/skills/${skill.id}`}>
+                              <Eye className='mr-2 h-4 w-4' />
+                              详情
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onReview(skill)}>
                             <ShieldCheck className='mr-2 h-4 w-4' />
                             审核

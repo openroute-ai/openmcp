@@ -23,7 +23,8 @@ import { Input } from '@workspace/ui/components/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { format } from 'date-fns'
-import { CheckCircle, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle, Eye, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trpc } from '@/lib/trpc/client'
@@ -273,7 +274,9 @@ export function A2aTable({
                 data.map((agent) => (
                   <TableRow key={agent.id}>
                     <TableCell>
-                      <div className='font-medium'>{agent.name}</div>
+                      <Link href={`/admin/a2a-agents/${agent.id}`} className='font-medium hover:underline hover:text-primary'>
+                        {agent.name}
+                      </Link>
                       {agent.description && (
                         <div className='line-clamp-1 text-muted-foreground text-sm'>{agent.description}</div>
                       )}
@@ -317,6 +320,12 @@ export function A2aTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/a2a-agents/${agent.id}`}>
+                              <Eye className='mr-2 h-4 w-4' />
+                              详情
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onReview(agent)}>
                             <ShieldCheck className='mr-2 h-4 w-4' />
                             审核

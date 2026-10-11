@@ -23,7 +23,8 @@ import { Input } from '@workspace/ui/components/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { format } from 'date-fns'
-import { CheckCircle, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle, Eye, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trpc } from '@/lib/trpc/client'
@@ -256,7 +257,9 @@ export function McpTable({
                 data.map((server) => (
                   <TableRow key={server.id}>
                     <TableCell>
-                      <div className='font-medium'>{server.name}</div>
+                      <Link href={`/admin/mcp-servers/${server.id}`} className='font-medium hover:underline hover:text-primary'>
+                        {server.name}
+                      </Link>
                       {server.endpoint && (
                         <div className='line-clamp-1 text-muted-foreground text-sm'>{server.endpoint}</div>
                       )}
@@ -302,6 +305,12 @@ export function McpTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/mcp-servers/${server.id}`}>
+                              <Eye className='mr-2 h-4 w-4' />
+                              详情
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onReview(server)}>
                             <ShieldCheck className='mr-2 h-4 w-4' />
                             审核

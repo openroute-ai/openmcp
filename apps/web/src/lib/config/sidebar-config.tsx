@@ -7,7 +7,6 @@ import {
   CreditCardIcon,
   DollarSignIcon,
   HeartIcon,
-  InboxIcon,
   KeyIcon,
   LayersIcon,
   LayoutDashboardIcon,
@@ -168,12 +167,6 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
       authorizeOnly: ['admin'],
       items: [
         {
-          title: t('admin.userSubmissions.title'),
-          icon: <InboxIcon className='size-4 shrink-0' />,
-          href: Routes.AdminUserSubmissions,
-          external: false,
-        },
-        {
           title: t('admin.securityReview.title'),
           icon: <ShieldAlertIcon className='size-4 shrink-0' />,
           href: Routes.AdminSecurityReview,
@@ -185,13 +178,6 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           href: Routes.AdminProviderApplications,
           external: false,
         },
-      ],
-    },
-    // —— 资产管理 ——
-    {
-      title: t('admin.groups.assets'),
-      authorizeOnly: ['admin'],
-      items: [
         {
           title: t('admin.mcpServers.title'),
           icon: <BotIcon className='size-4 shrink-0' />,
@@ -210,6 +196,13 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           href: Routes.AdminSkills,
           external: false,
         },
+      ],
+    },
+    // —— 资产管理 ——
+    {
+      title: t('admin.groups.assets'),
+      authorizeOnly: ['admin'],
+      items: [
         {
           title: t('admin.workflows.title'),
           icon: <ActivityIcon className='size-4 shrink-0' />,
