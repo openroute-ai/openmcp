@@ -529,9 +529,10 @@ export const projectsToCapabilities = pgTable(
 /**
  * 年度月度快照 —— **已停写，保留不删**。
  *
- * `0012_repo_stats.sql` 把这张表的历史搬进了 {@link repoMonthlyStats}
- * （月频快照）和 {@link repoWeeklyStats}，正常情况下应当跟着删掉。但生产库里
- * 这张表仍有 748 行，而且 Drizzle 的 `push` 是靠 **schema 声明** 决定
+ * `0012_repo_stats.sql` 本该把这张表的历史搬进 {@link repoMonthlyStats}
+ * （月频快照），正常情况下应当跟着删掉 —— 它的周频/日频两条 INSERT 读的
+ * 是另外两张 legacy 表（`repo_weekly_stars` / `repo_daily_stars`），不是这里。
+ * 但生产库里这张表仍有 750 行，而且 Drizzle 的 `push` 是靠 **schema 声明** 决定
  * 要执行什么 DDL 的：schema 里没有它，`push` 就会把这张表当成"多余的表"，
  * 连带它的数据一起删掉 —— 而**删掉它需要的权限恰恰是 `push` 没有的那一种**
  * （`push` 只会 GRANT，不会 REVOKE，见 schema.ts 顶部关于已声明列的注释）。
@@ -543,14 +544,24 @@ export const projectsToCapabilities = pgTable(
  * - 不恢复任何查询方。历史读取一律走 stats 表。
  * - 唯一的效果是让 `drizzle-kit push` 认得这张表，从而不会提出删除它。
  *
- * 保留而非删除，是因为这 748 行是 `0012` 迁移 SQL 的**输入**：
+ * 保留而非删除，是因为这 750 行是 `0012` 迁移 SQL 的**输入**：
  * 任何一次重新生成或重放那段 INSERT，都需要这张表还在。
  * 等到确认再也不会有人重放 `0012`、且备份策略已经覆盖它之后，
  * 才可以用一条显式的 `DROP TABLE`（带注释说明为什么是显式的）把它清掉。
  *
- * 月份数组的结构见 `0012` 的 INSERT：`{ year, month, stars, totalContributors,
- * totalDownloads, totalPullRequests, totalReleases, previous* }`。
- * 这里保留 `$type` 注释是为了让读代码的人知道里面装的是什么，
+ * 月份数组的**实际**结构（750 行、2129 个月度项实测，每项只有两个字段）：
+ * `{ month, snapshots: MonthSnapshotDay[] }`，每天一条
+ * `{ day, stars, watchers, forks, releases, pullRequests, mentionableUsers }`。
+ *
+ * 它和 `0012` 那条月频 INSERT 读的字段**不是一回事**：那里取的是
+ * `e->>'year'`、`e->>'totalContributors'`、`e->>'totalDownloads'`、
+ * `e->>'totalPullRequests'`、`e->>'totalReleases'`（`previous*` 由 `lag()`
+ * 窗口算出，本来就不落在数据里），而它的 `WHERE (e->>'year')::int IS NOT NULL`
+ * 会把没有 `year` 字段的月度项全部滤掉 —— 拿这 750 行去跑，匹配不到任何一行。
+ * 月频/周频历史因此只能由 `db:migrate:stats` 从 `snapshots` 重建，
+ * 重放 `0012` 复现不了。
+ *
+ * 这里保留 `$type` 是为了让读代码的人知道里面装的是什么，
  * 而不是以为那是一个可以随便塞东西的 jsonb。
  */
 export const snapshots = pgTable(
@@ -561,7 +572,7 @@ export const snapshots = pgTable(
       .references(() => repos.id, { onDelete: "cascade" }),
     /** 快照年份，一仓一年一行。 */
     year: integer("year").notNull(),
-    /** 12 个月的数组，每项一个 `MonthSnapshot`，见上方注释。 */
+    /** 一仓一年一行，`months` 里按 `month` 排；见上方注释与下面的类型。 */
     months: jsonb("months").$type<MonthSnapshot[]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
@@ -573,22 +584,36 @@ export const snapshots = pgTable(
 )
 
 /**
- * 一行 {@link snapshots.months} 里的一个月度快照。
+ * 一行 {@link snapshots.months} 里的一个月度项。
  *
- * 只为给上面的 `$type` 一个名字，不作为可写的类型使用。
+ * 只为给上面的 `$type` 一个名字，不作为可写的类型使用。字段按实测写：
+ * 月度项只有 `month` 和 `snapshots`，**没有** `year`，也没有 `0012` 的
+ * INSERT 期望的那几个合计字段（`totalContributors` / `totalDownloads` /
+ * `totalPullRequests` / `totalReleases` / `previous*`）—— 那套字段在今天
+ * 这份数据里一个都不存在，见上方注释。
  */
 export interface MonthSnapshot {
-  year: number
+  /** 月份数字 1-12，同一行里按它排序；年份不在这里，在上面的 `year` 列。 */
   month: number
+  /** 这个月里有读数的那些天，见 {@link MonthSnapshotDay}。 */
+  snapshots: MonthSnapshotDay[]
+}
+
+/**
+ * {@link MonthSnapshot.snapshots} 里的一天。
+ *
+ * `mentionableUsers` 目前无处可写：stats 表没有对应列，迁移脚本也只读
+ * 下面另外五项。
+ */
+export interface MonthSnapshotDay {
+  /** 几号，1-31。 */
+  day: number
   stars: number
-  totalContributors: number
-  totalDownloads: number
-  totalPullRequests: number
-  totalReleases: number
-  previousContributors: number
-  previousDownloads: number
-  previousPullRequests: number
-  previousReleases: number
+  watchers: number
+  forks: number
+  releases: number
+  pullRequests: number
+  mentionableUsers: number
 }
 
 /**
