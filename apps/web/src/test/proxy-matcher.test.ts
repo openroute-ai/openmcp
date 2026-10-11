@@ -48,7 +48,6 @@ const STATIC_FILES = [
   "/images/contact-wechat.webp",
   "/images/blog/post-1.png",
   "/logo.svg",
-  "/logo.png",
   "/favicon.svg",
   "/banner.png",
   "/assets/logos/voyage.webp",

@@ -1,5 +1,4 @@
 // import { BlurFadeDemo } from "@/components/magicui/example/blur-fade-example";
-import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar'
 import { Button, buttonVariants } from '@workspace/ui/components/button'
 import { MailIcon, X } from 'lucide-react'
 import type { Metadata } from 'next'
@@ -8,6 +7,7 @@ import { getTranslations } from 'next-intl/server'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { WeChatQRDialog } from '@/components/contact/wechat-qr-dialog'
+import { LogoIcon } from '@/components/icons/logo'
 import Container from '@/components/layout/container'
 import { websiteConfig } from '@/lib/config/website'
 import { constructMetadata } from '@/lib/metadata'
@@ -38,63 +38,52 @@ export default async function AboutPage() {
 
   return (
     <Container className='px-5 py-16'>
-      <div className='mx-auto max-w-4xl space-y-8'>
-        {/* about section */}
-        <div className='relative mx-auto mt-8 mb-24 max-w-(--breakpoint-md) md:mt-16'>
-          <div className='mx-auto flex flex-col justify-between'>
-            <div className='grid gap-8 sm:grid-cols-2'>
-              {/* avatar and name */}
-              <div className='flex items-center gap-8'>
-                <Avatar className='size-24 p-0.5'>
-                  <AvatarImage className='rounded-full border-4 border-gray-200' src='/logo.png' alt='Avatar' />
-                  <AvatarFallback>
-                    <div className='size-24 text-muted-foreground' />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h1 className='text-foreground text-2xl'>{t('authorName')}</h1>
-                  <p className='mt-2 text-base text-muted-foreground'>{t('authorBio')}</p>
-                </div>
-              </div>
-
-              {/* introduction */}
-              <div>
-                <div className='prose dark:prose-invert prose-headings:my-6 prose-li:my-2 prose-p:my-4 prose-ul:my-4 mb-8 max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground text-base'>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{t('introduction')}</ReactMarkdown>
-                </div>
-
-                <div className='flex flex-wrap items-center gap-4'>
-                  {websiteConfig.metadata.social?.twitter && (
-                    <a
-                      href={websiteConfig.metadata.social.twitter}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className={cn(buttonVariants({ variant: 'outline' }), 'cursor-pointer rounded-lg')}
-                    >
-                      <X className='mr-1 size-4' />
-                      {t('followMe')}
-                    </a>
-                  )}
-                  {websiteConfig.mail.supportEmail && (
-                    <div className='flex items-center gap-4'>
-                      <Button className='cursor-pointer rounded-lg' variant='outline'>
-                        <MailIcon className='mr-1 size-4' />
-                        <a href={`mailto:${websiteConfig.mail.supportEmail}`}>{t('talkWithMe')}</a>
-                      </Button>
-                    </div>
-                  )}
-                  <WeChatQRDialog
-                    qrCodeUrl='/images/contact-wechat.webp'
-                    wechatId='OpenRouteAI'
-                    buttonText={t('contactWeChat')}
-                    buttonVariant='default'
-                    showIcon={true}
-                    className='w-full sm:w-auto'
-                  />
-                </div>
-              </div>
-            </div>
+      <div className='mx-auto max-w-3xl'>
+        {/* hero: avatar and name */}
+        <div className='flex flex-col items-center gap-5 text-center'>
+          <div className='flex size-20 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20'>
+            <LogoIcon className='size-11 text-primary' aria-label={t('authorName')} />
           </div>
+          <div className='space-y-2'>
+            <h1 className='font-semibold text-2xl text-foreground sm:text-3xl'>{t('authorName')}</h1>
+            <p className='text-muted-foreground'>{t('authorBio')}</p>
+          </div>
+        </div>
+
+        {/* introduction */}
+        <div className='prose dark:prose-invert prose-headings:my-6 prose-li:my-2 prose-p:my-4 prose-ul:my-4 mt-12 max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground text-base'>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{t('introduction')}</ReactMarkdown>
+        </div>
+
+        {/* actions */}
+        <div className='mt-12 flex flex-wrap items-center justify-center gap-4 border-t pt-8'>
+          {websiteConfig.metadata.social?.twitter && (
+            <a
+              href={websiteConfig.metadata.social.twitter}
+              target='_blank'
+              rel='noopener noreferrer'
+              className={cn(buttonVariants({ variant: 'outline' }), 'cursor-pointer rounded-lg')}
+            >
+              <X className='mr-1 size-4' />
+              {t('followMe')}
+            </a>
+          )}
+          {websiteConfig.mail.supportEmail && (
+            <div className='flex items-center gap-4'>
+              <Button className='cursor-pointer rounded-lg' variant='outline'>
+                <MailIcon className='mr-1 size-4' />
+                <a href={`mailto:${websiteConfig.mail.supportEmail}`}>{t('talkWithMe')}</a>
+              </Button>
+            </div>
+          )}
+          <WeChatQRDialog
+            qrCodeUrl='/images/contact-wechat.webp'
+            wechatId='OpenRouteAI'
+            buttonText={t('contactWeChat')}
+            buttonVariant='default'
+            showIcon={true}
+            className='w-full sm:w-auto'
+          />
         </div>
 
         {/* image section */}

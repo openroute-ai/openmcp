@@ -34,16 +34,6 @@ export function getNavbarLinks(): NestedMenuItem[] {
       external: false,
     },
     {
-      title: t('personas.title'),
-      href: Routes.Personas,
-      external: false,
-    },
-    {
-      title: t('rankings.title'),
-      href: Routes.Rankings,
-      external: false,
-    },
-    {
       title: t('openpay.title'),
       href: Routes.OpenPay,
       external: false,
