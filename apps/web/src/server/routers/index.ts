@@ -26,6 +26,7 @@ import { siteMessagesRouter } from '@/web/site-messages/router'
 import { firstLoginRouter } from '@/web/first-login/router'
 import { adminUsersRouter } from '@/web/users/router-admin'
 import { skillsRouter } from '@/web/skills/router'
+import { adminSkillsRouter } from '@/web/skills/router-admin'
 import { workflowRankingsRouter } from '@/web/workflow-rankings/router'
 import { workflowsRouter } from '@/web/workflows/router'
 import { adminWorkflowsRouter } from '@/web/workflows/router-admin'
@@ -73,6 +74,7 @@ export const appRouter = router({
     providers: adminProvidersRouter,
     a2aAgents: adminA2aAgentsRouter,
     mcpServers: adminMcpServersRouter,
+    skills: adminSkillsRouter,
     recharge: adminRechargeRouter,
     rechargeOrders: adminRechargeOrdersRouter,
     users: adminUsersRouter,

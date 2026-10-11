@@ -18,11 +18,18 @@ export function PostsTab() {
     search: '',
     locale: undefined as string | undefined,
     published: undefined as boolean | undefined,
+    categoryId: undefined as string | undefined,
   })
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const debouncedSearch = useDebounce(filters.search, 500)
+
+  const { data: categoriesData } = trpc.admin.blog.listCategories.useQuery({
+    page: 1,
+    pageSize: 100,
+  })
+  const categories = categoriesData?.success ? (categoriesData.data ?? []) : []
 
   const {
     data: postsData,
@@ -33,6 +40,7 @@ export function PostsTab() {
       search: debouncedSearch || undefined,
       locale: filters.locale,
       published: filters.published,
+      categoryId: filters.categoryId,
     },
     pagination: {
       page,
@@ -110,6 +118,7 @@ export function PostsTab() {
         }
         isLoading={isLoadingPosts}
         filters={filters}
+        categories={categories}
         onFiltersChange={handleFiltersChange}
         onPageChange={handlePageChange}
         onRefresh={handleRefresh}

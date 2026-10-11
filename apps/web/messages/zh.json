@@ -660,6 +660,13 @@
       "title": "系统管理",
       "details": "详情",
       "edit": "编辑",
+      "groups": {
+        "users": "用户与会话",
+        "review": "审核管理",
+        "assets": "资产管理",
+        "content": "内容管理",
+        "finance": "财务与运营"
+      },
       "users": {
         "title": "用户管理",
         "fakeData": "注：只为演示功能，数据为假数据，封禁功能不可用",
@@ -844,6 +851,14 @@
       "mcpServers": {
         "title": "MCP 管理",
         "description": "管理 MCP Server，含审核与上架"
+      },
+      "skills": {
+        "title": "Skills 管理",
+        "description": "管理 Skills，含审核、上架与认证"
+      },
+      "skills": {
+        "title": "Skills 管理",
+        "description": "管理 Skills，含审核、上架与认证"
       },
       "securityReview": {
         "title": "安全审核",

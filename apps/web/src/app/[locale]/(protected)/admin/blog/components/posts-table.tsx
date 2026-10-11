@@ -15,10 +15,16 @@ interface Post {
   locale: string
   published: boolean | null
   date: Date
+  categoryIds?: string[] | null
   author?: {
     name: string
     avatar: string
   } | null
+}
+
+interface BlogCategory {
+  id: string
+  name: string
 }
 
 interface PostsTableProps {
@@ -34,7 +40,9 @@ interface PostsTableProps {
     search: string
     locale?: string
     published?: boolean
+    categoryId?: string
   }
+  categories?: BlogCategory[]
   onFiltersChange: (filters: Partial<PostsTableProps['filters']>) => void
   onPageChange: (page: number) => void
   onRefresh: () => void
@@ -46,11 +54,13 @@ export function PostsTable({
   pagination,
   isLoading,
   filters,
+  categories = [],
   onFiltersChange,
   onPageChange,
   onRefresh,
   onDelete,
 }: PostsTableProps) {
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]))
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-4'>
@@ -91,6 +101,22 @@ export function PostsTable({
             <SelectItem value='unpublished'>未发布</SelectItem>
           </SelectContent>
         </Select>
+        <Select
+          value={filters.categoryId || 'all'}
+          onValueChange={(value) => onFiltersChange({ categoryId: value === 'all' ? undefined : value })}
+        >
+          <SelectTrigger className='w-[180px]'>
+            <SelectValue placeholder='选择分类' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>全部分类</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button variant='outline' size='icon' onClick={onRefresh} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
         </Button>
@@ -102,6 +128,7 @@ export function PostsTable({
             <TableRow>
               <TableHead>标题</TableHead>
               <TableHead>作者</TableHead>
+              <TableHead>分类</TableHead>
               <TableHead>语言</TableHead>
               <TableHead>状态</TableHead>
               <TableHead>发布日期</TableHead>
@@ -111,13 +138,13 @@ export function PostsTable({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className='text-center'>
+                <TableCell colSpan={7} className='text-center'>
                   加载中...
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className='text-center'>
+                <TableCell colSpan={7} className='text-center'>
                   暂无数据
                 </TableCell>
               </TableRow>
@@ -126,6 +153,22 @@ export function PostsTable({
                 <TableRow key={post.id}>
                   <TableCell className='font-medium'>{post.title}</TableCell>
                   <TableCell>{post.author?.name || '-'}</TableCell>
+                  <TableCell>
+                    {(post.categoryIds ?? []).length > 0 ? (
+                      <div className='flex flex-wrap gap-1'>
+                        {(post.categoryIds ?? []).map((id) => {
+                          const name = categoryNameById.get(id)
+                          return name ? (
+                            <Badge key={id} variant='outline'>
+                              {name}
+                            </Badge>
+                          ) : null
+                        })}
+                      </div>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant='outline'>{post.locale}</Badge>
                   </TableCell>

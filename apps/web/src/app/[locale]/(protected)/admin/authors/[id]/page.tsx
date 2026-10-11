@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Edit } from 'lucide-react'
+import { ArrowLeft, Bot, Edit, Layers, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Badge } from '@workspace/ui/components/badge'
@@ -16,12 +16,109 @@ const STATUS_LABELS: Record<string, string> = {
   suspended: '已暂停',
 }
 
+const SKILL_STATUS_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'destructive' }> = {
+  draft: { label: '草稿', variant: 'outline' },
+  pending_review: { label: '待审核', variant: 'secondary' },
+  scanning: { label: '扫描中', variant: 'secondary' },
+  published: { label: '已上架', variant: 'secondary' },
+  needs_revision: { label: '需修改', variant: 'outline' },
+  archived: { label: '已归档', variant: 'outline' },
+  rejected: { label: '已驳回', variant: 'destructive' },
+}
+
+const ASSET_STATUS_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'destructive' }> = {
+  draft: { label: '草稿', variant: 'outline' },
+  submitted: { label: '待审核', variant: 'secondary' },
+  published: { label: '已上架', variant: 'secondary' },
+  archived: { label: '已归档', variant: 'outline' },
+  rejected: { label: '已驳回', variant: 'destructive' },
+}
+
+function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; variant: 'outline' | 'secondary' | 'destructive' }> }) {
+  const config = map[status] || { label: status, variant: 'outline' as const }
+  if (config.variant === 'secondary' && status === 'published') {
+    return (
+      <Badge variant='secondary' className='bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'>
+        {config.label}
+      </Badge>
+    )
+  }
+  return <Badge variant={config.variant}>{config.label}</Badge>
+}
+
+function SubmissionCard({
+  title,
+  icon,
+  count,
+  type,
+  items,
+}: {
+  title: string
+  icon: React.ReactNode
+  count: number
+  type: 'skills' | 'mcpServers' | 'a2aAgents'
+  items: any[]
+}) {
+  const statusMap = type === 'skills' ? SKILL_STATUS_LABELS : ASSET_STATUS_LABELS
+
+  return (
+    <Card className='flex h-full flex-col'>
+      <CardHeader className='flex flex-row items-center justify-between space-y-0'>
+        <CardTitle className='flex items-center gap-2'>
+          {icon}
+          {title}
+        </CardTitle>
+        <Badge variant='outline'>{count}</Badge>
+      </CardHeader>
+      <CardContent className='flex-1'>
+        {items.length === 0 ? (
+          <p className='py-8 text-center text-sm text-muted-foreground'>暂无提交</p>
+        ) : (
+          <ul className='space-y-3'>
+            {items.map((item) => (
+              <li
+                key={item.id}
+                className='flex items-start justify-between gap-3 rounded-md border p-3'
+              >
+                <div className='min-w-0'>
+                  <div className='truncate font-medium'>{item.title || item.name}</div>
+                  <div className='mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-sm'>
+                    <StatusBadge status={item.status} map={statusMap} />
+                    <span>{item.priceType === 'paid' ? '付费' : '免费'}</span>
+                    {type === 'skills' && item.securityGrade && <span>{item.securityGrade}</span>}
+                    {item.certified && (
+                      <Badge
+                        variant='secondary'
+                        className='bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                      >
+                        已认证
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className='shrink-0 text-right text-sm text-muted-foreground'>
+                  <div>浏览 {item.views || 0}</div>
+                  <div>下载 {item.downloads || 0}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function AuthorDetailPage() {
   const params = useParams()
   const router = useRouter()
   const authorId = params.id as string
 
   const { data: authorData, isLoading } = trpc.admin.authors.getAuthorById.useQuery({ id: authorId })
+  const { data: submissionsData, isLoading: isLoadingSubmissions } = trpc.admin.authors.getAuthorSubmissions.useQuery(
+    { id: authorId },
+    { enabled: !!authorId }
+  )
 
   if (isLoading) {
     return (
@@ -45,6 +142,10 @@ export default function AuthorDetailPage() {
   }
 
   const author = authorData.data
+  const submissions = submissionsData?.success ? submissionsData.data : null
+  const skillsList = submissions?.skills ?? []
+  const mcpList = submissions?.mcpServers ?? []
+  const a2aList = submissions?.a2aAgents ?? []
   const links = [
     { label: '网站', href: author.website },
     { label: 'Twitter', href: author.twitter },
@@ -185,6 +286,37 @@ export default function AuthorDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <div>
+        <h2 className='mb-4 font-bold text-xl tracking-tight'>提交资料</h2>
+        {isLoadingSubmissions ? (
+          <div className='py-12 text-center text-muted-foreground'>加载提交资料中...</div>
+        ) : (
+          <div className='grid gap-6 lg:grid-cols-3'>
+            <SubmissionCard
+              title='Skills'
+              icon={<Layers className='h-4 w-4 text-muted-foreground' />}
+              count={skillsList.length}
+              type='skills'
+              items={skillsList}
+            />
+            <SubmissionCard
+              title='MCP Servers'
+              icon={<Bot className='h-4 w-4 text-muted-foreground' />}
+              count={mcpList.length}
+              type='mcpServers'
+              items={mcpList}
+            />
+            <SubmissionCard
+              title='A2A Agents'
+              icon={<Sparkles className='h-4 w-4 text-muted-foreground' />}
+              count={a2aList.length}
+              type='a2aAgents'
+              items={a2aList}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

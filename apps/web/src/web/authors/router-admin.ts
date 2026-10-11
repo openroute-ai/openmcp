@@ -1,7 +1,8 @@
 import { and, count, desc, eq, like, or, sql } from 'drizzle-orm'
 import z from 'zod'
 import { db } from "@/lib/db"
-import { authors, workflows } from "@workspace/db"
+import { a2aAgents, authors, mcpServers, skills, workflows } from "@workspace/db"
+import { notDeleted } from "@/web/assets/visibility"
 import { adminProcedure, createTRPCRouter } from "@/server/routers/trpc"
 
 export const adminAuthorsRouter = createTRPCRouter({
@@ -135,6 +136,93 @@ export const adminAuthorsRouter = createTRPCRouter({
       return {
         success: false,
         error: '获取作者详情失败',
+        data: null,
+      }
+    }
+  }),
+
+  /**
+   * 获取作者提交的全部资料，按 Skills / MCP Server / A2A Agent 分组。
+   */
+  getAuthorSubmissions: adminProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
+    try {
+      const [author] = await db.select().from(authors).where(eq(authors.id, input.id)).limit(1)
+
+      if (!author) {
+        return {
+          success: false,
+          error: '作者不存在',
+          data: null,
+        }
+      }
+
+      const [skillRows, mcpRows, a2aRows] = await Promise.all([
+        db
+          .select({
+            id: skills.id,
+            title: skills.title,
+            slug: skills.slug,
+            status: skills.status,
+            certified: skills.certified,
+            priceType: skills.priceType,
+            securityGrade: skills.securityGrade,
+            views: skills.views,
+            downloads: skills.downloads,
+            publishedAt: skills.publishedAt,
+            createdAt: skills.createdAt,
+          })
+          .from(skills)
+          .where(eq(skills.authorId, input.id))
+          .orderBy(desc(skills.createdAt)),
+        db
+          .select({
+            id: mcpServers.id,
+            name: mcpServers.name,
+            slug: mcpServers.slug,
+            status: mcpServers.status,
+            certified: mcpServers.certified,
+            priceType: mcpServers.priceType,
+            transport: mcpServers.transport,
+            views: mcpServers.views,
+            downloads: mcpServers.downloads,
+            publishedAt: mcpServers.publishedAt,
+            createdAt: mcpServers.createdAt,
+          })
+          .from(mcpServers)
+          .where(and(eq(mcpServers.authorId, input.id), notDeleted(mcpServers)))
+          .orderBy(desc(mcpServers.createdAt)),
+        db
+          .select({
+            id: a2aAgents.id,
+            name: a2aAgents.name,
+            slug: a2aAgents.slug,
+            status: a2aAgents.status,
+            certified: a2aAgents.certified,
+            priceType: a2aAgents.priceType,
+            protocolVersion: a2aAgents.protocolVersion,
+            views: a2aAgents.views,
+            downloads: a2aAgents.downloads,
+            publishedAt: a2aAgents.publishedAt,
+            createdAt: a2aAgents.createdAt,
+          })
+          .from(a2aAgents)
+          .where(and(eq(a2aAgents.authorId, input.id), notDeleted(a2aAgents)))
+          .orderBy(desc(a2aAgents.createdAt)),
+      ])
+
+      return {
+        success: true,
+        data: {
+          skills: skillRows.map((row) => ({ ...row, unitPrice: null })),
+          mcpServers: mcpRows.map((row) => ({ ...row, unitPrice: null })),
+          a2aAgents: a2aRows.map((row) => ({ ...row, unitPrice: null })),
+        },
+      }
+    } catch (error) {
+      console.error('获取作者提交资料失败:', error)
+      return {
+        success: false,
+        error: '获取作者提交资料失败',
         data: null,
       }
     }

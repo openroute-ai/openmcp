@@ -660,6 +660,13 @@
       "title": "Admin",
       "details": "Details",
       "edit": "Edit",
+      "groups": {
+        "users": "Users & Sessions",
+        "review": "Review",
+        "assets": "Assets",
+        "content": "Content",
+        "finance": "Finance & Operations"
+      },
       "users": {
         "title": "Users",
         "fakeData": "Note: Faked data for demonstration, some features are disabled",
@@ -844,6 +851,10 @@
       "mcpServers": {
         "title": "MCP Servers",
         "description": "Manage MCP servers"
+      },
+      "skills": {
+        "title": "Skills",
+        "description": "Manage skills, review, publish and certify"
       },
       "securityReview": {
         "title": "Security Review",

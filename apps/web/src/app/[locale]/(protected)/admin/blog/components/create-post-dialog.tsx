@@ -2,11 +2,13 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { ImageUploadInput } from '@/components/admin/image-upload-input'
 import { Button } from '@workspace/ui/components/button'
+import { Checkbox } from '@workspace/ui/components/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,7 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog'
 import { Input } from '@workspace/ui/components/input'
+import { Label } from '@workspace/ui/components/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Textarea } from '@workspace/ui/components/textarea'
 import { trpc } from '@/lib/trpc/client'
@@ -41,6 +44,14 @@ interface CreatePostDialogProps {
 
 export function CreatePostDialog({ open, onOpenChange, onSuccess }: CreatePostDialogProps) {
   const router = useRouter()
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+
+  const { data: categoriesData } = trpc.admin.blog.listCategories.useQuery({
+    page: 1,
+    pageSize: 100,
+  })
+  const categories = categoriesData?.success ? (categoriesData.data ?? []) : []
+
   const createPostMutation = trpc.admin.blog.createPost.useMutation({
     onSuccess: (data) => {
       if (data.success && data.data) {
@@ -84,6 +95,7 @@ export function CreatePostDialog({ open, onOpenChange, onSuccess }: CreatePostDi
       locale: data.locale,
       date: data.date,
       published: data.published,
+      categoryIds: selectedCategoryIds,
     })
   }
 
@@ -177,6 +189,30 @@ export function CreatePostDialog({ open, onOpenChange, onSuccess }: CreatePostDi
                 </FormItem>
               )}
             />
+            <div>
+              <Label className='font-medium text-sm'>分类</Label>
+              {categories.length > 0 ? (
+                <div className='mt-2 flex flex-wrap gap-4'>
+                  {categories.map((category: any) => (
+                    <label key={category.id} className='flex cursor-pointer items-center space-x-2'>
+                      <Checkbox
+                        checked={selectedCategoryIds.includes(category.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedCategoryIds((prev) =>
+                            checked ? [...prev, category.id] : prev.filter((id) => id !== category.id)
+                          )
+                        }}
+                      />
+                      <span className='text-sm'>{category.name}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className='mt-2 text-sm text-muted-foreground'>
+                  暂无分类，请先在“分类管理”中创建分类
+                </p>
+              )}
+            </div>
             <FormField
               control={form.control}
               name='date'

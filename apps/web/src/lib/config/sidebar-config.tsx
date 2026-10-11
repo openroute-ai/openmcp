@@ -143,8 +143,9 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
   const t = useTranslations('Dashboard')
 
   const links: NestedMenuItem[] = [
+    // —— 用户与会话 ——
     {
-      title: t('admin.title'),
+      title: t('admin.groups.users'),
       authorizeOnly: ['admin'],
       items: [
         {
@@ -159,6 +160,13 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           href: Routes.AdminSessions,
           external: false,
         },
+      ],
+    },
+    // —— 审核管理 ——
+    {
+      title: t('admin.groups.review'),
+      authorizeOnly: ['admin'],
+      items: [
         {
           title: t('admin.userSubmissions.title'),
           icon: <InboxIcon className='size-4 shrink-0' />,
@@ -172,47 +180,18 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           external: false,
         },
         {
-          title: t('admin.newsletterSubscriptions.title'),
-          icon: <MailIcon className='size-4 shrink-0' />,
-          href: Routes.AdminNewsletterSubscriptions,
+          title: t('admin.providerApplications.title'),
+          icon: <ShieldCheckIcon className='size-4 shrink-0' />,
+          href: Routes.AdminProviderApplications,
           external: false,
         },
-        {
-          title: t('admin.rechargeOrders.title'),
-          icon: <CreditCardIcon className='size-4 shrink-0' />,
-          href: Routes.AdminRechargeOrders,
-          external: false,
-        },
-        {
-          title: t('admin.payments.title'),
-          icon: <DollarSignIcon className='size-4 shrink-0' />,
-          href: Routes.AdminBankTransfers,
-          external: false,
-        },
-        {
-          title: t('admin.workflows.title'),
-          icon: <LayersIcon className='size-4 shrink-0' />,
-          href: Routes.AdminWorkflows,
-          external: false,
-        },
-        {
-          title: t('admin.categories.title'),
-          icon: <ActivityIcon className='size-4 shrink-0' />,
-          href: Routes.AdminCategories,
-          external: false,
-        },
-        {
-          title: t('admin.blog.title'),
-          icon: <BookOpenIcon className='size-4 shrink-0' />,
-          href: Routes.CMSBlog,
-          external: false,
-        },
-        {
-          title: t('admin.authors.title'),
-          icon: <KeyIcon className='size-4 shrink-0' />,
-          href: Routes.AdminAuthors,
-          external: false,
-        },
+      ],
+    },
+    // —— 资产管理 ——
+    {
+      title: t('admin.groups.assets'),
+      authorizeOnly: ['admin'],
+      items: [
         {
           title: t('admin.mcpServers.title'),
           icon: <BotIcon className='size-4 shrink-0' />,
@@ -226,15 +205,71 @@ export function getAdminSidebarLinks(): NestedMenuItem[] {
           external: false,
         },
         {
-          title: t('admin.providerApplications.title'),
-          icon: <ShieldCheckIcon className='size-4 shrink-0' />,
-          href: Routes.AdminProviderApplications,
+          title: t('admin.skills.title'),
+          icon: <LayersIcon className='size-4 shrink-0' />,
+          href: Routes.AdminSkills,
+          external: false,
+        },
+        {
+          title: t('admin.workflows.title'),
+          icon: <ActivityIcon className='size-4 shrink-0' />,
+          href: Routes.AdminWorkflows,
+          external: false,
+        },
+      ],
+    },
+    // —— 内容管理 ——
+    {
+      title: t('admin.groups.content'),
+      authorizeOnly: ['admin'],
+      items: [
+        {
+          title: t('admin.authors.title'),
+          icon: <KeyIcon className='size-4 shrink-0' />,
+          href: Routes.AdminAuthors,
+          external: false,
+        },
+        {
+          title: t('admin.categories.title'),
+          icon: <BookOpenIcon className='size-4 shrink-0' />,
+          href: Routes.AdminCategories,
+          external: false,
+        },
+        {
+          title: t('admin.blog.title'),
+          icon: <BookOpenIcon className='size-4 shrink-0' />,
+          href: Routes.CMSBlog,
+          external: false,
+        },
+      ],
+    },
+    // —— 财务与运营 ——
+    {
+      title: t('admin.groups.finance'),
+      authorizeOnly: ['admin'],
+      items: [
+        {
+          title: t('admin.rechargeOrders.title'),
+          icon: <CreditCardIcon className='size-4 shrink-0' />,
+          href: Routes.AdminRechargeOrders,
+          external: false,
+        },
+        {
+          title: t('admin.payments.title'),
+          icon: <DollarSignIcon className='size-4 shrink-0' />,
+          href: Routes.AdminBankTransfers,
           external: false,
         },
         {
           title: t('admin.providerPayouts.title'),
           icon: <WalletIcon className='size-4 shrink-0' />,
           href: Routes.AdminProviderPayouts,
+          external: false,
+        },
+        {
+          title: t('admin.newsletterSubscriptions.title'),
+          icon: <MailIcon className='size-4 shrink-0' />,
+          href: Routes.AdminNewsletterSubscriptions,
           external: false,
         },
       ],

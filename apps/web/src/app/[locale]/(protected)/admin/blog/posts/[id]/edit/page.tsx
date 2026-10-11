@@ -172,12 +172,19 @@ export default function EditPostPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [diffMarkdown, setDiffMarkdown] = useState('')
   const [editorKey, setEditorKey] = useState(0) // 用于在文章加载后强制重新渲染编辑器
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const postId = params.id as string
 
   const { data: postData, isLoading: isLoadingPost } = trpc.admin.blog.getPostById.useQuery(
     { id: postId },
     { enabled: !!postId }
   )
+
+  const { data: categoriesData } = trpc.admin.blog.listCategories.useQuery({
+    page: 1,
+    pageSize: 100,
+  })
+  const categories = categoriesData?.success ? (categoriesData.data ?? []) : []
 
   const updatePostMutation = trpc.admin.blog.updatePost.useMutation({
     onSuccess: () => {
@@ -222,6 +229,8 @@ export default function EditPostPage() {
       })
       // 设置diff markdown为原始内容
       setDiffMarkdown(post.content || '')
+      // 同步文章分类
+      setSelectedCategoryIds((post.categoryIds as string[]) || [])
       // 重新挂载编辑器以确保内容正确展示
       setEditorKey((key) => key + 1)
     }
@@ -233,6 +242,7 @@ export default function EditPostPage() {
       updatePostMutation.mutate({
         id: postId,
         ...data,
+        categoryIds: selectedCategoryIds,
       })
     } finally {
       setIsLoading(false)
@@ -433,6 +443,29 @@ export default function EditPostPage() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div>
+                <FormLabel className='font-medium text-sm'>分类</FormLabel>
+                {categories.length > 0 ? (
+                  <div className='mt-2 flex flex-wrap gap-4'>
+                    {categories.map((category: any) => (
+                      <label key={category.id} className='flex cursor-pointer items-center space-x-2'>
+                        <Checkbox
+                          checked={selectedCategoryIds.includes(category.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedCategoryIds((prev) =>
+                              checked ? [...prev, category.id] : prev.filter((id) => id !== category.id)
+                            )
+                          }}
+                        />
+                        <span className='text-sm'>{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className='mt-2 text-sm text-muted-foreground'>暂无分类，请先在“分类管理”中创建分类</p>
+                )}
               </div>
             </CardContent>
           </Card>
