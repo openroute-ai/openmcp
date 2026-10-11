@@ -1,12 +1,30 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { processReadMeHtml } from "@/lib/github/process-readme-html"
 import {
   processReadMeMd,
   toAbsoluteImageUrl,
 } from "@/lib/github/process-readme-md"
 
-// No OSS credentials are set in the test environment, so the Markdown
-// processor exercises the link-rewriting path and the no-op image mirror.
+// The mirror is stubbed off rather than left to whatever credentials the
+// environment happens to carry. With a bucket configured the image path makes
+// a real download whose outcome decides what these assertions see, so the
+// "keeps the original URL" cases would hold only for as long as that request
+// fails. The two writes are left to throw: a no-op that is silently reachable
+// would hide a mirror that stopped checking `isEnabled` first.
+vi.mock("@/lib/oss/client", () => ({
+  ossClient: {
+    isEnabled: () => false,
+    generateOSSPath: () => {
+      throw new Error("fake OSS client: generateOSSPath should not be called")
+    },
+    uploadFromUrl: () => {
+      throw new Error("fake OSS client: uploadFromUrl should not be called")
+    },
+  },
+}))
+
+// No mirror is configured, so the Markdown processor exercises the
+// link-rewriting path and the no-op image mirror.
 const readme = processReadMeMd.bind(null)
 const repo = "vercel/next.js"
 const root = "https://github.com/vercel/next.js"
