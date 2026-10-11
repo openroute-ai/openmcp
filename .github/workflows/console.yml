@@ -34,7 +34,11 @@ jobs:
           --health-retries 10
 
     env:
-      CONSOLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/console_test
+      # The integration suites clear whole tables, so they only run when this
+      # opt-in names a throwaway database. It is applied to
+      # `CONSOLE_DATABASE_URL` by `src/test/setup-env.ts`. Do not add a real
+      # `CONSOLE_DATABASE_URL` here — that would let a suite wipe production.
+      CONSOLE_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/console_test
       # Present but never used: the suites stub the clients, and a CI run must
       # not be able to reach the real API even by accident.
       GITHUB_ACCESS_TOKEN: ci-placeholder-token
@@ -55,8 +59,12 @@ jobs:
 
       # Applied rather than pushed, so the suites start from a known schema
       # without a migration step that could disagree with the checked-in one.
+      # `db:migrate` reads `CONSOLE_DATABASE_URL` (not the test opt-in), so it
+      # gets the CI database at the step level.
       - name: Apply migrations
         working-directory: apps/console
+        env:
+          CONSOLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/console_test
         run: pnpm db:migrate
 
       - name: Lint

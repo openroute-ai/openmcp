@@ -224,6 +224,35 @@ all; the auth pages call `requireUnauth` (`src/lib/auth/session.ts`), which
 validates the session server-side and lands the account on the console its role
 belongs to — the same reasoning, and the same shape, as `apps/web`'s proxy.
 
+## Testing
+
+`pnpm test` runs everything under `src/test`. Unit suites need nothing; the
+**integration suites need a database**, and they are destructive: each clears
+the tables it touches with no `WHERE` clause before it runs, so pointing them at
+a database destroys its rows.
+
+They therefore run against a database named by **`CONSOLE_TEST_DATABASE_URL`**,
+never `CONSOLE_DATABASE_URL`:
+
+```bash
+# a throwaway database, created and migrated for the run
+CONSOLE_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/console_test \
+  pnpm test
+```
+
+`src/test/setup-env.ts` enforces this. It loads `.env.local`, then:
+
+- if `CONSOLE_TEST_DATABASE_URL` is unset — the default — it **removes**
+  `CONSOLE_DATABASE_URL` from the environment, so every integration suite sees
+  no database and skips;
+- if it is set, it is copied onto `CONSOLE_DATABASE_URL` so the shared
+  `@/db/client` pool connects to the throwaway database;
+- if it equals `CONSOLE_DATABASE_URL`, the run aborts before any test runs.
+
+Never point the suites at `CONSOLE_DATABASE_URL`, directly or by "temporarily"
+setting it. CI (`.github/workflows/console.yml`) provides an ephemeral
+`console_test` Postgres through the same variable.
+
 ## Setup
 
 console uses its **own database**, separate from the `DATABASE_URL` that

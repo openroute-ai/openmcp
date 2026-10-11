@@ -10,10 +10,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/test/**/*.test.ts"],
-    // Runs before a test module's own imports are evaluated, so
-    // `CONSOLE_DATABASE_URL` is on `process.env` by the time a suite imports
-    // `@/db/client` and builds its pool. Without it every integration suite
-    // would see no database and skip instead of run.
+    // Runs before a test module's own imports are evaluated. Besides loading
+    // `.env.local`, it is the destructive-test guard: integration suites only
+    // get a database when `CONSOLE_TEST_DATABASE_URL` is set, and the guard
+    // maps that onto `CONSOLE_DATABASE_URL` so `@/db/client` builds its pool
+    // against the throwaway database rather than the application's. Without
+    // the opt-in every integration suite skips instead of deleting real rows.
     setupFiles: ["./src/test/setup-env.ts"],
     // `next-intl/middleware` imports `next/server` without the extension, which
     // Node's ESM resolver rejects because `next` ships no `exports` map. Next's
