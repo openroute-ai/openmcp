@@ -861,6 +861,15 @@
         "queue": "Security Review · Queue",
         "rejected": "Security Review · Rejected",
         "history": "Security Review · History"
+      },
+      "settings": {
+        "title": "Settings"
+      },
+      "crumbs": {
+        "blogAuthors": "Authors",
+        "blogCategories": "Categories",
+        "securityRejected": "Rejected",
+        "securityHistory": "History"
       }
     },
     "cms": {

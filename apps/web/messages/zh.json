@@ -865,6 +865,15 @@
         "queue": "安全审核 · 复核队列",
         "rejected": "安全审核 · 驳回记录",
         "history": "安全审核 · 审核历史"
+      },
+      "settings": {
+        "title": "系统设置"
+      },
+      "crumbs": {
+        "blogAuthors": "作者",
+        "blogCategories": "分类",
+        "securityRejected": "驳回记录",
+        "securityHistory": "审核历史"
       }
     },
     "cms": {

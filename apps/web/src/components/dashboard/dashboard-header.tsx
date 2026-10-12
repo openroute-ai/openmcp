@@ -18,7 +18,7 @@ import { useFirstLoginStore } from '@/lib/stores/first-login-store'
 import { trpc } from '@/lib/trpc/client'
 import { authClient } from '@/lib/auth-client'
 
-interface DashboardBreadcrumbItem {
+export interface DashboardBreadcrumbItem {
   label: string
   isCurrentPage?: boolean
   href?: string

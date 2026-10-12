@@ -7,7 +7,6 @@ import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Skeleton } from '@workspace/ui/components/skeleton'
-import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { trpc } from '@/lib/trpc/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils/formatter'
 
@@ -353,7 +352,6 @@ export default function AdminProviderPayoutsPage() {
 
   return (
     <>
-      <DashboardHeader breadcrumbs={[{ label: 'Provider 提现', isCurrentPage: true }]} />
       <div className='flex-1 space-y-6 px-4 py-6 lg:px-6'>
         <div className='flex flex-wrap items-end justify-between gap-4'>
           <div>

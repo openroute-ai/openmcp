@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { SidebarInset } from '@workspace/ui/components/sidebar'
+import { AdminHeader } from '@/components/dashboard/admin-header'
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar'
 import { auth } from '@/lib/auth'
 import { Routes } from '@/lib/routes'
@@ -38,6 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <DashboardSidebar variant='inset' type='admin' />
 
       <SidebarInset>
+        <AdminHeader />
         <main className='flex-1 overflow-auto'>
           <div className='flex flex-col gap-4 p-4'>{children}</div>
         </main>
