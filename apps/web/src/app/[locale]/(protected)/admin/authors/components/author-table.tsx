@@ -1,7 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
-import { Edit, Eye, MoreHorizontal } from 'lucide-react'
+import { Ban, Edit, Eye, MoreHorizontal, UserCheck, UserX } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -196,7 +196,7 @@ export function AuthorTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem asChild>
                             <Link href={`/admin/authors/${author.id}`}>
                               <Eye className='mr-2 h-4 w-4' />
@@ -209,16 +209,19 @@ export function AuthorTable({
                           </DropdownMenuItem>
                           {author.status === 'active' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(author.id, 'inactive')}>
+                              <UserX className='mr-2 h-4 w-4' />
                               设为未激活
                             </DropdownMenuItem>
                           )}
                           {author.status === 'active' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(author.id, 'suspended')}>
+                              <Ban className='mr-2 h-4 w-4' />
                               暂停
                             </DropdownMenuItem>
                           )}
                           {author.status !== 'active' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(author.id, 'active')}>
+                              <UserCheck className='mr-2 h-4 w-4' />
                               激活
                             </DropdownMenuItem>
                           )}

@@ -185,7 +185,7 @@ export function RechargeOrderTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem onClick={() => onUpdate(order)}>
                             <Edit className='mr-2 h-4 w-4' />
                             编辑

@@ -1,7 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
-import { Edit, Eye, MoreHorizontal } from 'lucide-react'
+import { Edit, Eye, MoreHorizontal, Power, PowerOff } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -174,7 +174,7 @@ export function CategoryTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem asChild>
                             <Link href={`/admin/categories/${category.id}`}>
                               <Eye className='mr-2 h-4 w-4' />
@@ -187,10 +187,12 @@ export function CategoryTable({
                           </DropdownMenuItem>
                           {category.isActive ? (
                             <DropdownMenuItem onClick={() => handleStatusChange(category.id, false)}>
+                              <PowerOff className='mr-2 h-4 w-4' />
                               设为未激活
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onClick={() => handleStatusChange(category.id, true)}>
+                              <Power className='mr-2 h-4 w-4' />
                               激活
                             </DropdownMenuItem>
                           )}

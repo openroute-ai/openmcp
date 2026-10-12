@@ -23,7 +23,7 @@ import { Input } from '@workspace/ui/components/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { format } from 'date-fns'
-import { CheckCircle, Eye, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
+import { Archive, ArchiveRestore, CheckCircle, Eye, MoreHorizontal, ShieldCheck, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -304,7 +304,7 @@ export function McpTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem asChild>
                             <Link href={`/admin/mcp-servers/${server.id}`}>
                               <Eye className='mr-2 h-4 w-4' />
@@ -329,11 +329,13 @@ export function McpTable({
                           )}
                           {server.status !== 'archived' && server.status !== 'published' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(server.id, 'archived')}>
+                              <Archive className='mr-2 h-4 w-4' />
                               归档
                             </DropdownMenuItem>
                           )}
                           {server.status === 'archived' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(server.id, 'published')}>
+                              <ArchiveRestore className='mr-2 h-4 w-4' />
                               恢复上架
                             </DropdownMenuItem>
                           )}

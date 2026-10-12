@@ -4,6 +4,16 @@ import { ArrowLeft, Layers, Loader2, Repeat, ShieldOff, ShieldPlus } from 'lucid
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@workspace/ui/components/alert-dialog'
 import { Badge } from '@workspace/ui/components/badge'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@workspace/ui/components/card'
@@ -60,6 +70,7 @@ export default function SkillDetailPage() {
   )
 
   const [note, setNote] = useState('')
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | 'certify' | 'rescan' | null>(null)
 
   const reviewMutation = trpc.admin.skills.reviewSkill.useMutation({
     onSuccess: (res) => {
@@ -108,6 +119,48 @@ export default function SkillDetailPage() {
   }
 
   const flags = Array.isArray(skill.securityFlags) ? skill.securityFlags : []
+
+  const handleConfirmedAction = () => {
+    switch (confirmAction) {
+      case 'approve':
+        reviewMutation.mutate({ id: skill.id, action: 'approve', note: note.trim() })
+        break
+      case 'reject':
+        reviewMutation.mutate({ id: skill.id, action: 'reject', note: note.trim() })
+        break
+      case 'certify':
+        certifyMutation.mutate({ id: skill.id, certified: !skill.certified })
+        break
+      case 'rescan':
+        rescanMutation.mutate({ id: skill.id })
+        break
+    }
+    setConfirmAction(null)
+  }
+
+  const confirmCopy: Record<
+    'approve' | 'reject' | 'certify' | 'rescan',
+    { title: string; description: string }
+  > = {
+    approve: {
+      title: '确认通过并上架',
+      description: `确定要通过并上架 Skill"${skill.title}"吗？通过后将在 Skills 货架对用户可见。`,
+    },
+    reject: {
+      title: '确认驳回',
+      description: `确定要驳回 Skill"${skill.title}"吗？驳回后作者可修改后重新提交审核。`,
+    },
+    certify: {
+      title: skill.certified ? '确认取消认证' : '确认标记认证',
+      description: skill.certified
+        ? `确定要取消 Skill"${skill.title}"的认证吗？`
+        : `确定要将 Skill"${skill.title}"标记为认证吗？`,
+    },
+    rescan: {
+      title: '确认重跑安全扫描',
+      description: `确定要重跑 Skill"${skill.title}"的安全扫描吗？该操作会重新评估安全评级。`,
+    },
+  }
 
   return (
     <div className='space-y-6'>
@@ -158,7 +211,7 @@ export default function SkillDetailPage() {
               <Button
                 className='cursor-pointer'
                 disabled={reviewMutation.isPending}
-                onClick={() => reviewMutation.mutate({ id: skill.id, action: 'approve', note: note.trim() })}
+                onClick={() => setConfirmAction('approve')}
               >
                 {reviewMutation.isPending ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
                 通过并上架
@@ -167,7 +220,7 @@ export default function SkillDetailPage() {
                 variant='destructive'
                 className='cursor-pointer'
                 disabled={reviewMutation.isPending || !note.trim()}
-                onClick={() => reviewMutation.mutate({ id: skill.id, action: 'reject', note: note.trim() })}
+                onClick={() => setConfirmAction('reject')}
               >
                 驳回
               </Button>
@@ -365,7 +418,7 @@ export default function SkillDetailPage() {
         <Button
           variant='outline'
           className='cursor-pointer'
-          onClick={() => certifyMutation.mutate({ id: skill.id, certified: !skill.certified })}
+          onClick={() => setConfirmAction('certify')}
           disabled={certifyMutation.isPending}
         >
           {skill.certified ? <ShieldOff className='mr-2 h-4 w-4' /> : <ShieldPlus className='mr-2 h-4 w-4' />}
@@ -374,13 +427,36 @@ export default function SkillDetailPage() {
         <Button
           variant='outline'
           className='cursor-pointer'
-          onClick={() => rescanMutation.mutate({ id: skill.id })}
+          onClick={() => setConfirmAction('rescan')}
           disabled={rescanMutation.isPending}
         >
           <Repeat className='mr-2 h-4 w-4' />
           重跑安全扫描
         </Button>
       </div>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction ? confirmCopy[confirmAction].title : ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction ? confirmCopy[confirmAction].description : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmedAction}
+              disabled={reviewMutation.isPending || certifyMutation.isPending || rescanMutation.isPending}
+              className={confirmAction === 'reject' ? 'bg-destructive text-white hover:bg-destructive/90' : undefined}
+            >
+              {reviewMutation.isPending || certifyMutation.isPending || rescanMutation.isPending
+                ? '处理中...'
+                : '确认'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

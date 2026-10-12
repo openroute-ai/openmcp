@@ -1,7 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
-import { CheckCircle, Edit, Eye, MoreHorizontal, Shield, XCircle } from 'lucide-react'
+import { Archive, ArchiveRestore, CheckCircle, Edit, Eye, MoreHorizontal, Shield, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -293,7 +293,7 @@ export function WorkflowTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem asChild>
                             <Link href={`/admin/workflows/${workflow.id}`}>
                               <Eye className='mr-2 h-4 w-4' />
@@ -323,12 +323,14 @@ export function WorkflowTable({
                                 认证审核
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleStatusChange(workflow.id, 'archived')}>
+                                <Archive className='mr-2 h-4 w-4' />
                                 归档
                               </DropdownMenuItem>
                             </>
                           )}
                           {workflow.status === 'archived' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(workflow.id, 'published')}>
+                              <ArchiveRestore className='mr-2 h-4 w-4' />
                               恢复发布
                             </DropdownMenuItem>
                           )}

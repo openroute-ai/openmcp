@@ -24,7 +24,18 @@ import { Input } from '@workspace/ui/components/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@workspace/ui/components/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@workspace/ui/components/table'
 import { format } from 'date-fns'
-import { Award, CheckCircle, Eye, MoreHorizontal, RefreshCw, ShieldCheck, Trash2, XCircle } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  Award,
+  CheckCircle,
+  Eye,
+  MoreHorizontal,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  XCircle,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -50,6 +61,8 @@ interface SkillsTableProps {
   onRefresh: () => void
   onReview: (skill: any) => void
 }
+
+type ConfirmAction = 'publish' | 'unpublish' | 'delete' | 'certify' | 'rescan' | 'archive' | 'restore'
 
 const STATUS_CONFIG: Record<
   string,
@@ -90,8 +103,9 @@ export function SkillsTable({
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     skillId: string | null
-    action: 'publish' | 'unpublish' | 'delete' | null
+    action: ConfirmAction | null
     skillTitle: string
+    certified?: boolean
   }>({
     open: false,
     skillId: null,
@@ -119,6 +133,7 @@ export function SkillsTable({
       if (data.success) {
         toast.success('认证状态已更新')
         onRefresh()
+        setConfirmDialog({ open: false, skillId: null, action: null, skillTitle: '' })
       } else {
         toast.error(data.error || '操作失败')
       }
@@ -133,6 +148,7 @@ export function SkillsTable({
       if (data.success) {
         toast.success(`重扫完成，安全评级：${data.grade || '-'}`)
         onRefresh()
+        setConfirmDialog({ open: false, skillId: null, action: null, skillTitle: '' })
       } else {
         toast.error(data.error || '重扫失败')
       }
@@ -168,20 +184,43 @@ export function SkillsTable({
     onFiltersChange(newFilters)
   }
 
-  const openConfirm = (skill: any, action: 'publish' | 'unpublish' | 'delete') => {
-    setConfirmDialog({ open: true, skillId: skill.id, action, skillTitle: skill.title })
+  const openConfirm = (skill: any, action: ConfirmAction, certified?: boolean) => {
+    setConfirmDialog({ open: true, skillId: skill.id, action, skillTitle: skill.title, certified })
   }
 
   const handleConfirm = () => {
-    if (!confirmDialog.skillId || !confirmDialog.action) return
-    if (confirmDialog.action === 'publish') {
-      updateStatusMutation.mutate({ id: confirmDialog.skillId, status: 'published' })
-    } else if (confirmDialog.action === 'unpublish') {
-      updateStatusMutation.mutate({ id: confirmDialog.skillId, status: 'draft' })
-    } else {
-      deleteMutation.mutate({ id: confirmDialog.skillId })
+    const { skillId, action, certified } = confirmDialog
+    if (!skillId || !action) return
+    switch (action) {
+      case 'publish':
+        updateStatusMutation.mutate({ id: skillId, status: 'published' })
+        break
+      case 'unpublish':
+        updateStatusMutation.mutate({ id: skillId, status: 'draft' })
+        break
+      case 'archive':
+        updateStatusMutation.mutate({ id: skillId, status: 'archived' })
+        break
+      case 'restore':
+        updateStatusMutation.mutate({ id: skillId, status: 'published' })
+        break
+      case 'certify':
+        certifyMutation.mutate({ id: skillId, certified: certified ?? false })
+        break
+      case 'rescan':
+        rescanMutation.mutate({ id: skillId })
+        break
+      case 'delete':
+        deleteMutation.mutate({ id: skillId })
+        break
     }
   }
+
+  const isConfirmPending =
+    updateStatusMutation.isPending ||
+    deleteMutation.isPending ||
+    certifyMutation.isPending ||
+    rescanMutation.isPending
 
   const statusLabel = (status: string) => {
     const config = STATUS_CONFIG[status] || { label: status, variant: 'outline' as const }
@@ -356,7 +395,7 @@ export function SkillsTable({
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-auto min-w-32 whitespace-nowrap'>
                           <DropdownMenuItem asChild>
                             <Link href={`/admin/skills/${skill.id}`}>
                               <Eye className='mr-2 h-4 w-4' />
@@ -368,16 +407,14 @@ export function SkillsTable({
                             审核
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() =>
-                              certifyMutation.mutate({ id: skill.id, certified: !skill.certified })
-                            }
+                            onClick={() => openConfirm(skill, 'certify', !skill.certified)}
                             disabled={certifyMutation.isPending}
                           >
                             <Award className='mr-2 h-4 w-4' />
                             {skill.certified ? '取消认证' : '标记认证'}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => rescanMutation.mutate({ id: skill.id })}
+                            onClick={() => openConfirm(skill, 'rescan')}
                             disabled={rescanMutation.isPending}
                           >
                             <RefreshCw className='mr-2 h-4 w-4' />
@@ -396,12 +433,14 @@ export function SkillsTable({
                             </DropdownMenuItem>
                           )}
                           {skill.status !== 'archived' && skill.status !== 'published' && (
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: skill.id, status: 'archived' })}>
+                            <DropdownMenuItem onClick={() => openConfirm(skill, 'archive')}>
+                              <Archive className='mr-2 h-4 w-4' />
                               归档
                             </DropdownMenuItem>
                           )}
                           {skill.status === 'archived' && (
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: skill.id, status: 'published' })}>
+                            <DropdownMenuItem onClick={() => openConfirm(skill, 'restore')}>
+                              <ArchiveRestore className='mr-2 h-4 w-4' />
                               恢复上架
                             </DropdownMenuItem>
                           )}
@@ -478,13 +517,33 @@ export function SkillsTable({
                 ? '确认上架 Skill'
                 : confirmDialog.action === 'unpublish'
                   ? '确认取消上架 Skill'
-                  : '确认删除 Skill'}
+                  : confirmDialog.action === 'archive'
+                    ? '确认归档 Skill'
+                    : confirmDialog.action === 'restore'
+                      ? '确认恢复上架 Skill'
+                      : confirmDialog.action === 'certify'
+                        ? confirmDialog.certified
+                          ? '确认标记认证'
+                          : '确认取消认证'
+                        : confirmDialog.action === 'rescan'
+                          ? '确认重跑安全扫描'
+                          : '确认删除 Skill'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDialog.action === 'publish' &&
                 `确定要上架 Skill"${confirmDialog.skillTitle}"吗？上架后将在 Skills 货架对用户可见。`}
               {confirmDialog.action === 'unpublish' &&
                 `确定要取消上架 Skill"${confirmDialog.skillTitle}"吗？取消上架后将不再对用户可见。`}
+              {confirmDialog.action === 'archive' &&
+                `确定要归档 Skill"${confirmDialog.skillTitle}"吗？归档后将从 Skills 货架下架。`}
+              {confirmDialog.action === 'restore' &&
+                `确定要恢复上架 Skill"${confirmDialog.skillTitle}"吗？恢复后将在 Skills 货架对用户可见。`}
+              {confirmDialog.action === 'certify' &&
+                (confirmDialog.certified
+                  ? `确定要将 Skill"${confirmDialog.skillTitle}"标记为认证吗？`
+                  : `确定要取消 Skill"${confirmDialog.skillTitle}"的认证吗？`)}
+              {confirmDialog.action === 'rescan' &&
+                `确定要重跑 Skill"${confirmDialog.skillTitle}"的安全扫描吗？该操作会重新评估安全评级。`}
               {confirmDialog.action === 'delete' &&
                 `确定要删除 Skill"${confirmDialog.skillTitle}"吗？该操作不可恢复，将级联删除评分、扫描与安装记录。`}
             </AlertDialogDescription>
@@ -493,10 +552,10 @@ export function SkillsTable({
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirm}
-              disabled={updateStatusMutation.isPending || deleteMutation.isPending}
+              disabled={isConfirmPending}
               className={confirmDialog.action === 'delete' ? 'bg-destructive text-white hover:bg-destructive/90' : undefined}
             >
-              {updateStatusMutation.isPending || deleteMutation.isPending ? '处理中...' : '确认'}
+              {isConfirmPending ? '处理中...' : '确认'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
