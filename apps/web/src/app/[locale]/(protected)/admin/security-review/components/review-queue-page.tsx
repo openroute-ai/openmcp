@@ -108,7 +108,7 @@ export function ReviewQueuePage() {
   }
 
   const toggleAll = () => {
-    setSelected((prev) => (prev.size === records.length ? new Set() : new Set(records.map((r) => r.id))))
+    setSelected((prev) => (prev.size === records.length ? new Set() : new Set(records.map((r) => r.skillId))))
   }
 
   const runBatch = (decision: 'pass' | 'reject') => {
@@ -238,12 +238,14 @@ export function ReviewQueuePage() {
             <TableBody>
               {records.map((record) => {
                 const flags = toFlags(record.flags)
+                // 队列一行对应一个 skill：待审 skill 可能还没有 review 行，
+                // 用 skillId 才能保证 key/选中/跳转都稳定
                 return (
-                  <TableRow key={record.id}>
+                  <TableRow key={record.skillId}>
                     <TableCell>
                       <Checkbox
-                        checked={selected.has(record.id)}
-                        onCheckedChange={() => toggleSelect(record.id)}
+                        checked={selected.has(record.skillId)}
+                        onCheckedChange={() => toggleSelect(record.skillId)}
                         aria-label={`选择 ${record.title}`}
                       />
                     </TableCell>
@@ -321,7 +323,7 @@ export function ReviewQueuePage() {
                         variant='outline'
                         size='sm'
                         className='h-8 cursor-pointer px-3'
-                        onClick={() => router.push(`/admin/security-review/${record.id}`)}
+                        onClick={() => router.push(`/admin/security-review/${record.skillId}`)}
                       >
                         审核
                       </Button>

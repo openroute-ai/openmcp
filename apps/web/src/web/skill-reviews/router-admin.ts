@@ -312,6 +312,7 @@ export const adminSkillReviewsRouter = createTRPCRouter({
             eq(skillReviews.reviewType, 'manual')
           )
         )
+        .leftJoin(user, eq(skillReviews.reviewerId, user.id))
         .where(whereExpr)
         // 排队时长从 skills.scannedAt 算起（提交时间），所以直接按它倒序即最久等待在前
         .orderBy(desc(sql`coalesce(${skills.scannedAt}, ${skills.updatedAt})`))
@@ -473,7 +474,15 @@ export const adminSkillReviewsRouter = createTRPCRouter({
     }
   }),
 
-  /** One review record, by review id. */
+  /**
+   * One review record, by review id or skill id.
+   *
+   * The queue identifies each row by its skill, because a pending submission
+   * may not have a review row yet (an imported/unscanned skill has none until
+   * the scanner or a human acts). So: try the review id first, and fall back to
+   * resolving the id as a skill — returning its open review if there is one,
+   * otherwise a synthetic pending record built from the skill itself.
+   */
   getById: adminProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
     const [row] = (await db
       .select(reviewSelect)
@@ -484,8 +493,29 @@ export const adminSkillReviewsRouter = createTRPCRouter({
       .where(eq(skillReviews.id, input.id))
       .limit(1)) as ReviewRow[]
 
-    if (!row) return { success: false as const, error: '审核记录不存在', data: null }
-    return { success: true as const, data: toReviewRecord(row) }
+    if (row) return { success: true as const, data: toReviewRecord(row) }
+
+    const [skillRow] = (await db
+      .select(reviewSelect)
+      .from(skills)
+      .innerJoin(authors, eq(skills.authorId, authors.id))
+      .leftJoin(skillReviews, eq(skillReviews.skillId, skills.id))
+      .leftJoin(user, eq(skillReviews.reviewerId, user.id))
+      .where(eq(skills.id, input.id))
+      // 优先未决的 review，其次最新的，保证待复核 skill 打开的是可操作记录
+      .orderBy(sql`${skillReviews.decision} is null desc`, desc(skillReviews.createdAt))
+      .limit(1)) as ReviewRow[]
+
+    if (!skillRow) return { success: false as const, error: '审核记录不存在', data: null }
+
+    // 没有任何 review 行的 skill：用 skill 自身拼一条待审记录，审核人仍可做首次判定
+    if (!skillRow.id) {
+      return {
+        success: true as const,
+        data: toReviewRecord({ ...skillRow, id: skillRow.skillId, createdAt: skillRow.updatedAt }),
+      }
+    }
+    return { success: true as const, data: toReviewRecord(skillRow) }
   }),
 
   /**
